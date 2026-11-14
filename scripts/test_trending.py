@@ -250,6 +250,46 @@ class ReferenceDiscoveryTests(unittest.TestCase):
         self.assertEqual(current["stars_first_seen"], current["stars"])
         self.assertNotIn("earlier-source", current["seen_in"])
 
+    def test_reused_name_only_keeps_independently_refreshed_cautions(self):
+        for flag in (None, "archived", "fork"):
+            for refreshed in (True, False):
+                with self.subTest(flag=flag, refreshed=refreshed):
+                    saved = self.entry("owner/component", 1)
+                    saved["reference"] = self.reference
+                    self.write_catalog({"updated": "2026-11-14", "sources": {},
+                                        "repos": {"owner/component": saved}})
+                    replacement = self.repository("owner/component", 2)
+                    if flag:
+                        replacement[flag] = True
+                    new_reference = {**self.reference, "caution": "Independent new repository licensing scope."}
+
+                    def reference_source(found, token):
+                        if not refreshed:
+                            raise ValueError("reference collector unavailable")
+                        catalog.add(found, "owner/component", "reference-library", replacement)
+                        found["owner/component"]["reference"] = new_reference
+
+                    def other_source(found, token):
+                        catalog.add(found, "owner/component", "other-source", replacement)
+
+                    output = io.StringIO()
+                    with patch.object(catalog, "SOURCES", [("reference-library", reference_source),
+                                                          ("other-source", other_source)]), \
+                            patch.object(catalog, "github_token", return_value=None), \
+                            contextlib.redirect_stdout(output):
+                        catalog.update(argparse.Namespace(out=self.out))
+                        catalog.find(argparse.Namespace(out=self.out, terms=["doctor admin"], limit=20, no_refresh=True))
+                    current = catalog.load_catalog(self.out / "catalog.json")
+                    self.assertNotIn(self.reference["caution"], output.getvalue())
+                    if refreshed:
+                        self.assertEqual(current["repos"]["owner/component"]["reference"], new_reference)
+                        self.assertIn(new_reference["caution"], output.getvalue())
+                    elif flag:
+                        self.assertNotIn("owner/component", current["repos"])
+                    else:
+                        self.assertNotIn("reference", current["repos"]["owner/component"])
+                    self.assertEqual(catalog.is_stale(current), not refreshed)
+
     def test_newer_incompatible_publication_cannot_erase_saved_reference_on_api_failure(self):
         saved = self.entry("new-owner/component")
         saved["reference"] = self.reference

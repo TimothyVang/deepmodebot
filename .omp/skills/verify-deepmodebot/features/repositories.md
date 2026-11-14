@@ -19,6 +19,7 @@ Saved reference choices survive a failed refresh beyond the ordinary 120-day obs
 Archived/forked curated aliases retain canonical metadata and cautions with explicit reference-only liveness labels; unrelated inactive inputs remain excluded.
 Repository IDs preserve the original observation and star baseline across consecutive renames, including a cache first created without IDs.
 A reused name with a different repository ID starts a fresh history rather than inheriting another project's growth.
+A known name replacement must not inherit cached topics/licensing cautions after collector failure, even when archived or forked; independently refreshed annotations remain valid.
 These cases isolate input adapters and transport, not live API success.
 The running CLI above is the surface proof; record failed source/enrichment requests rather than claiming every candidate is current.
 

@@ -222,15 +222,17 @@ def update(args):
              if type(entry.get("github_id")) is int}
     reference_ready = not status.get("reference-library", "failed: missing").startswith("failed:")
     references = {name: entry["reference"] for name, entry in repos.items() if "reference" in entry}
+    refreshed_references = {}
     if reference_ready:
         reference_items = [item for item in found.values() if "reference" in item]
         reference_ready = all(item["repo"] for item in reference_items)
         if reference_ready:
             references.clear()
-        references.update({
+        refreshed_references = {
             item["repo"]["full_name"].lower(): item["reference"]
             for item in reference_items if item["repo"]
-        })
+        }
+        references.update(refreshed_references)
     stamp = today().isoformat()
     for item in found.values():
         repo = item["repo"]
@@ -240,17 +242,21 @@ def update(args):
         repository_id = repo.get("id")
         previous_key = by_id.get(repository_id) if type(repository_id) is int else None
         predecessors = dict.fromkeys(name for name in (key, previous_key, alias) if name is not None)
+        # A known replacement invalidates the cached name before inactive filtering.
+        for name in predecessors:
+            cached_id = repos.get(name, {}).get("github_id")
+            if type(repository_id) is int and type(cached_id) is int and repository_id != cached_id:
+                repos.pop(name, None)
+                if by_id.get(cached_id) == name:
+                    by_id.pop(cached_id)
+                if name not in refreshed_references:
+                    references.pop(name, None)
         if (repo.get("fork") or repo.get("archived")) and not any(name in references for name in predecessors):
             continue
         fresh = entry_from(repo)
         previous, seen_in = {}, set()
         for name in predecessors:
             cached = repos.get(name, {})
-            cached_id = cached.get("github_id")
-            if type(repository_id) is int and type(cached_id) is int and repository_id != cached_id:
-                if name == key:
-                    by_id.pop(cached_id, None)
-                continue
             repos.pop(name, None)
             seen_in.update(cached.get("seen_in", []))
             if cached and (not previous or cached["first_seen"] < previous["first_seen"]):
