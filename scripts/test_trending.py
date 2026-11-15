@@ -649,6 +649,53 @@ class ReferenceDiscoveryTests(unittest.TestCase):
         self.assertIn("[new-owner/component]", output.getvalue())
         self.assertIn(self.reference["caution"], output.getvalue())
 
+    def test_corrupt_cache_is_rebuilt_instead_of_crashing_find(self):
+        (self.out / "catalog.json").write_text('{"updated": "2026-11-14", "repos": {', encoding="utf-8")
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            self.assertEqual(catalog.load_catalog(self.out / "catalog.json"),
+                             {"updated": None, "sources": {}, "repos": {}})
+        self.assertIn("will be rebuilt", err.getvalue())
+
+    def test_entry_missing_rendered_fields_is_dropped(self):
+        broken = self.entry("example/broken")
+        broken.pop("first_seen")
+        kept = self.entry("example/kept", repository_id=2)
+        self.write_catalog({"updated": "2026-11-14", "sources": {},
+                            "repos": {"example/broken": broken, "example/kept": kept, "example/odd": [1]}})
+        self.assertEqual(list(catalog.load_catalog(self.out / "catalog.json")["repos"]), ["example/kept"])
+
+    def test_malformed_published_catalog_is_rejected_without_writing(self):
+        self.write_catalog({"updated": "2026-11-01", "sources": {}, "repos": {}})
+        local = catalog.load_catalog(self.out / "catalog.json")
+        published = {"updated": "2026-11-14", "sources": {}, "repos": ["not", "an", "object"]}
+        with patch.object(catalog, "PUBLISHED", "https://example.test/catalog.json"),                 patch.object(catalog, "fetch", return_value=json.dumps(published)),                 contextlib.redirect_stderr(io.StringIO()):
+            self.assertFalse(catalog.fetch_published(self.out, local))
+        self.assertEqual(catalog.load_catalog(self.out / "catalog.json")["updated"], "2026-11-01")
+
+    def test_failed_reference_refresh_is_not_retried_on_every_find_within_the_hour(self):
+        def run(attempted_seconds_ago):
+            self.write_catalog({"updated": "2026-11-14", "sources": {}, "repos": {},
+                                "reference_attempt": {"revision": catalog.REFERENCE_REVISION,
+                                                      "at": catalog.time.time() - attempted_seconds_ago}})
+            rebuild = patch.object(catalog, "update")
+            with rebuild as update, patch.object(catalog, "PUBLISHED", ""),                     contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                catalog.find(argparse.Namespace(out=self.out, terms=["anything"], limit=20, no_refresh=False))
+            self.assertTrue(catalog.is_stale(catalog.load_catalog(self.out / "catalog.json")))
+            return update.called
+        self.assertFalse(run(60))
+        self.assertTrue(run(2 * catalog.RETRY_FAILED_REFERENCES_SECONDS))
+
+    def test_unresolvable_reference_records_the_attempt(self):
+        def source(found, token):
+            catalog.add(found, "gone/component", "reference-library")
+            found["gone/component"]["reference"] = self.reference
+
+        with patch.object(catalog, "SOURCES", [("reference-library", source)]),                 patch.object(catalog, "github_token", return_value=None),                 patch.object(catalog, "fetch", side_effect=urllib.error.URLError("gone")),                 contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            catalog.update(argparse.Namespace(out=self.out))
+        saved = catalog.load_catalog(self.out / "catalog.json")
+        self.assertNotIn("reference_revision", saved)
+        self.assertTrue(catalog.recently_attempted(saved))
+
 
 if __name__ == "__main__":
     unittest.main()
