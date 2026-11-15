@@ -11,6 +11,6 @@ Read the matched playbook for a medium or large task; small tasks use the fast p
 
 Reuse an existing project verification skill when present. Otherwise exercise the real app or CLI directly and retain its output. Create a reusable verification skill only when I ask for one or repeated journeys justify it, not as a prerequisite for an ordinary local task. Do not replace runtime proof with unit tests alone.
 
-Decide and act without asking within the requested delivery target. Publication includes commits, pushes, PRs and merges on an exact-head panel pass. Local delivery does not silently become publication. Ask once at the end only for deepmodebot's hard stops, or at tournament's proposal gate. Claiming an issue in someone else's project still needs permission before starting.
+Decide and act without asking within the requested delivery target. Publication includes commits, pushes, PRs and merges on an exact-head panel pass. Local delivery does not silently become publication. Ask once at the end only for deepmodebot's hard stops, or at tournament's discovery-only or explicitly requested proposal gate. An original build request continues with Champion after the proposal. Claiming an issue in someone else's project still needs permission before starting.
 
 Request: $ARGUMENTS

@@ -161,6 +161,9 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
     )
 
     def out(mode: str, intent: str, vagueness: str, reason: str, checkpoint: bool = False) -> dict:
+        if mode == "tournament" and GREENFIELD_LEAD_RE.search(text):
+            intent = "execute"
+            checkpoint = False
         return {
             "mode": mode,
             "intent": intent,
@@ -369,10 +372,10 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
             return out("prior-art", "execute", "low", "Greenfield app with concrete behaviors starts at prior-art.")
         return out(
             "tournament",
-            "discover",
+            "execute",
             "high",
             "Greenfield request has no concrete behaviors yet, so explore competing system shapes first.",
-            checkpoint=True,
+            checkpoint=False,
         )
 
     if re.search(
@@ -767,21 +770,23 @@ def cmd_init(args: argparse.Namespace) -> int:
     scratch = ensure_scratch_gitignore(root)
     tdir = ensure_contained(scratch / "tournaments" / args.slug, root)
     state_path = ensure_contained(tdir / "bracket.json", root)
-    if state_path.exists() and not args.force:
-        raise SystemExit(f"tournament already exists at {state_path} (pass --force to overwrite)")
     tdir.mkdir(parents=True, exist_ok=True)
-    entrants = select_lenses(args.entrants)
-    state = {
-        "slug": args.slug,
-        "root": str(root),
-        "prompt": prompt,
-        "entrant_count": len(entrants),
-        "entrants": entrants,
-        "matches": build_matches(entrants),
-        "champion": None,
-        "runner_up": None,
-    }
-    save_state(state_path, root, state)
+    lock_path = ensure_contained(tdir / "bracket.lock", root)
+    with BracketLock(lock_path):
+        if state_path.exists() and not args.force:
+            raise SystemExit(f"tournament already exists at {state_path} (pass --force to overwrite)")
+        entrants = select_lenses(args.entrants)
+        state = {
+            "slug": args.slug,
+            "root": str(root),
+            "prompt": prompt,
+            "entrant_count": len(entrants),
+            "entrants": entrants,
+            "matches": build_matches(entrants),
+            "champion": None,
+            "runner_up": None,
+        }
+        save_state(state_path, root, state)
     payload = {"dir": str(tdir), "entrant_count": len(entrants), "entrants": entrants, "matches": state["matches"]}
     if args.json:
         print(json.dumps(payload, indent=2))
@@ -806,7 +811,7 @@ def cmd_pitch(args: argparse.Namespace) -> int:
             "counter_risk": (args.counter_risk or "").strip(),
         }
     noun = "receipt" if len(receipts) == 1 else "receipts"
-    print(f"recorded pitch for {args.entrant} ({len(receipts)} verified {noun})")
+    print(f"recorded pitch for {args.entrant} ({len(receipts)} submitted {noun})")
     return 0
 
 
@@ -945,10 +950,15 @@ def render_markdown(state: dict) -> str:
         "",
         cp["thesis"],
         "",
-        "### Verified receipts",
+        "### Submitted receipts (not independently verified)",
     ]
     for r in cp["receipts"]:
         lines.append(f"- [{r['kind']}] `{r['raw']}`")
+    lines.extend(["", "### Judge-verified receipts"])
+    for match in state["matches"]:
+        result = match["result"]
+        if result and result["winner"] == champ["id"] and result["verified_receipt"]:
+            lines.append(f"- `{match['id']}` (judge `{result['judge_model']}`): `{result['verified_receipt']['raw']}`")
     if champ["grafts"]:
         lines.extend(["", "### Grafted insights from eliminated contenders"])
         for g in champ["grafts"]:
@@ -997,9 +1007,13 @@ def render_markdown(state: dict) -> str:
         )
 
     gate_prompt = (
-        "Reply with **Champion**, **Runner-Up**, or a constraint adjustment before implementation starts."
+        "Discovery-only requests: reply with **Champion**, **Runner-Up**, or a constraint adjustment before implementation."
         if state["runner_up"]
-        else "Reply with **Champion** or a constraint adjustment before implementation starts."
+        else "Discovery-only requests: reply with **Champion** or a constraint adjustment before implementation."
+    )
+    gate_prompt += (
+        " For an original build request, continue with Champion within the existing delivery scope"
+        " unless the user asked to choose first."
     )
     lines.extend(["", "## Decision gate", "", gate_prompt])
     return "\n".join(lines) + "\n"

@@ -112,6 +112,12 @@ class AutoRouterTests(unittest.TestCase):
         self.assertEqual(vague["vagueness"], "high")
         self.assertTrue(vague["checkpoint_before_code"])
 
+        for empty in (True, False):
+            build = tournament.classify_prompt("Build me an AI app.", empty_dir=empty)
+            self.assertEqual(build["mode"], "tournament")
+            self.assertEqual(build["intent"], "execute")
+            self.assertFalse(build["checkpoint_before_code"])
+
         medium = tournament.classify_prompt("Add rate limiting across customer requests")
         self.assertEqual(medium["mode"], "grill")
         self.assertEqual(medium["vagueness"], "medium")
@@ -170,6 +176,8 @@ class TournamentBracketTests(unittest.TestCase):
                 "--thesis", f"System proposal from {entrant['id']}.",
                 "--gap-kind", entrant["default_gap_kind"],
                 "--receipt", receipts_cycle[idx % len(receipts_cycle)],
+                "--receipt", "cmd:python -c 'print(42)' -> fabricated output",
+                "--receipt", "https://example.org/unchecked-claim",
                 "--counter-risk", "Migration overhead if rollout is unscoped.",
             )
             self.assertEqual(code, 0)
@@ -257,6 +265,14 @@ class TournamentBracketTests(unittest.TestCase):
         self.assertIn("## Runner-up counter-thesis: Thesis premise-attacker (`premise-attacker`)", proposal)
         self.assertIn("From `eval-oracle-scientist` (pod-b)", proposal)
         self.assertIn("From `premise-attacker` (final)", proposal)
+        submitted, verified = proposal.split("### Judge-verified receipts", 1)
+        self.assertIn("cmd:python -c 'print(42)' -> fabricated output", submitted)
+        self.assertIn("https://example.org/unchecked-claim", submitted)
+        self.assertNotIn("fabricated output", verified)
+        self.assertNotIn("unchecked-claim", verified)
+        self.assertIn("`pod-b` (judge `cross-family-judge`): `src/router.py:1`", verified)
+        self.assertIn("`sf-1` (judge `cross-family-judge`): `https://arxiv.org/abs/2502.18864`", verified)
+        self.assertIn("`final` (judge `cross-family-judge`): `https://arxiv.org/abs/2502.18864`", verified)
         self.assertTrue((self.repo / ".scratch" / "tournaments" / "arch-gaps" / "custom-proposal.md").is_file())
 
     def test_rejects_bad_receipts_unsafe_roots_tampered_state_and_symlinks(self):
@@ -414,6 +430,69 @@ class TournamentBracketTests(unittest.TestCase):
         self.assertEqual(code2, 0)
         _, md2 = self.run_cli("render", "--dir", tdir2)
         self.assertIn("No opposing finalist survived upstream dropouts.", md2)
+
+    def start_announced_init(self, slug, prompt, force=False):
+        script = """
+import sys
+sys.path.insert(0, sys.argv[1])
+import tournament
+original = tournament.BracketLock.__enter__
+def announced(lock):
+    print('waiting for bracket lock', flush=True)
+    return original(lock)
+tournament.BracketLock.__enter__ = announced
+tournament.main(sys.argv[2:])
+"""
+        proc = subprocess.Popen(
+            [sys.executable, "-B", "-c", script, str(HERE), "init",
+             "--root", str(self.repo), "--slug", slug, "--prompt", prompt,
+             *(["--force"] if force else [])],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+        def cleanup():
+            if proc.poll() is None:
+                proc.kill()
+            proc.communicate(timeout=20)
+        self.addCleanup(cleanup)
+        return proc
+
+    def test_concurrent_initializers_respect_lock_and_only_one_creates_state(self):
+        tdir = self.repo / ".scratch" / "tournaments" / "same-slug"
+        tdir.mkdir(parents=True)
+        with tournament.BracketLock(tdir / "bracket.lock"):
+            procs = [self.start_announced_init("same-slug", title) for title in ("First", "Second")]
+            for proc in procs:
+                self.assertEqual(proc.stdout.readline().strip(), "waiting for bracket lock")
+            self.assertFalse((tdir / "bracket.json").exists())
+        outcomes = [(proc.communicate(timeout=20), proc.returncode) for proc in procs]
+        self.assertEqual(sorted(code for _, code in outcomes), [0, 1])
+        failed = next(output for output, code in outcomes if code != 0)
+        self.assertIn("tournament already exists", failed[1])
+        _, _, state = tournament.load_state(tdir)
+        winning_prompt = ("First", "Second")[next(i for i, (_, code) in enumerate(outcomes) if code == 0)]
+        self.assertEqual(state["prompt"], winning_prompt)
+
+    def test_init_waits_for_pitch_transaction_with_and_without_force(self):
+        _, raw = self.run_cli("init", "--root", str(self.repo), "--slug", "updating",
+                              "--prompt", "Original", "--json")
+        tdir = Path(json.loads(raw)["dir"])
+        for force in (False, True):
+            with self.subTest(force=force):
+                with tournament.state_transaction(str(tdir)) as (_, _, state):
+                    state["entrants"][0]["pitch"] = {"title": "Concurrent pitch"}
+                    proc = self.start_announced_init("updating", "Replacement", force=force)
+                    self.assertEqual(proc.stdout.readline().strip(), "waiting for bracket lock")
+                    self.assertIsNone(proc.poll())
+                _, stderr = proc.communicate(timeout=20)
+                _, _, saved = tournament.load_state(tdir)
+                if force:
+                    self.assertEqual(proc.returncode, 0, stderr)
+                    self.assertEqual(saved["prompt"], "Replacement")
+                    self.assertIsNone(saved["entrants"][0]["pitch"])
+                else:
+                    self.assertNotEqual(proc.returncode, 0)
+                    self.assertIn("tournament already exists", stderr)
+                    self.assertEqual(saved["entrants"][0]["pitch"]["title"], "Concurrent pitch")
 
     def test_concurrent_pitch_processes_serialize_via_lock_without_lost_updates(self):
         _, raw = self.run_cli(
