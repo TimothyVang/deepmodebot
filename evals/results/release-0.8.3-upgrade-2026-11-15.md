@@ -6,10 +6,12 @@ The real omp CLI upgraded an existing isolated user-scoped installation from 0.8
 
 - Windows x64, Python 3.13.14; verification doctor reported ready.
 - Previous source: `20e13b40ab43add66fa0ee0ac303fe75583552a1` (0.8.2).
-- Candidate source: `b6476bfe64eeda604d82fa8433990f6dabc12967` (0.8.3).
-- Isolated state: `.scratch/evidence/release-0.8.3-upgrade/` in the author worktree.
-- `PI_CONFIG_DIR=deep-mode/.worktrees/repo-ideas-20261114/.scratch/evidence/release-0.8.3-upgrade/omp` is relative to this host's user home. `PI_CODING_AGENT_DIR` resolved to that directory's `agent/`; `omp config path` confirmed it.
+- Candidate source: `13af2b4fbb7030f727c5cbeb7833bb600fb71a0d` (0.8.3).
+- Isolated state: `.scratch/evidence/release-0.8.3-upgrade-r2/` in the author worktree.
+- `PI_CONFIG_DIR=deep-mode/.worktrees/repo-ideas-20261114/.scratch/evidence/release-0.8.3-upgrade-r2/omp` is relative to this host's user home. `PI_CODING_AGENT_DIR` resolved to that directory's `agent/`; `omp config path` confirmed it.
 - `TMP`, `TEMP` and `TMPDIR` stayed in the run's `tmp/`; `OMP_PROFILE` and `PI_PROFILE` were unset only inside a subshell. Another host must choose its own fresh contained path.
+
+The earlier successful `b6476bf` upgrade is retained separately. A later integrated gate exposed incoming-base line/core-budget violations and a stale embed. Core prose was compressed without removing hard stops, routes, commands or hooks; long paragraphs were wrapped verbatim and the embed synchronized. R2 verifies that changed candidate, not an unchanged retry; no earlier captures were overwritten.
 
 ## Actual commands and observations
 
