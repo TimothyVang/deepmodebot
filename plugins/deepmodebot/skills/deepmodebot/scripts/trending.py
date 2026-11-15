@@ -119,7 +119,7 @@ def entry_from(repo):
     }
 
 
-# Sources return {lowercase full name: {"name": full name, "repo": API object or None, "labels": set}}.
+# Source rows keep latest metadata/labels and append-only private identity facts.
 
 def add(found, name, label, repo=None):
     owner, _, rest = name.partition("/")
@@ -129,6 +129,10 @@ def add(found, name, label, repo=None):
     item["labels"].add(label)
     if repo is not None:
         item["repo"] = repo
+        if repo.get("private") is True:
+            item.setdefault("private_names", set()).add(repo["full_name"].lower())
+            if type(repo.get("id")) is int:
+                item.setdefault("private_ids", set()).add(repo["id"])
 
 
 def source_github_trending(found, token):
@@ -189,9 +193,35 @@ SOURCES = [
 ]
 
 
+def _valid_github_id(value):
+    return type(value) is int and value > 0
+
+
+def _normalize_catalog(catalog):
+    for name, entry in list(catalog["repos"].items()):
+        repository_id = entry.get("github_id")
+        if repository_id is not None and not _valid_github_id(repository_id):
+            catalog["repos"].pop(name)
+            catalog.pop("reference_revision", None)
+            continue
+        reference = entry.get("reference")
+        if not reference:
+            continue
+        reference_id = reference.get("github_id")
+        identities = (repository_id, reference_id)
+        invalid = reference_id is not None and not _valid_github_id(reference_id)
+        mismatch = all(value is not None for value in identities) and repository_id != reference_id
+        if invalid or mismatch:
+            entry.pop("reference")
+        # ID-less historical annotations can migrate, but cannot prove freshness.
+        if invalid or mismatch or any(value is None for value in identities):
+            catalog.pop("reference_revision", None)
+    return catalog
+
+
 def load_catalog(path):
     if path.is_file():
-        return json.loads(path.read_text(encoding="utf-8"))
+        return _normalize_catalog(json.loads(path.read_text(encoding="utf-8")))
     return {"updated": None, "sources": {}, "repos": {}}
 
 
@@ -214,14 +244,14 @@ def update(args):
     for item in found.values():
         expected_id = item.get("reference", {}).get("github_id")
         if item["repo"] is not None and (expected_id is None or (
-                type(item["repo"].get("id")) is int and item["repo"]["id"] == expected_id)):
+                _valid_github_id(item["repo"].get("id")) and item["repo"]["id"] == expected_id)):
             continue
         item["repo"] = None
         try:
             route = f"repositories/{expected_id}" if expected_id is not None else f"repos/{item['name']}"
             repo = json.loads(fetch(f"https://api.github.com/{route}", token))
             if expected_id is not None and (not isinstance(repo, dict) or
-                    type(repo.get("id")) is not int or repo["id"] != expected_id):
+                    not _valid_github_id(repo.get("id")) or repo["id"] != expected_id):
                 raise ValueError("response does not match the reviewed repository identity")
             item["repo"] = repo
         except urllib.error.HTTPError as err:
@@ -238,14 +268,16 @@ def update(args):
                      if item["repo"] and item["repo"].get("private") is True]
     private_ids = {repo["id"] for repo in private_repos if type(repo.get("id")) is int}
     private_names = {repo["full_name"].lower() for repo in private_repos}
+    private_ids.update(identity for item in found.values() for identity in item.get("private_ids", ()))
+    private_names.update(name for item in found.values() for name in item.get("private_names", ()))
     excluded = 0
     for item in found.values():
         repo = item["repo"]
-        if repo and (type(repo.get("id")) is not int or repo["id"] <= 0 or
+        if repo and (not _valid_github_id(repo.get("id")) or
                      repo["id"] in private_ids or repo["full_name"].lower() in private_names):
             item["repo"] = None
             excluded += 1
-    if private_repos:
+    if private_ids or private_names:
         repos = {name: entry for name, entry in repos.items()
                  if entry.get("github_id") not in private_ids and name.lower() not in private_names}
         catalog["repos"] = repos
@@ -292,7 +324,8 @@ def update(args):
                     references.pop(name, None)
         if not reference_ready and "reference" in snapshot:
             saved_reference = snapshot["reference"]
-            if saved_reference.get("github_id", repository_id) == repository_id:
+            saved_id = saved_reference.get("github_id", repository_id)
+            if _valid_github_id(saved_id) and saved_id == repository_id:
                 references.setdefault(key, saved_reference)
         if (repo.get("fork") or repo.get("archived")) and not any(name in references for name in predecessors):
             continue
@@ -318,7 +351,11 @@ def update(args):
             by_id[repository_id] = key
     for name, entry in repos.items():
         reference = references.get(name)
-        if reference and reference.get("github_id", entry.get("github_id")) != entry.get("github_id"):
+        repository_id = entry.get("github_id")
+        reference_id = reference.get("github_id", repository_id) if reference else None
+        if reference and (reference_id != repository_id or
+                          reference_id is not None and not _valid_github_id(reference_id) or
+                          repository_id is not None and not _valid_github_id(repository_id)):
             reference_ready = False
             reference = None
         if reference:
@@ -429,7 +466,7 @@ def fetch_published(out: Path, local) -> bool:
     if not PUBLISHED:
         return False
     try:
-        published = json.loads(fetch(PUBLISHED, None))
+        published = _normalize_catalog(json.loads(fetch(PUBLISHED, None)))
     except (urllib.error.URLError, OSError, ValueError) as err:
         print(f"warning: could not read the published catalog ({err})", file=sys.stderr)
         return False
