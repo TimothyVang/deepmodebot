@@ -13,6 +13,7 @@ Checked 2026-11-11 against: MCP spec `2026-07-28` (latest), ACP v1 stable + v2 D
 | A2A (Agent2Agent) | agent to independent remote agent | JSON-RPC, gRPC, or HTTP+JSON/REST; SSE streaming | `1.0.0` ([spec](https://a2a-protocol.org/latest/specification)) | Linux Foundation; joined AAIF 2026-08-27 ([site banner](https://a2a-protocol.org/latest/)) |
 | WebMCP | web page to browser/in-page agent | in-browser JS API `document.modelContext` | Draft CG Report, not standards track ([spec](https://webmachinelearning.github.io/webmcp)) | W3C Web Machine Learning CG |
 | Agent Communication Protocol (IBM/BeeAI, also "ACP") | agent to agent messaging | REST | archived Aug 2025, merged into A2A ([ACP docs](https://agentclientprotocol.com/get-started/related-protocols.md)) | none; do not adopt |
+| AG-UI (Agent User Interaction) | agent backend to user-facing application | typed event/state stream, transport adapters | [pinned source f77065ad](https://github.com/ag-ui-protocol/ag-ui/tree/f77065ad109c40e60ecbdec9d8fa6fa09987c41e), checked 2026-11-14 | AG-UI project |
 
 "ACP" in an agent-to-agent, BeeAI, or IBM context means the dead Agent Communication Protocol, not Agent Client Protocol ([source](https://agentclientprotocol.com/get-started/related-protocols.md)).
 
@@ -88,6 +89,20 @@ Common shape: `{"mcpServers": {"name": {"command": "npx", "args": [...], "env": 
 - Set `readOnlyHint`/`destructiveHint` annotations honestly ([tools](https://modelcontextprotocol.io/specification/2026-07-28/server/tools.md)).
 - Bound output size; paginate lists; return handles, not dumps [inference].
 - Run `inspector --cli ... tools/list --strict` in CI ([CLI](https://modelcontextprotocol.io/docs/2026-07-28/tools/inspector/cli.md)).
+
+## AG-UI and the working local delegation kit
+
+AG-UI supplies the user-facing event/state seam; MCP supplies tools/context, while A2A delegates between agents.
+These protocols are complementary, not interchangeable.
+The [pinned AG-UI source](https://github.com/ag-ui-protocol/ag-ui/tree/f77065ad109c40e60ecbdec9d8fa6fa09987c41e) defines 31 event types; its README's approximate count is not the schema.
+Use actual typed source and stable message/run/tool identifiers rather than a diagram's simplified event list.
+The repository's experimental A2A adapter and HTTP/SSE MCP middleware are separate upstream components, not this kit's bounded stdio bridge.
+Core/docs/Python and integration examples have different component notices and license scopes; do not infer whole-tree MIT from the root.
+
+For a real local MCP `delegate_task` → authenticated A2A `SendMessage` → sealed subscription-agent exchange, read [the optional interop kit](interop.md).
+The kit has actual inference proof and separate boundary checks; it does not implement AG-UI rendering, persistent tasks, remote deployment or OS principal isolation.
+The [private source archive](https://drive.google.com/drive/folders/1gNPGvtzfuzlODRZutiAJcaK_qVP-EL0w) retains a filtered pinned snapshot, four original diagrams and explicit full/partial/unread review ranges.
+Archival is not runtime validation or permission to reuse every component.
 
 ## ACP (Agent Client Protocol)
 

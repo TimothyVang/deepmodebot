@@ -20,6 +20,8 @@ BANNED = re.compile(
 WHITE_LABEL_EXEMPT = {
     Path("scripts/check.py"), Path("trending"), Path("evals/workflows"),
     Path("plugins/deepmodebot/skills/deepmodebot/assets/repo-references.json"),
+    Path("plugins/deepmodebot/skills/deepmodebot/assets/repo-candidates.json"),
+    Path("plugins/deepmodebot/skills/agent-harnesses/references/build-evidence.md"),
     Path("docs/research/youtube-learning/history-recovery.md"),
 }
 LOCAL_ONLY = {".git", ".scratch", ".worktrees", "__pycache__"}  # self-ignored work folders and caches, never shipped

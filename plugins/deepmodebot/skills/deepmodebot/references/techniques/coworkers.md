@@ -26,6 +26,16 @@ Writing workers return their changes and diagnostics without running builds, tes
 - omp: `write agent://<id>` sends a message and wakes an idle agent. `agent://all` broadcasts; use it only for something every coworker must act on (trunk is red, a shared contract changed).
 - Claude Code: `SendMessage` to the agent's name.
 
+Use built-in coworker messaging for ordinary same-harness work.
+For actual cross-client protocol interoperability, read `skill://agent-harnesses/references/interop.md`: the optional bounded MCP → A2A kit delegates one real text-only subscription-agent turn without API keys or global configuration changes.
+An existing chat does not automatically gain a native MCP tool merely because the kit is installed.
+
+Role names, memory/context separation and separate virtual screens are not credential or OS security boundaries.
+Check the actual account/process owning files, browser cookies, CLI credentials and connector tokens before sharing private work.
+[Grok Bot's computer/app docs](https://docs.x.ai/grok-bot/computer-and-apps) explicitly share one persistent computer across same-account personal Bots; separate coding Cloud Agents are another layer.
+Do not infer per-bot tenant or clinical-data isolation from a teammate analogy or a VM diagram.
+For the cited architecture and development workflow, read `skill://agent-harnesses/references/build-evidence.md`; public workflow code and reported production behavior are different evidence layers.
+
 ## When to message
 
 - You need a fact a coworker owns → ask that owner, not the root.

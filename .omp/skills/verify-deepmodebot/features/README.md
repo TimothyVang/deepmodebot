@@ -6,6 +6,8 @@ Run `python .omp/skills/verify-deepmodebot/control.py doctor` from the root firs
 - [Review quality and safe context](review.md): sealed review input boundaries, findings and clean controls.
 - [Workflow coverage](workflows.md): pinned inventories and executed agent journeys.
 - [Repository discovery](repositories.md): dated reference choices, project-cache refresh, licensing cautions and startup-idea boundaries.
+- [Local agent interoperability](interop.md): actual MCP stdio delegation through authenticated A2A to a bounded subscription agent.
+- [Public source capture](sources.md): complete author-description identity, canonical links, resume migration and honest private-archive coverage.
 
 These entries cover the surfaces changed in this work. They do not claim production autostart, every harness, hosted competitors or all upstream workflows have been exercised.
 

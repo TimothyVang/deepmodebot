@@ -218,6 +218,25 @@ class WindowsJobCase(unittest.TestCase):
         self.assertEqual(err, "")
         self.assert_tree_stopped()
 
+    def test_virtualenv_supervisor_death_stops_parent_descendant_and_pipes(self):
+        import venv
+        environment = self.root / "venv"
+        venv.EnvBuilder(with_pip=False).create(environment)
+        python = environment / "Scripts/python.exe"
+        target = [str(python), "-B", str(HERE), "--fixture", "parent", "live", str(self.root), self.token]
+        caller = ("import json,sys; sys.path.insert(0,sys.argv[1]); import windows_job; "
+                  "print(json.dumps(windows_job.wrap_command(json.loads(sys.argv[2]))))")
+        wrapped = subprocess.check_output(
+            [str(python), "-B", "-c", caller, str(HERE.parent), json.dumps(target)],
+            cwd=self.root, env=self.env, text=True, encoding="utf-8", timeout=10)
+        process = self.start(json.loads(wrapped))
+        self.watch_tree()
+        process.kill()
+        out, err = process.communicate(timeout=2)
+        self.assertEqual(out, "descendant-ready\n")
+        self.assertEqual(err, "")
+        self.assert_tree_stopped()
+
     def test_loop_deadline_stops_live_parent_and_descendant(self):
         # Isolate run_limited itself: an unbounded post-kill communicate must fail
         # this test's outer timeout, rather than hanging the unittest process.

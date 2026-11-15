@@ -399,6 +399,35 @@ def find(args):
         print(f"{line(entry)} · [{category(entry)}]")
 
 
+def candidates(args):
+    """Search captured metadata without treating discovery as implementation review."""
+    path = Path(__file__).resolve().parent.parent / "assets" / "repo-candidates.json"
+    inventory = json.loads(path.read_text(encoding="utf-8"))
+    terms = [term.lower() for term in args.terms]
+    ranked = []
+    for entry in inventory["repositories"]:
+        haystack = " ".join([entry["name"], entry.get("description_excerpt") or "",
+                             entry.get("language") or ""]).lower()
+        hits = sum(term in haystack for term in terms)
+        if hits:
+            ranked.append((hits, entry["name"].lower(), entry))
+    ranked.sort(key=lambda item: (-item[0], item[1]))
+    print(f"candidate snapshot {inventory['observed_at']}; {len(ranked)} metadata matches; "
+          "capture is not suitability or licensing approval")
+    for _, _, entry in ranked[:args.limit]:
+        flags = "; ".join(f"{flag}: {'unknown' if entry.get(flag) is None else str(entry[flag]).lower()}"
+                          for flag in ("archived", "fork"))
+        parts = [f"[{entry['name']}]({entry['url']})", "review: " + entry["review"],
+                 "revision: " + (entry["revision"] or "unknown"),
+                 "license metadata: " + (entry["license_id_observed"] or "unknown") + " (verify component terms)",
+                 flags]
+        if entry.get("description_excerpt"):
+            parts.append(entry["description_excerpt"])
+        if entry.get("adoption_limit"):
+            parts.append(entry["adoption_limit"])
+        print("- " + " · ".join(parts))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -411,6 +440,10 @@ def main():
     fd.add_argument("--limit", type=int, default=20)
     fd.add_argument("--out", type=Path, help="catalog directory (default: the project's .scratch/trending)")
     fd.set_defaults(run=find)
+    captured = commands.add_parser("candidates", help="search captured repository metadata without network access")
+    captured.add_argument("terms", nargs="+")
+    captured.add_argument("--limit", type=int, default=20)
+    captured.set_defaults(run=candidates)
     sys.stdout.reconfigure(encoding="utf-8")
     args = parser.parse_args()
     args.run(args)
