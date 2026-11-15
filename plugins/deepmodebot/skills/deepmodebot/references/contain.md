@@ -24,3 +24,7 @@ for d in "$ROOT/.scratch" "$MAIN/.worktrees"; do [ -f "$d/.gitignore" ] || print
 ## Guards
 
 - **Guards back the rule; none covers shell commands.** Claude Code: the plugin's hook and this skill's frontmatter hook deny `Write`, `Edit`, and `NotebookEdit` outside the root. omp: `assets/contain/omp-contain.ts`, once installed. Codex: its `workspace-write` sandbox. The rule still binds `bash`. A denial means move the file into the root; never route around the guard. Setup per harness: `skill://agent-harnesses`.
+
+## Durable notes
+
+- **Durable notes stay in the repo.** Resume notes, trails, and anything later sessions need go under `.scratch/`, or `$(git rev-parse --git-common-dir)/omp-resume/` where the harness can write `.git` (Codex's sandbox cannot), never only in a session store.

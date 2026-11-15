@@ -92,12 +92,16 @@ GUARDRAIL_CONFIGS = (
 GUARDRAIL_CONFIG_BASENAMES = {os.path.normcase(name) for name in GUARDRAIL_CONFIGS}
 PYPROJECT_GUARDRAIL_TOOLS = ("ruff", "mypy", "pyright", "pytest", "coverage", "flake8", "pylint", "bandit")
 CODE_EXTS = {".py", ".pyi", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts", ".rs", ".go"}
-PY_SUPPRESSION_RE = re.compile(r"#\s*(?:type:\s*ignore|pyright:\s*ignore|ruff:\s*noqa|noqa)\b", re.I)
+PY_SUPPRESSION_RE = re.compile(
+    r"#\s*(?:type:\s*ignore|pyright:\s*ignore|ruff:\s*noqa|noqa|pylint:\s*disable|nosec|pragma:\s*no\s*cover"
+    r"|mypy:\s*ignore-errors)\b", re.I)
 PY_STUB_COMMENT_RE = re.compile(r"#\s*(?:todo|fixme|xxx|stub|placeholder)\b", re.I)
 JS_SUPPRESSION_RE = re.compile(r"(?:@ts-ignore|@ts-expect-error|@ts-nocheck|eslint-disable(?:-next-line|-line)?|biome-ignore)\b")
 GO_SUPPRESSION_RE = re.compile(r"\bnolint\b")
-COMMENT_STUB_RE = re.compile(r"\b(?:todo|fixme|xxx)\b|^(?://+|/\*+)\s*(?:stub|placeholder)\b", re.I)
-RS_SUPPRESSION_RE = re.compile(r"#!?\s*\[\s*allow\s*\(")
+COMMENT_STUB_RE = re.compile(r"\b(?:todo|fixme|xxx)\b|^\s*(?://+|/\*+|\*)\s*(?:stub|placeholder)\b", re.I)
+STUB_MESSAGE_RE = re.compile(
+    r"\b(?:todo|fixme|stub|wip|placeholder|unimplemented|implement\s+me|not\s+(?:yet\s+)?implemented)\b", re.I)
+RS_SUPPRESSION_RE = re.compile(r"#!?\s*\[\s*(?:allow|expect)\s*\(")
 RS_STUB_MACRO_RE = re.compile(r"\b(?:todo|unimplemented)\s*!")
 RS_CHAR_LITERAL_RE = re.compile(r"^'(?:\\(?:x[0-9a-fA-F]{2}|u\{[0-9a-fA-F_]{1,6}\}|.)|[^'\\\n])'")
 RS_RAW_STR_RE = re.compile(r"^b?r(#*)\"")
@@ -433,9 +437,26 @@ def _is_noop_handler(body):
     if len(stmts) > 1:
         return False
     only = stmts[0]
-    return isinstance(only, ast.Pass) or (
-        isinstance(only, ast.Expr) and isinstance(only.value, ast.Constant) and only.value.value is Ellipsis
-    )
+    if isinstance(only, (ast.Pass, ast.Continue, ast.Break)):
+        return True
+    if isinstance(only, ast.Return):
+        return only.value is None or (isinstance(only.value, ast.Constant) and only.value.value in (None, False))
+    return isinstance(only, ast.Expr) and isinstance(only.value, ast.Constant) and only.value.value is Ellipsis
+
+
+def _reraises(body):
+    return any(isinstance(stmt, ast.Raise) and stmt.exc is None for stmt in body)
+
+
+def _broad_suppress_lines(tree):
+    """`with contextlib.suppress(Exception):` swallows exactly like `except Exception: pass`."""
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.With, ast.AsyncWith)):
+            for item in node.items:
+                call = item.context_expr
+                if isinstance(call, ast.Call) and _ast_symbol_name(call.func) == "suppress" and any(
+                        _is_broad_exception(arg) for arg in call.args):
+                    yield node.lineno
 
 
 def _strip_strings_keep_comments(text, ext=""):
@@ -520,9 +541,30 @@ def _iter_own_statements(stmts):
         if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             continue
         yield stmt
-        for field_val in ast.iter_child_nodes(stmt):
-            if isinstance(field_val, ast.stmt) and not isinstance(field_val, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                yield from _iter_own_statements([field_val])
+        for child in ast.iter_child_nodes(stmt):
+            if isinstance(child, ast.stmt):
+                yield from _iter_own_statements([child])
+            elif isinstance(child, (ast.ExceptHandler, ast.match_case)):
+                yield from _iter_own_statements(child.body)
+
+
+def _is_stub_raise(stmt, body):
+    """A NotImplementedError raise is a stub when it is the function's whole body, is bare, or its message says so.
+    `raise NotImplementedError(f"unsupported kind {kind}")` after real branches is a dispatch fallback, not a stub."""
+    if not (isinstance(stmt, ast.Raise) and stmt.exc is not None and _ast_symbol_name(stmt.exc) == "NotImplementedError"):
+        return False
+    own = [s for s in body
+           if not (isinstance(s, ast.Expr) and isinstance(s.value, ast.Constant) and isinstance(s.value.value, str))]
+    if own == [stmt] or not isinstance(stmt.exc, ast.Call) or not stmt.exc.args:
+        return True
+    arg = stmt.exc.args[0]
+    if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+        message = arg.value
+    elif isinstance(arg, ast.JoinedStr):
+        message = "".join(v.value for v in arg.values if isinstance(v, ast.Constant) and isinstance(v.value, str))
+    else:
+        return False
+    return bool(STUB_MESSAGE_RE.search(message))
 
 
 def _walk_concrete_not_implemented(node, in_abstract_cls=False):
@@ -533,7 +575,7 @@ def _walk_concrete_not_implemented(node, in_abstract_cls=False):
             is_abs_fn = any(_ast_symbol_name(dec) in ABSTRACT_DECORATORS for dec in child.decorator_list)
             if not (in_abstract_cls or is_abs_fn):
                 for stmt in _iter_own_statements(child.body):
-                    if isinstance(stmt, ast.Raise) and stmt.exc is not None and _ast_symbol_name(stmt.exc) == "NotImplementedError":
+                    if _is_stub_raise(stmt, child.body):
                         yield child.name, stmt.lineno
             yield from _walk_concrete_not_implemented(child, False)
         else:
@@ -574,7 +616,7 @@ def scan_text_slop(rel, text):
             for node in ast.walk(tree):
                 if not isinstance(node, ast.ExceptHandler):
                     continue
-                if node.type is None:
+                if node.type is None and not _reraises(node.body):
                     findings.append((
                         rel, node.lineno, "bare-except", "except:",
                         f"{rel}:{node.lineno}: [bare-except] bare 'except:' hides bugs and catches SystemExit: "
@@ -586,6 +628,12 @@ def scan_text_slop(rel, text):
                         f"{rel}:{node.lineno}: [swallowed-exception] broad 'except Exception: pass' hides failures: "
                         "propagate the error or handle a narrow expected case",
                     ))
+            for lineno in _broad_suppress_lines(tree):
+                findings.append((
+                    rel, lineno, "swallowed-exception", "suppress-broad",
+                    f"{rel}:{lineno}: [swallowed-exception] 'contextlib.suppress(Exception)' hides failures: "
+                    "suppress only a narrow expected exception, or handle it",
+                ))
             for fn_name, lineno in _walk_concrete_not_implemented(tree):
                 findings.append((
                     rel, lineno, "stub-placeholder", f"not-implemented:{fn_name}",
@@ -595,22 +643,30 @@ def scan_text_slop(rel, text):
         return sorted(findings, key=lambda item: (item[1], item[2]))
 
     stripped = _strip_strings_keep_comments(text, ext)
+    in_block = False
     for lineno, line in enumerate(stripped.splitlines(), 1):
         if ext == ".rs" and RS_SUPPRESSION_RE.search(line):
             snippet = re.sub(r"\s+", "", RS_SUPPRESSION_RE.search(line).group(0))
             findings.append((
                 rel, lineno, "suppression-comment", snippet.lower(),
-                f"{rel}:{lineno}: [suppression-comment] newly added Rust allow attribute: "
+                f"{rel}:{lineno}: [suppression-comment] newly added Rust allow/expect attribute: "
                 "fix the compiler or clippy warning instead of suppressing it",
             ))
-        comment = ""
-        code_part = line
-        if "//" in line:
-            pos = line.find("//")
-            code_part, comment = line[:pos], line[pos:]
-        elif "/*" in line:
-            pos = line.find("/*")
-            code_part, comment = line[:pos], line[pos:]
+        comments = []
+        rest = line
+        if in_block:
+            end = rest.find("*/")
+            comments.append(rest if end < 0 else rest[:end + 2])
+            rest = "" if end < 0 else rest[end + 2:]
+            in_block = end < 0
+        code_part = rest
+        starts = [pos for pos in (rest.find("//"), rest.find("/*")) if pos >= 0]
+        if starts:
+            pos = min(starts)
+            code_part = rest[:pos]
+            comments.append(rest[pos:])
+            in_block = rest.startswith("/*", pos) and "*/" not in rest[pos + 2:]
+        comment = " ".join(comments)
         if ext == ".rs" and RS_STUB_MACRO_RE.search(code_part):
             macro = RS_STUB_MACRO_RE.search(code_part).group(0)
             findings.append((

@@ -37,23 +37,23 @@ Paths below are relative to this skill (`skill://deepmodebot/...`).
 **Choose the delivery target separately from size.** No remote, or a request for local review, means a **local edit**: for S or M, leave verified changes uncommitted in the starting tree, review the diff, exercise the real behavior, and stop with result and proof (no PR, default-branch commit, or push). A publish request is not local delivery.
 Use an isolated worktree only when concurrent writers or unrelated dirty work require it, returning the verified patch safely. A local M edit skips shipping panels, new verification frameworks, and design contests, and reads only the procedure and references its risk needs. Auth, permissions, migrations, security boundaries, and L work keep full checks.
 
-Discovery work (review, investigation, questions, or tournament discovery) has no size or panel. For discovery of a business-data opportunity or investigation of a stalled attempt, also use the opportunity probe in `references/techniques/research.md`. Tournament's build handoff: Autonomy.
+Discovery work (review, investigation, questions, or tournament discovery) has no size or panel. Business-data opportunities and stalled attempts at one also use the opportunity probe (`references/techniques/research.md`). Tournament's build handoff: Autonomy.
 
 **4. Act, then report.** Follow Autonomy's publishing gates and hard stops. Report the result and proof.
 
 ## Reasoning gates
 
-For M and L work, including research and business deliverables, apply these gates proportionally: a short evidence-linked note suffices, with no new agent, PR, or document. S work uses the goal and the real-artifact check directly.
+For M and L work, research and business deliverables included, apply these proportionally: a short evidence-linked note suffices; no new agent, PR, or document. S work uses the goal and the real-artifact check directly.
 
 1. **Before committing to a plan:** name the intended user, decision or deliverable, acceptance evidence, and authoritative sources. Inspect the source material and existing outputs first; separate observed facts from assumptions; check whether the work is already done or superseded. Resolve material contradictions first; mark conclusions unknown where evidence is unavailable.
 2. **At phase boundaries, before consequential actions, and before delivery:** compare the output with the original goal and current evidence. Check for missing entities, stale facts, unsupported conclusions, and work that no longer serves the goal. Name what changed and the next smallest action; replan when the premise fails. Activity, PRs, and generated pages are not proof of progress.
 3. **When progress stalls** (two attempts without better acceptance evidence, repeated rewrites, contradictory findings, or time far past the expected effort): pause, inspect the actual artifacts and sources, find the bottleneck, test the premise, then try a different bounded approach or report the blocker. Reset only when evidence improves or a distinct approach is tried. No universal time limit; never abandon the user's scope.
 
-For an open-ended business use case, define one representative workflow and an intended user's observable success before scaling; it is a proof point, never a reason to narrow the full scope. For a business-data opportunity or stalled attempt to investigate one, use the opportunity probe in `references/techniques/research.md`. Other business or research decisions comparing evidence or options use its decision-brief procedure, in chat or a file. Label unproven market, revenue, or exit claims as estimates.
+For an open-ended business use case, define one representative workflow and an intended user's observable success before scaling; it is a proof point, never a reason to narrow the full scope. Business-data opportunities use the opportunity probe (Route); other business or research decisions comparing evidence or options use the decision-brief procedure in `references/techniques/research.md`, in chat or a file. Label unproven market, revenue, or exit claims as estimates.
 
 ## Contain the work
 
-Every task has one project root, and every file you create or change lives inside it: code, scratch and temp files, logs, downloads, reference clones, prototypes, worktrees, evidence, and delegates' output.
+Every task has one project root, and every file you create or change lives inside it: code, scratch, temp files, logs, downloads, clones, prototypes, worktrees, evidence, and delegates' output.
 
 - **Find the root first.** In a repo, the root is the worktree you're in (`git rev-parse --show-toplevel`). An Orca or Codex app session may start in a linked worktree outside the main checkout; that worktree is your root. Name the root's absolute path in your restate.
 - **No repo? Make a named one.** Outside a repo, in a folder that isn't a project, or for a new project that isn't the current repo, create `<parent>/<kebab-case-name-from-the-goal>/` and run `git init -b main` in it (choosing `<parent>` and the name: `references/contain.md`); never nest a repo in a repo or reuse an existing folder. Creating that folder is the one write allowed outside a root; from then on, work only inside it and report its path.
@@ -62,7 +62,7 @@ Every task has one project root, and every file you create or change lives insid
 - **Install into the root.** Dependencies go in the project (`node_modules`, `.venv`, a local tool folder). Global installs (`npm i -g`, `pip install --user`, `cargo install`, `uv tool install`) and user-config edits (`~/.gitconfig`, shell profiles, harness settings) are hard stops.
 - **Reads are free; writes are fenced.** Reading skills, docs, harness config, or a checkout the user names is fine. Outside writes are allowed only for the new repo's folder, state tools manage themselves (omp `local://` and `artifact://`, package and browser caches, Claude Code plan and memory files), and paths the user named, listed in `<root>/.deepmodebot.json` `"extraWriteRoots"`. Any other outside write is a hard stop.
 - **deepmodebot's own outside writes** (its helper scripts' transient run folders, and the installed GitHub App bot's `~/.config/deepmodebot/` and `~/.cache/deepmodebot/`) are the only others; details in `references/contain.md`.
-- **Durable notes stay in the repo.** Resume notes, trails, and anything later sessions need go under `.scratch/`, or `$(git rev-parse --git-common-dir)/omp-resume/` where the harness can write `.git` (Codex's sandbox cannot), never only in a session store.
+- **Durable notes stay in the repo.** Resume notes, trails, and anything later sessions need go under `.scratch/` (or the git common dir: `references/contain.md`), never only in a session store.
 - **Delegates inherit the fence.** Every brief names the absolute root and fences them inside it, worktrees in `.worktrees/` (Subagents).
 - **Guards back the rule; none covers shell commands.** The rule still binds `bash`. A denial means move the file into the root; never route around the guard. Per-harness guards: `references/contain.md`.
 - **Before reporting done,** `git status --porcelain` lists only intended changes, `.scratch/tmp/` is emptied, and evidence the report links sits inside the root: `.scratch/evidence/`, or the folder the repo's verify skill names.
@@ -80,10 +80,10 @@ For size **S**, only the one-line restate, the Scope ledger, proving it on the r
 - **Name the data shape before any code**, and choose its organizing structure per `references/principles/model-the-domain.md`. Name it with the project's glossary terms; a new domain, data model, database, repo layout, or service boundary also reads `skill://software-architecture`.
 - **Long, autonomous, or step-away work** → a **show-me-your-work** decision trail.
 - **Any PR** → the **pr-review** technique (`references/techniques/pr-review.md`).
-  - Before opening one, self-review your branch in local mode and fix, dismiss, or escalate each finding. `/deepmodebot:review-pr <N>` reviews incoming PRs on your own agents, no outside service, never replacing live proof.
-  - Once the PR exists, run the **pr-agent** technique (`references/techniques/pr-agent.md`) on it, and the repo's own checks locally. Your own PR then lands through **pr-conversation**.
+  - Before opening one, self-review the branch in local mode; fix, dismiss, or escalate each finding. `/deepmodebot:review-pr <N>` reviews incoming PRs on your own agents, no outside service, never replacing live proof.
+  - Once the PR exists, run the **pr-agent** technique (`references/techniques/pr-agent.md`) on it, and the repo's own checks locally.
 - **Deepmodebot is the gate layer**: no GitHub Actions and no hosted review service. When the repo opted into the security gate or the change touches auth, permissions, input parsing, or secrets, run **security-audit** (`references/techniques/security-audit.md`) on the head that will merge; its blocking findings are P0 review findings.
-- **More triggers** (which technique a situation calls for) are in Technique triggers, below.
+- **More triggers:** Technique triggers, below.
 
 ## Autonomy
 
@@ -92,7 +92,7 @@ For size **S**, only the one-line restate, the Scope ledger, proving it on the r
   - For size S, the light panel (one verifier, another model family when available) is that pass. Local S/M edits still need real-behavior proof and diff review.
   - Push your own PR branch so the panel can check it; your green runs are evidence it reproduces, never a substitute.
   - Then push to the shared branch, or merge with `gh pr merge --match-head-commit <sha>`, run the checks on the new trunk, and open a revert PR if it went red.
-- **Decisions are yours.** Make every product, design, scope, and preference call yourself. Pick the reversible, smallest option consistent with the codebase and the user's stated goal.
+- **Decisions are yours.** Make every product, design, scope, and preference call yourself. Pick the reversible, smallest option that fits the codebase and the user's stated goal.
   - Log each one as a show-me-your-work trail row (choice, why, evidence, how to reverse), and list them in the final reply under "Decisions I made" so the user can override any.
   - Where a playbook, technique, or sibling skill says to ask before deciding, committing, pushing, opening PRs, or merging in the user's own repo, this rule wins. **Tournament** pauses at its Champion plus Runner-Up gate for discovery-only requests or an explicit choose-first instruction; an original build request continues with Champion within its existing permissions. Someone else's repo keeps its asks.
 - **Hard stops** still need the user's yes, batched into one question at the end: force-push or history rewrite on a shared or default branch; deleting branches, data, or resources you didn't create; deploys, releases, and package publishing; messages outside the repo (email, chat, other people's repos); bypassing a forge protection (required reviews or checks, admin merge); spending money or creating accounts; anything needing a credential or secret only the user has; writes outside the project root (Contain the work). A request that already asks for one of these is its yes.
@@ -108,7 +108,7 @@ For size **S**, only the one-line restate, the Scope ledger, proving it on the r
 - Use your harness's subagent tool (omp `task`, Claude Code `Agent`, Codex `spawn_agent`, which spawns only when told). Read-only research: omp `agent: "scout"`, Claude Code `Explore`, Codex `explorer`. Anything that edits, runs the app, or reads transcripts: the default agent. omp `reviewer` only reviews diffs. Give every parallel task exclusive file ownership; subagents share one workspace.
 - Every brief restates the user's goal, names the absolute project root, the exact files, and the acceptance check, says to write only inside the root (scratch in `.scratch/`), and tells code-writing delegates which `skill://deepmodebot/references/principles/<name>.md` files apply. omp subagents do not receive AGENTS.md, so put anything they must follow in the brief.
 - Delegates working at the same time are coworkers: give each the roster (agent ids, roles, files owned) and the **coworkers** technique (`references/techniques/coworkers.md`) so they ask, hand off, and push back directly instead of through you. Panel verifiers vote before they talk.
-- **Delegate only when it pays.** A child re-pays the system prompt and cold cache (~15x a chat). Delegate wide searches, log/transcript digests, fresh-eyes review, and independent slices. Keep one-file tasks, coupled work, and hard reasoning in the main session. Message a finished child instead of spawning a new one.
+- **Delegate only when it pays.** A child re-pays the system prompt and cold cache (~15x a chat). Delegate wide searches, log/transcript digests, fresh-eyes review, and independent slices. Keep one-file tasks, coupled work, and hard reasoning in the main session. Message a finished child rather than spawn anew.
 - **Match model and effort to the task.** Small tier for search and mechanical edits; mid tier at medium effort for routine features; the strongest model at high effort for hard design, debugging, and review. Judges and second opinions use another model family when available. Cap unattended runs (omp `--max-cost`, Claude Code `--max-budget-usd`); per-harness settings: `skill://agent-harnesses/references/delegation-efficiency.md`.
 - You own every delegate's work. Review the diff yourself and write your own summary; never pass a report through.
 - Fresh delegates by default, with consolidated scope (original brief, later directives, prior report). Reuse a running delegate only when the work needs state that lives in it.
