@@ -21,6 +21,7 @@ import os
 import re
 import secrets
 import shutil
+import signal
 import sqlite3
 import subprocess
 import sys
@@ -28,6 +29,7 @@ import tempfile
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 PR_AGENT = "pr-agent[github]==0.50.0"
 SYSTEM = ("You are the language model behind PR-Agent, a code review tool. The user message holds the "
@@ -78,8 +80,8 @@ NO_DISCOVERY = (f"enabledProviders: []\ndisabledProviders: [{', '.join(DISCOVERY
 def _omp(*args: str) -> subprocess.CompletedProcess:
     """Run an omp command from an empty directory, so a repo's .omp/config.yml can't change the answer."""
     with tempfile.TemporaryDirectory(prefix="pr-agent-omp-") as work:
-        return subprocess.run([shutil.which("omp") or "omp", *args], cwd=work, capture_output=True, text=True,
-                              encoding="utf-8", errors="replace", env=scrubbed_env(), creationflags=NO_WINDOW)
+        return _owned_run([shutil.which("omp") or "omp", *args], env=scrubbed_env(), cwd=work,
+                          timeout=30, max_trace_bytes=1024 * 1024, control=CompletionControl())
 
 
 def omp_default_model() -> str:
@@ -164,21 +166,124 @@ def omp_oauth_credentials(model: str) -> set:
     return {cid for cid, name, _ in rows if name == provider}
 
 
-def omp_complete(messages: list[dict], model: str, credentials: set) -> tuple[str, dict]:
+class CompletionControl:
+    """Own one subprocess tree; cancellation remains effective before process startup."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._cancelled = False
+        self._process = None
+
+    def attach(self, process):
+        with self._lock:
+            self._process = process
+            if self._cancelled:
+                self._kill(process)
+
+    @staticmethod
+    def _kill(process):
+        if os.name == "nt":
+            # This is the windows_job supervisor: its death closes the kill-on-close Job.
+            if process.poll() is None:
+                process.kill()
+        else:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
+    def cancel(self):
+        with self._lock:
+            self._cancelled = True
+            if self._process is not None:
+                self._kill(self._process)
+
+    def detach(self):
+        with self._lock:
+            self._process = None
+
+
+def _owned_run(command, *, env, cwd, timeout, max_trace_bytes, control):
+    """Drain bounded pipes and reap the owned tree before returning or raising."""
+    if os.name == "nt":
+        import importlib.util
+        source = Path(__file__).resolve().parent.parent / "loop" / "windows_job.py"
+        spec = importlib.util.spec_from_file_location("_pr_agent_windows_job", source)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        command = module.wrap_command(command, shell=False)
+    process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE, env=env, cwd=cwd,
+                               start_new_session=os.name != "nt", creationflags=NO_WINDOW)
+    control.attach(process)
+    buffers = [bytearray(), bytearray()]
+    overflow = threading.Event()
+    total = 0
+    size_lock = threading.Lock()
+
+    def drain(pipe, buffer):
+        nonlocal total
+        try:
+            while chunk := pipe.read(8192):
+                with size_lock:
+                    available = max(0, max_trace_bytes - total)
+                    buffer.extend(chunk[:available])
+                    total += len(chunk)
+                    if total > max_trace_bytes:
+                        overflow.set()
+                        control.cancel()
+        finally:
+            pipe.close()
+
+    readers = [threading.Thread(target=drain, args=(pipe, buffer), daemon=True)
+               for pipe, buffer in zip((process.stdout, process.stderr), buffers)]
+    for reader in readers:
+        reader.start()
+    try:
+        process.wait(timeout=timeout)
+    except BaseException:
+        control.cancel()
+        process.wait()
+        raise
+    finally:
+        # Also kill descendants which outlive a normally exited supervisor/process.
+        control.cancel()
+        for reader in readers:
+            reader.join()
+        control.detach()
+    if overflow.is_set():
+        raise RuntimeError("omp trace exceeded the bounded capture limit; reply discarded")
+    return subprocess.CompletedProcess(command, process.returncode,
+                                       *(bytes(buffer).decode("utf-8", errors="replace") for buffer in buffers))
+
+
+def omp_complete(messages: list[dict], model: str, credentials: set, *,
+                 system_prompt: str = SYSTEM, timeout: float = 900,
+                 max_input_bytes: int | None = None, max_output_bytes: int | None = None,
+                 max_trace_bytes: int = 8 * 1024 * 1024, max_cost: float | None = None,
+                 control: CompletionControl | None = None) -> tuple[str, dict]:
     env = scrubbed_env()
+    prompt = flatten(messages)
+    if max_input_bytes is not None:
+        raw_text = "\n".join(str(message.get("content") or "") for message in messages)
+        if len(raw_text.encode("utf-8")) > max_input_bytes:
+            raise ValueError("omp input exceeds the byte limit")
+    control = control or CompletionControl()
     with tempfile.TemporaryDirectory(prefix="pr-agent-omp-") as work:
         overlay = os.path.join(work, "no-discovery.yml")
         prompt_path = os.path.join(work, "prompt.txt")  # a file, since PR diffs overflow a Windows command line
         with open(overlay, "w", encoding="utf-8") as handle:
             handle.write(NO_DISCOVERY)
         with open(prompt_path, "w", encoding="utf-8") as handle:
-            handle.write(flatten(messages))
+            handle.write(prompt)
         command = [shutil.which("omp") or "omp", "-p", "--mode", "json", "--config", overlay, "--no-tools",
                    "--no-skills", "--no-rules", "--no-context-files", "--no-extensions", "--no-session",
-                   "--no-title", "--no-lsp", "--system-prompt", SYSTEM, "--model", model]
+                   "--no-title", "--no-lsp", "--system-prompt", system_prompt, "--model", model]
+        if max_cost is not None:
+            command.extend(("--max-cost", str(max_cost)))
         # cwd is the empty work dir, so no project-level config can add tools back.
-        proc = subprocess.run([*command, f"@{prompt_path}"], capture_output=True, text=True, encoding="utf-8",
-                              errors="replace", env=env, cwd=work, timeout=900, creationflags=NO_WINDOW)
+        proc = _owned_run([*command, f"@{prompt_path}"], env=env, cwd=work, timeout=timeout,
+                          max_trace_bytes=max_trace_bytes, control=control)
     reply = None
     for line in proc.stdout.splitlines():
         try:
@@ -208,6 +313,8 @@ def omp_complete(messages: list[dict], model: str, credentials: set) -> tuple[st
     usage = reply.get("usage") or {}
     text = "".join(part.get("text", "") for part in reply.get("content") or []
                    if isinstance(part, dict) and part.get("type") == "text")
+    if max_output_bytes is not None and len(text.encode("utf-8")) > max_output_bytes:
+        raise RuntimeError("omp output exceeds the byte limit; reply discarded")
     return text, {
         "prompt_tokens": (usage.get("input") or 0) + (usage.get("cacheRead") or 0) + (usage.get("cacheWrite") or 0),
         "completion_tokens": usage.get("output") or 0,

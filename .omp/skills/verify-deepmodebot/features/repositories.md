@@ -38,3 +38,19 @@ Use a fresh, explicitly approved model-backed planning run with tools restricted
 - Near miss: a small correction in an existing file. Expect no broad channel/repository sweep or unrelated medical/product plan.
 
 Record prompts, model identity and observed answers. Do not count a planned check as execution. These probes establish guidance selection only, not medical, legal, revenue or production validity.
+
+## Captured candidates
+
+Run the real offline metadata surface:
+
+```bash
+python plugins/deepmodebot/skills/deepmodebot/scripts/trending.py candidates container runtime --limit 3
+python plugins/deepmodebot/skills/deepmodebot/scripts/trending.py candidates anomalyco/opencode-anthropic-auth
+python plugins/deepmodebot/skills/deepmodebot/scripts/trending.py candidates BetterStackHQ/as-json
+```
+
+Require dated snapshot output, canonical source links, explicit partial/unread review states, unknown license/revision/liveness where absent, and archived/fork flags where observed.
+Kiri's captured metadata is a discovery lead, not reproduced speed, Docker policy parity or production isolation.
+An unavailable route must not be relabeled private, deleted, licensed or actively maintained.
+This command must not enrich over the network, execute candidates or invent stars for missing metadata.
+

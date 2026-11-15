@@ -1,13 +1,13 @@
 ---
 name: agent-harnesses
-description: "Cited, dated facts for omp, Claude Code, Codex and Antigravity SDKs; harness installation, embedding, configuration, hooks, permissions and delegation; MCP, ACP, A2A and WebMCP; LangChain, LangGraph, Deep Agents and LangSmith. Use for SDK or framework selection, agent applications, middleware routing, checkpoint/replay, memory, evals, deployment and bounded loops."
+description: "Cited, dated facts for omp, Claude Code, Codex and Antigravity SDKs; harness installation, embedding, configuration, hooks, permissions and delegation; MCP, ACP, A2A, AG-UI and WebMCP; LangChain, LangGraph, Deep Agents and LangSmith; public agent-construction evidence. Use for SDK or framework selection, agent applications, middleware routing, checkpoint/replay, memory, evals, deployment and bounded loops."
 metadata:
-  as-of: "2026-11-13"
+  as-of: "2026-11-14"
 ---
 
 # Harnesses, protocols, and AI-native tooling
 
-Read when deepmodebot runs outside omp, when a task uses, configures, or scripts omp, Claude Code, or Codex, or when it touches MCP, ACP, A2A, WebMCP, skills, plugins, `AGENTS.md`, hooks, or sandboxes. deepmodebot's text names omp tools; this skill translates them and carries the cited facts.
+Read when deepmodebot runs outside omp, when a task uses, configures, or scripts omp, Claude Code, or Codex, or when it touches MCP, ACP, A2A, AG-UI, WebMCP, skills, plugins, `AGENTS.md`, hooks, or sandboxes. deepmodebot's text names omp tools; this skill translates them and carries the cited facts.
 
 Checked 2026-11-11 against primary docs and local `--help` of omp 18.18.9, Claude Code 2.1.322, and codex-cli 0.163.0. Every cell below is cited in the file for that harness. Versions move fast: recheck a flag or path before you build on it. `[inference]` and `[unverified]` marks in the files mean what they say.
 
@@ -17,7 +17,9 @@ Checked 2026-11-11 against primary docs and local `--help` of omp 18.18.9, Claud
 | `references/claude-code.md` | Running in Claude Code, `claude -p`, the Agent SDK, `.claude/` settings, hooks, permissions, plugins |
 | `references/codex.md` | Running in Codex CLI, IDE, app, or cloud; `codex exec`, `config.toml`, sandbox and approvals, plugins |
 | `references/sdks.md` | Installing or embedding Antigravity, Claude Agent, Codex, or omp SDKs; package names, tool APIs, isolated setup, CLI versus SDK auth, and local smoke checks |
-| `references/protocols.md` | Building, configuring, testing, or securing MCP servers and clients; ACP; A2A; WebMCP |
+| `references/protocols.md` | Building, configuring, testing, or securing MCP servers and clients; ACP; A2A; AG-UI; WebMCP |
+| `references/interop.md` | Running the optional real MCP → A2A text-only subscription-agent kit, its project-local setup, limits and verified lifecycle |
+| `references/build-evidence.md` | Understanding the cited agent builders' disclosed architecture, application verification, public workflow code and formal/UI-testing boundaries without inferring proprietary source |
 | `references/ai-native-tooling.md` | Portable `AGENTS.md` and Agent Skills, plugin and marketplace formats, other harnesses (Gemini, Antigravity, Cursor, Copilot, OpenCode, Amp, Goose, Zed, Devin, Kiro), browser automation, docs for agents, orchestrators |
 | `references/self-authoring.md` | Writing prompts, commands, or skills from inside a session; native goal and loop modes (`/goal`, `/loop`, ralph-loop, `/autoresearch`); headless loop flags and cost caps; skill spec and validation; self-modification risks |
 | `references/delegation-efficiency.md` | Whether to delegate; which model and effort per task type in omp, Claude Code, and Codex; current model line-ups and prices; subscription limits; caching and token-saving; spend caps |

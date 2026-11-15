@@ -21,6 +21,16 @@ The task date is 2026-11-13; some host capture timestamps are 2026-11-14 UTC. Se
 - [The Next New Thing](https://www.youtube.com/watch?v=pnZh5PAF3VE) and [Github Awesome](https://www.youtube.com/watch?v=i5OYXeCUHwY) add 920 channel entries with full descriptions and two focused transcript reads, not 920 reviewed talks. The [reference library](../../../plugins/deepmodebot/skills/deepmodebot/assets/repo-references.json) contains 52 primary repository inspections.
 - [Startup references](../../../plugins/deepmodebot/skills/deepmodebot/references/startup-ideas.md) include five research leads and the synthetic-data doctor-administration concept. The anonymous business anecdote is not revenue, clinical or demand validation.
 
+| Continued source | Distinct capture scope | Reading and durable result |
+| --- | --- | --- |
+| [AG-UI](https://github.com/ag-ui-protocol/ag-ui/tree/f77065ad109c40e60ecbdec9d8fa6fa09987c41e) | Pinned repository and primary specification review, not a running UI adapter | [Protocol facts](../../../plugins/deepmodebot/skills/agent-harnesses/references/protocols.md) and the [real local MCP/A2A kit](../../../plugins/deepmodebot/skills/agent-harnesses/references/interop.md). |
+| [Lauren Tan's newer lecture](https://www.youtube.com/watch?v=O_zcc6Xl12g) and professional appearances | 106 baseline IDs plus 187 extension/context IDs; 293 indexed uploads are not distinct talks | 16 complete exposed-text reviews plus two partial reviews in the extension. [Construction evidence](../../../plugins/deepmodebot/skills/agent-harnesses/references/build-evidence.md) separates public workflow code, reported production behavior and formal/UI testing. [Private rights-qualified learning archive](https://drive.google.com/drive/folders/1DP6qshCPcW1ZH4UgEGk_q5M8tihHMeuI), independently downloaded with all 42 indexed members verified. |
+| Grok Bot discovery continuation | 573 observed exact-search cards; 352 examined delta records include 349 new-to-original records and three exact Lauren reuses | 336 supplied-caption-text reviews, 16 native-caption gaps; no all-YouTube or full-audio claim. [Private rights-qualified learning delta](https://drive.google.com/drive/folders/1q7m7Sozu9FbkSVkuuSrRHXfVu5oT0cJg), independently downloaded and member-verified. |
+| [Arjay McCandless](https://www.youtube.com/watch?v=TIyvOtGjnzc) | 432 channel items; 431 returned native-caption texts and 17 technical frames | 16 full available-text reviews; pinned benchmark source inspected, not executed. [Measurement learning](measurement-learning.md). |
+| [Better Stack](https://www.youtube.com/watch?v=qy4ajsBbOKw) | 1,477 items, 1,474 complete default panels and three exceptions | 11 full text reviews; 107 additional original tracks attempted but zero full alternate-panel captures. [Measurement/discovery learning](measurement-learning.md) and 391 explicitly qualified repository candidates. |
+
+These continued collections overlap earlier sources and each other; do not add them to the original five-source totals or call every captured item reviewed.
+
 ## Durable findings
 
 - [Design boundaries, not vendor recipes](prior-sources.md#adopted-design-boundaries-not-vendor-recipes): contracts, authority, persistence, runtime projection and relational lifecycle.
