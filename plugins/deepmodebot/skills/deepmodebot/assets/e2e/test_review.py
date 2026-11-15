@@ -232,6 +232,11 @@ class NativeBoundaryCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             review.native_reply(self.stream(self.message(), [{"type": "tool_execution_start", "toolName": "bash"}]), review.MODEL, {7})
 
+    def test_non_string_event_type_is_a_clean_rejection(self):
+        for kind in (None, 7):
+            with self.subTest(kind=kind), self.assertRaises(ValueError):
+                review.native_reply(self.stream(self.message(), [{"type": kind}]), review.MODEL, {7})
+
     def test_multiple_assistant_contexts_cannot_be_combined(self):
         raw = self.stream(self.message())
         with self.assertRaises(ValueError):

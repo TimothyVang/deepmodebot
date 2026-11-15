@@ -111,7 +111,7 @@ def load_json(text):
     try:
         return json.loads(text, object_pairs_hook=pairs, parse_float=finite,
                           parse_constant=lambda value: (_ for _ in ()).throw(Invalid(f"nonfinite JSON: {value}")))
-    except (ValueError, TypeError) as exc:
+    except (ValueError, TypeError, RecursionError) as exc:
         raise Invalid(f"invalid JSON: {exc}") from exc
 
 
@@ -127,7 +127,11 @@ def text(value, label):
 
 
 def number(value, label, positive=False, integer=False):
-    if type(value) not in (int, float) or not math.isfinite(value) or (positive and value <= 0):
+    try:
+        finite = type(value) in (int, float) and math.isfinite(value)
+    except OverflowError:  # an integer too large for float
+        finite = False
+    if not finite or (positive and value <= 0):
         raise Invalid(f"{label} must be a finite {'positive ' if positive else ''}number")
     if integer and type(value) is not int:
         raise Invalid(f"{label} must be an integer")
@@ -506,7 +510,9 @@ def plan(request, evidence, contract, root, output, model, remote, max_rounds=2)
             context_sources = [candidate] + record["votes"]
             receipt["questions"] = [q for source in context_sources for q in source["questions"]]
             receipt["evidence_requests"] = [q for source in context_sources for q in source["evidence_requests"]]
-            if candidate["status"] == "needs_context" or decision == "needs_context":
+            # A reviewer's unanswered evidence request is missing evidence; two approvals cannot outvote it.
+            if (candidate["status"] == "needs_context" or decision == "needs_context"
+                    or any(vote["evidence_requests"] for vote in record["votes"])):
                 receipt["state"] = "needs_context"
                 break
             if decision == "approve":

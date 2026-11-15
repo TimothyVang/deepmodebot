@@ -140,6 +140,29 @@ class LocalUpdatesTest(unittest.TestCase):
         self.assertEqual(self.row(again, self.native)["action"], "current")
         self.assertEqual((self.native / "personal.txt").read_bytes(), b"keep me\n")
 
+    def test_case_only_collision_is_preserved_before_any_file_is_replaced(self):
+        managed = self.sync()["manifests"]
+        (self.native / "NOTES.md").write_bytes(b"user notes\n")
+        (self.skill / "notes.md").write_bytes(b"canonical notes\n")
+        (self.skill / "SKILL.md").write_bytes(b"changed skill\n")
+        self.git(self.remote, "add", "-A")
+        self.git(self.remote, "commit", "-m", "add notes")
+        result = self.sync(manifests=managed)
+        row = self.row(result, self.native)
+        self.assertEqual(row["action"], "preserved")
+        self.assertIn("letter case", row["reason"])
+        self.assertEqual((self.native / "SKILL.md").read_bytes(), b"canonical skill\n")
+        self.assertEqual([p.name for p in self.native.iterdir() if p.name.lower() == "notes.md"], ["NOTES.md"])
+        self.assertEqual((self.native / "NOTES.md").read_bytes(), b"user notes\n")
+
+    def test_repeated_backup_of_identical_files_is_reused(self):
+        files = updates.inventory(self.native)
+        first = updates.backup(self.native, files, self.cache)
+        second = updates.backup(self.native, files, self.cache)
+        self.assertEqual(first, second)
+        self.assertEqual(len([p for p in (self.cache / "backups").iterdir() if p.is_dir()]), 1)
+        self.assertEqual((Path(first) / "SKILL.md").read_bytes(), b"canonical skill\n")
+
     def test_managed_native_edits_are_preserved(self):
         result = self.sync()
         (self.native / "SKILL.md").write_bytes(b"my skill\n")

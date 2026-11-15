@@ -19,7 +19,9 @@ Skip phases the work doesn't need. One PR of settled work starts at phase 5 with
 
 | Situation | Flow |
 |---|---|
+| Open architecture or research space, blind spots, or a high-vagueness ambition | **tournament** (`references/techniques/tournament.md`), proposing Champion and Runner-Up before phase 1 or 3 |
 | First use of the planning flows in a repo | Setup (`references/playbooks/setup.md`) |
+| Building a whole app or rough idea end to end across all slices without stopping at an MVP | End-to-end (`references/playbooks/end-to-end.md`) |
 | Issues or outside PRs pile up | Triage (`references/playbooks/triage.md`), which feeds phase 5 with `triage:agent-ready` items |
 | A defect | Bug fix (`references/playbooks/bug-fix.md`) |
 | The route itself is unknown, more than one session of deciding | Wayfinder (`references/playbooks/wayfinder.md`), which hands its decisions to phase 3 |
@@ -28,6 +30,7 @@ Skip phases the work doesn't need. One PR of settled work starts at phase 5 with
 | Words or decisions need recording | **domain-model** (`references/techniques/domain-model.md`) |
 | A queue of labeled issues and the `factory` CLI | Work a queue with the factory source (`references/playbooks/work-a-queue.md`) |
 | A multi-day program with many owners | Run a goal at program scale (`references/playbooks/run-a-goal.md`) |
+| Hardening fast local checks and anti-slop guards before unattended loops or queues | **inner-loop** (`references/techniques/inner-loop.md`) |
 | A workflow done the same way twice, or a goal to run unattended until a check passes | Self-authoring (`references/playbooks/self-authoring.md`), to write and prove a prompt, skill, goal, or loop |
 | Choosing a repo layout, data model, database, or backend shape | `skill://software-architecture` |
 | Secrets, logins, or agent authentication | `skill://secrets-and-auth` |

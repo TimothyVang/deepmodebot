@@ -269,6 +269,8 @@ def copy_plan(path, prefix, source, manifest):
     unknown = set(current) - set(previous)
     if unknown & set(desired):
         raise RuntimeError("new canonical files collide with unknown local files; preserved")
+    if name := case_collision(current, desired):
+        raise RuntimeError(f"canonical file differs only in letter case from a local file: {name}; preserved")
     # A local directory where upstream needs a file must never be replaced, even if empty.
     for name in desired:
         dest = path / name
@@ -278,12 +280,34 @@ def copy_plan(path, prefix, source, manifest):
 
 
 def backup(path, files, cache):
-    folder = cache / "backups" / uuid.uuid4().hex
+    """Content-addressed: a retry of the same failing update reuses one backup instead of adding another."""
+    key = hashlib.sha256(json.dumps(files, sort_keys=True).encode("utf-8")).hexdigest()
+    backups = cache / "backups"
+    folder, done = backups / key, backups / (key + ".complete")
+    if folder.is_dir() and done.is_file() and not linked(folder):
+        return str(folder)
+    staging = backups / (key + "." + uuid.uuid4().hex + ".partial")
     for name in files:
-        dest = folder / name
+        dest = staging / name
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path / name, dest)
+    staging.mkdir(parents=True, exist_ok=True)
+    if os.path.lexists(folder):
+        return str(staging)  # an unfinished earlier attempt holds the name; never delete it
+    os.replace(staging, folder)
+    done.write_text(key, encoding="ascii")
     return str(folder)
+
+
+def case_collision(current, desired):
+    """On case-insensitive filesystems (NTFS, APFS) Notes.md and notes.md are one file."""
+    folded = {}
+    for name in current:
+        folded.setdefault(name.casefold(), set()).add(name)
+    for name in sorted(desired):
+        if folded.get(name.casefold(), set()) - {name}:
+            return name
+    return None
 
 
 def pending_path(cache, path):
@@ -331,6 +355,8 @@ def resume_plan(path, prefix, source, pending):
         allowed = {previous.get(name), desired.get(name)}
         if current.get(name) not in allowed:
             raise RuntimeError(f"pending update conflicts with a local edit: {name}; backup: {pending['backup']}")
+    if name := case_collision(set(current) - set(desired), desired):
+        raise RuntimeError(f"pending update differs only in letter case from a local file: {name}; preserved")
     for name in desired:
         dest = path / name
         if dest.is_dir() or any(p.is_file() for p in dest.parents if p != path and path in p.parents):

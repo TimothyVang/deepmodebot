@@ -166,6 +166,8 @@ def native_reply(raw, model, credentials):
         if not isinstance(event, dict):
             continue
         message = event.get("message") or {}
+        if not isinstance(event.get("type", ""), str):
+            raise ValueError("review event type must be a string")
         if event.get("type", "").startswith("tool_execution"):
             raise ValueError("tool execution in sealed visual review")
         if not isinstance(message, dict):
@@ -286,7 +288,7 @@ def review_bundle(directory, output, remote):
                 vote = validate_vote(strict_json(raw), bundle_hash, lens, manifest, images)
                 save(work / "vote.json", vote)
                 entry.update(state="valid", vote=vote)
-            except (ValueError, OSError, RuntimeError) as error:
+            except (ValueError, OSError, RuntimeError, TypeError, AttributeError) as error:
                 entry["error"] = str(error)
                 save(work / "error.json", {"error": str(error)})
         if evidence.load_bundle(bundle, require_success=True)[1] != bundle_hash:

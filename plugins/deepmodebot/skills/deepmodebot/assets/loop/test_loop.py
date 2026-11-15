@@ -16,7 +16,7 @@ from pathlib import Path
 LOOP = Path(__file__).resolve().parent / "loop.py"
 
 FAKE = """
-import json, os, re, sys, time
+import json, os, re, subprocess, sys, time
 action = os.environ.get("FAKE_ACTION", "noop")
 record = os.environ.get("FAKE_RECORD")
 prompt = sys.stdin.read()
@@ -56,6 +56,108 @@ elif action in ("revise-plan", "adapt"):
     else:
         with open(path, "a", encoding="utf-8") as handle:
             handle.write("\\nObserved missing output. Next action: create the missing output.\\n")
+elif action == "fast-then-check":
+    if not os.path.exists("step1.txt"):
+        open("step1.txt", "w").close()
+    elif "[fast_check failed]" in prompt and not os.path.exists("fast_ok.txt"):
+        open("fast_ok.txt", "w").close()
+    elif os.path.exists("fast_ok.txt"):
+        open("ok.txt", "w").close()
+elif action == "slop-then-clean":
+    with open("legacy.py", "r+", encoding="utf-8") as handle:
+        old = handle.read()
+        handle.seek(0)
+        handle.write("HEADER = '# type: ignore in string literal'\\n" + old)
+    if "[slop_guard failed]" in prompt:
+        open("app.py", "w", encoding="utf-8").write(
+            "def parse_num(raw: str) -> int:\\n    return int(raw.strip())\\n"
+        )
+        open("client.ts", "w", encoding="utf-8").write(
+            "const note = '@ts-ignore inside string literal';\\nexport function load(): string { return note; }\\n"
+        )
+        open("ok.txt", "w").close()
+    else:
+        open("app.py", "w", encoding="utf-8").write(
+            "def parse_num(raw: str) -> int:\\n"
+            "    try:\\n        return raw  # type: ignore\\n"
+            "    except Exception:\\n        pass\\n    return 0\\n"
+        )
+        open("client.ts", "w", encoding="utf-8").write(
+            "// @ts-ignore\\nexport function load() { try { work(); } catch (e) {} }\\n"
+        )
+        open("ok.txt", "w").close()
+elif action == "weaken-ruff-toml":
+    open("ruff.toml", "w", encoding="utf-8").write("line-length = 999\\n")
+elif action == "weaken-pyproject-ruff":
+    text = open("pyproject.toml", encoding="utf-8").read()
+    open("pyproject.toml", "w", encoding="utf-8").write(text.replace('select = ["E", "F"]', 'select = []'))
+elif action == "edit-pyproject-deps":
+    text = open("pyproject.toml", encoding="utf-8").read()
+    open("pyproject.toml", "w", encoding="utf-8").write(text.replace("dependencies = []", 'dependencies = ["httpx"]'))
+    open("ok.txt", "w").close()
+elif action == "revert-pilot":
+    if "Plan after revert: create ok.txt cleanly." in prompt:
+        open("ok.txt", "w").close()
+    else:
+        open("tracked.txt", "w", encoding="utf-8").write("broken edit\\n")
+        open("dead_end.py", "w", encoding="utf-8").write("BROKEN = True\\n")
+        with open("goals/g.md", "a", encoding="utf-8") as handle:
+            handle.write("\\nPlan after revert: create ok.txt cleanly.\\n")
+elif action == "repeat-broken-edit":
+    open("tracked.txt", "w", encoding="utf-8").write("same broken edit\\n")
+elif action == "stubs-then-real":
+    open("base.py", "w", encoding="utf-8").write(
+        "from abc import ABC, abstractmethod\\n"
+        "class Store(ABC):\\n"
+        "    @abstractmethod\\n"
+        "    def save(self, value: str) -> None:\\n"
+        "        raise NotImplementedError\\n"
+    )
+    if "[slop_guard failed]" in prompt:
+        open("service.py", "w", encoding="utf-8").write(
+            "def export_csv(rows: list[str]) -> str:\\n    return '\\n'.join(rows)\\n"
+        )
+        open("ui.ts", "w", encoding="utf-8").write(
+            "const msg = 'not implemented inside string literal';\\nexport function render(): string { return msg; }\\n"
+        )
+        open("ok.txt", "w").close()
+    else:
+        open("service.py", "w", encoding="utf-8").write(
+            "# TODO: wire CSV export\\n"
+            "def export_csv(rows: list[str]) -> str:\\n"
+            "    raise NotImplementedError('stub')\\n"
+        )
+        open("ui.ts", "w", encoding="utf-8").write(
+            "// FIXME: finish view\\nexport function render(): string { throw new Error('not implemented'); }\\n"
+        )
+        open("ok.txt", "w").close()
+elif action == "tamper-manifest":
+    open("goals/manifest.json", "w", encoding="utf-8").write('{"product": "x", "slices": []}\\n')
+elif action == "manifest-stepwise":
+    if not os.path.exists("s1.txt"):
+        open("s1.txt", "w").close()
+    elif "[manifest 1/3 slices green]" in prompt and not os.path.exists("s2.txt"):
+        open("s2.txt", "w").close()
+    elif "[manifest 2/3 slices green]" in prompt and not os.path.exists("s3.txt"):
+        open("s3.txt", "w").close()
+        open("ok.txt", "w").close()
+elif action == "stage-and-commit":
+    open("tracked.txt", "w", encoding="utf-8").write("committed broken edit\\n")
+    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-qam", "agent"], check=True)
+    open("staged_new.py", "w", encoding="utf-8").write("X = 1\\n")
+    subprocess.run(["git", "add", "staged_new.py"], check=True)
+elif action == "link-escape":
+    if os.name == "nt":
+        subprocess.run(["cmd", "/c", "mklink", "/J", "escape", os.environ["FAKE_OUTSIDE"]], check=True, capture_output=True)
+    else:
+        os.symlink(os.environ["FAKE_OUTSIDE"], "escape")
+elif action == "create-nested-conftest":
+    os.makedirs("src", exist_ok=True)
+    open("src/conftest.py", "w", encoding="utf-8").write("collect_ignore_glob = ['*']\\n")
+elif action == "weaken-package-lint":
+    data = json.load(open("package.json", encoding="utf-8"))
+    data["scripts"]["lint"] = "true"
+    json.dump(data, open("package.json", "w", encoding="utf-8"))
 if action == "fail":
     sys.exit(3)
 """
@@ -338,6 +440,323 @@ class LoopCase(unittest.TestCase):
         self.assertEqual(run.returncode, 2, run.stdout + run.stderr)
         self.assertFalse((self.repo / "tests" / "__pycache__").exists())
 
+    def test_audit_reports_layers_gaps_and_scaffolds_a_goal_contract(self):
+        initial = self.loop("audit", "--json")
+        self.assertEqual(initial.returncode, 0, initial.stdout + initial.stderr)
+        report = json.loads(initial.stdout)
+        self.assertFalse(report["ready"])
+        self.assertGreaterEqual(len(report["gaps"]), 2)
+        strict_fail = self.loop("audit", "--strict")
+        self.assertEqual(strict_fail.returncode, 1)
+
+        (self.repo / "ruff.toml").write_text("line-length = 100\n", encoding="utf-8")
+        (self.repo / "pyproject.toml").write_text(
+            "[tool.mypy]\nstrict = true\n[tool.pytest.ini_options]\ntestpaths = [\"tests\"]\n",
+            encoding="utf-8",
+        )
+        (self.repo / "tests").mkdir()
+        (self.repo / "tests" / "test_app.py").write_text("def test_ok(): assert True\n", encoding="utf-8")
+        (self.repo / ".pre-commit-config.yaml").write_text("repos: []\n", encoding="utf-8")
+        (self.repo / ".omp" / "skills" / "verify-demo").mkdir(parents=True)
+        (self.repo / ".omp" / "skills" / "verify-demo" / "SKILL.md").write_text("---\nname: verify-demo\n---\n", encoding="utf-8")
+
+        ready = self.loop("audit", "--json", "--strict", "--write-goal", "goals/scaffold.md")
+        self.assertEqual(ready.returncode, 0, ready.stdout + ready.stderr)
+        ready_report = json.loads(ready.stdout)
+        self.assertTrue(ready_report["ready"])
+        self.assertEqual(ready_report["gaps"], [])
+        self.assertIn("ruff check .", ready_report["layers"]["static_checks"])
+        self.assertIn("mypy .", ready_report["layers"]["static_checks"])
+        self.assertEqual(ready_report["layers"]["test_checks"], ["pytest"])
+        self.assertEqual(ready_report["layers"]["runtime_verify"], [".omp/skills/verify-demo"])
+        scaffold = (self.repo / "goals" / "scaffold.md").read_text(encoding="utf-8")
+        self.assertIn("fast_check: ruff check . && mypy .", scaffold)
+        self.assertIn("check: pytest", scaffold)
+        self.assertIn("ruff.toml", scaffold)
+
+        dup = self.loop("audit", "--write-goal", "goals/scaffold.md")
+        self.assertNotEqual(dup.returncode, 0)
+        outside = self.loop("audit", "--write-goal", str(self.tmp / "outside.md"))
+        self.assertNotEqual(outside.returncode, 0)
+
+    def test_fast_check_short_circuits_before_slow_acceptance_check(self):
+        (self.repo / "fast.sh").write_text(
+            "test -f fast_ok.txt || { echo 'typecheck error: bad return'; exit 1; }\n",
+            encoding="utf-8", newline="\n",
+        )
+        (self.repo / "check.sh").write_text(
+            "echo ran >> check_runs.txt\ntest -f ok.txt\n",
+            encoding="utf-8", newline="\n",
+        )
+        self.goal(fast_check="sh ./fast.sh", protect="fast.sh check.sh", max_iterations=4)
+        run = self.loop("run", "goals/g.md", action="fast-then-check")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        rows = self.trail_rows()
+        self.assertEqual(len(rows), 3)
+        self.assertTrue(rows[0].endswith("\tfast_check"), rows)
+        self.assertTrue(rows[1].endswith("\tcheck"), rows)
+        self.assertTrue(rows[2].endswith("\tpass"), rows)
+        self.assertEqual(len((self.repo / "check_runs.txt").read_text(encoding="utf-8").splitlines()), 2)
+
+    def test_forbid_slop_blocks_newly_added_suppressions_and_swallowed_exceptions_until_cleaned(self):
+        (self.repo / "legacy.py").write_text("import sys  # noqa: E402\n", encoding="utf-8", newline="\n")
+        git(self.repo, "add", "legacy.py")
+        git(self.repo, "commit", "-q", "-m", "legacy")
+        self.goal(max_iterations=3)
+        run = self.loop("run", "goals/g.md", action="slop-then-clean")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        rows = self.trail_rows()
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(rows[0].endswith("\tslop_guard"), rows)
+        self.assertTrue(rows[1].endswith("\tpass"), rows)
+        second_prompt = next((self.repo / ".scratch" / "goals" / "g").glob("*-iteration-2-prompt.txt")).read_text(encoding="utf-8")
+        self.assertIn("[slop_guard failed]", second_prompt)
+        self.assertIn("app.py:3: [suppression-comment]", second_prompt)
+        self.assertIn("app.py:4: [swallowed-exception]", second_prompt)
+        self.assertIn("client.ts:1: [suppression-comment]", second_prompt)
+        self.assertIn("client.ts:2: [swallowed-exception]", second_prompt)
+        self.assertNotIn("legacy.py", second_prompt)
+
+    def test_forbid_slop_can_be_disabled_explicitly(self):
+        (self.repo / "legacy.py").write_text("x = 1\n", encoding="utf-8")
+        self.goal(forbid_slop="false", max_iterations=2)
+        run = self.loop("run", "goals/g.md", action="slop-then-clean")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertEqual(len(self.trail_rows()), 1)
+
+    def test_protect_configs_guards_linter_configs_and_pyproject_tool_tables(self):
+        (self.repo / "ruff.toml").write_text("line-length = 100\n", encoding="utf-8")
+        (self.repo / "pyproject.toml").write_text(
+            '[project]\nname = "demo"\ndependencies = []\n\n[tool.ruff]\nselect = ["E", "F"]\n',
+            encoding="utf-8",
+        )
+        git(self.repo, "add", "ruff.toml", "pyproject.toml")
+        git(self.repo, "commit", "-q", "-m", "configs")
+
+        self.goal()
+        tamper_cfg = self.loop("run", "goals/g.md", action="weaken-ruff-toml")
+        self.assertEqual(tamper_cfg.returncode, 4, tamper_cfg.stdout + tamper_cfg.stderr)
+        self.assertIn("ruff.toml", tamper_cfg.stdout)
+        git(self.repo, "checkout", "-q", "--", "ruff.toml")
+
+        self.goal()
+        tamper_py = self.loop("run", "goals/g.md", action="weaken-pyproject-ruff")
+        self.assertEqual(tamper_py.returncode, 4, tamper_py.stdout + tamper_py.stderr)
+        self.assertIn("pyproject.toml", tamper_py.stdout)
+        git(self.repo, "checkout", "-q", "--", "pyproject.toml")
+
+        self.goal()
+        allow_deps = self.loop("run", "goals/g.md", action="edit-pyproject-deps")
+        self.assertEqual(allow_deps.returncode, 0, allow_deps.stdout + allow_deps.stderr)
+        self.assertIn('"httpx"', (self.repo / "pyproject.toml").read_text(encoding="utf-8"))
+        (self.repo / "ok.txt").unlink()
+        git(self.repo, "checkout", "-q", "--", "pyproject.toml")
+
+        self.goal(protect_configs="false", max_iterations=1)
+        opt_out = self.loop("run", "goals/g.md", action="weaken-ruff-toml")
+        self.assertEqual(opt_out.returncode, 2, opt_out.stdout + opt_out.stderr)
+
+    def test_revert_on_fail_resets_failed_edits_keeps_plan_and_stalls_on_identical_repeats(self):
+        (self.repo / "tracked.txt").write_text("clean\n", encoding="utf-8")
+        git(self.repo, "add", "tracked.txt")
+        git(self.repo, "commit", "-q", "-m", "tracked")
+
+        (self.repo / "dirty.txt").write_text("user work\n", encoding="utf-8")
+        self.goal(revert_on_fail="true")
+        refused = self.loop("run", "goals/g.md", action="done")
+        self.assertEqual(refused.returncode, 1)
+        self.assertIn("clean working tree", refused.stdout + refused.stderr)
+        self.assertTrue((self.repo / "dirty.txt").exists())
+        (self.repo / "dirty.txt").unlink()
+
+        self.goal(revert_on_fail="true", max_iterations=3)
+        recovered = self.loop("run", "goals/g.md", action="revert-pilot")
+        self.assertEqual(recovered.returncode, 0, recovered.stdout + recovered.stderr)
+        self.assertEqual(len(self.trail_rows()), 2)
+        self.assertEqual((self.repo / "tracked.txt").read_text(encoding="utf-8"), "clean\n")
+        self.assertFalse((self.repo / "dead_end.py").exists())
+        self.assertTrue((self.repo / "ok.txt").exists())
+        (self.repo / "ok.txt").unlink()
+        shutil.rmtree(self.repo / ".scratch" / "goals" / "g")
+
+        self.goal(revert_on_fail="true", max_iterations=5, stall_after=2)
+        stalled = self.loop("run", "goals/g.md", action="repeat-broken-edit")
+        self.assertEqual(stalled.returncode, 3, stalled.stdout + stalled.stderr)
+        self.assertEqual(len(self.trail_rows()), 3)
+        self.assertEqual((self.repo / "tracked.txt").read_text(encoding="utf-8"), "clean\n")
+
+    def test_stub_placeholders_block_todos_and_not_implemented_while_allowing_abstract_methods(self):
+        self.goal(max_iterations=3)
+        run = self.loop("run", "goals/g.md", action="stubs-then-real")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        rows = self.trail_rows()
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(rows[0].endswith("\tslop_guard"), rows)
+        self.assertTrue(rows[1].endswith("\tpass"), rows)
+        second_prompt = next((self.repo / ".scratch" / "goals" / "g").glob("*-iteration-2-prompt.txt")).read_text(encoding="utf-8")
+        self.assertNotIn("base.py", second_prompt)
+        self.assertIn("service.py:1: [stub-placeholder]", second_prompt)
+        self.assertIn("service.py:3: [stub-placeholder]", second_prompt)
+        self.assertIn("ui.ts:1: [stub-placeholder]", second_prompt)
+        self.assertIn("ui.ts:2: [stub-placeholder]", second_prompt)
+
+    def test_manifest_drives_all_slices_to_completion_and_auto_protects_manifest_file(self):
+        manifest = {
+            "product": "Complete three-slice CLI",
+            "slices": [
+                {"id": "slice-1", "title": "Storage layer", "check": "test -f s1.txt"},
+                {"id": "slice-2", "title": "Command layer", "check": "test -f s2.txt"},
+                {"id": "slice-3", "title": "End-to-end persistence", "check": "test -f s3.txt"},
+            ],
+        }
+        (self.repo / "goals" / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+        initial = self.loop("manifest", "goals/manifest.json", "--json")
+        self.assertEqual(initial.returncode, 1)
+        summary = json.loads(initial.stdout)
+        self.assertEqual((summary["passed"], summary["total"], summary["ready"]), (0, 3, False))
+
+        self.goal(manifest="goals/manifest.json", max_iterations=5)
+        tamper = self.loop("run", "goals/g.md", action="tamper-manifest")
+        self.assertEqual(tamper.returncode, 4, tamper.stdout + tamper.stderr)
+        self.assertIn("goals/manifest.json", tamper.stdout)
+        (self.repo / "goals" / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        shutil.rmtree(self.repo / ".scratch")
+
+        self.goal(manifest="goals/manifest.json", max_iterations=5)
+        run = self.loop("run", "goals/g.md", action="manifest-stepwise")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        rows = self.trail_rows()
+        self.assertEqual(len(rows), 3)
+        self.assertTrue(rows[0].endswith("\tmanifest"), rows)
+        self.assertTrue(rows[1].endswith("\tmanifest"), rows)
+        self.assertTrue(rows[2].endswith("\tpass"), rows)
+        green = self.loop("manifest", "goals/manifest.json", "--json")
+        self.assertEqual(green.returncode, 0)
+        self.assertTrue(json.loads(green.stdout)["ready"])
+
+    def test_revert_on_fail_undoes_agent_commits_and_staged_files(self):
+        (self.repo / "tracked.txt").write_text("clean\n", encoding="utf-8")
+        git(self.repo, "add", "tracked.txt")
+        git(self.repo, "commit", "-q", "-m", "tracked")
+        base = subprocess.run(["git", "-C", str(self.repo), "rev-parse", "HEAD"], capture_output=True, text=True).stdout
+        self.goal(revert_on_fail="true", max_iterations=1)
+        run = self.loop("run", "goals/g.md", action="stage-and-commit")
+        self.assertEqual(run.returncode, 2, run.stdout + run.stderr)
+        head = subprocess.run(["git", "-C", str(self.repo), "rev-parse", "HEAD"], capture_output=True, text=True).stdout
+        self.assertEqual(head, base)
+        self.assertEqual((self.repo / "tracked.txt").read_text(encoding="utf-8"), "clean\n")
+        self.assertFalse((self.repo / "staged_new.py").exists())
+        status = subprocess.run(["git", "-C", str(self.repo), "status", "--porcelain", "-uall"], capture_output=True, text=True).stdout
+        self.assertEqual(status.split(), ["??", "goals/g.md"])
+
+    def test_revert_on_fail_removes_an_escaping_link_without_touching_its_target(self):
+        outside = self.tmp / "outside"
+        outside.mkdir()
+        (outside / "victim.txt").write_text("keep me\n", encoding="utf-8")
+        self.goal(revert_on_fail="true", max_iterations=1)
+        run = self.loop("run", "goals/g.md", action="link-escape", FAKE_OUTSIDE=str(outside))
+        self.assertEqual(run.returncode, 2, run.stdout + run.stderr)
+        self.assertEqual((outside / "victim.txt").read_text(encoding="utf-8"), "keep me\n")
+        self.assertFalse(os.path.lexists(self.repo / "escape"))
+
+    def test_protect_configs_blocks_creating_new_guardrail_configs(self):
+        self.goal()
+        root_cfg = self.loop("run", "goals/g.md", action="weaken-ruff-toml")
+        self.assertEqual(root_cfg.returncode, 4, root_cfg.stdout + root_cfg.stderr)
+        self.assertIn("ruff.toml", root_cfg.stdout)
+        (self.repo / "ruff.toml").unlink()
+
+        self.goal()
+        nested = self.loop("run", "goals/g.md", action="create-nested-conftest")
+        self.assertEqual(nested.returncode, 4, nested.stdout + nested.stderr)
+        self.assertIn("src/conftest.py", nested.stdout)
+
+        shutil.rmtree(self.repo / "src")
+        self.goal(protect_configs="false", max_iterations=1)
+        opt_out = self.loop("run", "goals/g.md", action="create-nested-conftest")
+        self.assertEqual(opt_out.returncode, 2, opt_out.stdout + opt_out.stderr)
+
+    def test_manifest_dry_run_validates_from_any_cwd_without_running_slices(self):
+        manifest = {"product": "demo", "slices": [{"id": "s1", "title": "never run", "check": "touch ran.txt; exit 1"}]}
+        (self.repo / "goals" / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+        full_env = {**os.environ, "PATH": self.path}
+        run = subprocess.run([sys.executable, str(LOOP), "manifest", "manifest.json", "--dry-run", "--json"],
+                             cwd=self.repo / "goals", env=full_env, capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertEqual(json.loads(run.stdout), {"manifest": "goals/manifest.json", "product": "demo", "total": 1, "valid": True})
+        self.assertFalse((self.repo / "ran.txt").exists())
+
+    def test_protect_configs_guards_package_json_scripts_but_not_dependencies(self):
+        (self.repo / "package.json").write_text(json.dumps({"scripts": {"lint": "eslint ."}, "dependencies": {}}), encoding="utf-8")
+        git(self.repo, "add", "package.json")
+        git(self.repo, "commit", "-q", "-m", "pkg")
+        self.goal()
+        run = self.loop("run", "goals/g.md", action="weaken-package-lint")
+        self.assertEqual(run.returncode, 4, run.stdout + run.stderr)
+        self.assertIn("package.json scripts", run.stdout)
+
+    def test_slop_in_nested_vendored_folders_is_ignored(self):
+        vendored = self.repo / "packages" / "web" / "node_modules" / "dep"
+        vendored.mkdir(parents=True)
+        (vendored / "index.js").write_text("// @ts-ignore\ntry { a(); } catch (e) {}\n", encoding="utf-8")
+        self.goal()
+        run = self.loop("check", "goals/g.md")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertNotIn("slop_guard", run.stdout)
+
+
+class ScanTextSlopCase(unittest.TestCase):
+    def scan(self, name, text):
+        sys.path.insert(0, str(LOOP.parent))
+        self.addCleanup(sys.path.remove, str(LOOP.parent))
+        import loop
+        return [(line, rule) for _, line, rule, _, _ in loop.scan_text_slop(name, text)]
+
+    def test_rust_lifetimes_char_literals_and_raw_strings_do_not_hide_later_slop(self):
+        text = ("fn first<'a>(x: &'a str) -> &'a str { x }\n#[allow(dead_code)]\nfn unused() { todo!() }\n"
+                "let c = '\'';\nlet r = r#\"// TODO inside a raw string\"#;\n")
+        self.assertEqual(self.scan("lib.rs", text), [(2, "suppression-comment"), (3, "stub-placeholder")])
+
+    def test_stray_quotes_in_jsx_and_regex_literals_do_not_hide_later_slop(self):
+        self.assertEqual(self.scan("view.tsx", "const A = () => <p>Don't stop</p>;\n// @ts-ignore\nconst x = 1;\n"),
+                         [(2, "suppression-comment")])
+        self.assertEqual(self.scan("re.js", "s.replace(/['\"]/g, '');\ntry { go(); } catch (e) {}\n"),
+                         [(2, "swallowed-exception")])
+
+    def test_go_raw_strings_have_no_escapes(self):
+        self.assertEqual(self.scan("raw.go", "var p = `C:\\path\\`\n// nolint\n"), [(2, "suppression-comment")])
+
+    def test_prose_mentioning_placeholder_is_not_a_stub_but_leading_markers_are(self):
+        self.assertEqual(self.scan("ui.ts", "// Renders the placeholder text when empty\n"), [])
+        self.assertEqual(self.scan("ui.ts", "// placeholder until the API lands\n// later TODO wire it\n"),
+                         [(1, "stub-placeholder"), (2, "stub-placeholder")])
+    def test_broad_catches_that_only_continue_return_or_break_are_swallowed(self):
+        text = ("def a(xs):\n    for x in xs:\n        try:\n            go(x)\n        except Exception:\n            continue\n"
+                "def b():\n    try:\n        return go()\n    except Exception:\n        return None\n"
+                "def c():\n    with contextlib.suppress(Exception):\n        go()\n"
+                "def d():\n    try:\n        go()\n    except Exception:\n        log.exception('x')\n        raise\n")
+        self.assertEqual(self.scan("m.py", text), [(5, "swallowed-exception"), (10, "swallowed-exception"),
+                                                   (13, "swallowed-exception")])
+
+    def test_bare_except_that_reraises_is_allowed(self):
+        self.assertEqual(self.scan("m.py", "try:\n    go()\nexcept:\n    cleanup()\n    raise\n"), [])
+
+    def test_not_implemented_stubs_inside_handlers_and_match_cases_are_found_but_dispatch_fallbacks_are_not(self):
+        text = ("def a(x):\n    try:\n        return go(x)\n    except KeyError:\n        raise NotImplementedError\n"
+                "def b(kind):\n    match kind:\n        case 'csv':\n            raise NotImplementedError('todo: csv')\n"
+                "def c(kind):\n    if kind == 'json':\n        return 1\n    raise NotImplementedError(f'unsupported kind {kind}')\n")
+        self.assertEqual(self.scan("m.py", text), [(5, "stub-placeholder"), (9, "stub-placeholder")])
+
+    def test_more_python_and_rust_suppressions_are_recognized(self):
+        text = ("x = 1  # pylint: disable=unused-variable\ny = eval(s)  # nosec\n"
+                "def z():  # pragma: no cover\n    return 1\n# mypy: ignore-errors\n")
+        self.assertEqual([r for _, r in self.scan("m.py", text)], ["suppression-comment"] * 4)
+        self.assertEqual(self.scan("lib.rs", "#[expect(dead_code)]\nfn f() {}\n"), [(1, "suppression-comment")])
+
+    def test_block_comment_continuation_lines_are_scanned(self):
+        text = "/**\n * Loads the view.\n * TODO wire the cache\n * eslint-disable no-console\n */\nexport const a = 1;\n"
+        self.assertEqual(self.scan("ui.ts", text), [(3, "stub-placeholder"), (4, "suppression-comment")])
 
 if __name__ == "__main__":
     unittest.main()

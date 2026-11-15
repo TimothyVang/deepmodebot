@@ -49,7 +49,7 @@ Known gaps reserved for contributors:
 | `plugins/deepmodebot/skills/deepmodebot/scripts/` | Skill validation and trending discovery | `check_skill.py`, `trending.py` |
 | `plugins/deepmodebot/skills/project-brief/`, `contribute/` | Maintainer and contributor workflows | `SKILL.md`, `assets/` |
 | `plugins/deepmodebot/skills/deep-stack/` and the verification skills | Stack choices and reusable app verification | `SKILL.md` |
-| `plugins/deepmodebot/commands/` | `deep`, `review-pr`, `land-pr`, `pr-thread`, `contribute`, `project-brief` | The corresponding command file |
+| `plugins/deepmodebot/commands/` | `deep`, `tournament`, `review-pr`, `land-pr`, `pr-thread`, `contribute`, `project-brief` | The corresponding command file |
 | `brand/`, `scripts/whitelabel.py`, `scripts/media/` | Brand inputs, distribution builds and rendered media | `brand/brand.json`, `scripts/whitelabel.py` |
 | `scripts/` | Repository gate, overlap checks, claim tests and roadmap generation | `check.py`, `pr-overlap.py`, `sync-roadmap.py` |
 | `evals/` | Routing and outcome evaluations with committed results | `evals/README.md` |

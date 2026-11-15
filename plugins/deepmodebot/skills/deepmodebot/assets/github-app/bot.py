@@ -2470,9 +2470,13 @@ def _update_install(install=None, dry: bool = False, cfg=None) -> dict:
         for command in commands:
             run(command, env=env, timeout=UPDATE_TIMEOUT, cwd=Path.home())
 
+    copies = record.get("copies", {})
+    if not isinstance(copies, dict):  # a hand-edited receipt; no copy is trusted as managed
+        print("warning: update receipt 'copies' is not an object; ignoring it", file=sys.stderr)
+        copies = {}
     result = local_updates.synchronize(
         Path.home(), WORK / "local-updates", cfg.get("localCopyPaths", []),
-        record.get("copies", {}), dry=dry, install=install, upgrade=upgrade)
+        copies, dry=dry, install=install, upgrade=upgrade)
     result.update(recorded=record.get("sha"), commands=commands,
                   codeChanged=not dry and code_hash(assets) != before)
     if not dry:

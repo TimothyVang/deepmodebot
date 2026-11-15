@@ -148,5 +148,13 @@ class EvidenceTests(unittest.TestCase):
                 validate_scenario(candidate)
 
 
+    def test_blank_contains_expectation_cannot_pass_vacuously(self):
+        scenario = json.loads((self.root / "scenario.json").read_bytes())
+        for term in ("", "   "):
+            candidate = copy.deepcopy(scenario)
+            candidate["steps"][0]["expected"] = {"text": [{"selector": "body", "contains": term}]}
+            with self.subTest(term=term), self.assertRaises(ValueError):
+                validate_scenario(candidate)
+
 if __name__ == "__main__":
     unittest.main()

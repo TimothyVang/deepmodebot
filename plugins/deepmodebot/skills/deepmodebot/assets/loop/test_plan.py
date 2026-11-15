@@ -189,6 +189,31 @@ class PlanningCase(unittest.TestCase):
         self.assertEqual(json.loads((self.output / "receipt.json").read_text()), result)
         self.assertFalse((self.output / "goal.md").exists())
 
+    def test_minority_evidence_request_cannot_be_outvoted(self):
+        remote = Remote([self.draft])
+        def gap(prompt, directory):
+            reply = json.loads(remote(prompt, directory))
+            if reply.get("lens") == plan.LENSES[2]:
+                reply.update(vote="needs_context", questions=[],
+                             evidence_requests=[{"request": "Measure the real baseline", "source": "fixed-check.json"}])
+            return json.dumps(reply)
+        result = self.run_plan(gap)
+        self.assertEqual(result["state"], "needs_context")
+        self.assertEqual(result["evidence_requests"][0]["request"], "Measure the real baseline")
+        self.assertFalse((self.output / "goal.md").exists())
+
+    def test_huge_integer_and_deep_nesting_keep_an_invalid_receipt(self):
+        for label, bad in (("huge", '"target": ' + "9" * 400), ("nested", '"target": ' + "[" * 100000)):
+            with self.subTest(label):
+                self.output = self.root / ("out-" + label)
+                remote = Remote([self.draft])
+                def corrupt(prompt, directory, remote=remote, bad=bad):
+                    return remote(prompt, directory).replace('"target": 10', bad, 1)
+                result = self.run_plan(corrupt)
+                self.assertEqual(result["state"], "invalid")
+                self.assertEqual(json.loads((self.output / "receipt.json").read_text()), result)
+                self.assertFalse((self.output / "goal.md").exists())
+
     def test_unmeasured_baseline_requires_first_measurement_and_dependency(self):
         draft = copy.deepcopy(self.draft)
         draft["criteria"][0].update(baseline=None, baseline_evidence=None, baseline_milestone="measure")

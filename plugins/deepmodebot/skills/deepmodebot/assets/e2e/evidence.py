@@ -135,6 +135,7 @@ def validate_scenario(value):
                     require(set(item) in ({"selector", "equals"}, {"selector", "contains"}), "invalid text expectation")
                     term = item.get("equals", item.get("contains"))
                     require(isinstance(term, str) and len(term) <= 8192 and "\0" not in term, "invalid expected text")
+                    require("contains" not in item or term.strip(), "contains needs nonblank text; it would always pass")
                 else:
                     require(set(item) == {"selector", "property", "equals"} and item["property"] in ("visible", "enabled", "checked")
                             and type(item["equals"]) is bool, "invalid state expectation")
