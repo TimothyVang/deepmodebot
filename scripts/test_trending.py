@@ -472,6 +472,98 @@ class ReferenceDiscoveryTests(unittest.TestCase):
                     if curated:
                         self.assertTrue(catalog.is_stale(current))
 
+    def test_repeated_github_search_rows_preserve_every_private_identity(self):
+        private_one = self.repository("collision/project", 1)
+        private_one.update(private=True, description="private-sentinel-metadata")
+        private_three = {**private_one, "id": 3}
+        conflicting_public = {**private_one, "id": 2, "private": False}
+        eligible = self.repository("public-owner/eligible", 4)
+        for observations in ((private_one, private_three, conflicting_public),
+                             (conflicting_public, private_three, private_one)):
+            with self.subTest(final_private=observations[-1]["private"]):
+                saved = {}
+                for identity in (1, 3):
+                    name = f"earlier/original-{identity}"
+                    entry = self.entry(name, identity)
+                    entry["description"] = private_one["description"]
+                    entry["reference"] = {**self.reference, "github_id": identity}
+                    saved[name] = entry
+                self.write_catalog({"updated": "2026-11-14", "sources": {}, "repos": saved})
+                responses = iter([[observations[0], eligible], [observations[1]], [observations[2]]])
+
+                def remote(url, token=None):
+                    return json.dumps({"items": next(responses, [])})
+
+                output = io.StringIO()
+                with patch.object(catalog, "SOURCES", [("github-search", catalog.source_github_search)]), \
+                        patch.object(catalog, "WATCH_TOPICS", ["synthetic"]), \
+                        patch.object(catalog, "github_token", return_value="synthetic"), \
+                        patch.object(catalog, "fetch", side_effect=remote), \
+                        contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
+                    catalog.update(argparse.Namespace(out=self.out))
+                    catalog.find(argparse.Namespace(out=self.out, terms=["sentinel"],
+                                                    limit=20, no_refresh=True))
+                current = catalog.load_catalog(self.out / "catalog.json")
+                self.assertEqual(set(current["repos"]), {eligible["full_name"]})
+                artifacts = output.getvalue() + (self.out / "catalog.json").read_text(encoding="utf-8")
+                artifacts += (self.out / "README.md").read_text(encoding="utf-8")
+                self.assertNotIn(private_one["description"], artifacts)
+
+    def test_invalid_cached_reference_authority_is_rejected_without_or_with_refresh(self):
+        for annotation_id, metadata_id in ((True, 1), (1.0, 1), ("1", 1), (2, 1),
+                                           (0, 1), (-1, 1), (1, True), (1, 1.0)):
+            for refresh in (False, True):
+                with self.subTest(annotation_id=annotation_id, metadata_id=metadata_id, refresh=refresh):
+                    saved = self.entry("owner/current")
+                    saved["github_id"] = metadata_id
+                    saved["reference"] = {**self.reference, "github_id": annotation_id,
+                                          "topics": ["authority-marker"], "caution": "UNTRUSTED ID ANNOTATION"}
+                    self.write_catalog({"updated": "2026-11-14", "sources": {},
+                                        "reference_revision": catalog.REFERENCE_REVISION,
+                                        "repos": {"owner/current": saved}})
+
+                    def source(found, token):
+                        catalog.add(found, "owner/current", "ordinary-search", self.repository("owner/current"))
+
+                    output = io.StringIO()
+                    with patch.object(catalog, "SOURCES", [("ordinary-search", source)]), \
+                            patch.object(catalog, "github_token", return_value=None), \
+                            contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
+                        if refresh:
+                            catalog.update(argparse.Namespace(out=self.out))
+                        catalog.find(argparse.Namespace(out=self.out, terms=["authority-marker"],
+                                                        limit=20, no_refresh=True))
+                    current = catalog.load_catalog(self.out / "catalog.json")
+                    if refresh or type(metadata_id) is int:
+                        self.assertIn("owner/current", current["repos"])
+                        self.assertNotIn("reference", current["repos"]["owner/current"])
+                    else:
+                        self.assertNotIn("owner/current", current["repos"])
+                    self.assertTrue(catalog.is_stale(current))
+                    self.assertNotIn("UNTRUSTED ID ANNOTATION", output.getvalue())
+                    if refresh:
+                        self.assertNotIn("UNTRUSTED ID ANNOTATION",
+                                         (self.out / "README.md").read_text(encoding="utf-8"))
+
+    def test_matching_publication_revision_cannot_authorize_malformed_cached_ids(self):
+        for annotation_id in (True, 1.0, "1", 2):
+            with self.subTest(annotation_id=annotation_id):
+                saved = self.entry("owner/original")
+                saved["reference"] = self.reference
+                local = {"updated": "2026-11-13", "sources": {}, "repos": {"owner/original": saved}}
+                self.write_catalog(local)
+                before = (self.out / "catalog.json").read_bytes()
+                remote_entry = self.entry("unrelated/replacement")
+                remote_entry["reference"] = {**self.reference, "github_id": annotation_id,
+                                             "caution": "UNTRUSTED ID ANNOTATION"}
+                publication = {"updated": "2026-11-14", "sources": {},
+                               "reference_revision": catalog.REFERENCE_REVISION,
+                               "repos": {"unrelated/replacement": remote_entry}}
+                with patch.object(catalog, "PUBLISHED", "https://example.test/catalog.json"), \
+                        patch.object(catalog, "fetch", return_value=json.dumps(publication)):
+                    self.assertFalse(catalog.fetch_published(self.out, local))
+                self.assertEqual((self.out / "catalog.json").read_bytes(), before)
+
     def test_newer_incompatible_publication_cannot_erase_saved_reference_on_api_failure(self):
         saved = self.entry("new-owner/component")
         saved["reference"] = self.reference
