@@ -22,7 +22,8 @@ Headless engines this playbook may use:
 One task, one session, one completion predicate.
 
 1. State the exit condition as a checkable predicate before the first iteration (tests green, repro fixed, all N PRs merged, pixel-diff zero). Write down the command or check that evaluates it.
-   Done when the predicate and its command are written down and one run of the command shows the current state.
+   Audit the repo's inner loop first (`python <deepmodebot skill>/assets/loop/loop.py audit .` or `references/techniques/inner-loop.md`) so the predicate pairs fast static checks with behavioral proof and cannot pass via inline suppressions, swallowed errors, or weakened configs.
+   Done when the predicate, its inner-loop checks, and its command are written down and one run shows the current state.
 2. Start a decision trail per the **show-me-your-work** technique (`references/techniques/show-me-your-work.md`).
    Done when the trail file exists and its absolute path is printed.
 3. Pick the wake mechanism:
@@ -31,8 +32,8 @@ One task, one session, one completion predicate.
    - Unattended across sessions, from a script or CI, or in another harness → write a goal file and run `python <deepmodebot skill>/assets/loop/loop.py run <goal.md>`. It runs headless omp, Claude Code, or Codex until the check passes, and it is capped, stall-stopped, and tamper-checked.
    - Interactive in one session → the harness's native `/goal` with the predicate's command named in it. Details: `references/playbooks/self-authoring.md`.
    - Done when the wake job, `loop.py` run, or `/goal` is armed and its id or command is in the trail.
-4. Each iteration: make the smallest change the evidence justifies, then evaluate the predicate.
-   Done when the predicate's command has run on the changed code.
+4. Each iteration: make the smallest change the evidence justifies, run fast static checks first, and evaluate the predicate without adding inline suppressions or symptom guards.
+   Done when the inner-loop checks and the predicate's command have run on the changed code.
 5. Advanced → keep it and commit it. Didn't help → discard it. "Might help" belt-and-suspenders gets reverted, not left to ride.
    Done when the iteration's change is either committed or reverted, and `git status --porcelain` shows nothing left from it.
 6. Sequence the work into verifiable units, verifying each before the next instead of batching checks at the end (`references/principles/sequence-verifiable-units.md`).
@@ -91,7 +92,7 @@ Work two tracks at once: the tactical one (land the next unit) and the strategic
     A stopped worker that returns late: check its result against the PR's current state and hand unique findings to a fresh worker.
     Done when no running worker has gone an hour, or the interval you set for it, without a push or PR activity, and no unit has had a third retry.
 14. Strategic track. Before each new unit, ask what change to the environment would make it and later units go right by default, and hand that to a worker as its own unit.
-    Candidates: narrower interfaces, a lint rule, type, or test (**correct**), a pre-commit hook (`references/techniques/pre-commit.md`), a git guard (`references/techniques/git-guardrails.md`), a `CODING_STANDARDS.md` rule the reviewer enforces, or data the agents lack (dev-server logs teed to a file, a test database, browser access).
+    Candidates: tighter inner-loop checks (`references/techniques/inner-loop.md`), narrower interfaces, a lint rule, type, or test (**correct**), a pre-commit hook (`references/techniques/pre-commit.md`), a git guard (`references/techniques/git-guardrails.md`), a `CODING_STANDARDS.md` rule the reviewer enforces, or data the agents lack (dev-server logs teed to a file, a test database, browser access).
     No workarounds. A deviation from the repo's conventions gets fixed before more feature work lands on top of it.
     Done when each new unit has an environment change dispatched as its own unit, or a tracker note that none applies.
 15. Run the **retro** technique (`references/techniques/retro.md`) on about one in five finished workers, the ones that failed, stalled, or needed a retry first, reading the worker's `history://<id>` transcript. Decide which candidates to pursue yourself and dispatch them as units; file the rest.

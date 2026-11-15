@@ -355,6 +355,20 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
     if re.search(r"\bis\s+there\s+a\s+(?:library|project|example)\s+for\b|\bfind\s+something\s+we\s+can\s+(?:fork|copy)\b", lower):
         return out("prior-art", "question", "low", "Prior-art search request.")
 
+    if re.search(r"\binner[- ]loop\b|\b(?:ai\s+)?code\s+slop\b|\bblock\s+agent\s+slop\b", lower):
+        return out("inner-loop", "audit" if re.search(r"\baudit\b", lower) else "execute", "low",
+                   "Inner-loop gate hardening or audit request.")
+
+    if re.search(r"\bwhat\s+stack\b|\bpick\s+(?:a|the)\s+stack\b", lower) and not GREENFIELD_LEAD_RE.search(text):
+        return out("deep-stack", "question", "low", "Stack choice only, no build requested.")
+
+    if re.search(
+        r"\bend[- ]to[- ]end\b.*\b(?:product|project|app)\b|\b(?:product|project|app)\b.*\bend[- ]to[- ]end\b"
+        r"|\bdon'?t\s+stop\s+at\s+(?:a|the)\s+(?:first\s+)?(?:slice|mvp)\b|\bidea\s+into\s+a\s+complete\b",
+        lower,
+    ):
+        return out("end-to-end", "execute", "low", "Full-scope product delivery across every slice.")
+
     if TOURNAMENT_EXPLICIT_RE.search(text):
         vagueness = "high" if anchors == 0 else "medium"
         return out(
