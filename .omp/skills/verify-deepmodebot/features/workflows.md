@@ -39,6 +39,11 @@ For changes to the decision-brief procedure, run a bounded agent against a dispo
 Check that the delivered brief accounts for every requested option, identifies changed and unresolved facts with source locations and dates, gives only a supported conditional recommendation, and stops the unproductive rewrite pattern. Independently inspect source passages; citations and user preference are not proof of accuracy. Report incomplete runs and any missing behavior.
 Include a chat-only case or verify that the candidate does not create or publish a file when the request only asks for an answer. A synthetic scenario demonstrates instruction-following on that fixture, not general reliability, live-source freshness or a real-user pilot.
 
+## Opportunity-probe verification
+
+For changes to the opportunity probe, run a bounded agent through a business-data task with real or representative source terms, an actual prior artifact and failed check, a restricted or unclear-rights source, and an alternative whose relevance can be checked. Before retaining inputs, source passages, traces or outputs, confirm permission and retention constraints for each; if unavailable, use a synthetic or appropriately redacted fixture. Capture the permitted command, candidate revision, inputs, trace, output, and any permitted sample under `.scratch/evidence/`. Inspect the actual artifact and source passages: the agent must identify the failure, evaluate permissions before affected collection, produce a reproducible relevant sample or a specific blocker, and keep buyer need, authority, willingness to pay, value and costs separate from feasibility. A source citation or self-check is not independent proof.
+If a real source or user is available and authorized, exercise that path and record observations, costs and corrections; otherwise report that the probe is synthetic and the user outcome remains untested. Report errors, missing work and the mechanical stall detector's limits rather than inferring general reliability.
+
 
 ## Software-factory source-map probes
 
