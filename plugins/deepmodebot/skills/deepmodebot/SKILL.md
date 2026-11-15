@@ -1,6 +1,6 @@
 ---
 name: deepmodebot
-description: "Rigorous engineering mode: restate the goal, route to a playbook, apply named principles, prove behavior on the real app, and report with evidence. Invoked by /deep, or when the user asks for Deepmodebot or rigor on large or risky work."
+description: "Engineering rigor for /deep, Deepmodebot, or rigor requests on large/risky work: restate, choose a playbook, apply named principles, prove real behavior, report evidence."
 disable-model-invocation: true
 hooks:
   PreToolUse:
@@ -14,8 +14,8 @@ hooks:
 
 Paths below are relative to this skill (`skill://deepmodebot/...`).
 
-**Any harness.** The skill runs in omp (the user's preferred harness), Claude Code, Codex, Cursor, or any agent that loads skills. It names omp's tools; use your harness's equivalent.
-`task` subagents (`agent: "scout"`, `reviewer`) → Claude Code's `Agent` or your harness's subagents, or `acpx <agent> exec` when it has none. `todo` → `TodoWrite` or a plan list. `ask` → `AskUserQuestion` or one question in the reply. `skill://deepmodebot/<path>` → this skill's folder. `.omp/skills/` → your harness's skills folder (`.claude/skills/` in Claude Code). `skill://agent-harnesses` maps every tool and path to Claude Code and Codex with cited, dated facts.
+**Any harness.** Runs in omp (preferred), Claude Code, Codex, Cursor, or any skills harness. Translate omp tool names to your harness.
+`task` (`agent: "scout"`, `reviewer`) → Claude Code `Agent`, equivalent subagents, or `acpx <agent> exec` when none exist. `todo` → `TodoWrite` or plan; `ask` → `AskUserQuestion` or one reply question. `skill://deepmodebot/<path>` → this skill; `.omp/skills/` → harness skills (`.claude/skills/` in Claude Code). Full cited, dated tool/path mappings: `skill://agent-harnesses`.
 
 ## Route (do this first)
 
@@ -43,7 +43,7 @@ Discovery work (review, investigation, questions, or tournament discovery) has n
 
 ## Reasoning gates
 
-For M and L work, including research and business deliverables, apply these gates proportionally: a short evidence-linked note suffices, with no new agent, PR, or document. S work uses the goal and the real-artifact check directly.
+For M/L, including research and business deliverables, use proportional evidence-linked gates; no new agent, PR or document is required. S uses the goal and real-artifact check.
 
 1. **Before committing to a plan:** name the intended user, decision or deliverable, acceptance evidence, and authoritative sources. Inspect the source material and existing outputs first; separate observed facts from assumptions; check whether the work is already done or superseded. Resolve material contradictions first; mark conclusions unknown where evidence is unavailable.
 2. **At phase boundaries, before consequential actions, and before delivery:** compare the output with the original goal and current evidence. Check for missing entities, stale facts, unsupported conclusions, and work that no longer serves the goal. Name what changed and the next smallest action; replan when the premise fails. Activity, PRs, and generated pages are not proof of progress.
@@ -53,7 +53,7 @@ For an open-ended business use case, define one representative workflow and an i
 
 ## Contain the work
 
-Every task has one project root, and every file you create or change lives inside it: code, scratch and temp files, logs, downloads, reference clones, prototypes, worktrees, evidence, and delegates' output.
+Every task has one project root. Keep every created/changed file inside it: code, scratch/temp files, logs, downloads, reference clones, prototypes, worktrees, evidence and delegate output.
 
 - **Find the root first.** In a repo, the root is the worktree you're in (`git rev-parse --show-toplevel`). An Orca or Codex app session may start in a linked worktree outside the main checkout; that worktree is your root. Name the root's absolute path in your restate.
 - **No repo? Make a named one.** Outside a repo, in a folder that isn't a project, or for a new project that isn't the current repo, create `<parent>/<kebab-case-name-from-the-goal>/` and run `git init -b main` in it (choosing `<parent>` and the name: `references/contain.md`); never nest a repo in a repo or reuse an existing folder. Creating that folder is the one write allowed outside a root; from then on, work only inside it and report its path.
@@ -69,7 +69,7 @@ Every task has one project root, and every file you create or change lives insid
 
 ## Non-negotiables
 
-For size **S**, only the one-line restate, the Scope ledger, proving it on the real artifact, and, if it lands, the S lane apply; the rest applies when a rule would change the fix.
+**S** requires only the one-line restate, Scope ledger, real-artifact proof and (if landing) S lane; otherwise apply a rule only when it changes the fix.
 
 - **Restate first.** Your first message states, in your own words, the user's goal, the problem, and, if shipping a change, the smallest change to meet it. Don't wait for confirmation. If evidence rules out the requested change, show it and stop. Restate the goal in every subagent brief and at the top of every final report, except after a fully specified one-line edit.
 - **Scope ledger.** The restatement numbers every requested item ("all the logs", a list, "the rest" mean every member), and the todo list mirrors it. On a rough idea, add implied product essentials to the ledger; never narrow to a toy demo. An unqualified yes accepts all offered options in order, except hard stops. Anything you promise joins the ledger; only the user removes an item. Done means every item is done or blocked.
@@ -104,14 +104,14 @@ For size **S**, only the one-line restate, the Scope ledger, proving it on the r
 
 ## Subagents
 
-- You run the playbook. Delegates do bounded steps. Never delegate the playbook itself.
+- You run the playbook; delegates do bounded steps, never the playbook itself.
 - Use your harness's subagent tool (omp `task`, Claude Code `Agent`, Codex `spawn_agent`, which spawns only when told). Read-only research: omp `agent: "scout"`, Claude Code `Explore`, Codex `explorer`. Anything that edits, runs the app, or reads transcripts: the default agent. omp `reviewer` only reviews diffs. Give every parallel task exclusive file ownership; subagents share one workspace.
 - Every brief restates the user's goal, names the absolute project root, the exact files, and the acceptance check, says to write only inside the root (scratch in `.scratch/`), and tells code-writing delegates which `skill://deepmodebot/references/principles/<name>.md` files apply. omp subagents do not receive AGENTS.md, so put anything they must follow in the brief.
 - Delegates working at the same time are coworkers: give each the roster (agent ids, roles, files owned) and the **coworkers** technique (`references/techniques/coworkers.md`) so they ask, hand off, and push back directly instead of through you. Panel verifiers vote before they talk.
 - **Delegate only when it pays.** A child re-pays the system prompt and cold cache (~15x a chat). Delegate wide searches, log/transcript digests, fresh-eyes review, and independent slices. Keep one-file tasks, coupled work, and hard reasoning in the main session. Message a finished child instead of spawning a new one.
 - **Match model and effort to the task.** Small tier for search and mechanical edits; mid tier at medium effort for routine features; the strongest model at high effort for hard design, debugging, and review. Judges and second opinions use another model family when available. Cap unattended runs (omp `--max-cost`, Claude Code `--max-budget-usd`); per-harness settings: `skill://agent-harnesses/references/delegation-efficiency.md`.
-- You own every delegate's work. Review the diff yourself and write your own summary; never pass a report through.
-- Fresh delegates by default, with consolidated scope (original brief, later directives, prior report). Reuse a running delegate only when the work needs state that lives in it.
+- Review every delegate's diff and write your own summary; never pass its report through.
+- Fresh delegates by default; consolidate the original brief, later directives and prior report. Reuse a running child only when its state is needed.
 
 ## Routes
 
