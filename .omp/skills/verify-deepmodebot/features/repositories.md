@@ -20,6 +20,8 @@ Archived/forked curated aliases retain canonical metadata and cautions with expl
 Repository IDs preserve the original observation and star baseline across consecutive renames, including a cache first created without IDs.
 A reused name with a different repository ID starts a fresh history rather than inheriting another project's growth.
 A known name replacement must not inherit cached topics/licensing cautions after collector failure, even when archived or forked; independently refreshed annotations remain valid.
+Static curated references resolve the captured reviewed numeric IDs, not reusable repository names; mismatched/private identity responses stay unresolved.
+Snapshot history and cautions by ID before invalidating names so replacement/renamed input order cannot erase an active, archived or forked curated original.
 These cases isolate input adapters and transport, not live API success.
 The running CLI above is the surface proof; record failed source/enrichment requests rather than claiming every candidate is current.
 

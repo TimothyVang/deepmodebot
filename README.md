@@ -251,6 +251,7 @@ Contributor, after installing the plugin:
 An incomplete reference refresh keeps last-known topics and cautions and remains stale instead of claiming complete resolution. A later `find` can retry; use `--no-refresh` to search saved data without that attempt.
 
 The bundled [reference library](plugins/deepmodebot/skills/deepmodebot/assets/repo-references.json) adds dated, source-linked project choices to keyword search. License cautions are not truncated with descriptions. Inspect exact upstream code, asset, model and enterprise terms before adopting anything. [Startup references](plugins/deepmodebot/skills/deepmodebot/references/startup-ideas.md) separate ideas and anecdotes from validated demand or production readiness.
+Reviewed references pin numeric GitHub repository IDs from the original primary evidence (reference schema 2). Resolution follows that identity, not a reusable owner/name; a replacement cannot inherit the original's topics or licensing cautions.
 
 `catalog.json` keeps every repo seen in the last 120 days with first-seen date and star growth; `README.md` is the digest agents read. Refresh the published copy with `python plugins/deepmodebot/skills/deepmodebot/scripts/trending.py update --out trending` and commit it.
 

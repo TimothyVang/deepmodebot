@@ -29,6 +29,7 @@ class ReferenceDiscoveryTests(unittest.TestCase):
         clock.start()
         self.addCleanup(clock.stop)
         self.reference = {
+            "github_id": 1,
             "reviewed": "2026-11-14", "archive": "https://example.test/archive",
             "topics": ["doctor admin prototype"], "sources": ["https://example.test/source"],
             "caution": "Separate enterprise terms apply. " + "Check the intended use. " * 12
@@ -239,7 +240,7 @@ class ReferenceDiscoveryTests(unittest.TestCase):
 
         def source(found, token):
             catalog.add(found, "owner/component", "reference-library", self.repository("owner/component", 2))
-            found["owner/component"]["reference"] = self.reference
+            found["owner/component"]["reference"] = {**self.reference, "github_id": 2}
 
         with patch.object(catalog, "SOURCES", [("reference-library", source)]), \
                 patch.object(catalog, "github_token", return_value=None), \
@@ -261,7 +262,7 @@ class ReferenceDiscoveryTests(unittest.TestCase):
                     replacement = self.repository("owner/component", 2)
                     if flag:
                         replacement[flag] = True
-                    new_reference = {**self.reference, "caution": "Independent new repository licensing scope."}
+                    new_reference = {**self.reference, "github_id": 2, "caution": "Independent new repository licensing scope."}
 
                     def reference_source(found, token):
                         if not refreshed:
@@ -289,6 +290,114 @@ class ReferenceDiscoveryTests(unittest.TestCase):
                     else:
                         self.assertNotIn("reference", current["repos"]["owner/component"])
                     self.assertEqual(catalog.is_stale(current), not refreshed)
+
+    def test_static_reference_uses_reviewed_id_when_its_old_name_is_reused(self):
+        for flag in (None, "archived", "fork"):
+            with self.subTest(flag=flag):
+                saved = self.entry("owner/original", 1)
+                saved["reference"] = self.reference
+                self.write_catalog({"updated": "2026-11-14", "sources": {},
+                                    "repos": {"owner/original": saved}})
+                library = self.out / "reference-library.json"
+                library.write_text(json.dumps({"schemaVersion": 2, "reviewed": "2026-11-14",
+                                               "archive": self.reference["archive"],
+                                               "repos": {"owner/original": self.reference}}), encoding="utf-8")
+                replacement = self.repository("owner/original", 2)
+                original = self.repository("owner/renamed", 1)
+                if flag:
+                    original[flag] = True
+
+                def other_source(found, token):
+                    catalog.add(found, "owner/original", "other-source", replacement)
+
+                def remote(url, token=None):
+                    if url == "https://api.github.com/repositories/1":
+                        return json.dumps(original)
+                    if url == "https://api.github.com/repos/owner/original":
+                        return json.dumps(replacement)
+                    raise AssertionError("unexpected network request")
+
+                output = io.StringIO()
+                with patch.object(catalog, "REFERENCE_FILE", library), \
+                        patch.object(catalog, "SOURCES", [("other-source", other_source),
+                                                         ("reference-library", catalog.source_references)]), \
+                        patch.object(catalog, "github_token", return_value=None), \
+                        patch.object(catalog, "fetch", side_effect=remote), \
+                        contextlib.redirect_stdout(output):
+                    catalog.update(argparse.Namespace(out=self.out))
+                    catalog.find(argparse.Namespace(out=self.out, terms=["doctor admin"], limit=20, no_refresh=True))
+                current = catalog.load_catalog(self.out / "catalog.json")
+                self.assertEqual(current["repos"]["owner/renamed"]["reference"], self.reference)
+                self.assertEqual(current["repos"]["owner/renamed"]["first_seen"], saved["first_seen"])
+                self.assertEqual(current["repos"]["owner/renamed"]["stars_first_seen"], saved["stars_first_seen"])
+                self.assertNotIn("reference", current["repos"]["owner/original"])
+                self.assertIn("[owner/renamed]", output.getvalue())
+                self.assertNotIn("[owner/original]", output.getvalue())
+                self.assertFalse(catalog.is_stale(current))
+
+    def test_name_collision_order_preserves_renamed_original_during_outage(self):
+        for flag in (None, "archived", "fork"):
+            for replacement_first in (True, False):
+                with self.subTest(flag=flag, replacement_first=replacement_first):
+                    saved = self.entry("owner/original", 1)
+                    saved["reference"] = self.reference
+                    self.write_catalog({"updated": "2026-11-14", "sources": {},
+                                        "repos": {"owner/original": saved}})
+                    replacement = self.repository("owner/original", 2)
+                    original = self.repository("owner/renamed", 1)
+                    if flag:
+                        original[flag] = True
+
+                    def unavailable(found, token):
+                        raise ValueError("reference collector unavailable")
+
+                    def other_source(found, token):
+                        observations = [replacement, original] if replacement_first else [original, replacement]
+                        for repo in observations:
+                            catalog.add(found, repo["full_name"], "other-source", repo)
+
+                    output = io.StringIO()
+                    with patch.object(catalog, "SOURCES", [("reference-library", unavailable),
+                                                          ("other-source", other_source)]), \
+                            patch.object(catalog, "github_token", return_value=None), \
+                            contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
+                        catalog.update(argparse.Namespace(out=self.out))
+                        catalog.find(argparse.Namespace(out=self.out, terms=["doctor admin"], limit=20, no_refresh=True))
+                    current = catalog.load_catalog(self.out / "catalog.json")
+                    restored = current["repos"]["owner/renamed"]
+                    self.assertEqual(restored["reference"], self.reference)
+                    self.assertEqual(restored["first_seen"], saved["first_seen"])
+                    self.assertEqual(restored["stars_first_seen"], saved["stars_first_seen"])
+                    self.assertIn("earlier-source", restored["seen_in"])
+                    self.assertNotIn("reference", current["repos"]["owner/original"])
+                    self.assertIn(self.reference["caution"], output.getvalue())
+                    self.assertIn("[owner/renamed]", output.getvalue())
+                    self.assertNotIn("[owner/original]", output.getvalue())
+                    self.assertTrue(catalog.is_stale(current))
+
+    def test_reviewed_id_lookup_rejects_wrong_identity_and_private_metadata(self):
+        library = self.out / "reference-library.json"
+        library.write_text(json.dumps({"schemaVersion": 2, "reviewed": "2026-11-14",
+                                       "archive": self.reference["archive"],
+                                       "repos": {"owner/original": self.reference}}), encoding="utf-8")
+        for private in (False, True):
+            with self.subTest(private=private):
+                self.write_catalog({"updated": None, "sources": {}, "repos": {}})
+                response = self.repository("unrelated/replacement", 1 if private else 2)
+                response["private"] = private
+                output = io.StringIO()
+                with patch.object(catalog, "REFERENCE_FILE", library), \
+                        patch.object(catalog, "SOURCES", [("reference-library", catalog.source_references)]), \
+                        patch.object(catalog, "github_token", return_value=None), \
+                        patch.object(catalog, "fetch", return_value=json.dumps(response)), \
+                        contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
+                    catalog.update(argparse.Namespace(out=self.out))
+                    catalog.find(argparse.Namespace(out=self.out, terms=["doctor admin"], limit=20, no_refresh=True))
+                current = catalog.load_catalog(self.out / "catalog.json")
+                self.assertEqual(current["repos"], {})
+                self.assertTrue(catalog.is_stale(current))
+                self.assertNotIn(self.reference["caution"], output.getvalue())
+                self.assertNotIn("unrelated/replacement", output.getvalue())
 
     def test_newer_incompatible_publication_cannot_erase_saved_reference_on_api_failure(self):
         saved = self.entry("new-owner/component")

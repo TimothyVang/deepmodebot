@@ -168,11 +168,17 @@ def source_githubawesome(found, token):
 
 def source_references(found, token):
     config = json.loads(REFERENCE_FILE.read_text(encoding="utf-8"))
+    if config["schemaVersion"] != 2:
+        raise ValueError("reference library requires reviewed repository IDs")
     for name, reference in config["repos"].items():
-        add(found, name, "reference-library")
-        found[name.lower()]["reference"] = {
-            **reference, "reviewed": config["reviewed"], "archive": config["archive"],
-        }
+        repository_id = reference["github_id"]
+        if type(repository_id) is not int or repository_id <= 0:
+            raise ValueError("reference library has an invalid repository ID")
+        key = f"reference:{repository_id}"
+        if key in found:
+            raise ValueError("reference library repeats a repository ID")
+        found[key] = {"name": name, "labels": {"reference-library"}, "repo": None,
+                      "reference": {**reference, "reviewed": config["reviewed"], "archive": config["archive"]}}
 
 
 SOURCES = [
@@ -205,10 +211,17 @@ def update(args):
     if not found:
         sys.exit("error: every source failed or returned nothing; catalog left unchanged")
 
-    missing = [item for item in found.values() if item["repo"] is None]
-    for item in missing:
+    for item in found.values():
+        expected_id = item.get("reference", {}).get("github_id")
+        if item["repo"] is not None and (expected_id is None or item["repo"].get("id") == expected_id):
+            continue
+        item["repo"] = None
         try:
-            item["repo"] = json.loads(fetch(f"https://api.github.com/repos/{item['name']}", token))
+            route = f"repositories/{expected_id}" if expected_id is not None else f"repos/{item['name']}"
+            repo = json.loads(fetch(f"https://api.github.com/{route}", token))
+            if expected_id is not None and (not isinstance(repo, dict) or repo.get("id") != expected_id or repo.get("private") is True):
+                raise ValueError("response does not match the reviewed public repository identity")
+            item["repo"] = repo
         except urllib.error.HTTPError as err:
             if err.code != 404 or "reference" in item:
                 print(f"warning: could not enrich {item['name']}: {err}", file=sys.stderr)
@@ -218,6 +231,8 @@ def update(args):
     catalog_path = args.out / "catalog.json"
     catalog = load_catalog(catalog_path)
     repos = catalog["repos"]
+    cached_by_id = {entry["github_id"]: entry for entry in repos.values()
+                    if type(entry.get("github_id")) is int}
     by_id = {entry["github_id"]: name for name, entry in repos.items()
              if type(entry.get("github_id")) is int}
     reference_ready = not status.get("reference-library", "failed: missing").startswith("failed:")
@@ -240,23 +255,34 @@ def update(args):
             continue
         key, alias = repo["full_name"].lower(), item["name"].lower()
         repository_id = repo.get("id")
+        snapshot = cached_by_id.get(repository_id, {}) if type(repository_id) is int else {}
         previous_key = by_id.get(repository_id) if type(repository_id) is int else None
         predecessors = dict.fromkeys(name for name in (key, previous_key, alias) if name is not None)
         # A known replacement invalidates the cached name before inactive filtering.
         for name in predecessors:
             cached_id = repos.get(name, {}).get("github_id")
             if type(repository_id) is int and type(cached_id) is int and repository_id != cached_id:
+                # A pinned reference name is historical, not a live alias assertion.
+                if "reference" in item and name == alias and alias != key:
+                    continue
                 repos.pop(name, None)
                 if by_id.get(cached_id) == name:
                     by_id.pop(cached_id)
                 if name not in refreshed_references:
                     references.pop(name, None)
+        if not reference_ready and "reference" in snapshot:
+            saved_reference = snapshot["reference"]
+            if saved_reference.get("github_id", repository_id) == repository_id:
+                references.setdefault(key, saved_reference)
         if (repo.get("fork") or repo.get("archived")) and not any(name in references for name in predecessors):
             continue
         fresh = entry_from(repo)
-        previous, seen_in = {}, set()
+        previous, seen_in = snapshot, set(snapshot.get("seen_in", []))
         for name in predecessors:
             cached = repos.get(name, {})
+            cached_id = cached.get("github_id")
+            if type(repository_id) is int and type(cached_id) is int and repository_id != cached_id:
+                continue
             repos.pop(name, None)
             seen_in.update(cached.get("seen_in", []))
             if cached and (not previous or cached["first_seen"] < previous["first_seen"]):
@@ -272,6 +298,9 @@ def update(args):
             by_id[repository_id] = key
     for name, entry in repos.items():
         reference = references.get(name)
+        if reference and reference.get("github_id", entry.get("github_id")) != entry.get("github_id"):
+            reference_ready = False
+            reference = None
         if reference:
             entry["reference"] = reference
         else:
