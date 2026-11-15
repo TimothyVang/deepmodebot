@@ -5,10 +5,12 @@ The real omp CLI upgraded an existing isolated user-scoped installation from 0.8
 ## Inputs and containment
 
 - Windows x64, Python 3.13.14; verification doctor reported ready.
-- Existing isolated installation: candidate `b6476bfe64eeda604d82fa8433990f6dabc12967` at 0.8.3, created by the earlier actual [0.8.3 run](release-0.8.3-upgrade-2026-11-15.md) and reused without reinstalling.
-- Combined 0.9.0 candidate source: `20745075e40e531937601419d751cbd0b9900933`.
-- The existing 0.8.3 state remains under `.scratch/evidence/release-0.8.3-upgrade/` in the repository reference worktree. This run's raw output and temporary files are under `.scratch/evidence/release-0.9.0-upgrade/` in the combined worktree.
+- Existing isolated installation: candidate `13af2b4fbb7030f727c5cbeb7833bb600fb71a0d` at 0.8.3, created by the earlier actual [0.8.3 run](release-0.8.3-upgrade-2026-11-15.md) and reused without reinstalling.
+- Combined 0.9.0 candidate source: `4cb43b53105deb1b2c916ac7d8e5ff65d4f3ef35`.
+- The existing 0.8.3 state remains under `.scratch/evidence/release-0.8.3-upgrade-r2/` in the repository reference worktree. This run's raw output and temporary files are under `.scratch/evidence/release-0.9.0-upgrade-r2/` in the combined worktree.
 - `PI_CONFIG_DIR` and `PI_CODING_AGENT_DIR` pointed only to that existing isolated state; `TMP`, `TEMP` and `TMPDIR` pointed to this run's `tmp/`. Profile variables were unset only inside the command subshell.
+
+The earlier 255-file upgrade of candidate `2074507` remains separately retained. This run verifies a later candidate containing the upstream ecosystem changes, discovery fixes and bounded Windows fixture adjustment; it does not overwrite or reclassify the earlier evidence.
 
 ## Actual commands and result
 
@@ -34,7 +36,7 @@ Upgraded deepmodebot@deepmodebot (user) to 0.9.0
 An independent inspector read before/after registries, required the same user-scoped plugin ID and distinct paths within isolated state, resolved the actual `omp/plugins/node_modules/deepmodebot` runtime link to the registered 0.9.0 cache, and compared all candidate plugin files by SHA-256:
 
 ```text
-PASS: existing isolated user install upgraded 0.8.3 -> 0.9.0; registered runtime link and all 255 plugin files match candidate SHA-256.
+PASS: existing isolated user install upgraded 0.8.3 -> 0.9.0; registered runtime link and all 278 plugin files match candidate SHA-256.
 ```
 
 `payload-inspection.json` retains the file inventory and hashes. Version upgrades may replace installation timestamps; no timestamp-preservation claim is made.
