@@ -142,6 +142,35 @@
       "route": "refactoring",
       "size": "M",
       "note": "Tiny and two files, but it touches secrets, so it is not S."
+    },
+    {
+      "id": "architecture-research-gaps",
+      "request": "Find architecture gaps and research gaps in this repo and propose the best system before we write any code.",
+      "route": "tournament",
+      "size": "none",
+      "note": "Open discovery across competing architecture and research lenses, stopping at the proposal checkpoint."
+    },
+    {
+      "id": "vague-ambition-upgrade",
+      "request": "Make our agent system way smarter and rethink the architecture from first principles.",
+      "route": "tournament",
+      "size": "none",
+      "note": "High-vagueness open ambition without concrete anchors routes to tournament instead of guessing a feature."
+    },
+    {
+      "id": "explicit-tournament",
+      "request": "Run a tournament where agents debate the best SOTA research ideas for our retrieval pipeline.",
+      "route": "tournament",
+      "size": "none",
+      "note": "Explicit tournament request."
+    },
+    {
+      "id": "greenfield-vague-platform",
+      "request": "Build me an AI app.",
+      "context": "You are in an empty folder that is not a git repo.",
+      "route": "tournament",
+      "size": "none",
+      "note": "Underspecified greenfield goal discovers a system thesis via tournament first, then implements Champion within the original build scope without another authorization."
     }
   ]
 }

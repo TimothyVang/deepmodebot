@@ -19,6 +19,7 @@ Skip phases the work doesn't need. One PR of settled work starts at phase 5 with
 
 | Situation | Flow |
 |---|---|
+| Open architecture or research space, blind spots, or a high-vagueness ambition | **tournament** (`references/techniques/tournament.md`), proposing Champion and Runner-Up before phase 1 or 3 |
 | First use of the planning flows in a repo | Setup (`references/playbooks/setup.md`) |
 | Issues or outside PRs pile up | Triage (`references/playbooks/triage.md`), which feeds phase 5 with `triage:agent-ready` items |
 | A defect | Bug fix (`references/playbooks/bug-fix.md`) |

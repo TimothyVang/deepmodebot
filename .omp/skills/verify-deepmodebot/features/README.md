@@ -6,6 +6,18 @@ Run `python .omp/skills/verify-deepmodebot/control.py doctor` from the root firs
 - [Review quality and safe context](review.md): sealed review input boundaries, findings and clean controls.
 - [Workflow coverage](workflows.md): pinned inventories and executed agent journeys.
 
+## Routing and tournament bracket
+
+For changes to `/deep` routing (`SKILL.md`, `evals/routing/cases.json`, `scripts/eval_routing.py`) or `assets/tournament/tournament.py`:
+Run `python plugins/deepmodebot/skills/deepmodebot/assets/tournament/test_tournament.py` with `TMPDIR`, `TMP` and `TEMP` inside `.scratch/tmp`.
+Exercise a real 12-entrant bracket CLI flow (`init`, `pitch`, `rebut`, `judge`, `status`, `render`) inside a disposable repo under `.scratch/` and inspect the generated `proposal.md`.
+Run `python scripts/eval_routing.py` (with an explicit `--model` when comparing revisions) so headless `omp -p` evaluates `SKILL.md` across `evals/routing/cases.json` and writes `evals/results/routing-<date>.json`.
+Deterministic `tournament.py route` unit checks verify the helper classifier only; `scripts/eval_routing.py` measures single-turn model route selection from `SKILL.md` text, not full multi-agent tournament debate quality.
+For technique or proposal-handoff changes, also run the full technique with real contender and independent judge agents on identical disposable starters before and after. Keep pinned procedure copies, prompts, raw events, brackets, proposals and app output. Verify that a discovery-only request waits for a choice, while an original build request presents the proposal and delivers Champion without another authorization.
+Inspect proposal receipt sections: unchecked command and URL submissions stay outside judge-verified receipts. Exercise competing initializers under the same held `bracket.lock`, including an in-flight pitch and explicit `--force`; only an authorized replacement may discard earlier state.
+Try revising an unjudged pitch, then replacing a pod winner and the crowned Champion. Only the unjudged revision may succeed; rejected replacements must leave the bracket and rendered thesis unchanged.
+Exercise `route --stdin --json` with explicit choose-before-coding, approval and no-code constraints, plus non-greenfield requests to implement the winner. Include "get my approval before coding" and permission, consent and sign-off variants; an approval feature name alone must not add a gate. Check both `intent` and `checkpoint_before_code`; mentioning a possible future build is not an implementation request.
+
 These entries cover the surfaces changed in this work. They do not claim production autostart, every harness, hosted competitors or all upstream workflows have been exercised.
 
 ## Reasoning gates

@@ -30,8 +30,8 @@ A real run, not a mock-up: the bots took [PR #19](https://github.com/TimothyVang
 
 | Piece | What it does |
 |---|---|
-| `/deep <anything>` | One command routes and sizes the task, proves the result on the real app, and reports its decisions. Ordinary local work stays in your starting tree for review. Publishing follows the review and verifier-panel gates. |
-| `deepmodebot` skill | 29 playbooks, 24 principles and 43 techniques, indexed in its `SKILL.md`. Every task is proven on the real artifact and merges only on a verifier panel pass. |
+| `/deep <anything>` | One command routes by intent and vagueness, proves the result on the real app, and reports its decisions. Concrete tasks run directly, draft plans take **grill**, and open architecture or research gaps run a 12-agent **tournament** bracket. Ordinary local work stays in your starting tree for review, while publishing follows the review and verifier-panel gates. |
+| `deepmodebot` skill | 29 playbooks, 24 principles and 44 techniques, indexed in its `SKILL.md`. Every task is proven on the real artifact and merges only on a verifier panel pass. |
 | PR and issue bots | Install your own private GitHub App on your repos and a poller on your machine runs the bots: it reviews and lands your own PRs, resolves their merge conflicts, and plans and builds the issues you open. See [GitHub App bots](#github-app-bots). |
 | PR review | `/deepmodebot:review-pr <PR number>` reviews correctness, security, spec and standards, keeps findings backed by code or execution, and posts a comment-only review. No hosted review service is required. Prompts and source context still reach your configured model provider. |
 | Land a PR | `/deepmodebot:land-pr <PR number>` finishes and merges your own PR with no human: a reviewer bot posts findings in the PR thread, the author bot answers each with a fix or a reason, three verifier bots vote on the final head, and on a pass it merges. It never merges over a failing check. You see each turn in the session as it lands, drawn as an 8-bit frame right in the chat (each bot a sprite, each turn a dialog box), or watch the whole conversation play live as an 8-bit battle screen in your terminal; `/deepmodebot:pr-thread <PR or issue URL>` shows any bot conversation later. |
@@ -89,6 +89,7 @@ Around the main line:
 - **domain-model:** Keeps `GLOSSARY.md` and ADRs current as names and decisions change.
 - **research:** Writes an answer that later sessions will cite into the repo.
 - **architecture-review:** Finds structural friction across the codebase and settles which refactors to make.
+- **tournament:** Runs a 12-agent bracket across architecture and research lenses with verified receipts and single-insight grafting. It proposes Champion and Runner-Up before code is written.
 - **security-audit:** Audits a PR's security before it merges, run by your own agent.
 - **retro:** Improves the repo's files, checks and docs after a session, so the next agent works faster.
 - **Handoff and Pause safely:** A portable doc for another session, harness or person, or a resume note for later in this repo.
@@ -191,7 +192,7 @@ The examples use the bare `/deep`. With a plugin install, type `/deepmodebot:dee
 - Small jobs take the fast path. Big ones get the full playbook, subagents, and a decision log.
 - It decides and acts without asking: commits, pushes, PRs, board cards, and merges after a panel pass. It asks once at the end only for hard stops (deploys, deletions, shared-history rewrites, outside messages, money, secrets), and lists every decision it made so you can reverse any.
 - It reuses the repo's verification tools or runs the real user path directly. A reusable `verify-<app>` skill is useful for repeated work, not a prerequisite for every local change.
-- The direct commands still work: `/deepmodebot:review-pr`, `/deepmodebot:land-pr`, `/deepmodebot:pr-thread`, `/deepmodebot:contribute`, `/deepmodebot:project-brief`.
+- The direct commands still work: `/deepmodebot:tournament`, `/deepmodebot:review-pr`, `/deepmodebot:land-pr`, `/deepmodebot:pr-thread`, `/deepmodebot:contribute`, `/deepmodebot:project-brief`.
 
 ## GitHub App bots
 
@@ -330,6 +331,7 @@ Skip phases the work doesn't need. One PR of settled work starts at phase 5 with
 
 | Situation | Flow |
 |---|---|
+| Open architecture or research space, blind spots, or a high-vagueness ambition | **tournament** (`references/techniques/tournament.md`), proposing Champion and Runner-Up before phase 1 or 3 |
 | First use of the planning flows in a repo | Setup (`references/playbooks/setup.md`) |
 | Issues or outside PRs pile up | Triage (`references/playbooks/triage.md`), which feeds phase 5 with `triage:agent-ready` items |
 | A defect | Bug fix (`references/playbooks/bug-fix.md`) |
