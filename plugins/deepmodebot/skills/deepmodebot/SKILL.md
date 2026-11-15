@@ -43,6 +43,16 @@ Read-only work (a review, an investigation, a question) has no size: it follows 
 
 **4. Act, then report.** Follow Autonomy's publishing gates and hard stops. Report the result and proof.
 
+## Reasoning gates
+
+For M and L work, apply these gates to research and business deliverables as well as code. Keep them proportional: a short evidence-linked note is enough; they do not require a new agent, PR, or document. S work uses the user's goal and the real-artifact check directly.
+
+1. **Before committing to a plan:** identify the intended user, decision or usable deliverable, acceptance evidence, and authoritative sources. Inspect the relevant source material and existing outputs first. Distinguish observed facts from assumptions; check whether the requested work is already complete or superseded. Resolve material contradictions before building on them; if evidence is unavailable, mark the affected conclusion unknown.
+2. **At phase boundaries and before a consequential action or final delivery:** compare the output with the original goal and current source evidence. Check for missing entities, stale facts, unsupported conclusions, and work that no longer serves the goal. Name what changed and the next smallest action. Replan when the premise fails; do not count activity, PRs, or generated pages as proof of progress.
+3. **When progress stalls:** after two attempts that do not improve the acceptance evidence, repeated rewrites, contradictory findings, or time materially exceeding the task's expected effort, pause the current approach. Inspect the actual artifacts and sources, identify the bottleneck and test the premise; choose a different bounded approach or report the specific blocker. Reset the trigger only when evidence improves or a distinct approach is tried. Do not impose a universal time limit or abandon the user's scope.
+
+For an open-ended business use case, choose one representative workflow and define a real user's observable success before scaling or generalizing. Deliver the full requested scope; use that workflow as a proof point, not an excuse to narrow it. Claims about market value, revenue, or an exit require evidence and must be labeled as estimates when unproven.
+
 ## Contain the work
 
 Every task has one project root, and every file you create or change lives inside it: code, scratch and temp files, logs, downloads, reference clones, prototypes, worktrees, evidence, and delegates' output.
