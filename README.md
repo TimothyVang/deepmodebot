@@ -79,6 +79,7 @@ Around the main line:
 - **Work a queue:** Turns a backlog, a queue of PRs, or labeled issues (through the `factory` CLI) into merged PRs, each after a panel pass.
 - **domain-model:** Keeps `GLOSSARY.md` and ADRs current as names and decisions change.
 - **research:** Writes an answer that later sessions will cite into the repo.
+- **Decision brief:** For a business or research decision, compares the requested options against dated source evidence, flags missing or conflicting facts, and makes a conditional recommendation. The [research procedure](plugins/deepmodebot/skills/deepmodebot/references/techniques/research.md) also applies to chat-only answers; it does not claim a citation proves truth.
 - **architecture-review:** Finds structural friction across the codebase and settles which refactors to make.
 - **tournament:** Runs a 12-agent bracket across architecture and research lenses with verified receipts and single-insight grafting. It proposes Champion and Runner-Up before code is written.
 - **security-audit:** Audits a PR's security before it merges, run by your own agent.
