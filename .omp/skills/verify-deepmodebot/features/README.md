@@ -47,3 +47,9 @@ For a release bump, install the previous release through the real harness CLI in
 Capture before/after versions, upgrade availability, CLI output and the runtime-linked plugin payload.
 The [0.8.2 upgrade report](../../../../evals/results/release-0.8.2-upgrade-2026-11-14.md) records separate real omp and Claude Code upgrade runs, pinned inputs, isolation commands, observed output and limits.
 Local marketplace snapshots prove local upgrades, not remote publication, watcher updates, session reloads or untested harnesses.
+
+## Inner-loop audit and goal-loop gates
+
+For changes to `plugins/deepmodebot/skills/deepmodebot/assets/loop/loop.py`, `inner-loop`, or `end-to-end`, run `loop.py audit --json` and `loop.py manifest <manifest.json>` on a disposable git repo under `.scratch/evidence/<slug>/`, then drive `loop.py run <goal.md>` with a live subscription harness (`omp`).
+Verify `manifest` slice progression (`1/N` to `N/N`), `fast_check`, `forbid_slop` (suppressions, swallowed exceptions, and `TODO`/`NotImplementedError` stubs), `protect_configs`, and the acceptance `check` against actual candidate edits, keeping `trail.tsv` and per-iteration prompt and check logs under `.scratch/`.
+Synthetic fake-harness unit tests in `test_loop.py` prove deterministic runner state machines, not live model compliance.

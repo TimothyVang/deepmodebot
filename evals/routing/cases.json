@@ -171,6 +171,34 @@
       "route": "tournament",
       "size": "none",
       "note": "Underspecified greenfield goal discovers a system thesis via tournament first, then implements Champion within the original build scope without another authorization."
+    },
+    {
+      "id": "audit-inner-loop",
+      "request": "Audit our inner loop and list which fast checks, anti-slop guards, or protected configs are missing before we start unattended goal loops. Do not edit any files yet.",
+      "route": "inner-loop",
+      "size": "none",
+      "note": "Read-only inner-loop readiness audit."
+    },
+    {
+      "id": "harden-inner-loop",
+      "request": "Tighten the inner loop across the repo so agents stop shipping AI code slop: wire fast typecheck and lint gates, block @ts-ignore and empty catch blocks, protect the linter configs, and set up the goal loop contract.",
+      "route": "inner-loop",
+      "size": "L",
+      "note": "Cross-cutting inner-loop and goal-loop gate setup across repo configs and checks."
+    },
+    {
+      "id": "what-stack-only",
+      "request": "What stack should we pick for an offline-first desktop log analyzer? Do not scaffold or edit any files yet, just answer with the recommended stack.",
+      "route": "deep-stack",
+      "size": "none",
+      "note": "Read-only stack selection question without building the app."
+    },
+    {
+      "id": "finish-full-project-e2e",
+      "request": "Turn this rough idea into a complete working product end to end, don't stop at a first slice or MVP: a team incident log with SQLite persistence, severity filtering, resolution notes, CSV export, and cold-start CLI verification.",
+      "route": "end-to-end",
+      "size": "L",
+      "note": "Full-scope multi-slice product delivery from a rough idea."
     }
   ]
 }
