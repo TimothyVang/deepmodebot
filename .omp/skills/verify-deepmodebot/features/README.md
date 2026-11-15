@@ -51,6 +51,7 @@ For a release bump, install the previous release through the real harness CLI in
 Capture before/after versions, upgrade availability, CLI output and the runtime-linked plugin payload.
 The [0.8.2 upgrade report](../../../../evals/results/release-0.8.2-upgrade-2026-11-14.md) records separate real omp and Claude Code upgrade runs, pinned inputs, isolation commands, observed output and limits.
 The [0.8.3 upgrade report](../../../../evals/results/release-0.8.3-upgrade-2026-11-15.md) records a real isolated omp upgrade and all 244 runtime-linked plugin file hashes; other harnesses and remote/watcher fetching are not inferred.
+The [0.9.0 upgrade report](../../../../evals/results/release-0.9.0-upgrade-2026-11-15.md) records a real isolated omp upgrade and all 255 runtime-linked plugin file hashes; it does not prove remote fetching or a running-session reload.
 Local marketplace snapshots prove local upgrades, not remote publication, watcher updates, session reloads or untested harnesses.
 
 ## Inner-loop audit and goal-loop gates
