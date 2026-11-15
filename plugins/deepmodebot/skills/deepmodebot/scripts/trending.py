@@ -176,7 +176,7 @@ def source_references(found, token):
         raise ValueError("reference library requires reviewed repository IDs")
     for name, reference in config["repos"].items():
         repository_id = reference["github_id"]
-        if type(repository_id) is not int or repository_id <= 0:
+        if not _valid_github_id(repository_id):
             raise ValueError("reference library has an invalid repository ID")
         key = f"reference:{repository_id}"
         if key in found:
@@ -197,6 +197,14 @@ def _valid_github_id(value):
     return type(value) is int and value > 0
 
 
+def _valid_reference_shape(reference):
+    return (isinstance(reference, dict)
+            and isinstance(reference.get("reviewed"), str)
+            and isinstance(reference.get("topics"), list)
+            and all(isinstance(topic, str) for topic in reference["topics"])
+            and isinstance(reference.get("caution"), str))
+
+
 def _normalize_catalog(catalog):
     for name, entry in list(catalog["repos"].items()):
         repository_id = entry.get("github_id")
@@ -204,8 +212,12 @@ def _normalize_catalog(catalog):
             catalog["repos"].pop(name)
             catalog.pop("reference_revision", None)
             continue
-        reference = entry.get("reference")
-        if not reference:
+        if "reference" not in entry:
+            continue
+        reference = entry["reference"]
+        if not _valid_reference_shape(reference):
+            entry.pop("reference")
+            catalog.pop("reference_revision", None)
             continue
         reference_id = reference.get("github_id")
         identities = (repository_id, reference_id)
@@ -351,6 +363,9 @@ def update(args):
             by_id[repository_id] = key
     for name, entry in repos.items():
         reference = references.get(name)
+        if reference is not None and not _valid_reference_shape(reference):
+            reference_ready = False
+            reference = None
         repository_id = entry.get("github_id")
         reference_id = reference.get("github_id", repository_id) if reference else None
         if reference and (reference_id != repository_id or
