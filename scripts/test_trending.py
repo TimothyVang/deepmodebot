@@ -564,6 +564,35 @@ class ReferenceDiscoveryTests(unittest.TestCase):
                     self.assertFalse(catalog.fetch_published(self.out, local))
                 self.assertEqual((self.out / "catalog.json").read_bytes(), before)
 
+    def test_malformed_annotation_shapes_do_not_hide_remaining_search_results(self):
+        valid = {**self.reference, "github_id": 2}
+        malformed = ["not-an-object", [], True, False, 0, None, {},
+                     {**valid, "reviewed": None}, {**valid, "topics": "doctor admin"},
+                     {**valid, "topics": [1]}, {**valid, "caution": {"invalid": True}}]
+        missing_date = dict(valid)
+        missing_date.pop("reviewed")
+        missing_caution = dict(valid)
+        missing_caution.pop("caution")
+        malformed += [missing_date, missing_caution]
+        for bad_reference in malformed:
+            with self.subTest(annotation=bad_reference):
+                good = self.entry("owner/usable", 1)
+                good["reference"] = self.reference
+                bad = self.entry("owner/malformed", 2)
+                bad["reference"] = bad_reference
+                self.write_catalog({"updated": "2026-11-14", "sources": {},
+                                    "reference_revision": catalog.REFERENCE_REVISION,
+                                    "repos": {"owner/usable": good, "owner/malformed": bad}})
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    catalog.find(argparse.Namespace(out=self.out, terms=["doctor admin"],
+                                                    limit=20, no_refresh=True))
+                current = catalog.load_catalog(self.out / "catalog.json")
+                self.assertNotIn("reference", current["repos"]["owner/malformed"])
+                self.assertTrue(catalog.is_stale(current))
+                self.assertIn("[owner/usable]", output.getvalue())
+                self.assertIn(self.reference["caution"], output.getvalue())
+
     def test_newer_incompatible_publication_cannot_erase_saved_reference_on_api_failure(self):
         saved = self.entry("new-owner/component")
         saved["reference"] = self.reference
