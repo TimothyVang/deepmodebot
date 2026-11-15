@@ -45,6 +45,15 @@ Each step ends with how the agent knows it is done. A vague end ("once you under
 - **Delete stale lines** the moment behavior changes. Adding feels safe and removing feels risky, so instruction files accumulate dead layers unless someone cuts them.
 - A rule that a lint, type, test, or hook could enforce goes there instead (the **correct** technique, `references/techniques/correct.md`).
 
+## Generate or refresh AGENTS.md and CLAUDE.md
+
+`python <this skill>/assets/agents-md/agents_md.py build <root>` writes one managed block into `AGENTS.md`, the one home for the rules: the finish-line rule (list every part of the request, report "N of M done", never call a partial result done), the repo's real check commands from `loop.py audit`, and the scratch folder. `CLAUDE.md` gets only `@AGENTS.md`, since Claude Code reads `CLAUDE.md`, not `AGENTS.md`.
+
+1. Preview with `--dry-run`. Done when the printed checks match the commands the repo actually runs.
+2. Run `build`. Text outside the markers is kept; rerunning refreshes the block in place. `--overwrite` replaces both whole files after backing them up to `.scratch/agents-md-backup/`; on a repo whose rule files carry someone else's process, that needs the Setup playbook's two yeses (Process conflicts). Done when `agents_md.py check <root>` exits 0.
+3. Add `agents_md.py check` to the repo's check script so a stale block fails, then apply this technique's pruning rules to the text outside the block.
+4. For every project on the machine, `agents_md.py user` previews the finish-line block for `~/.claude/CLAUDE.md`; `user --write` applies it. That file is the user's own config: run `--write` only on their explicit yes. Done when the preview was shown and the user's answer is recorded.
+
 ## Skills specifically
 
 - **Invocation.** A skill with a model-facing `description` can be picked by the agent and by other skills; the description is a pointer that is always loaded, so write it as one (trigger branches first). A skill marked `disable-model-invocation: true` loads only when a person invokes it; its description is a one-line human summary. Choose the model-facing form only when the agent or another skill must reach it alone.

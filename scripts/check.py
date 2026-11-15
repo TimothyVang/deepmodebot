@@ -173,6 +173,13 @@ for test_dir in sorted(test_dirs):
     elif "skipped" in run.stderr.splitlines()[-1]:
         print(f"note: {test_dir.relative_to(ROOT)}: {run.stderr.splitlines()[-1]} ({'bun' if shutil.which('bun') else 'no bun'} on PATH)")
 
+# AGENTS.md and CLAUDE.md carry the current generated block (agents_md.py, writing-for-agents technique).
+agents_md = skill_root / "assets/agents-md/agents_md.py"
+run = subprocess.run([sys.executable, str(agents_md), "check", str(ROOT)],
+                     capture_output=True, text=True, encoding="utf-8", errors="replace")
+if run.returncode:
+    problems.append(f"{run.stdout.strip()}\n  fix: python {agents_md.relative_to(ROOT).as_posix()} build .")
+
 if problems:
     print("\n".join(problems))
     sys.exit(1)

@@ -150,7 +150,7 @@ Step 2 of Route. First match wins.
 | "wait, what?", "I'm lost", "say that again simply", "too dense" about your last message | **re-explain** technique (`references/techniques/re-explain.md`) |
 | "hand this off", "write a handoff", "continue in a new session", "start a background agent on the rest" | Handoff playbook |
 | Writing or editing a skill | Authoring a skill playbook (its first step reads the **writing-for-agents** technique) |
-| Writing or editing `AGENTS.md`, `CLAUDE.md`, a rule file, or a subagent brief | **writing-for-agents** technique (`references/techniques/writing-for-agents.md`) |
+| Writing, editing, generating, or overwriting `AGENTS.md`, `CLAUDE.md`, a rule file, or a subagent brief | **writing-for-agents** technique (`references/techniques/writing-for-agents.md`); generate or refresh with `assets/agents-md/agents_md.py` |
 | "block dangerous git commands", "add git safety hooks", "stop the agent from force-pushing" | **git-guardrails** technique (`references/techniques/git-guardrails.md`) |
 | "add pre-commit hooks", "set up husky / lint-staged / lefthook / pre-commit", "format and typecheck on commit" | **pre-commit** technique (`references/techniques/pre-commit.md`) |
 | "tighten / audit / harden the inner loop", "stop AI code slop", "make checks block agent slop before goal loops" | **inner-loop** technique (`references/techniques/inner-loop.md`) |
