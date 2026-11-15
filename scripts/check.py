@@ -16,9 +16,10 @@ BANNED = re.compile(
     r"|cloud\s*x\s*berry|greptile|code\s*rabbit|james\s+clements",
     re.I,
 )
-# Source citations retain real third-party identities; they are not this product's branding.
+# Source attribution and immutable observations retain upstream identities, not product branding.
 WHITE_LABEL_EXEMPT = {
     Path("scripts/check.py"), Path("trending"), Path("evals/workflows"),
+    Path("docs/evidence"), Path("docs/research/community-skills-review.md"),
     Path("plugins/deepmodebot/skills/deepmodebot/assets/repo-references.json"),
     Path("docs/research/youtube-learning/history-recovery.md"),
 }

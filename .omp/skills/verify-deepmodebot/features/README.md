@@ -7,6 +7,8 @@ Run `python .omp/skills/verify-deepmodebot/control.py doctor` from the root firs
 - [Workflow coverage](workflows.md): pinned inventories and executed agent journeys.
 - [Repository discovery](repositories.md): dated reference choices, project-cache refresh, licensing cautions and startup-idea boundaries.
 - [Windows process ownership](processes.md): real process trees, virtualenv context, bounded startup and deadline cleanup with held handles and drained pipes.
+- [Goals and updates](goals-and-updates.md): real ACP goal consensus, quantitative artifacts and fork-preserving local synchronization.
+- [Visual E2E and design evidence](visual-e2e.md): actual recording/replay, pinned-tab boundaries, three image-review contexts and portable/Penpot workflow evidence.
 
 ## Routing and tournament bracket
 
@@ -31,8 +33,10 @@ For changes to the reasoning gates in `plugins/deepmodebot/skills/deepmodebot/SK
 For changes to `docs/index.html`, serve only `docs/` on a loopback address in a named, owned service.
 Open a managed browser with relay disabled. Follow the Evidence navigation link and inspect the section at wide and compact widths.
 Check keyboard focus, overflow and evidence-link destinations without visiting external sites.
+For PR-policy copy, inspect the visible conversation paragraph and FAQ structured data: exactly three valid responses, at least two passes, same head, no size exception, and no override of deterministic gates.
 Save screenshots under `.scratch/evidence/`, then close the owned tab and service.
 Local rendering and destination inspection do not prove that unpublished reports are available on the public site.
+For evidence packaging changes, exercise the real `whitelabel.build` API with `media=False, check=False` into a new `.scratch/` directory, then validate copied E2E bundles using that distribution's own loader. Existing evidence paths and bytes must remain unchanged; these receipts are upstream observations, not proof of a rebranded run.
 
 ## Optional agent SDK workspace
 
