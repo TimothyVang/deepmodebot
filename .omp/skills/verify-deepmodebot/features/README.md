@@ -15,6 +15,8 @@ Run `python scripts/eval_routing.py` (with an explicit `--model` when comparing 
 Deterministic `tournament.py route` unit checks verify the helper classifier only; `scripts/eval_routing.py` measures single-turn model route selection from `SKILL.md` text, not full multi-agent tournament debate quality.
 For technique or proposal-handoff changes, also run the full technique with real contender and independent judge agents on identical disposable starters before and after. Keep pinned procedure copies, prompts, raw events, brackets, proposals and app output. Verify that a discovery-only request waits for a choice, while an original build request presents the proposal and delivers Champion without another authorization.
 Inspect proposal receipt sections: unchecked command and URL submissions stay outside judge-verified receipts. Exercise competing initializers under the same held `bracket.lock`, including an in-flight pitch and explicit `--force`; only an authorized replacement may discard earlier state.
+Try revising an unjudged pitch, then replacing a pod winner and the crowned Champion. Only the unjudged revision may succeed; rejected replacements must leave the bracket and rendered thesis unchanged.
+Exercise `route --stdin --json` with explicit choose-before-coding, approval and no-code constraints, plus non-greenfield requests to implement the winner. Check both `intent` and `checkpoint_before_code`; mentioning a possible future build is not an implementation request.
 
 These entries cover the surfaces changed in this work. They do not claim production autostart, every harness, hosted competitors or all upstream workflows have been exercised.
 

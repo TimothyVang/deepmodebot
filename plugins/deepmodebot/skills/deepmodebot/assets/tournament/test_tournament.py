@@ -131,6 +131,32 @@ class AutoRouterTests(unittest.TestCase):
         parsed = json.loads(out_buf.getvalue())
         self.assertEqual(parsed["mode"], "bug-fix")
 
+    def test_tournament_delivery_constraints_override_default_checkpoint(self):
+        cases = [
+            ("Build me an AI app; run a tournament and let me choose before coding", "execute", True),
+            ("Build me an AI app; run a tournament and wait for my approval", "execute", True),
+            ("Build me an AI app; run a tournament, but do not implement yet", "execute", True),
+            ("Build me an AI app; run a tournament, but don't code yet", "execute", True),
+            ("Build me an AI app; run a tournament; only propose the winner", "execute", True),
+            ("Rethink the architecture and implement it", "execute", False),
+            ("Run a tournament and build the winner", "execute", False),
+            ("Find architecture gaps, then implement the best proposal", "execute", False),
+            ("Rethink the architecture and implement it; ask me before coding", "execute", True),
+            ("Run a tournament to decide what to build next", "discover", True),
+            ("Find architecture gaps before we build", "discover", True),
+            ("Run a tournament; do not implement anything", "discover", True),
+            ("Rethink the architecture without code changes", "discover", True),
+            ("Run a tournament and create a proposal", "discover", True),
+            ("Run a tournament and deliver a research report", "discover", True),
+        ]
+        for prompt, intent, checkpoint in cases:
+            for empty in (False, True):
+                with self.subTest(prompt=prompt, empty_dir=empty):
+                    verdict = tournament.classify_prompt(prompt, empty_dir=empty)
+                    self.assertEqual(verdict["mode"], "tournament")
+                    self.assertEqual(verdict["intent"], intent)
+                    self.assertEqual(verdict["checkpoint_before_code"], checkpoint)
+
 
 class TournamentBracketTests(unittest.TestCase):
     def setUp(self):
@@ -182,6 +208,12 @@ class TournamentBracketTests(unittest.TestCase):
             )
             self.assertEqual(code, 0)
 
+        self.run_cli(
+            "pitch", "--dir", tdir, "--entrant", "seam-archaeologist",
+            "--title", "Revised before judging", "--thesis", "A revised unjudged proposal.",
+            "--gap-kind", "architecture", "--receipt", "src/router.py:1",
+        )
+
         code, _ = self.run_cli(
             "rebut", "--dir", tdir, "--match", "pod-a",
             "--entrant", "seam-archaeologist", "--target", "data-state-architect",
@@ -196,6 +228,16 @@ class TournamentBracketTests(unittest.TestCase):
             "--rationale", "seam-archaeologist proved structural leverage.",
             "--graft-from", "data-state-architect", "--graft", "Typed intent envelope from state lens.",
         )
+
+        state_path = Path(tdir) / "bracket.json"
+        judged_state = state_path.read_bytes()
+        with self.assertRaisesRegex(SystemExit, "already judged"):
+            self.run_cli(
+                "pitch", "--dir", tdir, "--entrant", "seam-archaeologist",
+                "--title", "Substituted winner", "--thesis", "This thesis never faced the pod judge.",
+                "--gap-kind", "architecture", "--receipt", "src/router.py:1",
+            )
+        self.assertEqual(state_path.read_bytes(), judged_state)
 
         with self.assertRaises(SystemExit, msg="semifinal must reject judging while pod-b feeder is unfinished"):
             self.run_cli(
@@ -248,6 +290,15 @@ class TournamentBracketTests(unittest.TestCase):
             "--graft-from", "premise-attacker", "--graft", "Intent and vagueness gate before build routes.",
         )
 
+        final_state = state_path.read_bytes()
+        with self.assertRaisesRegex(SystemExit, "already judged"):
+            self.run_cli(
+                "pitch", "--dir", tdir, "--entrant", "sota-paper-researcher",
+                "--title", "Substituted champion", "--thesis", "This thesis never faced the final judge.",
+                "--gap-kind", "research", "--receipt", "src/router.py:1",
+            )
+        self.assertEqual(state_path.read_bytes(), final_state)
+
         with self.assertRaises(SystemExit, msg="cannot mark crowned champion as dropout"):
             self.run_cli("dropout", "--dir", tdir, "--entrant", "sota-paper-researcher", "--reason", "late")
 
@@ -263,6 +314,9 @@ class TournamentBracketTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("# Tournament proposal: Thesis sota-paper-researcher", proposal)
         self.assertIn("## Runner-up counter-thesis: Thesis premise-attacker (`premise-attacker`)", proposal)
+        self.assertIn("System proposal from sota-paper-researcher.", proposal)
+        self.assertNotIn("Substituted champion", proposal)
+        self.assertNotIn("This thesis never faced the final judge.", proposal)
         self.assertIn("From `eval-oracle-scientist` (pod-b)", proposal)
         self.assertIn("From `premise-attacker` (final)", proposal)
         submitted, verified = proposal.split("### Judge-verified receipts", 1)

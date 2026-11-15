@@ -9,6 +9,9 @@
     python tournament.py judge --dir <dir> --match <id> --winner <id> --judge-model <m> --verified-receipt <r> --rationale <w>
     python tournament.py status --dir <dir> [--json]
     python tournament.py render --dir <dir> [--out <path>]
+
+Pitches may be revised only before the entrant's first judged match.
+Tournament routes preserve build intent; explicit choice or no-code constraints keep the checkpoint.
 """
 import argparse
 import contextlib
@@ -129,6 +132,25 @@ GREENFIELD_LEAD_RE = re.compile(
     re.I,
 )
 
+TOURNAMENT_BUILD_RE = re.compile(
+    r"(?:^|[,;.!?]\s*|\b(?:and|then)\s+)"
+    r"(?:(?:please|also)\s+)*"
+    r"(?:(?:i\s+(?:want|need)\s+you\s+to|you\s+should)\s+)?"
+    r"(?:build|implement|code)\b",
+    re.I,
+)
+
+TOURNAMENT_CHECKPOINT_RE = re.compile(
+    r"(\b(?:let|allow)\s+me\s+(?:choose|pick|select|approve)\b"
+    r"|\b(?:ask|consult)\s+me\s+(?:first|before)\b"
+    r"|\b(?:wait|pause|stop)\s+(?:for|until|at|before)\b"
+    r"|\b(?:do\s+not|don't|don’t|never)\s+(?:\w+\s+){0,2}(?:build|code|implement|modify|edit)\b"
+    r"|\b(?:no|without)\s+(?:code|coding|implementation|production\s+(?:edits|changes))\b"
+    r"|\b(?:choose|pick|select|approve)\s+(?:first|before\s+(?:coding|implementation|building))\b"
+    r"|\bonly\s+(?:propose|research|plan|discuss)\b)",
+    re.I,
+)
+
 GRILL_RE = re.compile(
     r"(\bgrill\s+(?:me|this|my|our|with\s+docs)\b"
     r"|\brecord\s+the\s+decisions\b"
@@ -161,9 +183,10 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
     )
 
     def out(mode: str, intent: str, vagueness: str, reason: str, checkpoint: bool = False) -> dict:
-        if mode == "tournament" and GREENFIELD_LEAD_RE.search(text):
-            intent = "execute"
-            checkpoint = False
+        if mode == "tournament":
+            build_requested = bool(GREENFIELD_LEAD_RE.search(text) or TOURNAMENT_BUILD_RE.search(text))
+            intent = "execute" if build_requested else "discover"
+            checkpoint = not build_requested or bool(TOURNAMENT_CHECKPOINT_RE.search(text))
         return {
             "mode": mode,
             "intent": intent,
@@ -802,6 +825,8 @@ def cmd_pitch(args: argparse.Namespace) -> int:
         entrant = find_entrant(state, args.entrant)
         if entrant["status"] != "active":
             raise SystemExit(f"entrant {args.entrant} is {entrant['status']}")
+        if any(match["result"] is not None and args.entrant in match["entrants"] for match in state["matches"]):
+            raise SystemExit(f"entrant {args.entrant} has an already judged match; its pitch is frozen")
         receipts = [validate_receipt(r, root) for r in args.receipt]
         entrant["pitch"] = {
             "title": title,
