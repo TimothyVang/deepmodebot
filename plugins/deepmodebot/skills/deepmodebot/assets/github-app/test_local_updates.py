@@ -155,6 +155,13 @@ class LocalUpdatesTest(unittest.TestCase):
         self.assertEqual([p.name for p in self.native.iterdir() if p.name.lower() == "notes.md"], ["NOTES.md"])
         self.assertEqual((self.native / "NOTES.md").read_bytes(), b"user notes\n")
 
+    def test_canonical_case_rename_of_a_managed_file_is_not_a_collision(self):
+        managed = self.sync()["manifests"]
+        self.git(self.remote, "mv", self.prefix + "/new.txt", self.prefix + "/NEW.txt")
+        self.git(self.remote, "commit", "-m", "rename by case")
+        row = self.row(self.sync(manifests=managed), self.native)
+        self.assertNotIn("letter case", row.get("reason", ""))
+
     def test_repeated_backup_of_identical_files_is_reused(self):
         files = updates.inventory(self.native)
         first = updates.backup(self.native, files, self.cache)

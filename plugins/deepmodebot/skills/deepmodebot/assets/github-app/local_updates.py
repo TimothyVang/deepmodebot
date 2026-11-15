@@ -269,7 +269,7 @@ def copy_plan(path, prefix, source, manifest):
     unknown = set(current) - set(previous)
     if unknown & set(desired):
         raise RuntimeError("new canonical files collide with unknown local files; preserved")
-    if name := case_collision(current, desired):
+    if name := case_collision(unknown, desired):
         raise RuntimeError(f"canonical file differs only in letter case from a local file: {name}; preserved")
     # A local directory where upstream needs a file must never be replaced, even if empty.
     for name in desired:
@@ -300,7 +300,7 @@ def backup(path, files, cache):
 
 
 def case_collision(current, desired):
-    """On case-insensitive filesystems (NTFS, APFS) Notes.md and notes.md are one file."""
+    """Unknown local files only: on NTFS/APFS a local Notes.md and canonical notes.md are one file."""
     folded = {}
     for name in current:
         folded.setdefault(name.casefold(), set()).add(name)
@@ -355,7 +355,7 @@ def resume_plan(path, prefix, source, pending):
         allowed = {previous.get(name), desired.get(name)}
         if current.get(name) not in allowed:
             raise RuntimeError(f"pending update conflicts with a local edit: {name}; backup: {pending['backup']}")
-    if name := case_collision(set(current) - set(desired), desired):
+    if name := case_collision(set(current) - set(previous) - set(desired), desired):
         raise RuntimeError(f"pending update differs only in letter case from a local file: {name}; preserved")
     for name in desired:
         dest = path / name
