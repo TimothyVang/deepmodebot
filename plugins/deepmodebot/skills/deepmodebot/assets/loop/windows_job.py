@@ -98,12 +98,29 @@ def wrap_command(argv, shell=False):
     argv is a list of strings or an already-authored command string. cwd, env and
     standard handles belong on the outer Popen and are inherited unchanged.
     """
-    payload = json.dumps([argv, shell], ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    return [sys.executable, "-B", os.path.abspath(__file__), base64.b64encode(payload).decode("ascii")]
+    # A redirector is not the owning process: use this exact loaded interpreter.
+    api = _kernel32()
+    image = ctypes.create_unicode_buffer(32768)
+    length = api.GetModuleFileNameW(None, image, len(image))
+    if not length:
+        raise ctypes.WinError(ctypes.get_last_error())
+    if length >= len(image):
+        raise ctypes.WinError(122)
+    python_context = None
+    if not shell and isinstance(argv, list) and argv and \
+            os.path.normcase(os.path.abspath(argv[0])) == os.path.normcase(os.path.abspath(sys.executable)):
+        # Reproduce CPython's venv forwarding without its nested SILENT_BREAKAWAY
+        # Job, which can let later venv descendants escape the owning Job.
+        # https://github.com/python/cpython/blob/3.13/PC/venvlauncher.c
+        python_context = [image.value, argv[0]]
+    payload = json.dumps([argv, shell, python_context], ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    return [image.value, "-B", os.path.abspath(__file__), base64.b64encode(payload).decode("ascii")]
 
 
 def _kernel32():
     api = ctypes.WinDLL("kernel32", use_last_error=True)
+    api.GetModuleFileNameW.argtypes = [wintypes.HMODULE, wintypes.LPWSTR, wintypes.DWORD]
+    api.GetModuleFileNameW.restype = wintypes.DWORD
     api.CreateJobObjectW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR]
     api.CreateJobObjectW.restype = wintypes.HANDLE
     api.SetInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
@@ -133,13 +150,21 @@ def _kernel32():
     return api
 
 
-def _run_in_job(api, job, argv, shell):
+def _run_in_job(api, job, argv, shell, python_context=None):
     command = subprocess.list2cmdline(argv) if isinstance(argv, list) else argv
     batch = isinstance(argv, list) and argv and os.path.splitext(argv[0])[1].lower() in (".bat", ".cmd")
     application = None
     if shell or batch:
         application = os.environ.get("ComSpec") or os.path.join(os.environ["SystemRoot"], "System32", "cmd.exe")
         command = f'{subprocess.list2cmdline([application])} /c "{command}"'
+    environment = None
+    flags = EXTENDED_STARTUPINFO_PRESENT
+    if python_context:
+        application, launcher = python_context
+        child_env = {**os.environ, "__PYVENV_LAUNCHER__": launcher}
+        environment = ctypes.create_unicode_buffer(
+            "\0".join(f"{name}={value}" for name, value in sorted(child_env.items(), key=lambda item: item[0].upper())) + "\0\0")
+        flags |= 0x00000400  # CREATE_UNICODE_ENVIRONMENT
     size = ctypes.c_size_t()
     api.InitializeProcThreadAttributeList(None, 2, 0, ctypes.byref(size))
     if ctypes.get_last_error() != 122 or not size.value:
@@ -168,7 +193,7 @@ def _run_in_job(api, job, argv, shell):
         startup.StartupInfo.hStdError = api.GetStdHandle(-12)
         startup.lpAttributeList = ctypes.cast(attributes, ctypes.c_void_p)
         if not api.CreateProcessW(application, ctypes.create_unicode_buffer(command), None, None, True,
-                                  EXTENDED_STARTUPINFO_PRESENT, None, None, ctypes.byref(startup), ctypes.byref(process)):
+                                  flags, environment, None, ctypes.byref(startup), ctypes.byref(process)):
             raise ctypes.WinError(ctypes.get_last_error())
     finally:
         api.DeleteProcThreadAttributeList(attributes)
@@ -184,7 +209,7 @@ def _run_in_job(api, job, argv, shell):
         api.CloseHandle(process.hProcess)
 
 
-def _supervise(argv, shell):
+def _supervise(argv, shell, python_context):
     api = _kernel32()
     # NULL security attributes make this sole, unnamed handle non-inheritable.
     job = api.CreateJobObjectW(None, None)
@@ -197,7 +222,7 @@ def _supervise(argv, shell):
         if not api.SetInformationJobObject(job, JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
                                           ctypes.byref(limits), ctypes.sizeof(limits)):
             raise ctypes.WinError(ctypes.get_last_error())
-        exit_code = _run_in_job(api, job, argv, shell)
+        exit_code = _run_in_job(api, job, argv, shell, python_context)
     except BaseException as error:
         print(f"Windows job supervisor: {error}", file=sys.stderr, flush=True)
     finally:
@@ -211,8 +236,8 @@ if __name__ == "__main__":
     try:
         if os.name != "nt":
             raise OSError("Windows Job Objects require Windows")
-        command, use_shell = json.loads(base64.b64decode(sys.argv[1], validate=True))
-        _supervise(command, use_shell)
+        command, use_shell, python_context = json.loads(base64.b64decode(sys.argv[1], validate=True))
+        _supervise(command, use_shell, python_context)
     except Exception as error:
         print(f"Windows job supervisor: {error}", file=sys.stderr, flush=True)
         raise SystemExit(1)

@@ -6,6 +6,7 @@ Run `python .omp/skills/verify-deepmodebot/control.py doctor` from the root firs
 - [Review quality and safe context](review.md): sealed review input boundaries, findings and clean controls.
 - [Workflow coverage](workflows.md): pinned inventories and executed agent journeys.
 - [Repository discovery](repositories.md): dated reference choices, project-cache refresh, licensing cautions and startup-idea boundaries.
+- [Windows process ownership](processes.md): real process trees, virtualenv context, bounded startup and deadline cleanup with held handles and drained pipes.
 
 These entries cover the surfaces changed in this work. They do not claim production autostart, every harness, hosted competitors or all upstream workflows have been exercised.
 
