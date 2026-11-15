@@ -25,6 +25,8 @@ Snapshot history and cautions by ID before invalidating names so replacement/ren
 Authenticated ordinary-search observations cannot bypass publication policy: private metadata never reaches catalog, README or CLI, including a previously polluted cache and simultaneous curated lookup. Repeated names across search queries retain every earlier private ID/name fact even if later metadata overwrites the row.
 Fresh repository metadata IDs must be positive exact integers, not booleans, floats, strings or missing values; malformed ordinary and curated rows cannot publish or claim a current reference revision.
 Local and published caches recheck stored metadata/annotation IDs and the annotation fields consumed by search/rendering before search or replacement. Invalid metadata rows and malformed/mismatched annotations cannot confer authority or prevent remaining usable results; ID-less historical annotations remain eligible for migration but never prove freshness.
+Offline bootstrap retains older published observations as explicitly stale only when no local rows exist; it never replaces a populated local catalog with an incompatible publication.
+An enrichment transport outage stops further network enrichment within that refresh while preserving saved cautions and stale status; successful or HTTP-specific responses remain independently handled.
 These cases isolate input adapters and transport, not live API success.
 The running CLI above is the surface proof; record failed source/enrichment requests rather than claiming every candidate is current.
 

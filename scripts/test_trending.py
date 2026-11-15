@@ -618,6 +618,56 @@ class ReferenceDiscoveryTests(unittest.TestCase):
                 self.assertIn("[owner/usable]", output.getvalue())
                 self.assertIn(self.reference["caution"], output.getvalue())
 
+    def test_fresh_project_keeps_incompatible_published_observations_when_offline(self):
+        entry = self.entry("owner/searchable")
+        entry["description"] = "Offline research toolkit"
+        published = {"updated": "2026-11-14", "sources": {},
+                     "reference_revision": "older", "repos": {"owner/searchable": entry}}
+
+        def unavailable(found, token):
+            raise urllib.error.URLError("offline")
+
+        def remote(url, token=None):
+            if url == "https://example.test/catalog.json":
+                return json.dumps(published)
+            raise urllib.error.URLError("offline")
+
+        output = io.StringIO()
+        with patch.object(catalog, "PUBLISHED", "https://example.test/catalog.json"), \
+                patch.object(catalog, "SOURCES", [("github-search", unavailable)]), \
+                patch.object(catalog, "github_token", return_value=None), \
+                patch.object(catalog, "fetch", side_effect=remote), \
+                contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
+            catalog.find(argparse.Namespace(out=self.out, terms=["offline"], limit=20, no_refresh=False))
+        self.assertIn("[owner/searchable]", output.getvalue())
+        self.assertTrue(catalog.is_stale(catalog.load_catalog(self.out / "catalog.json")))
+
+    def test_transport_outage_stops_repeated_enrichment_and_keeps_saved_caution(self):
+        saved = self.entry("owner/original")
+        saved["reference"] = self.reference
+        self.write_catalog({"updated": "2026-11-14", "sources": {},
+                            "repos": {"owner/original": saved}})
+
+        def source(found, token):
+            for identity in range(1, 5):
+                catalog.add(found, f"owner/repo-{identity}", "reference-library")
+                found[f"owner/repo-{identity}"]["reference"] = {**self.reference, "github_id": identity}
+
+        calls = []
+        def unavailable(url, token=None):
+            calls.append(url)
+            raise urllib.error.URLError("network unavailable")
+
+        with patch.object(catalog, "SOURCES", [("reference-library", source)]), \
+                patch.object(catalog, "github_token", return_value=None), \
+                patch.object(catalog, "fetch", side_effect=unavailable), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            catalog.update(argparse.Namespace(out=self.out))
+        current = catalog.load_catalog(self.out / "catalog.json")
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(current["repos"]["owner/original"]["reference"]["caution"], self.reference["caution"])
+        self.assertTrue(catalog.is_stale(current))
+
     def test_newer_incompatible_publication_cannot_erase_saved_reference_on_api_failure(self):
         saved = self.entry("new-owner/component")
         saved["reference"] = self.reference
