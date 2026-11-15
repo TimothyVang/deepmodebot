@@ -15,13 +15,15 @@ python plugins/deepmodebot/skills/deepmodebot/scripts/trending.py find translati
 Capture stdout/stderr, the generated catalog and its reference revision. Inspect actual matching identities, dated analyst topics and complete cautions. Confirm OpenMausBot is a nonclinical synthetic-data prototype lead, not a clinically validated product; its enterprise terms are separate from the core license. A root license badge is not permission for all bundled components or a hosting/resale agreement.
 
 The deterministic regressions cover same-day published data, alias/history preservation, and collector/enrichment failures retaining searchable cautions without false freshness.
-Saved reference choices survive a failed refresh beyond the ordinary 120-day observation window, without changing their last-seen date; unrelated expired observations still disappear.
+Saved reference choices survive a failed refresh beyond the ordinary 120-day observation window, without changing their last-seen date; unrelated expired observations still disappear. An explicit private observation instead removes its matching cached ID/name.
 Archived/forked curated aliases retain canonical metadata and cautions with explicit reference-only liveness labels; unrelated inactive inputs remain excluded.
 Repository IDs preserve the original observation and star baseline across consecutive renames, including a cache first created without IDs.
 A reused name with a different repository ID starts a fresh history rather than inheriting another project's growth.
 A known name replacement must not inherit cached topics/licensing cautions after collector failure, even when archived or forked; independently refreshed annotations remain valid.
 Static curated references resolve the captured reviewed numeric IDs, not reusable repository names; mismatched/private identity responses stay unresolved.
 Snapshot history and cautions by ID before invalidating names so replacement/renamed input order cannot erase an active, archived or forked curated original.
+Authenticated ordinary-search observations cannot bypass publication policy: private metadata never reaches catalog, README or CLI, including a previously polluted cache and simultaneous curated lookup.
+Repository metadata IDs must be positive exact integers, not booleans, floats, strings or missing values; malformed ordinary and curated rows cannot publish or claim a current reference revision.
 These cases isolate input adapters and transport, not live API success.
 The running CLI above is the surface proof; record failed source/enrichment requests rather than claiming every candidate is current.
 

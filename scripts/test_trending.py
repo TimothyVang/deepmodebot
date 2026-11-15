@@ -399,6 +399,79 @@ class ReferenceDiscoveryTests(unittest.TestCase):
                 self.assertNotIn(self.reference["caution"], output.getvalue())
                 self.assertNotIn("unrelated/replacement", output.getvalue())
 
+    def test_authenticated_private_search_cannot_publish_metadata_through_ordinary_path(self):
+        library = self.out / "reference-library.json"
+        library.write_text(json.dumps({"schemaVersion": 2, "reviewed": "2026-11-14",
+                                       "archive": self.reference["archive"],
+                                       "repos": {"owner/original": self.reference}}), encoding="utf-8")
+        private = self.repository("private-owner/secret-project", 1)
+        private.update(private=True, description="confidential internal project")
+        public = self.repository("public-owner/search-result", 2)
+
+        def search(found, token):
+            catalog.add(found, private["full_name"], "github-search:topic", private)
+            catalog.add(found, public["full_name"], "github-search:topic", public)
+
+        for cached in (None, "public", "previous-private"):
+            for curated in (False, True):
+                with self.subTest(cached=cached, curated=curated):
+                    saved = self.entry(private["full_name"] if cached == "previous-private" else "owner/original")
+                    if cached == "previous-private":
+                        saved["description"] = private["description"]
+                    if curated:
+                        saved["reference"] = self.reference
+                    self.write_catalog({"updated": "2026-11-14", "sources": {},
+                                        "repos": {saved["name"].lower(): saved} if cached else {}})
+                    sources = [("github-search", search)]
+                    if curated:
+                        sources.append(("reference-library", catalog.source_references))
+                    output = io.StringIO()
+                    with patch.object(catalog, "REFERENCE_FILE", library), \
+                            patch.object(catalog, "SOURCES", sources), \
+                            patch.object(catalog, "github_token", return_value="synthetic"), \
+                            patch.object(catalog, "fetch", return_value=json.dumps(private)), \
+                            contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
+                        catalog.update(argparse.Namespace(out=self.out))
+                        catalog.find(argparse.Namespace(out=self.out, terms=["secret-project"],
+                                                        limit=20, no_refresh=True))
+                    current = catalog.load_catalog(self.out / "catalog.json")
+                    self.assertIn(public["full_name"], current["repos"])
+                    artifacts = output.getvalue() + (self.out / "catalog.json").read_text(encoding="utf-8")
+                    artifacts += (self.out / "README.md").read_text(encoding="utf-8")
+                    self.assertNotIn(private["full_name"], artifacts)
+                    self.assertNotIn(private["description"], artifacts)
+
+    def test_malformed_metadata_ids_cannot_publish_or_resolve_curated_identity(self):
+        library = self.out / "reference-library.json"
+        library.write_text(json.dumps({"schemaVersion": 2, "reviewed": "2026-11-14",
+                                       "archive": self.reference["archive"],
+                                       "repos": {"owner/original": self.reference}}), encoding="utf-8")
+        public = self.repository("public-owner/search-result", 2)
+        for invalid_id in (True, 1.0, "1", None, 0, -1):
+            for curated in (False, True):
+                with self.subTest(invalid_id=invalid_id, curated=curated):
+                    self.write_catalog({"updated": None, "sources": {}, "repos": {}})
+                    malformed = self.repository("unrelated/replacement", invalid_id)
+
+                    def search(found, token):
+                        catalog.add(found, malformed["full_name"], "github-search:topic", malformed)
+                        catalog.add(found, public["full_name"], "github-search:topic", public)
+
+                    sources = [("github-search", search)]
+                    if curated:
+                        sources.append(("reference-library", catalog.source_references))
+                    with patch.object(catalog, "REFERENCE_FILE", library), \
+                            patch.object(catalog, "SOURCES", sources), \
+                            patch.object(catalog, "github_token", return_value=None), \
+                            patch.object(catalog, "fetch", return_value=json.dumps(malformed)), \
+                            contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                        catalog.update(argparse.Namespace(out=self.out))
+                    current = catalog.load_catalog(self.out / "catalog.json")
+                    self.assertEqual(set(current["repos"]), {public["full_name"]})
+                    self.assertNotIn(self.reference["caution"], (self.out / "README.md").read_text(encoding="utf-8"))
+                    if curated:
+                        self.assertTrue(catalog.is_stale(current))
+
     def test_newer_incompatible_publication_cannot_erase_saved_reference_on_api_failure(self):
         saved = self.entry("new-owner/component")
         saved["reference"] = self.reference

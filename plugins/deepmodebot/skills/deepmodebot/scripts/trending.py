@@ -213,14 +213,16 @@ def update(args):
 
     for item in found.values():
         expected_id = item.get("reference", {}).get("github_id")
-        if item["repo"] is not None and (expected_id is None or item["repo"].get("id") == expected_id):
+        if item["repo"] is not None and (expected_id is None or (
+                type(item["repo"].get("id")) is int and item["repo"]["id"] == expected_id)):
             continue
         item["repo"] = None
         try:
             route = f"repositories/{expected_id}" if expected_id is not None else f"repos/{item['name']}"
             repo = json.loads(fetch(f"https://api.github.com/{route}", token))
-            if expected_id is not None and (not isinstance(repo, dict) or repo.get("id") != expected_id or repo.get("private") is True):
-                raise ValueError("response does not match the reviewed public repository identity")
+            if expected_id is not None and (not isinstance(repo, dict) or
+                    type(repo.get("id")) is not int or repo["id"] != expected_id):
+                raise ValueError("response does not match the reviewed repository identity")
             item["repo"] = repo
         except urllib.error.HTTPError as err:
             if err.code != 404 or "reference" in item:
@@ -231,6 +233,24 @@ def update(args):
     catalog_path = args.out / "catalog.json"
     catalog = load_catalog(catalog_path)
     repos = catalog["repos"]
+    # Apply publication policy to every collector before identity/history mutation.
+    private_repos = [item["repo"] for item in found.values()
+                     if item["repo"] and item["repo"].get("private") is True]
+    private_ids = {repo["id"] for repo in private_repos if type(repo.get("id")) is int}
+    private_names = {repo["full_name"].lower() for repo in private_repos}
+    excluded = 0
+    for item in found.values():
+        repo = item["repo"]
+        if repo and (type(repo.get("id")) is not int or repo["id"] <= 0 or
+                     repo["id"] in private_ids or repo["full_name"].lower() in private_names):
+            item["repo"] = None
+            excluded += 1
+    if private_repos:
+        repos = {name: entry for name, entry in repos.items()
+                 if entry.get("github_id") not in private_ids and name.lower() not in private_names}
+        catalog["repos"] = repos
+    if excluded:
+        print("warning: non-public or invalid repository metadata excluded before publication", file=sys.stderr)
     cached_by_id = {entry["github_id"]: entry for entry in repos.values()
                     if type(entry.get("github_id")) is int}
     by_id = {entry["github_id"]: name for name, entry in repos.items()
