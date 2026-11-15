@@ -31,7 +31,7 @@ A real run, not a mock-up: the bots took [PR #19](https://github.com/TimothyVang
 | Piece | What it does |
 |---|---|
 | `/deep <anything>` | One command routes by intent and vagueness, proves the result on the real app, and reports its decisions. Concrete tasks run directly, draft plans take **grill**, and open architecture or research gaps run a 12-agent **tournament** bracket. Ordinary local work stays in your starting tree for review, while publishing follows the review and verifier-panel gates. |
-| `deepmodebot` skill | 30 playbooks, 24 principles and 44 techniques, indexed in its `SKILL.md`. Every task is proven on the real artifact and merges only on a verifier panel pass. |
+| `deepmodebot` skill | 30 playbooks, 24 principles and 45 techniques, indexed in its `SKILL.md`. Every task is proven on the real artifact and merges only on a verifier panel pass. |
 | PR and issue bots | Install your own private GitHub App on your repos and a poller on your machine runs the bots: it reviews and lands your own PRs, resolves their merge conflicts, and plans and builds the issues you open. See [GitHub App bots](#github-app-bots). |
 | PR review | `/deepmodebot:review-pr <PR number>` reviews correctness, security, spec and standards, keeps findings backed by code or execution, and posts a comment-only review. No hosted review service is required. Prompts and source context still reach your configured model provider. |
 | Land a PR | `/deepmodebot:land-pr <PR number>` finishes and merges your own PR with no human: a reviewer bot posts findings in the PR thread, the author bot answers each with a fix or a reason, three verifier bots vote on the final head, and on a pass it merges. It never merges over a failing check. You see each turn in the session as it lands, drawn as an 8-bit frame right in the chat (each bot a sprite, each turn a dialog box), or watch the whole conversation play live as an 8-bit battle screen in your terminal; `/deepmodebot:pr-thread <PR or issue URL>` shows any bot conversation later. |
@@ -89,6 +89,7 @@ Around the main line:
 - **Work a queue:** Turns a backlog, a queue of PRs, or labeled issues (through the `factory` CLI) into merged PRs, each after a panel pass.
 - **domain-model:** Keeps `GLOSSARY.md` and ADRs current as names and decisions change.
 - **research:** Writes an answer that later sessions will cite into the repo.
+- **Decision brief:** For a business or research decision, compares the requested options against dated source evidence, flags missing or conflicting facts, and makes a conditional recommendation. The [research procedure](plugins/deepmodebot/skills/deepmodebot/references/techniques/research.md) also applies to chat-only answers; it does not claim a citation proves truth.
 - **architecture-review:** Finds structural friction across the codebase and settles which refactors to make.
 - **tournament:** Runs a 12-agent bracket across architecture and research lenses with verified receipts and single-insight grafting. It proposes Champion and Runner-Up before code is written.
 - **security-audit:** Audits a PR's security before it merges, run by your own agent.

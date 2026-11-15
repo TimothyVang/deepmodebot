@@ -1,19 +1,19 @@
 {
   "date": "2026-11-14",
   "skill": "plugins/deepmodebot/skills/deepmodebot/SKILL.md",
-  "skill_sha256": "f1415b86f8ad905a04e83924c87369327c588496f9db6e08506c6cb2625fcd1c",
+  "skill_sha256": "ea17ef7499e522990da22c558a38d228722bfb37909127bd49b5fb0e301b4fe5",
   "cases_file": "evals/routing/cases.json",
   "model_requested": null,
   "models_observed": [
-    "openai-codex/gpt-6.1-sol"
+    "openai-codex/gpt-6.1-terra"
   ],
   "max_cost_per_case": 0.5,
   "scores": {
-    "cases": 24,
-    "route": 24,
-    "size": 24,
-    "both": 24,
-    "cost_usd": 0.8929
+    "cases": 28,
+    "route": 28,
+    "size": 27,
+    "both": 27,
+    "cost_usd": 0.7616
   },
   "results": [
     {
@@ -28,8 +28,8 @@
         "size": "S"
       },
       "raw": "{\"route\":\"bug-fix\",\"size\":\"S\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.028772,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.014275,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -46,8 +46,8 @@
         "size": "M"
       },
       "raw": "{\"route\":\"bug-fix\",\"size\":\"M\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.028992,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.064489,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -64,8 +64,8 @@
         "size": "M"
       },
       "raw": "{\"route\":\"feature\",\"size\":\"M\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.028822,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.017548,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -82,8 +82,8 @@
         "size": "L"
       },
       "raw": "{\"route\":\"feature\",\"size\":\"L\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.029614,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.017664,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -100,8 +100,8 @@
         "size": "none"
       },
       "raw": "{\"route\":\"pr-review\",\"size\":\"none\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.128514,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.01753,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -118,8 +118,8 @@
         "size": "S"
       },
       "raw": "{\"route\":\"pr-conversation\",\"size\":\"S\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.02877,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.064378,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -136,8 +136,8 @@
         "size": "M"
       },
       "raw": "{\"route\":\"babysit\",\"size\":\"M\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.029154,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.014611,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -154,8 +154,8 @@
         "size": "L"
       },
       "raw": "{\"route\":\"run-a-goal\",\"size\":\"L\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.028952,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.064374,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -172,8 +172,8 @@
         "size": "L"
       },
       "raw": "{\"route\":\"work-a-queue\",\"size\":\"L\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.028582,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.064369,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -190,8 +190,8 @@
         "size": "L"
       },
       "raw": "{\"route\":\"work-a-queue\",\"size\":\"L\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.02893,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.014294,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -208,8 +208,8 @@
         "size": "L"
       },
       "raw": "{\"route\":\"work-a-queue\",\"size\":\"L\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.028544,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.06434,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -226,8 +226,8 @@
         "size": "L"
       },
       "raw": "{\"route\":\"phased-build\",\"size\":\"L\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.028756,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.014352,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -244,8 +244,8 @@
         "size": "L"
       },
       "raw": "{\"route\":\"run-a-goal\",\"size\":\"L\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.028864,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.014386,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -262,8 +262,8 @@
         "size": "none"
       },
       "raw": "{\"route\":\"investigation\",\"size\":\"none\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.028722,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.014265,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -280,8 +280,8 @@
         "size": "M"
       },
       "raw": "{\"route\":\"perf-issue\",\"size\":\"M\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.028798,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.014283,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -298,8 +298,8 @@
         "size": "none"
       },
       "raw": "{\"route\":\"grill\",\"size\":\"none\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.128802,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.014261,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -316,8 +316,8 @@
         "size": "L"
       },
       "raw": "{\"route\":\"prior-art\",\"size\":\"L\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.02856,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.014224,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -331,14 +331,14 @@
       },
       "answer": {
         "route": "project-brief",
-        "size": "M"
+        "size": "L"
       },
-      "raw": "{\"route\":\"project-brief\",\"size\":\"M\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.029142,
+      "raw": "{\"route\":\"project-brief\",\"size\":\"L\"}",
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.01459,
       "error": null,
       "route_ok": true,
-      "size_ok": true
+      "size_ok": false
     },
     {
       "id": "write-a-skill",
@@ -352,8 +352,8 @@
         "size": "M"
       },
       "raw": "{\"route\":\"authoring-a-skill\",\"size\":\"M\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.029034,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.014401,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -370,8 +370,80 @@
         "size": "M"
       },
       "raw": "{\"route\":\"refactoring\",\"size\":\"M\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.028934,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.014376,
+      "error": null,
+      "route_ok": true,
+      "size_ok": true
+    },
+    {
+      "id": "architecture-research-gaps",
+      "request": "Find architecture gaps and research gaps in this repo and propose the best system before we write any code.",
+      "expected": {
+        "route": "tournament",
+        "size": "none"
+      },
+      "answer": {
+        "route": "tournament",
+        "size": "none"
+      },
+      "raw": "{\"route\":\"tournament\",\"size\":\"none\"}",
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.014268,
+      "error": null,
+      "route_ok": true,
+      "size_ok": true
+    },
+    {
+      "id": "vague-ambition-upgrade",
+      "request": "Make our agent system way smarter and rethink the architecture from first principles.",
+      "expected": {
+        "route": "tournament",
+        "size": "none"
+      },
+      "answer": {
+        "route": "tournament",
+        "size": "none"
+      },
+      "raw": "{\"route\":\"tournament\",\"size\":\"none\"}",
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.014264,
+      "error": null,
+      "route_ok": true,
+      "size_ok": true
+    },
+    {
+      "id": "explicit-tournament",
+      "request": "Run a tournament where agents debate the best SOTA research ideas for our retrieval pipeline.",
+      "expected": {
+        "route": "tournament",
+        "size": "none"
+      },
+      "answer": {
+        "route": "tournament",
+        "size": "none"
+      },
+      "raw": "{\"route\":\"tournament\",\"size\":\"none\"}",
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.014261,
+      "error": null,
+      "route_ok": true,
+      "size_ok": true
+    },
+    {
+      "id": "greenfield-vague-platform",
+      "request": "Build me an AI app.",
+      "expected": {
+        "route": "tournament",
+        "size": "none"
+      },
+      "answer": {
+        "route": "tournament",
+        "size": "none"
+      },
+      "raw": "{\"route\":\"tournament\",\"size\":\"none\"}",
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.064395,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -388,8 +460,8 @@
         "size": "none"
       },
       "raw": "{\"route\":\"inner-loop\",\"size\":\"none\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.028698,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.014278,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -406,8 +478,8 @@
         "size": "L"
       },
       "raw": "{\"route\":\"inner-loop\",\"size\":\"L\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.029058,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.014293,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -424,8 +496,8 @@
         "size": "none"
       },
       "raw": "{\"route\":\"deep-stack\",\"size\":\"none\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.028698,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.064527,
       "error": null,
       "route_ok": true,
       "size_ok": true
@@ -442,8 +514,8 @@
         "size": "L"
       },
       "raw": "{\"route\":\"end-to-end\",\"size\":\"L\"}",
-      "model": "openai-codex/gpt-6.1-sol",
-      "cost": 0.029202,
+      "model": "openai-codex/gpt-6.1-terra",
+      "cost": 0.0143,
       "error": null,
       "route_ok": true,
       "size_ok": true
