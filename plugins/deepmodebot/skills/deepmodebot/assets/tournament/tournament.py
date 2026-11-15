@@ -144,6 +144,8 @@ TOURNAMENT_CHECKPOINT_RE = re.compile(
     r"(\b(?:let|allow)\s+me\s+(?:choose|pick|select|approve)\b"
     r"|\b(?:ask|consult)\s+me\s+(?:first|before)\b"
     r"|\b(?:wait|pause|stop)\s+(?:for|until|at|before)\b"
+    r"|\b(?:approval|permission|consent|sign[- ]?off)\s+"
+    r"(?:first|before\s+(?:you\s+)?(?:code|coding|implementation|implementing|building|editing))\b"
     r"|\b(?:do\s+not|don't|don’t|never)\s+(?:\w+\s+){0,2}(?:build|code|implement|modify|edit)\b"
     r"|\b(?:no|without)\s+(?:code|coding|implementation|production\s+(?:edits|changes))\b"
     r"|\b(?:choose|pick|select|approve)\s+(?:first|before\s+(?:coding|implementation|building))\b"

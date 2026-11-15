@@ -135,6 +135,12 @@ class AutoRouterTests(unittest.TestCase):
         cases = [
             ("Build me an AI app; run a tournament and let me choose before coding", "execute", True),
             ("Build me an AI app; run a tournament and wait for my approval", "execute", True),
+            ("Build me an AI app; run a tournament, but get my approval before coding", "execute", True),
+            ("Build me an AI app; run a tournament; obtain my permission before implementing", "execute", True),
+            ("Rethink the architecture and implement it; my approval before coding is required", "execute", True),
+            ("Run a tournament and build the winner; get my sign-off before you code", "execute", True),
+            ("Run a tournament and build the winner; get my consent first", "execute", True),
+            ("Run a tournament and implement approval checks", "execute", False),
             ("Build me an AI app; run a tournament, but do not implement yet", "execute", True),
             ("Build me an AI app; run a tournament, but don't code yet", "execute", True),
             ("Build me an AI app; run a tournament; only propose the winner", "execute", True),

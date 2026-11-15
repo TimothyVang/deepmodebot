@@ -65,3 +65,39 @@ OK
 ```
 
 The gate passed with all 15 delivery-constraint prompts and both post-verdict replacement checks included.
+
+## F6 additional approval phrasing
+
+Base: `3c234e39004f5750c400e7b36246269d1431b83b`.
+
+The checkpoint matcher previously recognized requests to choose or approve, but missed the noun phrase `approval before coding`. It now recognizes approval, permission, consent and sign-off followed by `first` or `before` an implementation action. This covers the reported request without treating an approval feature name as an authorization gate.
+
+Six added regression cases bring delivery-constraint coverage to 21 prompts in both empty and populated roots. Real `route --stdin --json` calls observed:
+
+| Request suffix | Intent | Checkpoint |
+|---|---|---|
+| Build me an AI app; run a tournament, but get my approval before coding | execute | true |
+| Build me an AI app; run a tournament; obtain my permission before implementing | execute | true |
+| Rethink the architecture and implement it; my approval before coding is required | execute | true |
+| Run a tournament and build the winner; get my sign-off before you code | execute | true |
+| Run a tournament and build the winner; get my consent first | execute | true |
+| Run a tournament and implement approval checks | execute | false |
+
+A real synthetic CLI bracket completed `init`, 12 pitches, rebuttals, seven judgments, `status` and `render`. The original approval-before-coding request remained in the proposal, alongside its existing choose-first exception. This checks the CLI, not a new agent journey or proposal quality.
+
+```text
+python .omp/skills/verify-deepmodebot/control.py doctor
+ready: true
+
+python plugins/deepmodebot/skills/deepmodebot/assets/tournament/test_tournament.py -v
+Ran 10 tests in 4.813s
+OK
+
+python scripts/eval_routing.py --model openai-codex/gpt-6.1-sol --out .scratch/approval-checkpoint/routing.json
+route 24/24  size 24/24  both 24/24
+
+python scripts/check.py
+OK
+```
+
+Raw CLI arguments, stdin, exits, stdout and stderr remain in `.scratch/approval-checkpoint/cli.json`. The disposable bracket and proposal are under its `app/.scratch/tournaments/approval/`. Focused test, model-routing and repository-gate captures remain in `tests.txt`, `routing.json` and `check.txt` beside that app. Tests and CLI probes used project-local temporary directories. The model-routing suite measures unchanged skill route/size selection; direct CLI cases prove the new checkpoint behavior.
