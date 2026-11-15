@@ -731,6 +731,32 @@ class ScanTextSlopCase(unittest.TestCase):
         self.assertEqual(self.scan("ui.ts", "// Renders the placeholder text when empty\n"), [])
         self.assertEqual(self.scan("ui.ts", "// placeholder until the API lands\n// later TODO wire it\n"),
                          [(1, "stub-placeholder"), (2, "stub-placeholder")])
+    def test_broad_catches_that_only_continue_return_or_break_are_swallowed(self):
+        text = ("def a(xs):\n    for x in xs:\n        try:\n            go(x)\n        except Exception:\n            continue\n"
+                "def b():\n    try:\n        return go()\n    except Exception:\n        return None\n"
+                "def c():\n    with contextlib.suppress(Exception):\n        go()\n"
+                "def d():\n    try:\n        go()\n    except Exception:\n        log.exception('x')\n        raise\n")
+        self.assertEqual(self.scan("m.py", text), [(5, "swallowed-exception"), (10, "swallowed-exception"),
+                                                   (13, "swallowed-exception")])
+
+    def test_bare_except_that_reraises_is_allowed(self):
+        self.assertEqual(self.scan("m.py", "try:\n    go()\nexcept:\n    cleanup()\n    raise\n"), [])
+
+    def test_not_implemented_stubs_inside_handlers_and_match_cases_are_found_but_dispatch_fallbacks_are_not(self):
+        text = ("def a(x):\n    try:\n        return go(x)\n    except KeyError:\n        raise NotImplementedError\n"
+                "def b(kind):\n    match kind:\n        case 'csv':\n            raise NotImplementedError('todo: csv')\n"
+                "def c(kind):\n    if kind == 'json':\n        return 1\n    raise NotImplementedError(f'unsupported kind {kind}')\n")
+        self.assertEqual(self.scan("m.py", text), [(5, "stub-placeholder"), (9, "stub-placeholder")])
+
+    def test_more_python_and_rust_suppressions_are_recognized(self):
+        text = ("x = 1  # pylint: disable=unused-variable\ny = eval(s)  # nosec\n"
+                "def z():  # pragma: no cover\n    return 1\n# mypy: ignore-errors\n")
+        self.assertEqual([r for _, r in self.scan("m.py", text)], ["suppression-comment"] * 4)
+        self.assertEqual(self.scan("lib.rs", "#[expect(dead_code)]\nfn f() {}\n"), [(1, "suppression-comment")])
+
+    def test_block_comment_continuation_lines_are_scanned(self):
+        text = "/**\n * Loads the view.\n * TODO wire the cache\n * eslint-disable no-console\n */\nexport const a = 1;\n"
+        self.assertEqual(self.scan("ui.ts", text), [(3, "stub-placeholder"), (4, "suppression-comment")])
 
 if __name__ == "__main__":
     unittest.main()
