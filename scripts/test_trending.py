@@ -441,6 +441,31 @@ class ReferenceDiscoveryTests(unittest.TestCase):
                     self.assertNotIn(private["full_name"], artifacts)
                     self.assertNotIn(private["description"], artifacts)
 
+    def test_private_renamed_repository_removes_idless_historical_reference(self):
+        saved = self.entry("old-owner/original")
+        saved.pop("github_id")
+        saved["reference"] = self.reference
+        private = self.repository("new-owner/renamed")
+        private["private"] = True
+        public = self.repository("public-owner/unrelated", 2)
+        self.write_catalog({"updated": "2026-11-14", "sources": {},
+                            "repos": {"old-owner/original": saved}})
+
+        def source(found, token):
+            catalog.add(found, private["full_name"], "github-search:topic", private)
+            catalog.add(found, public["full_name"], "github-search:topic", public)
+
+        output = io.StringIO()
+        with patch.object(catalog, "SOURCES", [("github-search", source)]), \
+                patch.object(catalog, "github_token", return_value="synthetic"), \
+                contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
+            catalog.update(argparse.Namespace(out=self.out))
+            catalog.find(argparse.Namespace(out=self.out, terms=["doctor admin"], limit=20, no_refresh=True))
+        current = catalog.load_catalog(self.out / "catalog.json")
+        self.assertEqual(set(current["repos"]), {"public-owner/unrelated"})
+        self.assertNotIn(self.reference["caution"], output.getvalue())
+        self.assertNotIn("old-owner/original", (self.out / "README.md").read_text(encoding="utf-8"))
+
     def test_malformed_metadata_ids_cannot_publish_or_resolve_curated_identity(self):
         library = self.out / "reference-library.json"
         library.write_text(json.dumps({"schemaVersion": 2, "reviewed": "2026-11-14",
