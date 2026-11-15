@@ -8,6 +8,10 @@ Run `python .omp/skills/verify-deepmodebot/control.py doctor` from the root firs
 
 These entries cover the surfaces changed in this work. They do not claim production autostart, every harness, hosted competitors or all upstream workflows have been exercised.
 
+## Reasoning gates
+
+For changes to the reasoning gates in `plugins/deepmodebot/skills/deepmodebot/SKILL.md`, exercise the candidate skill with a bounded agent scenario involving conflicting source evidence and repeated unproductive work. Capture the prompt and response under `.scratch/evidence/` and check that the agent identifies the conflict, revisits the premise, and proposes a bounded next step without treating activity as progress. A structural skill check alone does not prove model compliance; report the scenario and its limits.
+
 ## Public evidence page
 
 For changes to `docs/index.html`, serve only `docs/` on a loopback address in a named, owned service.
