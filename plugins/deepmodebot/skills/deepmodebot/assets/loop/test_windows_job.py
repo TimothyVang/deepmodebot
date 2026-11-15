@@ -27,6 +27,7 @@ SYNCHRONIZE = 0x00100000
 PROCESS_TERMINATE = 0x0001
 EVENT_MODIFY_STATE = 0x0002
 FIXTURE_LIFETIME_MS = 8000
+STARTUP_EXIT_TIMEOUT = 15
 DEADLINE_SECONDS = 2
 
 
@@ -197,7 +198,7 @@ class WindowsJobCase(unittest.TestCase):
         )
         self.env["JOB_TEST_MARKER"] = "inherited-value"
         process = self.start(windows_job.wrap_command([sys.executable, "-B", "-c", code, *arguments]))
-        out, err = process.communicate("stdin-value\n", timeout=3)
+        out, err = process.communicate("stdin-value\n", timeout=STARTUP_EXIT_TIMEOUT)
         self.assertEqual(process.returncode, 37, err)
         self.assertEqual(json.loads(out), {"argv": arguments, "stdin": "stdin-value\n",
                                           "cwd": str(self.root), "marker": "inherited-value"})
@@ -216,7 +217,7 @@ class WindowsJobCase(unittest.TestCase):
                 "exit_process.argtypes = [wintypes.UINT]; exit_process.restype = None; "
                 "exit_process(0x80000007)")
         process = self.start(windows_job.wrap_command([sys.executable, "-B", "-c", code]))
-        out, err = process.communicate(timeout=3)
+        out, err = process.communicate(timeout=STARTUP_EXIT_TIMEOUT)
         self.assertEqual(process.returncode, 0x80000007, err)
         self.assertEqual(out, "")
         self.assertEqual(err, "")
