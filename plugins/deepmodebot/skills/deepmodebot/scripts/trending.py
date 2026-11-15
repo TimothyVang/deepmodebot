@@ -253,12 +253,15 @@ def update(args):
     if not found:
         sys.exit("error: every source failed or returned nothing; catalog left unchanged")
 
+    transport_failed = False
     for item in found.values():
         expected_id = item.get("reference", {}).get("github_id")
         if item["repo"] is not None and (expected_id is None or (
                 _valid_github_id(item["repo"].get("id")) and item["repo"]["id"] == expected_id)):
             continue
         item["repo"] = None
+        if transport_failed:
+            continue
         try:
             route = f"repositories/{expected_id}" if expected_id is not None else f"repos/{item['name']}"
             repo = json.loads(fetch(f"https://api.github.com/{route}", token))
@@ -269,7 +272,10 @@ def update(args):
         except urllib.error.HTTPError as err:
             if err.code != 404 or "reference" in item:
                 print(f"warning: could not enrich {item['name']}: {err}", file=sys.stderr)
-        except (urllib.error.URLError, OSError, ValueError) as err:
+        except (urllib.error.URLError, OSError) as err:
+            transport_failed = True
+            print(f"warning: enrichment transport unavailable: {err}", file=sys.stderr)
+        except ValueError as err:
             print(f"warning: could not enrich {item['name']}: {err}", file=sys.stderr)
 
     catalog_path = args.out / "catalog.json"
@@ -488,6 +494,13 @@ def fetch_published(out: Path, local) -> bool:
         print(f"warning: could not read the published catalog ({err})", file=sys.stderr)
         return False
     if published.get("reference_revision") != REFERENCE_REVISION:
+        if not local["repos"] and published.get("repos"):
+            published.pop("reference_revision", None)
+            out.mkdir(parents=True, exist_ok=True)
+            (out / "catalog.json").write_text(json.dumps(published, indent=1, ensure_ascii=False) + "\n",
+                                              encoding="utf-8", newline="\n")
+            (out / "README.md").write_text(render(published), encoding="utf-8", newline="\n")
+            return False
         return not is_stale(local)
     published_stamp, local_stamp = published.get("updated") or "", local["updated"] or ""
     if published_stamp > local_stamp or (
