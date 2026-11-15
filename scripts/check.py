@@ -23,6 +23,7 @@ WHITE_LABEL_EXEMPT = {
     Path("plugins/deepmodebot/skills/deepmodebot/assets/repo-candidates.json"),
     Path("plugins/deepmodebot/skills/agent-harnesses/references/build-evidence.md"),
     Path("docs/research/youtube-learning/history-recovery.md"),
+    Path("docs/research/youtube-learning/README.md"),
 }
 LOCAL_ONLY = {".git", ".scratch", ".worktrees", "__pycache__"}  # self-ignored work folders and caches, never shipped
 RULES_WINDOW_BYTES = 20_000  # about 5,000 tokens at 4 bytes each: what Claude Code keeps of a skill after compaction
