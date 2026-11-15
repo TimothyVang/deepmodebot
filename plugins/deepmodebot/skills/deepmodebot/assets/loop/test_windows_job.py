@@ -15,6 +15,7 @@ import tempfile
 import time
 import unittest
 import uuid
+from unittest.mock import patch
 
 import windows_job
 
@@ -26,6 +27,7 @@ SYNCHRONIZE = 0x00100000
 PROCESS_TERMINATE = 0x0001
 EVENT_MODIFY_STATE = 0x0002
 FIXTURE_LIFETIME_MS = 8000
+STARTUP_EXIT_TIMEOUT = 15
 DEADLINE_SECONDS = 2
 
 
@@ -93,9 +95,24 @@ def _fixture(role, mode, root, token):
                                   "--fixture", "parent", "live", root.as_posix(), token])
             argv = [loop.find_bash(), "-c", command + " & wait"]
         started = time.monotonic()
-        code, output = loop.run_limited(argv, DEADLINE_SECONDS / 60,
-                                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        print(json.dumps({"code": code, "output": output, "elapsed": time.monotonic() - started}), flush=True)
+        ready_at = None
+
+        class ReadyPopen(subprocess.Popen):
+            def __init__(self, *args, **kwargs):
+                nonlocal ready_at
+                super().__init__(*args, **kwargs)
+                # Real processes/events: isolate cleanup's deadline from cold startup.
+                if _wait(api, event("ready"), FIXTURE_LIFETIME_MS) != WAIT_OBJECT_0:
+                    self.kill()
+                    self.communicate(timeout=2)
+                    raise RuntimeError("fixture startup did not reach readiness")
+                ready_at = time.monotonic()
+
+        with patch.object(loop.subprocess, "Popen", ReadyPopen):
+            code, output = loop.run_limited(argv, DEADLINE_SECONDS / 60,
+                                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        print(json.dumps({"code": code, "output": output, "elapsed": time.monotonic() - ready_at,
+                          "startup_elapsed": ready_at - started}), flush=True)
         return 0
     raise ValueError(role)
 
@@ -159,7 +176,7 @@ class WindowsJobCase(unittest.TestCase):
         return process
 
     def watch_tree(self):
-        self.assertEqual(_wait(self.api, self.events["ready"], 3000), WAIT_OBJECT_0,
+        self.assertEqual(_wait(self.api, self.events["ready"], FIXTURE_LIFETIME_MS), WAIT_OBJECT_0,
                          "fixture tree did not become ready")
         for pid in json.loads((self.root / "processes.json").read_text(encoding="utf-8")):
             handle = _checked(self.api.OpenProcess(SYNCHRONIZE | PROCESS_TERMINATE, False, pid))
@@ -181,7 +198,7 @@ class WindowsJobCase(unittest.TestCase):
         )
         self.env["JOB_TEST_MARKER"] = "inherited-value"
         process = self.start(windows_job.wrap_command([sys.executable, "-B", "-c", code, *arguments]))
-        out, err = process.communicate("stdin-value\n", timeout=3)
+        out, err = process.communicate("stdin-value\n", timeout=STARTUP_EXIT_TIMEOUT)
         self.assertEqual(process.returncode, 37, err)
         self.assertEqual(json.loads(out), {"argv": arguments, "stdin": "stdin-value\n",
                                           "cwd": str(self.root), "marker": "inherited-value"})
@@ -200,7 +217,7 @@ class WindowsJobCase(unittest.TestCase):
                 "exit_process.argtypes = [wintypes.UINT]; exit_process.restype = None; "
                 "exit_process(0x80000007)")
         process = self.start(windows_job.wrap_command([sys.executable, "-B", "-c", code]))
-        out, err = process.communicate(timeout=3)
+        out, err = process.communicate(timeout=STARTUP_EXIT_TIMEOUT)
         self.assertEqual(process.returncode, 0x80000007, err)
         self.assertEqual(out, "")
         self.assertEqual(err, "")
@@ -214,6 +231,25 @@ class WindowsJobCase(unittest.TestCase):
         out, err = process.communicate(timeout=2)
         self.assertLess(time.monotonic() - started, 2)
         self.assertEqual(process.returncode, 23, err)
+        self.assertEqual(out, "descendant-ready\n")
+        self.assertEqual(err, "")
+        self.assert_tree_stopped()
+
+    def test_virtualenv_supervisor_death_stops_parent_descendant_and_pipes(self):
+        import venv
+        environment = self.root / "venv"
+        venv.EnvBuilder(with_pip=False).create(environment)
+        python = environment / "Scripts/python.exe"
+        target = [str(python), "-B", str(HERE), "--fixture", "parent", "live", str(self.root), self.token]
+        caller = ("import json,sys; sys.path.insert(0,sys.argv[1]); import windows_job; "
+                  "print(json.dumps(windows_job.wrap_command(json.loads(sys.argv[2]))))")
+        wrapped = subprocess.check_output(
+            [str(python), "-B", "-c", caller, str(HERE.parent), json.dumps(target)],
+            cwd=self.root, env=self.env, text=True, encoding="utf-8", timeout=10)
+        process = self.start(json.loads(wrapped))
+        self.watch_tree()
+        process.kill()
+        out, err = process.communicate(timeout=2)
         self.assertEqual(out, "descendant-ready\n")
         self.assertEqual(err, "")
         self.assert_tree_stopped()

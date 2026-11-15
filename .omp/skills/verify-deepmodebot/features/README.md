@@ -5,6 +5,8 @@ Run `python .omp/skills/verify-deepmodebot/control.py doctor` from the root firs
 - [Local delivery](delivery.md): real coding-agent completion and checked-out behavior.
 - [Review quality and safe context](review.md): sealed review input boundaries, findings and clean controls.
 - [Workflow coverage](workflows.md): pinned inventories and executed agent journeys.
+- [Repository discovery](repositories.md): dated reference choices, project-cache refresh, licensing cautions and startup-idea boundaries.
+- [Windows process ownership](processes.md): real process trees, virtualenv context, bounded startup and deadline cleanup with held handles and drained pipes.
 - [Goals and updates](goals-and-updates.md): real ACP goal consensus, quantitative artifacts and fork-preserving local synchronization.
 - [Visual E2E and design evidence](visual-e2e.md): actual recording/replay, pinned-tab boundaries, three image-review contexts and portable/Penpot workflow evidence.
 
@@ -50,6 +52,7 @@ Model-backed examples require separate approved provider/data/spend boundaries; 
 For a release bump, install the previous release through the real harness CLI in isolated state under `.scratch/`, then refresh its marketplace to the candidate revision and upgrade that existing installation.
 Capture before/after versions, upgrade availability, CLI output and the runtime-linked plugin payload.
 The [0.8.2 upgrade report](../../../../evals/results/release-0.8.2-upgrade-2026-11-14.md) records separate real omp and Claude Code upgrade runs, pinned inputs, isolation commands, observed output and limits.
+The [0.8.3 upgrade report](../../../../evals/results/release-0.8.3-upgrade-2026-11-15.md) records a real isolated omp upgrade and all 244 runtime-linked plugin file hashes; other harnesses and remote/watcher fetching are not inferred.
 Local marketplace snapshots prove local upgrades, not remote publication, watcher updates, session reloads or untested harnesses.
 
 ## Inner-loop audit and goal-loop gates
