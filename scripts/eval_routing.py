@@ -39,7 +39,7 @@ Reply with one JSON line and nothing else: {{"route": "<name>", "size": "<S|M|L|
   For a playbook, its file name without `.md` (for example `bug-fix`).
   For a technique, its name (for example `pr-review`). For a sibling skill, its name (for example `contribute`).
   When the Routes table sends you to the Playbooks table, the matching playbook's file name.
-- size: S, M or L from the Size table, or none for read-only work (a review, an investigation, a question).
+- size: S, M or L from the Size table, or none for read-only and discovery work (a review, an investigation, a question, a tournament, or grill).
 """
 
 
@@ -102,8 +102,8 @@ def run_case(case, prompt, run_dir, args, omp):
     env.update(TMPDIR=str(tmp), TMP=str(tmp), TEMP=str(tmp))
     result = {"id": case["id"], "request": case["request"], "expected": {"route": case["route"], "size": case["size"]}}
     try:
-        proc = subprocess.run(cmd, cwd=case_dir, env=env, capture_output=True, text=True, encoding="utf-8",
-                              errors="replace", timeout=args.timeout)
+        proc = subprocess.run(cmd, cwd=case_dir, env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                              encoding="utf-8", errors="replace", timeout=args.timeout)
     except subprocess.TimeoutExpired:
         return {**result, "answer": None, "raw": "", "model": None, "cost": None, "error": f"timeout after {args.timeout}s"}
     text, model, cost = parse_events(proc.stdout)

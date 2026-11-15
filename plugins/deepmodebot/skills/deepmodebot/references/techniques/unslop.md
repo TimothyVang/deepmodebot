@@ -1,6 +1,6 @@
 # unslop
 
-**Use when:** writing or editing any prose (replies, docs, PRs, commits, logs). Scan for the tells, rewrite, preserve meaning and tone. Rule numbers are stable ids.
+**Use when:** writing or editing any prose (replies, docs, PRs, commits, logs). Scan for the tells, rewrite, preserve meaning and tone. Rule numbers are stable ids. For AI code slop (inline suppressions, swallowed errors, single-caller wrappers, weak goal-loop gates), run **inner-loop** (`references/techniques/inner-loop.md`) and **no-comments** (`references/techniques/no-comments.md`).
 
 - **Content.** 3 superficial -ing tails ("highlighting…", "ensuring…") → delete or substantiate. 5 vague attributions ("experts believe") → name the source or delete.
 - **Language.** 7 AI vocabulary (additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape, pivotal, showcase, tapestry, testament, underscore, vibrant) → plain words. 8 "serves as/stands as/boasts/features" → "is/has". 9 "not just X, but Y" → state it. 10 forced triads → natural count. 11 synonym cycling → one name. 12 false ranges ("from X to Y" off-scale) → list directly.
