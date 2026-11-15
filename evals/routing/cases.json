@@ -199,6 +199,13 @@
       "route": "end-to-end",
       "size": "L",
       "note": "Full-scope multi-slice product delivery from a rough idea."
+    },
+    {
+      "id": "generate-agents-md",
+      "request": "Generate an AGENTS.md and CLAUDE.md for this repo with the finish-line rule and our real check commands.",
+      "route": "writing-for-agents",
+      "size": "M",
+      "note": "Instruction-file generation; agent config keeps it out of size S."
     }
   ]
 }

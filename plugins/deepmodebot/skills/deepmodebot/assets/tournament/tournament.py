@@ -272,7 +272,11 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
     if re.search(r"\b(?:write|author|create|edit)\s+(?:me\s+)?a\s+skill\b|\bedit\s+skill\.md\b", lower):
         return out("authoring-a-skill", "execute", "low", "Skill authoring request.")
 
-    if re.search(r"\b(?:write|edit|update)\s+(?:agents\.md|claude\.md|a\s+rule\s+file|a?\s*subagent\s+brief)\b", lower):
+    if re.search(
+        r"\b(?:write|edit|update|generate|regenerate|build|create|overwrite|refresh)\s+(?:an?\s+|the\s+|our\s+)?"
+        r"(?:agents\.md|claude\.md|a\s+rule\s+file|a?\s*subagent\s+brief)\b",
+        lower,
+    ):
         return out("writing-for-agents", "execute", "low", "Agent instruction or brief authoring request.")
 
     if re.search(r"\b(?:write|improve)\s+your\s+own\s+(?:prompt|skill|goal|loop)\b|\bmake\s+yourself\s+able\s+to\b", lower):
