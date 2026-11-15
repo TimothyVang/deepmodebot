@@ -27,3 +27,10 @@ Expect Antigravity custom-tool dispatch, Codex native version output, omp in-mem
 Capture commands and outputs under `.scratch/evidence/`. Report platform, package versions, and any failures.
 These checks do not verify model inference, provider authentication, Antigravity runtime startup, or permission enforcement during model turns.
 Model-backed examples require separate approved provider/data/spend boundaries; do not silently turn a local installation check into an agent run.
+
+## Plugin release upgrades
+
+For a release bump, install the previous release through the real harness CLI in isolated state under `.scratch/`, then refresh its marketplace to the candidate revision and upgrade that existing installation.
+Capture before/after versions, upgrade availability, CLI output and the runtime-linked plugin payload.
+The [0.8.2 upgrade report](../../../../evals/results/release-0.8.2-upgrade-2026-11-14.md) records separate real omp and Claude Code upgrade runs, pinned inputs, isolation commands, observed output and limits.
+Local marketplace snapshots prove local upgrades, not remote publication, watcher updates, session reloads or untested harnesses.
