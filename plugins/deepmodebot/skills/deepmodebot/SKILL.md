@@ -37,7 +37,7 @@ Paths below are relative to this skill (`skill://deepmodebot/...`).
 **Choose the delivery target separately from size.** No remote, or a request for local review, means a **local edit**: for S or M, leave verified changes uncommitted in the starting tree, review the diff, exercise the real behavior, and stop with result and proof (no PR, default-branch commit, or push). A publish request is not local delivery.
 Use an isolated worktree only when concurrent writers or unrelated dirty work require it, returning the verified patch safely. A local M edit skips shipping panels, new verification frameworks, and design contests, and reads only the procedure and references its risk needs. Auth, permissions, migrations, security boundaries, and L work keep full checks.
 
-Discovery work (review, investigation, questions, or tournament discovery) has no size or panel. Tournament's build handoff: Autonomy.
+Discovery work (review, investigation, questions, or tournament discovery) has no size or panel. For discovery of a business-data opportunity or investigation of a stalled attempt, also use the opportunity probe in `references/techniques/research.md`. Tournament's build handoff: Autonomy.
 
 **4. Act, then report.** Follow Autonomy's publishing gates and hard stops. Report the result and proof.
 
@@ -49,7 +49,7 @@ For M and L work, including research and business deliverables, apply these gate
 2. **At phase boundaries, before consequential actions, and before delivery:** compare the output with the original goal and current evidence. Check for missing entities, stale facts, unsupported conclusions, and work that no longer serves the goal. Name what changed and the next smallest action; replan when the premise fails. Activity, PRs, and generated pages are not proof of progress.
 3. **When progress stalls** (two attempts without better acceptance evidence, repeated rewrites, contradictory findings, or time far past the expected effort): pause, inspect the actual artifacts and sources, find the bottleneck, test the premise, then try a different bounded approach or report the blocker. Reset only when evidence improves or a distinct approach is tried. No universal time limit; never abandon the user's scope.
 
-For an open-ended business use case, define one representative workflow and a real user's observable success before scaling; it is a proof point, never a reason to narrow the full scope. Business or research decisions comparing evidence or options use the decision-brief procedure (`references/techniques/research.md`), in chat or a file. Label unproven market, revenue, or exit claims as estimates.
+For an open-ended business use case, define one representative workflow and an intended user's observable success before scaling; it is a proof point, never a reason to narrow the full scope. For a business-data opportunity or stalled attempt to investigate one, use the opportunity probe in `references/techniques/research.md`. Other business or research decisions comparing evidence or options use its decision-brief procedure, in chat or a file. Label unproven market, revenue, or exit claims as estimates.
 
 ## Contain the work
 

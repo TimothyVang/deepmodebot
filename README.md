@@ -81,6 +81,7 @@ Around the main line:
 - **domain-model:** Keeps `GLOSSARY.md` and ADRs current as names and decisions change.
 - **research:** Writes an answer that later sessions will cite into the repo.
 - **Decision brief:** For a business or research decision, compares the requested options against dated source evidence, flags missing or conflicting facts, and makes a conditional recommendation. The [research procedure](plugins/deepmodebot/skills/deepmodebot/references/techniques/research.md) also applies to chat-only answers; it does not claim a citation proves truth.
+- **Opportunity probe:** Investigates one business-data workflow with source-specific rights checks, a reproducible sample or concrete blocker, and separate evidence for buyer need, willingness to pay, value and costs. It inspects failed work and proposes a discriminating next check; it does not itself enforce progress or prove commercial value. See the [research procedure](plugins/deepmodebot/skills/deepmodebot/references/techniques/research.md).
 - **architecture-review:** Finds structural friction across the codebase and settles which refactors to make.
 - **tournament:** Runs a 12-agent bracket across architecture and research lenses with verified receipts and single-insight grafting. It proposes Champion and Runner-Up before code is written.
 - **security-audit:** Audits a PR's security before it merges, run by your own agent.
