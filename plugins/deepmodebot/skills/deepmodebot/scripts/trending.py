@@ -291,7 +291,9 @@ def update(args):
             excluded += 1
     if private_ids or private_names:
         repos = {name: entry for name, entry in repos.items()
-                 if entry.get("github_id") not in private_ids and name.lower() not in private_names}
+                 if entry.get("github_id") not in private_ids
+                 and entry.get("reference", {}).get("github_id") not in private_ids
+                 and name.lower() not in private_names}
         catalog["repos"] = repos
     if excluded:
         print("warning: non-public or invalid repository metadata excluded before publication", file=sys.stderr)
