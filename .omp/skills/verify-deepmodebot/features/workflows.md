@@ -33,6 +33,17 @@ Keep raw events, command, exit, and full answer under `.scratch/`; inspect the a
 These planning probes show instruction following only. They do not prove child cancellation, migration recovery, cloud setup, load capacity, or a productivity improvement.
 For compaction-pointer changes, start with only the workflow map loaded and allow local read/write tools. Confirm the raw trace opens Handoff through that pointer and a real checkpoint preserves unknown work without publishing, launching, or pausing.
 
+## Decision-brief probe
+
+For changes to the decision-brief procedure, run a bounded agent against a disposable research scenario with an explicit user decision, multiple required options, an old claim superseded by a newer source, a material conflict or unavailable source, and two unproductive revisions. Provide source documents but keep an independently prepared answer inventory outside candidate access. Capture the actual command, model, source versions, transcript and output under `.scratch/evidence/`.
+Check that the delivered brief accounts for every requested option, identifies changed and unresolved facts with source locations and dates, gives only a supported conditional recommendation, and stops the unproductive rewrite pattern. Independently inspect source passages; citations and user preference are not proof of accuracy. Report incomplete runs and any missing behavior.
+Include a chat-only case or verify that the candidate does not create or publish a file when the request only asks for an answer. A synthetic scenario demonstrates instruction-following on that fixture, not general reliability, live-source freshness or a real-user pilot.
+
+## Opportunity-probe verification
+
+For changes to the opportunity probe, run a bounded agent through a business-data task with real or representative source terms, an actual prior artifact and failed check, a restricted or unclear-rights source, and an alternative whose relevance can be checked. Before retaining inputs, source passages, traces or outputs, confirm permission and retention constraints for each; if unavailable, use a synthetic or appropriately redacted fixture. Capture the permitted command, candidate revision, inputs, trace, output, and any permitted sample under `.scratch/evidence/`. Inspect the actual artifact and source passages: the agent must identify the failure, evaluate permissions before affected collection, produce a reproducible relevant sample or a specific blocker, and keep buyer need, authority, willingness to pay, value and costs separate from feasibility. A source citation or self-check is not independent proof.
+If a real source or user is available and authorized, exercise that path and record observations, costs and corrections; otherwise report that the probe is synthetic and the user outcome remains untested. Report errors, missing work and the mechanical stall detector's limits rather than inferring general reliability.
+
 
 ## Software-factory source-map probes
 

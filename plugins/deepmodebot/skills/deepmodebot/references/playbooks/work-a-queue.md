@@ -21,7 +21,7 @@ The commands below are the **github** kind's. When the user keeps a GitHub Proje
 
 ### Steps
 
-1. **Set up** the labels once (`gh label create <name> --force`). Done when `gh issue list --label board:todo` runs.
+1. **Set up** the labels once (`gh label create <name> --force`), and audit the repo's inner loop (`references/techniques/inner-loop.md`) so queued workers inherit fast static and anti-slop checks before fan-out. Done when `gh issue list --label board:todo` runs and the inner-loop audit is recorded.
 2. **Fill the board.**
    - Turn the goal into tasks, each one PR. Every task issue has acceptance criteria a verifier can run, and a `Blocked by: #<n>` line for each dependency.
    - Open issues that fall inside the goal join the board.

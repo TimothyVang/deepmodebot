@@ -42,7 +42,7 @@ Never present an inferred pick as a default pick.
    ```
 
    Every row names its source and its rule. Every inferred row links its prototype evidence or says "unproven".
-8. **Scaffold only when asked.** "Build the stack for me" means create the folders, install the picks, and get a hello-world running through every layer. Without that ask, stop at `STACK.md`. Commit and push per deepmodebot's Autonomy section.
+8. **Match scaffolding to the ask.** For stack advice only ("what stack"), stop at `STACK.md`. For "build the stack for me", create the folders, install the picks, and verify a hello-world path through every layer. When called from an app build ("build me <app>" or `skill://deepmodebot` `references/playbooks/end-to-end.md`), scaffold and continue straight into building every slice of the scope manifest rather than stopping at `STACK.md` or hello-world. Commit and push per deepmodebot's Autonomy section.
 
 ## Done when
 

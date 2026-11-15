@@ -30,8 +30,8 @@ A real run, not a mock-up: the bots took [PR #19](https://github.com/TimothyVang
 
 | Piece | What it does |
 |---|---|
-| `/deep <anything>` | One command routes and sizes the task, proves the result on the real app, and reports its decisions. Ordinary local work stays in your starting tree for review. Publishing follows the review and verifier-panel gates. |
-| `deepmodebot` skill | 29 playbooks, 24 principles and 43 techniques, indexed in its `SKILL.md`. Every task is proven on the real artifact and merges only on a verifier panel pass. |
+| `/deep <anything>` | One command routes by intent and vagueness, proves the result on the real app, and reports its decisions. Concrete tasks run directly, draft plans take **grill**, and open architecture or research gaps run a 12-agent **tournament** bracket. Ordinary local work stays in your starting tree for review, while publishing follows the review and verifier-panel gates. |
+| `deepmodebot` skill | 30 playbooks, 24 principles and 45 techniques, indexed in its `SKILL.md`. Every task is proven on the real artifact and merges only on a verifier panel pass. |
 | PR and issue bots | Install your own private GitHub App on your repos and a poller on your machine runs the bots: it reviews and lands your own PRs, resolves their merge conflicts, and plans and builds the issues you open. See [GitHub App bots](#github-app-bots). |
 | PR review | `/deepmodebot:review-pr <PR number>` reviews correctness, security, spec and standards, keeps findings backed by code or execution, and posts a comment-only review. No hosted review service is required. Prompts and source context still reach your configured model provider. |
 | Land a PR | `/deepmodebot:land-pr <PR number>` finishes and merges your own PR with no human: a reviewer bot posts findings in the PR thread, the author bot answers each with a fix or a reason, three verifier bots vote on the final head, and on a pass it merges. It never merges over a failing check. You see each turn in the session as it lands, drawn as an 8-bit frame right in the chat (each bot a sprite, each turn a dialog box), or watch the whole conversation play live as an 8-bit battle screen in your terminal; `/deepmodebot:pr-thread <PR or issue URL>` shows any bot conversation later. |
@@ -44,7 +44,7 @@ A real run, not a mock-up: the bots took [PR #19](https://github.com/TimothyVang
 | Contained work | The agent works only inside the project's repo. Scratch and temp files go in `.scratch/`, worktrees in `.worktrees/` (both git-ignored), never system temp or folders outside the repo. With no repo it creates a named one first. A guard enforces this in Claude Code and omp; Codex's sandbox does it natively. Windows process cleanup uses the loaded interpreter as owner and preserves virtualenv context without launcher breakaway; process ownership is not credential isolation. |
 | Credentials and auth | Cited, free-first guidance (checked 2026-11-11) for sharing API keys and `.env` safely, passwords and usernames, logins and MFA for agents, credential brokers, protecting MCP servers and agent APIs, CI OIDC, secret scanning, and leak response. In `plugins/deepmodebot/skills/secrets-and-auth/`. |
 | Architecture | Cited, decision-ready guidance (checked 2026-11-11) for organizing monorepos, naming the domain (glossary, typed models, LinkML, RDF and SHACL, graph databases, Palantir-style ontology for agent actions), choosing and migrating databases with agents working safely against them, and backend infrastructure and system design (reliability, queues and durable workflows, APIs, OpenTelemetry, deployment, IaC). Each file ends with the default stack for a solo dev or small team. In `plugins/deepmodebot/skills/software-architecture/`. |
-| Self-authoring | deepmodebot writes and revises its own bounded loop prompts from observed failures. `assets/loop/loop.py` supplies the mutable working plan and latest check diagnostics, with exact prompt snapshots and complete check logs; shortened diagnostics link to their full log. The objective, constraints, acceptance check, protected files and finite caps stay fixed; plan-only edits do not prevent a stall stop. Runs use omp, Claude Code or Codex. Interactive sessions can use native `/goal`. |
+| Self-authoring | deepmodebot writes and revises its own bounded loop prompts from observed failures. `assets/loop/loop.py` audits inner-loop readiness (`audit`), enforces multi-slice scope manifests (`manifest`), runs fast static checks (`fast_check`), blocks newly added inline suppressions, swallowed broad exceptions, and `TODO`/`NotImplementedError` stubs (`forbid_slop`), and protects guardrail configs (`protect_configs`); plan-only edits do not prevent a stall stop. Runs use omp, Claude Code or Codex. Interactive sessions can use native `/goal`. |
 | Language ports | A behavior inventory, protected consumer tests and a representative pilot precede bulk translation. Preserve architecture unless the target runtime boundary requires a change; a port need not delete valid branches or reduce reader load. Parity and completeness are checked separately, including release builds, callbacks and lifecycle semantics. Copilot and Bun's Rust migration accounts inform the workflow without prescribing Rust or one cutover strategy. Parallel work has explicit integration and build owners. |
 | Efficient delegation | When a subagent pays for itself, which model tier and reasoning effort fits each task (search, mechanical edits, features, hard design, review, long runs, summaries) in omp, Claude Code, and Codex, how subscription limits are metered, and how to cut token use. In `plugins/deepmodebot/skills/agent-harnesses/references/delegation-efficiency.md`, checked 2026-11-11. |
 
@@ -85,10 +85,13 @@ Around the main line:
 - **Triage:** Sorts incoming issues and outside PRs into a category and a state, and posts a brief or the questions that block them.
 - **Wayfinder:** Charts an effort too big for one session and hands its decisions to a spec.
 - **Run a goal:** Drives one goal to a checkable end without you, in one session or as a multi-day program with many PRs and subagents.
+- **End-to-end:** Expands a broad prompt or rough idea into a protected Scope Manifest and builds every vertical slice through persistence, error states, and cold-start proof instead of stopping after slice 1.
 - **Work a queue:** Turns a backlog, a queue of PRs, or labeled issues (through the `factory` CLI) into merged PRs, each after a panel pass.
 - **domain-model:** Keeps `GLOSSARY.md` and ADRs current as names and decisions change.
 - **research:** Writes an answer that later sessions will cite into the repo.
+- **Decision brief:** For a business or research decision, compares the requested options against dated source evidence, flags missing or conflicting facts, and makes a conditional recommendation. The [research procedure](plugins/deepmodebot/skills/deepmodebot/references/techniques/research.md) also applies to chat-only answers; it does not claim a citation proves truth.
 - **architecture-review:** Finds structural friction across the codebase and settles which refactors to make.
+- **tournament:** Runs a 12-agent bracket across architecture and research lenses with verified receipts and single-insight grafting. It proposes Champion and Runner-Up before code is written.
 - **security-audit:** Audits a PR's security before it merges, run by your own agent.
 - **retro:** Improves the repo's files, checks and docs after a session, so the next agent works faster.
 - **Handoff and Pause safely:** A portable doc for another session, harness or person, or a resume note for later in this repo.
@@ -96,6 +99,7 @@ Around the main line:
 - **wizard:** A guided script for steps only a human can do: dashboards, credentials, irreversible clicks.
 - **teach and course:** Explains a change or subsystem, or runs a course on a topic over many sessions.
 - **pre-commit:** Runs the repo's own lint, typecheck and tests at commit time.
+- **inner-loop:** Audits and hardens fast static checks, anti-slop guards, and protected configs before unattended goal loops or queues run.
 - **git-guardrails:** Turns the git hard stops into a hook the harness enforces before a destructive command runs.
 - **deep-stack:** Stack picks and decision rules for any app, an agent-driven UI design workflow, and a per-task ship loop.
 - **Verification skills:** Build and maintain a per-repo `verify-<app>` skill so agents can drive your app and capture proof.
@@ -191,7 +195,7 @@ The examples use the bare `/deep`. With a plugin install, type `/deepmodebot:dee
 - Small jobs take the fast path. Big ones get the full playbook, subagents, and a decision log.
 - It decides and acts without asking: commits, pushes, PRs, board cards, and merges after a panel pass. It asks once at the end only for hard stops (deploys, deletions, shared-history rewrites, outside messages, money, secrets), and lists every decision it made so you can reverse any.
 - It reuses the repo's verification tools or runs the real user path directly. A reusable `verify-<app>` skill is useful for repeated work, not a prerequisite for every local change.
-- The direct commands still work: `/deepmodebot:review-pr`, `/deepmodebot:land-pr`, `/deepmodebot:pr-thread`, `/deepmodebot:contribute`, `/deepmodebot:project-brief`.
+- The direct commands still work: `/deepmodebot:tournament`, `/deepmodebot:review-pr`, `/deepmodebot:land-pr`, `/deepmodebot:pr-thread`, `/deepmodebot:contribute`, `/deepmodebot:project-brief`.
 
 ## GitHub App bots
 
@@ -335,7 +339,9 @@ Skip phases the work doesn't need. One PR of settled work starts at phase 5 with
 
 | Situation | Flow |
 |---|---|
+| Open architecture or research space, blind spots, or a high-vagueness ambition | **tournament** (`references/techniques/tournament.md`), proposing Champion and Runner-Up before phase 1 or 3 |
 | First use of the planning flows in a repo | Setup (`references/playbooks/setup.md`) |
+| Building a whole app or rough idea end to end across all slices without stopping at an MVP | End-to-end (`references/playbooks/end-to-end.md`) |
 | Issues or outside PRs pile up | Triage (`references/playbooks/triage.md`), which feeds phase 5 with `triage:agent-ready` items |
 | A defect | Bug fix (`references/playbooks/bug-fix.md`) |
 | The route itself is unknown, more than one session of deciding | Wayfinder (`references/playbooks/wayfinder.md`), which hands its decisions to phase 3 |
@@ -344,6 +350,7 @@ Skip phases the work doesn't need. One PR of settled work starts at phase 5 with
 | Words or decisions need recording | **domain-model** (`references/techniques/domain-model.md`) |
 | A queue of labeled issues and the `factory` CLI | Work a queue with the factory source (`references/playbooks/work-a-queue.md`) |
 | A multi-day program with many owners | Run a goal at program scale (`references/playbooks/run-a-goal.md`) |
+| Hardening fast local checks and anti-slop guards before unattended loops or queues | **inner-loop** (`references/techniques/inner-loop.md`) |
 | A workflow done the same way twice, or a goal to run unattended until a check passes | Self-authoring (`references/playbooks/self-authoring.md`), to write and prove a prompt, skill, goal, or loop |
 | Choosing a repo layout, data model, database, or backend shape | `skill://software-architecture` |
 | Secrets, logins, or agent authentication | `skill://secrets-and-auth` |

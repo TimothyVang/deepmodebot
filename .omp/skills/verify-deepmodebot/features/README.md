@@ -8,7 +8,23 @@ Run `python .omp/skills/verify-deepmodebot/control.py doctor` from the root firs
 - [Repository discovery](repositories.md): dated reference choices, project-cache refresh, licensing cautions and startup-idea boundaries.
 - [Windows process ownership](processes.md): real process trees, virtualenv context, bounded startup and deadline cleanup with held handles and drained pipes.
 
+## Routing and tournament bracket
+
+For changes to `/deep` routing (`SKILL.md`, `evals/routing/cases.json`, `scripts/eval_routing.py`) or `assets/tournament/tournament.py`:
+Run `python plugins/deepmodebot/skills/deepmodebot/assets/tournament/test_tournament.py` with `TMPDIR`, `TMP` and `TEMP` inside `.scratch/tmp`.
+Exercise a real 12-entrant bracket CLI flow (`init`, `pitch`, `rebut`, `judge`, `status`, `render`) inside a disposable repo under `.scratch/` and inspect the generated `proposal.md`.
+Run `python scripts/eval_routing.py` (with an explicit `--model` when comparing revisions) so headless `omp -p` evaluates `SKILL.md` across `evals/routing/cases.json` and writes `evals/results/routing-<date>.json`.
+Deterministic `tournament.py route` unit checks verify the helper classifier only; `scripts/eval_routing.py` measures single-turn model route selection from `SKILL.md` text, not full multi-agent tournament debate quality.
+For technique or proposal-handoff changes, also run the full technique with real contender and independent judge agents on identical disposable starters before and after. Keep pinned procedure copies, prompts, raw events, brackets, proposals and app output. Verify that a discovery-only request waits for a choice, while an original build request presents the proposal and delivers Champion without another authorization.
+Inspect proposal receipt sections: unchecked command and URL submissions stay outside judge-verified receipts. Exercise competing initializers under the same held `bracket.lock`, including an in-flight pitch and explicit `--force`; only an authorized replacement may discard earlier state.
+Try revising an unjudged pitch, then replacing a pod winner and the crowned Champion. Only the unjudged revision may succeed; rejected replacements must leave the bracket and rendered thesis unchanged.
+Exercise `route --stdin --json` with explicit choose-before-coding, approval and no-code constraints, plus non-greenfield requests to implement the winner. Include "get my approval before coding" and permission, consent and sign-off variants; an approval feature name alone must not add a gate. Check both `intent` and `checkpoint_before_code`; mentioning a possible future build is not an implementation request.
+
 These entries cover the surfaces changed in this work. They do not claim production autostart, every harness, hosted competitors or all upstream workflows have been exercised.
+
+## Reasoning gates
+
+For changes to the reasoning gates in `plugins/deepmodebot/skills/deepmodebot/SKILL.md`, exercise the candidate skill with a bounded agent scenario involving conflicting source evidence and repeated unproductive work. Capture the prompt and response under `.scratch/evidence/` and check that the agent identifies the conflict, revisits the premise, and proposes a bounded next step without treating activity as progress. A structural skill check alone does not prove model compliance; report the scenario and its limits.
 
 ## Public evidence page
 
@@ -33,3 +49,9 @@ For a release bump, install the previous release through the real harness CLI in
 Capture before/after versions, upgrade availability, CLI output and the runtime-linked plugin payload.
 The [0.8.2 upgrade report](../../../../evals/results/release-0.8.2-upgrade-2026-11-14.md) records separate real omp and Claude Code upgrade runs, pinned inputs, isolation commands, observed output and limits.
 Local marketplace snapshots prove local upgrades, not remote publication, watcher updates, session reloads or untested harnesses.
+
+## Inner-loop audit and goal-loop gates
+
+For changes to `plugins/deepmodebot/skills/deepmodebot/assets/loop/loop.py`, `inner-loop`, or `end-to-end`, run `loop.py audit --json` and `loop.py manifest <manifest.json>` on a disposable git repo under `.scratch/evidence/<slug>/`, then drive `loop.py run <goal.md>` with a live subscription harness (`omp`).
+Verify `manifest` slice progression (`1/N` to `N/N`), `fast_check`, `forbid_slop` (suppressions, swallowed exceptions, and `TODO`/`NotImplementedError` stubs), `protect_configs`, and the acceptance `check` against actual candidate edits, keeping `trail.tsv` and per-iteration prompt and check logs under `.scratch/`.
+Synthetic fake-harness unit tests in `test_loop.py` prove deterministic runner state machines, not live model compliance.
