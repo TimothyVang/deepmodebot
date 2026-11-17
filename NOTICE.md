@@ -12,6 +12,10 @@ Some components derive from other MIT-licensed work. Each keeps its upstream cop
 | `plugins/deepmodebot/skills/create-verification-skill/` | pstack `create-verification-skill` | MIT | Copyright (c) 2026 Lauren Tan | `plugins/deepmodebot/skills/create-verification-skill/LICENSE` |
 | `plugins/deepmodebot/skills/maintain-verification-skill/` | pstack `maintain-verification-skill` | MIT | Copyright (c) 2026 Lauren Tan | `plugins/deepmodebot/skills/maintain-verification-skill/LICENSE` |
 | `plugins/deepmodebot/skills/deep-stack/references/unslop/` | pstack `unslop` skill | MIT | Copyright (c) 2026 Lauren Tan | `plugins/deepmodebot/skills/deep-stack/references/unslop/LICENSE` |
+| `plugins/deepmodebot/skills/statechart/` | pstack `statechart`, https://github.com/cursor/plugins/tree/main/pstack | MIT | Copyright (c) 2026 Lauren Tan | `plugins/deepmodebot/skills/statechart/LICENSE` |
+| `plugins/deepmodebot/skills/create-formal-verification-skill/` | pstack `create-formal-verification-skill`, https://github.com/cursor/plugins/tree/main/pstack | MIT | Copyright (c) 2026 Lauren Tan | `plugins/deepmodebot/skills/create-formal-verification-skill/LICENSE` |
+| `plugins/deepmodebot/skills/maintain-formal-verification-skill/` | pstack `maintain-formal-verification-skill`, https://github.com/cursor/plugins/tree/main/pstack | MIT | Copyright (c) 2026 Lauren Tan | `plugins/deepmodebot/skills/maintain-formal-verification-skill/LICENSE` |
+| `plugins/deepmodebot/skills/reverse-api-engineer/` | Reverse API Engineer v0.16.0, https://github.com/kalil0321/reverse-api-engineer/tree/e3aae749746f076f78f9642d83eeb3c7af9bac44 (linked by https://reverseapi.dev/) | MIT | Copyright (c) 2025 kalil0321 | `plugins/deepmodebot/skills/reverse-api-engineer/assets/engine/LICENSE` |
 
 Public-domain components:
 

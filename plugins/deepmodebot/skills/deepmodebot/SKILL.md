@@ -140,6 +140,10 @@ Step 2 of Route. First match wins.
 | "grill me / grill this plan / stress-test this idea", or a user-supplied draft plan to stress-test | **grill** technique (`references/techniques/grill.md`) |
 | "tournament", "arena debate", "architecture gaps", "research gaps", "blind spots", "what are we missing", "propose the best system / architecture / research ideas" | **tournament** technique (`references/techniques/tournament.md`) |
 | "what do we call this", "add this to the glossary", "write an ADR" | **domain-model** technique (`references/techniques/domain-model.md`) |
+| "update / repair the formal verification skill", stale formal models or checker commands | `skill://maintain-formal-verification-skill` |
+| "create formal verification", "model-check this protocol", or prove state-machine invariants with TLA+ or Alloy | `skill://create-formal-verification-skill` |
+| "draw / explain a statechart", visualize a state machine or an existing TLA+ model | `skill://statechart` |
+| "turn this website into an API", capture authorized browser traffic or generate a typed client from a HAR | `skill://reverse-api-engineer` |
 | "research X and write it up", "gather the docs on Y" (the answer should stay in the repo) | **research** technique (`references/techniques/research.md`) |
 | "which flow fits", "what's the process for X", "explain the deepmodebot workflow" | `references/flows.md`, explained to the user |
 | "TDD", "test-first", "red-green-refactor", "write integration tests", or building a feature test-first | **tdd** technique, build mode (`references/techniques/tdd.md`) |
@@ -281,6 +285,8 @@ Read the entry file before designing, building, or reviewing in that area, then 
 | LangChain, LangGraph, Deep Agents, LangSmith, agent middleware, checkpointing or framework tool routing | `skill://agent-harnesses/references/langchain-ecosystem.md` |
 | "best AI SDK", SDK selection for typed Python, streaming TypeScript, agent runtimes or harness embedding | `skill://agent-harnesses/references/ai-sdk-selection.md` |
 | Secrets, `.env`, passwords, logins, MFA, OAuth, agent authentication, a suspected leak | `skill://secrets-and-auth` |
+| State-machine invariants, distributed protocols, formal models or statecharts | `skill://create-formal-verification-skill`; existing verification maintenance → `skill://maintain-formal-verification-skill`; diagrams → `skill://statechart` |
+| Authorized browser-network capture, HAR review or generated API clients | `skill://reverse-api-engineer` |
 | Repo layout, domain vocabulary and data model, database, backend infrastructure | `skill://software-architecture` |
 | Agents and LLMs, AWS networking, backend code, a language's traps, DevOps, debugging practice | `skill://domain-rules` |
 | Docker, Compose, container images/runtimes, Kubernetes, Helm/Kustomize, cloud accounts, IAM, pipelines, IaC or local cloud emulators | `skill://cloud-devsecops` |

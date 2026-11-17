@@ -1,0 +1,325 @@
+{
+  "repository": "https://github.com/kalil0321/reverse-api-engineer",
+  "release": "v0.16.0",
+  "version": "0.16.0",
+  "source_commit": "e3aae749746f076f78f9642d83eeb3c7af9bac44",
+  "license": "MIT",
+  "copyright": "Copyright (c) 2025 kalil0321",
+  "files": [
+    {
+      "path": "src/reverse_api/__init__.py",
+      "upstream_sha256": "767d3fc8a50b9414bb9076a1d8740a281877c7e0c44cbc4e8b5903a4625e90a1",
+      "shipped_sha256": "767d3fc8a50b9414bb9076a1d8740a281877c7e0c44cbc4e8b5903a4625e90a1"
+    },
+    {
+      "path": "src/reverse_api/agent_browser.py",
+      "upstream_sha256": "ef1196994ffaa9008b176c39d4401e407b6fc4019d07474ef81eef7411d0780a",
+      "shipped_sha256": "ef1196994ffaa9008b176c39d4401e407b6fc4019d07474ef81eef7411d0780a"
+    },
+    {
+      "path": "src/reverse_api/auto_engineer.py",
+      "upstream_sha256": "27ada7cf15e82675764df1e733089d6f1cfa8330fc589905c56c12821c9f30ba",
+      "shipped_sha256": "27ada7cf15e82675764df1e733089d6f1cfa8330fc589905c56c12821c9f30ba"
+    },
+    {
+      "path": "src/reverse_api/base_engineer.py",
+      "upstream_sha256": "54d50136145970f7fc3f3a800c9216957e94e0c455336cb884bb843a25487b70",
+      "shipped_sha256": "54d50136145970f7fc3f3a800c9216957e94e0c455336cb884bb843a25487b70"
+    },
+    {
+      "path": "src/reverse_api/browser.py",
+      "upstream_sha256": "4d2d0f9ea74a5083002d2726040f1b18a624db7d6d64f0c36dc5a7b6d6f92d94",
+      "shipped_sha256": "4d2d0f9ea74a5083002d2726040f1b18a624db7d6d64f0c36dc5a7b6d6f92d94"
+    },
+    {
+      "path": "src/reverse_api/chrome_mcp.py",
+      "upstream_sha256": "0e4f580551083b618f08c8a78b0cf3d69618889940256439c1042656c3a96ec9",
+      "shipped_sha256": "0e4f580551083b618f08c8a78b0cf3d69618889940256439c1042656c3a96ec9"
+    },
+    {
+      "path": "src/reverse_api/cli.py",
+      "upstream_sha256": "7aa2afa52b8cc6594c3efc6aaf78aa0afb2a681621da549b9de058402ef3bedc",
+      "shipped_sha256": "7aa2afa52b8cc6594c3efc6aaf78aa0afb2a681621da549b9de058402ef3bedc"
+    },
+    {
+      "path": "src/reverse_api/codex_engineer.py",
+      "upstream_sha256": "7136f8e48be734eff95de27b635d61bb88024890553ca82f24dab6cedea3b968",
+      "shipped_sha256": "7136f8e48be734eff95de27b635d61bb88024890553ca82f24dab6cedea3b968"
+    },
+    {
+      "path": "src/reverse_api/config.py",
+      "upstream_sha256": "a3ca5ab2b3169dc0a8d9bea4bc5ec860ee8003dc031ecbb63bc3482e3ba152a5",
+      "shipped_sha256": "a3ca5ab2b3169dc0a8d9bea4bc5ec860ee8003dc031ecbb63bc3482e3ba152a5"
+    },
+    {
+      "path": "src/reverse_api/copilot_engineer.py",
+      "upstream_sha256": "9b0b3dbd93e284e50f95ba8ac7212d7e15e7b7582da000a375fe49b645f2a6e6",
+      "shipped_sha256": "9b0b3dbd93e284e50f95ba8ac7212d7e15e7b7582da000a375fe49b645f2a6e6"
+    },
+    {
+      "path": "src/reverse_api/cursor_bridge/.gitignore",
+      "upstream_sha256": "4d56952b0fb13bf8f9b6c13a6d4c34a075bac3af447636a1df4335d7576e2f97",
+      "shipped_sha256": "4d56952b0fb13bf8f9b6c13a6d4c34a075bac3af447636a1df4335d7576e2f97"
+    },
+    {
+      "path": "src/reverse_api/cursor_bridge/package-lock.json",
+      "upstream_sha256": "d80ff3df6d4ed9deee7b8395fd28be5771185959a181cc8948e6688482725740",
+      "shipped_sha256": "d80ff3df6d4ed9deee7b8395fd28be5771185959a181cc8948e6688482725740"
+    },
+    {
+      "path": "src/reverse_api/cursor_bridge/package.json",
+      "upstream_sha256": "5ff57e6262729aa4fca48f580f2acf047559ef0d349ca6fa81cdcbba28e38c9d",
+      "shipped_sha256": "5ff57e6262729aa4fca48f580f2acf047559ef0d349ca6fa81cdcbba28e38c9d"
+    },
+    {
+      "path": "src/reverse_api/cursor_bridge/run.mjs",
+      "upstream_sha256": "0d1bafc21f1ff9573173efe9aa2bdab75a35423e521d40f7059e60050edbc8ae",
+      "shipped_sha256": "0d1bafc21f1ff9573173efe9aa2bdab75a35423e521d40f7059e60050edbc8ae"
+    },
+    {
+      "path": "src/reverse_api/cursor_engineer.py",
+      "upstream_sha256": "01da311f2d6056e74c2db87126a63efcdd396e39a263d7401349d8a4644f8280",
+      "shipped_sha256": "01da311f2d6056e74c2db87126a63efcdd396e39a263d7401349d8a4644f8280"
+    },
+    {
+      "path": "src/reverse_api/engineer.py",
+      "upstream_sha256": "b304521fc0af2445401bc4d77eea6d98bd09ca331d46f52821551c911291e7e4",
+      "shipped_sha256": "b304521fc0af2445401bc4d77eea6d98bd09ca331d46f52821551c911291e7e4"
+    },
+    {
+      "path": "src/reverse_api/hermes_engineer.py",
+      "upstream_sha256": "9253adc9d29bc072b795224a80ce8cb972dec2c780e196f5d0dcd132819fe597",
+      "shipped_sha256": "9253adc9d29bc072b795224a80ce8cb972dec2c780e196f5d0dcd132819fe597"
+    },
+    {
+      "path": "src/reverse_api/json_stream.py",
+      "upstream_sha256": "0a28721f7349cc496e2e188165b3e42f7abb29f7bacca99e6689b056383f9c50",
+      "shipped_sha256": "0a28721f7349cc496e2e188165b3e42f7abb29f7bacca99e6689b056383f9c50"
+    },
+    {
+      "path": "src/reverse_api/messages.py",
+      "upstream_sha256": "fdc34923a0e26043e85b9becead0b39b455d050af5f81180d7bb6fcd7607315b",
+      "shipped_sha256": "fdc34923a0e26043e85b9becead0b39b455d050af5f81180d7bb6fcd7607315b"
+    },
+    {
+      "path": "src/reverse_api/ollama_runtime.py",
+      "upstream_sha256": "bde07befed5a18ecbc584ea0beabca4d60b3ade102f8ce647cbe1bd959e4c3c4",
+      "shipped_sha256": "bde07befed5a18ecbc584ea0beabca4d60b3ade102f8ce647cbe1bd959e4c3c4"
+    },
+    {
+      "path": "src/reverse_api/opencode_engineer.py",
+      "upstream_sha256": "670e86ecf281ecb550e4ec80b0bae909e099e199466f9aff4e31360dffbc9bf4",
+      "shipped_sha256": "670e86ecf281ecb550e4ec80b0bae909e099e199466f9aff4e31360dffbc9bf4"
+    },
+    {
+      "path": "src/reverse_api/opencode_runtime.py",
+      "upstream_sha256": "51548ad972682d7c21712cc8a4f7f68f8b24e6d5d0be3a89cee0bcbf36ea4b84",
+      "shipped_sha256": "51548ad972682d7c21712cc8a4f7f68f8b24e6d5d0be3a89cee0bcbf36ea4b84"
+    },
+    {
+      "path": "src/reverse_api/opencode_ui.py",
+      "upstream_sha256": "4f3f6f3991b758b38fc5bea8dd2e179cec68206ce2a8f6dd66f4e1e554b432f4",
+      "shipped_sha256": "4f3f6f3991b758b38fc5bea8dd2e179cec68206ce2a8f6dd66f4e1e554b432f4"
+    },
+    {
+      "path": "src/reverse_api/pricing.py",
+      "upstream_sha256": "6f33cb68723bdc71733b23248c86109467de25d62bd4d9e418ccdf6f63f8bd89",
+      "shipped_sha256": "6f33cb68723bdc71733b23248c86109467de25d62bd4d9e418ccdf6f63f8bd89"
+    },
+    {
+      "path": "src/reverse_api/prompts/__init__.py",
+      "upstream_sha256": "a43de5ae94e42cb48906fa8bb22085f777cb344a962822897674dbab7707be49",
+      "shipped_sha256": "a43de5ae94e42cb48906fa8bb22085f777cb344a962822897674dbab7707be49"
+    },
+    {
+      "path": "src/reverse_api/prompts/auto/start_url.md",
+      "upstream_sha256": "6cc8febdc165444cc2f7908fa9f7b6e3647fe78d2fd911cea9c16e2ae4094361",
+      "shipped_sha256": "6cc8febdc165444cc2f7908fa9f7b6e3647fe78d2fd911cea9c16e2ae4094361"
+    },
+    {
+      "path": "src/reverse_api/prompts/auto/system.md",
+      "upstream_sha256": "5193ae626332442af335cdec9876ca79f9647cf01f64a6b7f4e63f879f39e1e9",
+      "shipped_sha256": "335d459b8ab7d9c97712385f6a9a20d84f0f4e649c94b4a1ffd33fdbc316329a"
+    },
+    {
+      "path": "src/reverse_api/prompts/auto/user_agent_browser.md",
+      "upstream_sha256": "5f7b160c753c6a7b09dd83a5254c274d6bca2775a93b72f6ce1776f7dbc2f6ca",
+      "shipped_sha256": "5f7b160c753c6a7b09dd83a5254c274d6bca2775a93b72f6ce1776f7dbc2f6ca"
+    },
+    {
+      "path": "src/reverse_api/prompts/auto/user_chrome_mcp.md",
+      "upstream_sha256": "487e4161f1ff092eb53fd7785d05037cf9dbff51cbccae898c8f2a6d828f5ab5",
+      "shipped_sha256": "10c37fbeb794c0b110e1c0eab12121705de6800d8c135474870d224004cd8072"
+    },
+    {
+      "path": "src/reverse_api/prompts/auto/user_playwright.md",
+      "upstream_sha256": "85c8073cfc768904a23ef5ffd4ed96c74e130b75ffcaed5173d412e30905e0d0",
+      "shipped_sha256": "85c8073cfc768904a23ef5ffd4ed96c74e130b75ffcaed5173d412e30905e0d0"
+    },
+    {
+      "path": "src/reverse_api/prompts/chat/system.md",
+      "upstream_sha256": "557ab91e5bc7d2034e1e2e99facbe87506b6123ef3dfb650de735fa4b2236125",
+      "shipped_sha256": "557ab91e5bc7d2034e1e2e99facbe87506b6123ef3dfb650de735fa4b2236125"
+    },
+    {
+      "path": "src/reverse_api/prompts/engineer/system.md",
+      "upstream_sha256": "374ae0dcc3a555e6011ce9d3d6643ebb8cace6ce973b5dc7d6b7d5e76d769003",
+      "shipped_sha256": "187ca1da2db8d8902f8ab1aaa37187f6ad5bc6220ab938f5f3447ffd88e89804"
+    },
+    {
+      "path": "src/reverse_api/prompts/engineer/user.md",
+      "upstream_sha256": "fe9bd1c190a00f1d64a10842232a542bad0874031490d3ee6d116ad2d7661907",
+      "shipped_sha256": "fe9bd1c190a00f1d64a10842232a542bad0874031490d3ee6d116ad2d7661907"
+    },
+    {
+      "path": "src/reverse_api/prompts/partials/_docs_instructions.md",
+      "upstream_sha256": "4e09620b0397e0103980f1815bef2be1614b5f188470e1442c006dd5e32dd264",
+      "shipped_sha256": "4e09620b0397e0103980f1815bef2be1614b5f188470e1442c006dd5e32dd264"
+    },
+    {
+      "path": "src/reverse_api/prompts/partials/_language_c.md",
+      "upstream_sha256": "3c6d3ad36e2bd142902af1f1219c1e6845cad25b503ecb5dce7a5c1a6fd792ab",
+      "shipped_sha256": "a6c500bf99e53abb857d97da055dd4fc10f017e2d62ab437463af609a2d92d42"
+    },
+    {
+      "path": "src/reverse_api/prompts/partials/_language_csharp.md",
+      "upstream_sha256": "f1aba3f22b58203074aebf3f623d94714d213ee4bf8c59c06bad5e6a36b315fb",
+      "shipped_sha256": "5a67de353abb5f5888d60ff1861f51cf50b4503f89679a8127706fef821bae13"
+    },
+    {
+      "path": "src/reverse_api/prompts/partials/_language_go.md",
+      "upstream_sha256": "792195582f3c4ac0d5a78e6b87d90e487388b1849b1a623d4d34e165b7d2b095",
+      "shipped_sha256": "12a6d2ab0297302cde645fcd1a2b990c657345132a0929ab2ad35adf66d70060"
+    },
+    {
+      "path": "src/reverse_api/prompts/partials/_language_java.md",
+      "upstream_sha256": "b7a70a99e141906066ad98dad3be1c09728ecaea9328f8aa951030ec8fb1289d",
+      "shipped_sha256": "f3adb9327ba125b0faf9c8dc00f450d7dc5d33771235794f8c082a715471c8da"
+    },
+    {
+      "path": "src/reverse_api/prompts/partials/_language_javascript.md",
+      "upstream_sha256": "d46226a2717a92b589232ac72ad7078928e02e0c916e3cc4edece295457a158d",
+      "shipped_sha256": "0ed0a0089792373c388fd3c489b2f8dc08754e1c3198b619c208aa2a2f1bec32"
+    },
+    {
+      "path": "src/reverse_api/prompts/partials/_language_php.md",
+      "upstream_sha256": "ba1520124351d051b45f591b2a9912644e7eb5708c3fae118951e8d1e8b9180e",
+      "shipped_sha256": "46c705d45c33eff659412ed78f9dc59b5ac612f0bd9565a32f326487bc4a6c9c"
+    },
+    {
+      "path": "src/reverse_api/prompts/partials/_language_powershell.md",
+      "upstream_sha256": "e2ac3c4078bbd1fcee6aad5c62ea6be006c02e8a843c5eb457ae7caefe081205",
+      "shipped_sha256": "56e7d507d09345c2118fc0173df2f4d891bf7985ab5e35ac2a66cbaa2ed2124d"
+    },
+    {
+      "path": "src/reverse_api/prompts/partials/_language_python.md",
+      "upstream_sha256": "9c101f5e4785f05ac70974d54dbb4d225aa02a90b5c19f00991bbaa742a699ba",
+      "shipped_sha256": "cada866fe48ac1e39be26b68b2a278d4c24a2c0e75bb40d528bcb3fe8b7ca453"
+    },
+    {
+      "path": "src/reverse_api/prompts/partials/_language_ruby.md",
+      "upstream_sha256": "0d575a07e5e949aa5b662277e827fd9755e05f431a2ec4c1771970ea88a4658e",
+      "shipped_sha256": "f7cdb031cdc17d2e53fb6f6f47247f46092fb5be22e55931e006c90724a737fe"
+    },
+    {
+      "path": "src/reverse_api/prompts/partials/_language_typescript.md",
+      "upstream_sha256": "7e2e09a2cfc7dcdeafe0e996d43669eed6d00be2b9bcf00d2e40951865714280",
+      "shipped_sha256": "cd9993bf1efb7992f557ddbffa6cd506720c2979a77d811bacd991dde22f30b8"
+    },
+    {
+      "path": "src/reverse_api/repl/__init__.py",
+      "upstream_sha256": "e9dd71534cc3fe794dadfc964d07047de9aa0527b6ddee8d484b1015bbd531de",
+      "shipped_sha256": "e9dd71534cc3fe794dadfc964d07047de9aa0527b6ddee8d484b1015bbd531de"
+    },
+    {
+      "path": "src/reverse_api/repl/app.py",
+      "upstream_sha256": "fd3b96f2d20a22225c261e172543ff918b9b7aa753f2ae677f76c3338406c393",
+      "shipped_sha256": "fd3b96f2d20a22225c261e172543ff918b9b7aa753f2ae677f76c3338406c393"
+    },
+    {
+      "path": "src/reverse_api/repl/bridge.py",
+      "upstream_sha256": "36a02aade704039d7619f29ff2a3bdf8abb38ed2bb106e4aba39573ca59676f9",
+      "shipped_sha256": "36a02aade704039d7619f29ff2a3bdf8abb38ed2bb106e4aba39573ca59676f9"
+    },
+    {
+      "path": "src/reverse_api/repl/clipboard.py",
+      "upstream_sha256": "f2cf9e38f02ee6f78e47309a407027c88ec0606026ade54171573a5adcaddb06",
+      "shipped_sha256": "f2cf9e38f02ee6f78e47309a407027c88ec0606026ade54171573a5adcaddb06"
+    },
+    {
+      "path": "src/reverse_api/repl/logo.py",
+      "upstream_sha256": "ee1cdbbda1d47c0757b6a2087692a6fb2c870192164601b8a0d715d44687aba3",
+      "shipped_sha256": "ee1cdbbda1d47c0757b6a2087692a6fb2c870192164601b8a0d715d44687aba3"
+    },
+    {
+      "path": "src/reverse_api/repl/settings.py",
+      "upstream_sha256": "d62b9393ac3e48121792c3dd6e1688b733af4ccd47897c87800fe15e77cb1299",
+      "shipped_sha256": "d62b9393ac3e48121792c3dd6e1688b733af4ccd47897c87800fe15e77cb1299"
+    },
+    {
+      "path": "src/reverse_api/repl/style.py",
+      "upstream_sha256": "55c1cc131564248d494fd2e7ec3c6274ba770e73c6a1576e812d297ac58b1ab4",
+      "shipped_sha256": "55c1cc131564248d494fd2e7ec3c6274ba770e73c6a1576e812d297ac58b1ab4"
+    },
+    {
+      "path": "src/reverse_api/repl/transcript.py",
+      "upstream_sha256": "9eb2a80ab595ecc05ab5a1e4e44705493e0326692299fd0703a18ff84704e250",
+      "shipped_sha256": "9eb2a80ab595ecc05ab5a1e4e44705493e0326692299fd0703a18ff84704e250"
+    },
+    {
+      "path": "src/reverse_api/repl/view.py",
+      "upstream_sha256": "b80a33ae42fbaf1ca250deb71775cb747ba6d44d50ced69f25f482038ab7ae53",
+      "shipped_sha256": "b80a33ae42fbaf1ca250deb71775cb747ba6d44d50ced69f25f482038ab7ae53"
+    },
+    {
+      "path": "src/reverse_api/runtime_commands.py",
+      "upstream_sha256": "d8d313b768bbf9a48fafe6101003c5dc4b60cb39d7c694558fde3e5ed266da85",
+      "shipped_sha256": "d8d313b768bbf9a48fafe6101003c5dc4b60cb39d7c694558fde3e5ed266da85"
+    },
+    {
+      "path": "src/reverse_api/session.py",
+      "upstream_sha256": "64ae828dd0baf5281c8fd6efc4e5dea1fcc657b966a9e31b30f2323320847c7a",
+      "shipped_sha256": "64ae828dd0baf5281c8fd6efc4e5dea1fcc657b966a9e31b30f2323320847c7a"
+    },
+    {
+      "path": "src/reverse_api/sync.py",
+      "upstream_sha256": "a6f0b8846eb22d0aefaf65811e99fcdec4afb4688479f5d6203af32ed3ade6c7",
+      "shipped_sha256": "a6f0b8846eb22d0aefaf65811e99fcdec4afb4688479f5d6203af32ed3ade6c7"
+    },
+    {
+      "path": "src/reverse_api/theme.py",
+      "upstream_sha256": "eecd4997a329dd03147aeee57bc8f9443de826d40c12a8ce575580df0f2b005f",
+      "shipped_sha256": "eecd4997a329dd03147aeee57bc8f9443de826d40c12a8ce575580df0f2b005f"
+    },
+    {
+      "path": "src/reverse_api/tui.py",
+      "upstream_sha256": "1b14701c249db879f97bf6e0b7b4ef0a6d8159912ba09f686ffcf32b8231f195",
+      "shipped_sha256": "1b14701c249db879f97bf6e0b7b4ef0a6d8159912ba09f686ffcf32b8231f195"
+    },
+    {
+      "path": "src/reverse_api/utils.py",
+      "upstream_sha256": "8405b0fc1fb8de62d5638058feb7f04c986b49967536fb22ea845bebbefa8e54",
+      "shipped_sha256": "8405b0fc1fb8de62d5638058feb7f04c986b49967536fb22ea845bebbefa8e54"
+    },
+    {
+      "path": "src/reverse_api/verification_mcp.py",
+      "upstream_sha256": "cf03cf17d74369b817e337900ed047c91b1557d4b6f9f83f4cfcb419f89b7ed6",
+      "shipped_sha256": "cf03cf17d74369b817e337900ed047c91b1557d4b6f9f83f4cfcb419f89b7ed6"
+    },
+    {
+      "path": "LICENSE",
+      "upstream_sha256": "05b4c6033716d2f2c5e427a9ecc7ccb78d6d041bc303473cb6cd48197e8c4112",
+      "shipped_sha256": "05b4c6033716d2f2c5e427a9ecc7ccb78d6d041bc303473cb6cd48197e8c4112"
+    },
+    {
+      "path": "pyproject.toml",
+      "upstream_sha256": "fc77ec4b2920e23baacd9f9eb2f19015e81be24cb39173ffdb956c86aa33add2",
+      "shipped_sha256": "5d6c4687e423b34e8765488c6c3a08dbfe9ec34d62e2f98d1e20cee8594f2e9a"
+    },
+    {
+      "path": "uv.lock",
+      "upstream_sha256": "2fe9eeed66e0afa1321d563b6ebf8e6d6631158f9588df13259957b155575078",
+      "shipped_sha256": "2fe9eeed66e0afa1321d563b6ebf8e6d6631158f9588df13259957b155575078"
+    }
+  ]
+}
