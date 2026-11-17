@@ -28,6 +28,9 @@ A real run, not a mock-up: the bots took [PR #19](https://github.com/TimothyVang
 | Land a PR | `/deepmodebot:land-pr <PR number>` finishes and merges your own PR with no human: a reviewer bot posts findings in the PR thread, the author bot answers each with a fix or a reason, three verifier bots vote on the final head, and on a pass it merges. It never merges over a failing check. You see each turn in the session as it lands, drawn as an 8-bit frame right in the chat (each bot a sprite, each turn a dialog box), or watch the whole conversation play live as an 8-bit battle screen in your terminal; `/deepmodebot:pr-thread <PR or issue URL>` shows any bot conversation later. |
 | `deep-stack` skill | Stack picks and a ship loop: a default software stack and the decision rules behind it for any app (web, CLI, desktop, mobile, AI agent, data/ML, security tooling), an agent-driven UI design workflow, and a per-task loop of worktree, build, recorded evidence and reviewed PR. |
 | Verification skills | `create-verification-skill` builds a per-repo `verify-<app>` skill (a control CLI plus a feature map) so agents can drive your app and capture proof. `maintain-verification-skill` keeps it accurate as the app changes. |
+| `statechart` skill | Check TLA+ models with TLC and produce Mermaid statecharts with the bundled compiler; optionally render SVGs with Pele. Diagrams complement model checking; they do not prove production-code correctness. |
+| Formal verification skills | `create-formal-verification-skill` builds executable models and a repeatable checking workflow. `maintain-formal-verification-skill` updates models, invariants and checker commands as the system changes. |
+| `reverse-api-engineer` skill | The bundled MIT-licensed ReverseAPI engine captures authorized browser traffic and generates typed API clients. Optional dependencies run in an isolated workspace; generation requires review of the capture and explicit consent to agent execution. |
 | `project-brief` and `contribute` | A maintainer publishes a newcomer brief, claimable tasks as issues, a roadmap and templates. A contributor's agent finds an unclaimed task that doesn't overlap open PRs, claims it, builds it through deepmodebot, and opens a PR. |
 | Repository catalog | `plugins/deepmodebot/skills/deepmodebot/scripts/trending.py` searches new/trending repositories and dated reference choices, including analyst topics and material reuse cautions. |
 | Harness references | Cited, dated guides (checked 2026-11-11) for using omp, Claude Code, and Codex, the MCP, ACP, A2A, and WebMCP protocols, and portable AI-native conventions (`AGENTS.md`, Agent Skills, plugin marketplaces). A cross-harness map translates every omp tool and path deepmodebot names into Claude Code and Codex. In `plugins/deepmodebot/skills/agent-harnesses/`. |
@@ -186,6 +189,8 @@ The examples use the bare `/deep`. With a plugin install, type `/deepmodebot:dee
 /deep review PR 42
 /deep start a new app: a CLI that converts Sigma rules for our SIEM
 /deep check on PR 42, and ship it when it's green
+/deep draw a statechart for the retry protocol in verification/retry.tla
+/deep turn our authorized staging website into a typed Python API client
 ```
 
 - You never pick a skill or playbook. `/deep` routes, sizes, and runs it.
@@ -193,6 +198,7 @@ The examples use the bare `/deep`. With a plugin install, type `/deepmodebot:dee
 - It decides and acts without asking: commits, pushes, PRs, board cards, and merges after a panel pass. It asks once at the end only for hard stops (deploys, deletions, shared-history rewrites, outside messages, money, secrets), and lists every decision it made so you can reverse any.
 - It reuses the repo's verification tools or runs the real user path directly. A reusable `verify-<app>` skill is useful for repeated work, not a prerequisite for every local change.
 - The direct commands still work: `/deepmodebot:tournament`, `/deepmodebot:review-pr`, `/deepmodebot:land-pr`, `/deepmodebot:pr-thread`, `/deepmodebot:contribute`, `/deepmodebot:project-brief`.
+- ReverseAPI captures can contain credentials and private data. Keep captures out of commits; review the exact HAR before generation. Model-backed generation can send that input to your configured provider and run code; it is not an offline-only workflow. A separate workspace is not an OS sandbox.
 
 ## GitHub App bots
 
