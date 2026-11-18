@@ -7,7 +7,8 @@ Use when: adding new behavior. You own the design, review and proof. Choose loca
 For a local M feature, use this short path instead of the shipping steps below:
 
 1. Read the affected code, callers and existing checks. Name the requested behavior and the data shape that fits the existing design.
-   Done when each requirement has an observable check, and no design or trust-boundary uncertainty requires size L.
+   In a workspace monorepo (a root `workspaces` field, `pnpm-workspace.yaml`, a uv/Cargo workspace, or `go.work`), read `skill://software-architecture/references/monorepos.md`. Name the package that owns the behavior and the workspaces that depend on it. Run checks filtered to those packages, not root-wide.
+   Done when each requirement has an observable check, no design or trust-boundary uncertainty requires size L, and in a monorepo the owning package and its dependents are named.
 2. Implement in the starting working tree. Reuse the existing test and CLI/app paths; add regression coverage for uncertain behavior, not for wording or wiring.
    Done when the requested behavior works without unrelated features or policy changes.
 3. Run the actual user path, including its relevant boundaries and failure cases. Review the diff against the request and existing conventions; fix findings a code read or run proves.
