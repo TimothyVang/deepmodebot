@@ -12,9 +12,9 @@ Agents work in two passes. The implementer carries the most context (exploration
    - **Navigation:** the agent spent many calls finding a file, a command, or a hidden dependency between files. Fix: a one-line pointer in the nearest instruction file, or a README beside the code.
    - **Checks:** the agent made a mistake a lint rule, type, test, or file-layout check would have caught. A repo whose lint, typecheck, and tests run neither in a pre-commit hook nor in CI is a finding on its own; the fix is the **pre-commit** technique (`references/techniques/pre-commit.md`).
    - **Standards:** the reviewer missed something. Mechanical rules (a banned API, an import shape, a file location, a naming pattern) become a check, not prose. Only judgment calls (consistency across files, fit with surrounding style) go in `CODING_STANDARDS.md` at the repo root, which the reviewer reads.
-   - **Instruction bloat:** `AGENTS.md` or `CLAUDE.md` carries rules that belong in a check or in `CODING_STANDARDS.md`. Those files load into every agent's context; keep them to pointers.
+   - **Instruction bloat:** `AGENTS.md` or `CLAUDE.md` exceeds ~200 lines or carries rules that belong in a check or in `CODING_STANDARDS.md`. Those files load into every agent's context; keep them to pointers.
    - **No-ops:** instruction lines that change nothing the agent would do anyway. Delete them.
-   - **Tool economy:** expensive calls (huge outputs, repeated scans, a token-heavy tool or MCP server) a script, flag, or narrower command would replace.
+   - **Tool economy:** expensive calls (huge outputs, repeated scans, unused or eager MCP servers, Fast/Ultrafast multipliers, or flagship `L` / multi-agent bursts spent on `S`/`M` work) that a script, narrower command, cheap tier, or usage check (`omp usage`, `/usage`, `/status`) would save.
    - **Information access:** facts the agent needed and could not get: dev-server logs, a test database, read-only access to a third-party dashboard, a browser. Fix: tee logs to a known file, a read-only credential the user creates, a pointer to where the data lives.
    - **Guardrails:** the agent ran, or nearly ran, something destructive. Fix: the **git-guardrails** technique (`references/techniques/git-guardrails.md`) or a hook of the same kind.
    Done when every category has its candidates with cited moments, or "none".

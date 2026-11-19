@@ -2,7 +2,7 @@
 
 Start here if you're new to this repo, human or agent. `/deepmodebot:contribute` reads this file first.
 
-Last refreshed: 2026-11-12. The manifest and live issue board are authoritative for the current version and available work.
+Last refreshed: 2026-11-18. The manifest and live issue board are authoritative for the current version and available work.
 
 ## What and why
 
@@ -40,8 +40,9 @@ Known gaps reserved for contributors:
 
 | Path | Responsibility | Entry point |
 |---|---|---|
-| `plugins/deepmodebot/skills/deepmodebot/` | Main routing, autonomy and engineering workflows | `SKILL.md` |
+| `plugins/deepmodebot/skills/deepmodebot/` | Main routing, autonomy and engineering workflows | `SKILL.md`, `references/catalog.md` |
 | `references/playbooks/`, `references/techniques/`, `references/principles/` under the main skill | Task flows, reusable operations and decision rules | The path selected by `SKILL.md` |
+| `plugins/deepmodebot/.antigravity-plugin/`, `agents/`, `hooks.json`, `mcp_config.json`, `scripts/` | Native Google Antigravity plugin manifest, subagent roles, containment hook, and OMP MCP bridge | `plugin.json`, `antigravity-guard.mjs` |
 | `plugins/deepmodebot/skills/agent-harnesses/`, `software-architecture/`, `secrets-and-auth/`, `cloud-devsecops/`, `domain-rules/`, `frontend-ui/` | Cited domain references | Each skill's `SKILL.md` |
 | `plugins/deepmodebot/skills/deepmodebot/assets/github-app/` | App identity, polling, ACP conversations, verification and merge gates | `bot.py`, `ghapp.py`, `install.py` |
 | `plugins/deepmodebot/skills/deepmodebot/assets/pr-conversation/` | Text and 8-bit displays of real PR and issue threads | `show_thread.py`, `arena.py` |

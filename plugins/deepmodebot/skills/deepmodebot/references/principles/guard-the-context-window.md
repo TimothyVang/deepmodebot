@@ -1,5 +1,6 @@
 # guard-the-context-window
 
-Group: delegation. When: context is filling — large outputs, long files, repeated reads, fan-out planning.
-- **Rule.** Route bulk to subagents (`task`, `scout` for read-only); keep summaries in the main thread, not raw payloads. Overflow degrades reasoning, creates compression artifacts, halts progress.
-- **Check.** Size phases and cap scope: limit files per phase, set turn budgets, account for mechanism costs.
+Group: delegation. When: context is filling or fan-out / loops risk heavy token burn and provider rate limits.
+- **Rule.** Route bulk to subagents (`task`, `scout` for read-only); keep summaries and file pointers in the main thread, not raw payloads. Overflow degrades reasoning, creates compression artifacts, and burns cache/quota.
+- **Token & cache hygiene.** Clear between unrelated tasks (`/clear` or fresh session), pass file/line paths instead of pasting diffs or logs, trim test output to 20-30 failing lines, and keep `AGENTS.md`/`CLAUDE.md` under ~200 lines with unused or eager MCP servers off. Reuse warm agents (`write agent://<id>` / `SendMessage` / `send_message`) and keep model, effort, and tools fixed mid-thread so exact-prefix prompt caches stay hot (`skill://agent-harnesses/references/delegation-efficiency.md`).
+- **Rate-limit & model-switching budget.** Cap parallel spawns (3-5 per batch), skip heavy multi-agent flows (`tournament`, `swarm`, 3-verifier `panel`) when single-agent or `S`/`M` suffices, and avoid Fast/Ultrafast multipliers (2x-8x quota burn). Check headroom (`omp usage`, `/usage`, `/status`), use LM benchmarks to route `S`/`M` work off flagship `L` at clean boundaries (plan L / execute S-M, cheap-first on oracle-backed tasks), and back off or rotate model families on 429s.

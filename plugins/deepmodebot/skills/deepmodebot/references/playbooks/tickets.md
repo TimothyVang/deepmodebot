@@ -10,22 +10,24 @@ A ticket is a **tracer bullet**: a thin path through every layer the feature tou
    Done when you have read the whole body and every comment, and noted the glossary terms the tickets will use.
 2. **Scout the code** where the spec lands (`scout` tasks): entry points, the modules involved, and tests near them. Look for a **prefactor**: a behavior-preserving change that makes the feature small. Each prefactor is its own ticket and blocks the slices it helps.
    Done when every entry point and nearby test is listed, and each prefactor found is a drafted ticket.
-3. **Draft the slices.**
+3. **Draft the slices (and sprints for multi-PR specs).**
    - The first slice is the thinnest path that shows the feature working at all. Later slices widen it: more cases, more roles, error paths, polish.
+   - When the spec spans multiple user-visible capabilities or carries domain/product uncertainty, group tickets into **incremental sprints** (`Sprint 1`, `Sprint 2`, ...) instead of a Big Bang release. **Sprint 1** is the smallest set of tickets that delivers a real, demoable end-to-end workflow for early customer or **sme-review** feedback (`references/techniques/sme-review.md`).
    - Each slice fits one agent session and has Done when items a verifier can run on its own.
    - **Blocked by** lists only tickets that truly gate this one. A slice that only touches the same files is a merge order, not a dependency.
    - A **wide mechanical change** (rename a column, retype a shared symbol) that breaks every caller at once can't be a tracer bullet. Split it in three phases. *Expand*: add the new form beside the old. *Migrate*: move callers in batches sized so each stays green (per package or folder), each batch blocked by Expand. *Contract*: delete the old form, blocked by every batch.
-   Done when every slice has a title, at least one Done when item, and a Blocked by list.
-4. **Check the cut.** For each ticket: does it change behavior someone can observe, or is it a prefactor or migrate batch that keeps everything green? Is any ticket two features (split it) or half of one (merge it)? Any cycle in Blocked by? Fix, then show the user the list as a table (number, title, blocked by, what it delivers) and carry on; the user overrides by saying so (SKILL.md Autonomy).
-5. **Publish** per the **tracker** technique (`references/techniques/tracker.md`), blockers first so every Blocked by line can name a real issue. Each ticket: labels `ticket`, its category role, and `triage:agent-ready`; a Parent link to the spec issue when there is one; Blocked by links. Use the body below. Never edit or close the spec issue.
+   Done when every slice has a title, a sprint assignment when multi-sprint, at least one Done when item, and a Blocked by list.
+4. **Check the cut.** For each ticket: does it change behavior someone can observe, or is it a prefactor or migrate batch that keeps everything green? Is any ticket two features (split it) or half of one (merge it)? Does **Sprint 1** deliver a testable end-to-end feedback slice on its own? Any cycle in Blocked by? Fix, then show the user the list as a table (number, sprint, title, blocked by, what it delivers) and carry on; the user overrides by saying so (SKILL.md Autonomy).
+5. **Publish** per the **tracker** technique (`references/techniques/tracker.md`), blockers first so every Blocked by line can name a real issue. Each ticket: labels `ticket`, its category role, and `triage:agent-ready` (plus `sprint:1`, `sprint:2`, ... when grouped into sprints); a Parent link to the spec issue when there is one; Blocked by links. Use the body below. Never edit or close the spec issue.
    Done when every ticket is an issue with its labels and Blocked by links, and the spec issue is unchanged.
-6. **Next.** One integration branch, one final PR → Phased build (`references/playbooks/phased-build.md`). One merged PR per ticket on trunk → Work a queue (`references/playbooks/work-a-queue.md`) from board tasks. Labeled issues for an installed factory → Work a queue with the `factory` CLI.
+6. **Next.** Incremental sprints for early feedback → Phased build in sprint mode (`references/playbooks/phased-build.md`). One integration branch, one final PR (small or fully settled specs only) → Phased build in build mode. One merged PR per ticket on trunk → Work a queue (`references/playbooks/work-a-queue.md`) from board tasks. Labeled issues for an installed factory → Work a queue with the `factory` CLI.
    Done when the chosen playbook has started, named in your report.
 
 ## Ticket body
 
 ```markdown
 Parent: #<spec issue>
+Sprint: <n> (omit when single-sprint)
 
 ## Builds
 <The behavior this ticket makes work, from the user's side, end to end. Not a list of files.>

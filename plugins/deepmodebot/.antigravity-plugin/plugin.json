@@ -1,0 +1,32 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "deepmodebot",
+  "displayName": "deepmodebot",
+  "version": "0.8.3",
+  "description": "Rigorous agent engineering mode (/deep): routes tasks to playbooks, applies named principles, keeps writes inside the project, proves behavior on the real app, and runs the verifier panel and PR review loop.",
+  "logo": "assets/logo.svg",
+  "skills": [
+    "./.antigravity-plugin/skills"
+  ],
+  "suggestedPrompts": [
+    "/deep grill me on this plan, then write the spec and cut tickets",
+    "/deep fix this bug and prove it on the running app",
+    "/review-pr 42"
+  ],
+  "author": {
+    "name": "Timothy Vang",
+    "url": "https://github.com/TimothyVang"
+  },
+  "homepage": "https://timothyvang.github.io/deepmodebot/",
+  "repository": "https://github.com/TimothyVang/deepmodebot",
+  "license": "MIT",
+  "keywords": [
+    "deepmodebot",
+    "rigor",
+    "agent-playbooks",
+    "verification",
+    "code-review",
+    "playbooks",
+    "antigravity"
+  ]
+}

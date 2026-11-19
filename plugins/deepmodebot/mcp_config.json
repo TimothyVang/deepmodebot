@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "omp": {
+      "command": "node",
+      "args": [
+        "${PLUGIN_ROOT}/scripts/omp-mcp-server.mjs"
+      ],
+      "timeoutSeconds": 600
+    }
+  }
+}

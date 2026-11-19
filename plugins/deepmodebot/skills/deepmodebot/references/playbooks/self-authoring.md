@@ -28,7 +28,9 @@ Within an approved task, deepmodebot may author and revise its own bounded loop 
      Frontmatter needs `goal`, `check` (exits 0 only when done and cannot pass by touching a file), `protect` (tests, scripts, fixtures, and config the check runs; `none` only when there are none), `max_iterations`, and `max_cost_usd` (finite and positive; required for omp and Claude Code).
      Optional scope and gate keys: `manifest` (JSON scope manifest checked by `loop.py manifest <file>`, auto-protected so every slice must pass), `fast_check` and `fast_check_minutes` (default 5; fast typecheck/lint stage run before `check`), and `protect_configs` (default `true` unless `protect` is `none`; guards root linter/typechecker/hook configs and `pyproject.toml` tool sections).
      Optional anti-slop and reset keys: `forbid_slop` (default `true`; rejects newly added inline suppressions, swallowed broad exceptions, and `TODO`/`NotImplementedError` stubs) and `revert_on_fail` (default `false`; resets failed edits on a clean tree while keeping the revised plan).
-     Other optional keys: `constraints`, `stall_after`, `iteration_minutes` (default 60), `check_minutes` (default 15), `harness`, and `harness_args`.
+     Other optional keys: `constraints`, `stall_after`, `iteration_minutes` (default 60), `check_minutes` (default 15), `harness`, and `harness_args` (pin the smallest benchmark-proven model/effort tier via `skill://agent-harnesses/references/delegation-efficiency.md`).
+     Optional escalation & fallback keys: `escalate_after` + `escalate_harness_args` switch to a stronger model/effort after N consecutive failed iterations; `fallback_harness_args` switches model families automatically on quota exhaustion or persistent 429s.
+     Optional sprint checkpoint & rate-limit keys: `checkpoint_every` pauses cleanly after N iterations (exit 6) for SME/human review before resuming; `cooldown_seconds` (default 0), `rate_limit_retries` (default 2), and `rate_limit_backoff_seconds` (default 60; honors `Retry-After`) pace retries.
      Put fixed scope and permission boundaries in `constraints`, not in the mutable body. All frontmatter is immutable during the run.
      - The runner uses flat `key: value` lines, not general YAML. Keep each value on one line; `protect` is a space-separated string (`protect: acceptance.py tests/`), and `constraints` is one scalar string, never a list or block. Before launch, `python <this skill>/assets/loop/loop.py run <goal.md> --dry-run` validates the draft without executing acceptance.
      - Every `protect` path must exist, so a typo is caught. Write `absent:<path>` for one that must stay absent because the test runner would load it (`absent:conftest.py`): creating it stops the run.
@@ -39,9 +41,9 @@ Within an approved task, deepmodebot may author and revise its own bounded loop 
      - omp: `/goal <objective>` (needs `goal.enabled`; interactive only).
      - Claude Code: `/goal <condition>` (a small model judges the transcript, so name the command whose printed output proves done); `/loop <interval> <prompt>` for recurring work (expires after 7 days).
      - Codex: `/goal <end state> verified by <evidence> while preserving <constraints>`.
-     - Headless or any harness: `python <this skill>/assets/loop/loop.py run <goal.md>`. It runs omp, Claude Code, or Codex on the subscription until the check passes, logging to `.scratch/goals/<slug>/`.
-       Exit 0 done, 2 iteration cap, 3 stalled (neither check output nor working files changed; body-only edits do not count), 4 edited frontmatter or a `protect` path.
-       Exit 5 a harness failure with the check still failing, or a run passed its time limit. A passing acceptance check wins over a nonzero harness exit. `--dry-run` prints the command and prompt without running the check.
+     - Headless or any harness: `python <this skill>/assets/loop/loop.py run <goal.md>`. It runs omp, Claude Code, or Codex on the subscription until the check passes, logging prompts, checks, `trail.tsv`, `<run_id>-summary.json`, and `latest-summary.json` to `.scratch/goals/<slug>/`.
+       Exit 0 done, 2 iteration cap, 3 stalled (neither check output nor working files changed; body-only edits do not count), 4 edited frontmatter or a `protect` path, 6 sprint checkpoint reached (`checkpoint_every`; inspect trail/summary and re-run to resume).
+       Exit 5 a harness failure with the check still failing, a run passed its time limit, or quota exhaustion / persistent 429s when no `fallback_harness_args` is set (or the fallback also fails). A passing acceptance check wins over a nonzero harness exit. `--dry-run` prints the command and prompt without running the check.
        The runner owns the acceptance check; each agent performs one bounded step and returns.
        Keep `windows_job.py` beside `loop.py`: on Windows 10 (1703+) it assigns each check/harness process to a kill-on-close Job Object at creation and disables desktop-app child breakaway. Job setup failures are reported rather than silently dropping process ownership.
 4. **Validate the structure.** Skill: `python <this skill>/scripts/check_skill.py <skill dir>` prints `ok` (also `skills-ref validate <dir>` when installed). Goal: `python <this skill>/assets/loop/loop.py check <goal.md>` parses it and runs the check once. Prompt: invoke it once.
@@ -118,7 +120,7 @@ Done when the next prompt has one evidence-backed action, the original check and
 ## Evidence
 
 - Artifact paths and why each was chosen over a check or script.
-- Validation output, and the proof-run transcript or loop trail (`.scratch/goals/<slug>/trail.tsv`).
+- Validation output, and the proof-run transcript or loop trail (`.scratch/goals/<slug>/trail.tsv` and `latest-summary.json`).
 - The Eval verdict when one ran; the frozen skill/evidence identity and all three locked review receipts; checked vote count and dissent.
 - The promotion level actually reached, unresolved limitations and removal/revert path.
 
