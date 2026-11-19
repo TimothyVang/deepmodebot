@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Zero-bloat memory-mapped workspace, repo, Orca, PR, and project-state index.
 
-    python workspace_map.py sync [path] [--offline] [--no-orca] [--force-prs]
-    python workspace_map.py overview [path] [--max-bytes 1400] [--offline] [--no-orca]
-    python workspace_map.py query <term> [path] [--limit 15] [--all-repos]
-    python workspace_map.py workspaces [path] [--all-repos]
-    python workspace_map.py prs [path] [--all-repos]
+    python workspace_map.py sync [path] [--offline] [--no-orca] [--force-prs] [--fast]
+    python workspace_map.py overview [path] [--max-bytes 1400] [--offline] [--no-orca] [--fast]
+    python workspace_map.py query <term> [path] [--limit 15] [--all-repos] [--no-sync]
+    python workspace_map.py workspaces [path] [--all-repos] [--no-orca] [--fast]
+    python workspace_map.py prs [path] [--all-repos] [--offline] [--force-prs]
     python workspace_map.py prune [--days 30]
 
 All subcommands accept `--json`, `--db <path>`, and `--global`.
@@ -379,6 +379,56 @@ def parse_remote_slug(remote_url):
     return match.group(1) if match else ""
 
 
+def _read_git_head_branch(git_dir):
+    try:
+        with open(os.path.join(git_dir, "HEAD"), encoding="utf-8", errors="replace") as handle:
+            line = handle.readline().strip()
+    except OSError:
+        return None
+    if line.startswith("ref: refs/heads/"):
+        return line[len("ref: refs/heads/"):].strip()
+    return ""
+
+
+def _read_origin_remote_url(common_dir):
+    config_path = os.path.join(common_dir, "config")
+    try:
+        with open(config_path, encoding="utf-8", errors="replace") as handle:
+            lines = handle.readlines()
+    except OSError:
+        return None
+    in_origin = False
+    has_include = False
+    for raw in lines:
+        line = raw.strip()
+        if not line or line.startswith(("#", ";")):
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            header = line[1:-1].strip()
+            in_origin = header.lower() == 'remote "origin"'
+            if header.lower().startswith("include"):
+                has_include = True
+            continue
+        if in_origin and "=" in line:
+            key, val = line.split("=", 1)
+            if key.strip().lower() == "url":
+                return val.strip()
+    return None if has_include else ""
+
+
+def _read_origin_default_branch(common_dir):
+    ref_path = os.path.join(common_dir, "refs", "remotes", "origin", "HEAD")
+    try:
+        with open(ref_path, encoding="utf-8", errors="replace") as handle:
+            line = handle.readline().strip()
+    except OSError:
+        return ""
+    prefix = "ref: refs/remotes/origin/"
+    if line.startswith(prefix):
+        return line[len(prefix):].strip()
+    return ""
+
+
 def resolve_repo(path="."):
     """Resolve git checkout + common dir so linked worktrees share one repo_key and DB."""
     abs_path = os.path.abspath(path or ".")
@@ -391,13 +441,20 @@ def resolve_repo(path="."):
     if not os.path.isdir(probe):
         return None
 
-    top = run_cmd(["git", "-C", probe, "rev-parse", "--show-toplevel"])
-    if top.returncode != 0 or not top.stdout.strip():
-        return None
-    checkout_root = os.path.realpath(top.stdout.strip())
-
-    common = run_cmd(["git", "-C", checkout_root, "rev-parse", "--path-format=absolute", "--git-common-dir"])
-    if common.returncode != 0 or not common.stdout.strip():
+    rev = run_cmd([
+        "git", "-C", probe, "rev-parse", "--path-format=absolute",
+        "--show-toplevel", "--git-common-dir", "--git-dir",
+    ])
+    lines = [ln.strip() for ln in rev.stdout.splitlines() if ln.strip()]
+    if rev.returncode == 0 and len(lines) >= 3:
+        checkout_root = os.path.realpath(lines[0])
+        common_dir = os.path.realpath(lines[1])
+        git_dir = os.path.realpath(lines[2])
+    else:
+        top = run_cmd(["git", "-C", probe, "rev-parse", "--show-toplevel"])
+        if top.returncode != 0 or not top.stdout.strip():
+            return None
+        checkout_root = os.path.realpath(top.stdout.strip())
         common = run_cmd(["git", "-C", checkout_root, "rev-parse", "--git-common-dir"])
         if common.returncode != 0 or not common.stdout.strip():
             return None
@@ -405,8 +462,11 @@ def resolve_repo(path="."):
         common_dir = os.path.realpath(
             raw_common if os.path.isabs(raw_common) else os.path.join(checkout_root, raw_common)
         )
-    else:
-        common_dir = os.path.realpath(common.stdout.strip())
+        gdir = run_cmd(["git", "-C", checkout_root, "rev-parse", "--git-dir"])
+        raw_gdir = gdir.stdout.strip() if gdir.returncode == 0 and gdir.stdout.strip() else ".git"
+        git_dir = os.path.realpath(
+            raw_gdir if os.path.isabs(raw_gdir) else os.path.join(checkout_root, raw_gdir)
+        )
 
     if os.path.basename(common_dir).lower() == ".git":
         main_checkout = os.path.realpath(os.path.dirname(common_dir))
@@ -414,19 +474,18 @@ def resolve_repo(path="."):
         main_checkout = common_dir
 
     repo_key = normalize_path_key(main_checkout)
-    remote = run_cmd(["git", "-C", checkout_root, "config", "--get", "remote.origin.url"])
-    remote_url = remote.stdout.strip() if remote.returncode == 0 else ""
+    remote_url = _read_origin_remote_url(common_dir)
+    if remote_url is None:
+        remote = run_cmd(["git", "-C", checkout_root, "config", "--get", "remote.origin.url"])
+        remote_url = remote.stdout.strip() if remote.returncode == 0 else ""
     remote_slug = parse_remote_slug(remote_url)
 
-    branch_res = run_cmd(["git", "-C", checkout_root, "symbolic-ref", "--short", "HEAD"])
-    current_branch = branch_res.stdout.strip() if branch_res.returncode == 0 else ""
+    current_branch = _read_git_head_branch(git_dir)
+    if current_branch is None:
+        branch_res = run_cmd(["git", "-C", checkout_root, "symbolic-ref", "--short", "HEAD"])
+        current_branch = branch_res.stdout.strip() if branch_res.returncode == 0 else ""
 
-    def_branch = ""
-    head_ref = run_cmd(["git", "-C", checkout_root, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"])
-    if head_ref.returncode == 0 and head_ref.stdout.strip():
-        def_branch = head_ref.stdout.strip().split("/", 1)[-1]
-    elif current_branch:
-        def_branch = current_branch
+    def_branch = _read_origin_default_branch(common_dir) or current_branch
 
     name = remote_slug or os.path.basename(main_checkout) or "repo"
     return {
@@ -880,22 +939,31 @@ def _check_dirty(raw_path):
     return (1 if lines else 0), len(lines)
 
 
-def populate_dirty_status(worktrees, current_wkey):
-    """Check dirty status in parallel for current, main, and branch-attached worktrees."""
+def populate_dirty_status(worktrees, current_wkey, fast=False):
+    """Check dirty status in parallel for current, main, and (unless fast) branch-attached worktrees."""
     prioritized = []
     seen = set()
-    for predicate in (
-        lambda w: w["worktree_key"] == current_wkey,
-        lambda w: w["is_main"] == 1,
-        lambda w: not w["is_detached"],
-    ):
+    if fast:
+        predicates = (
+            lambda w: w["worktree_key"] == current_wkey,
+            lambda w: w["is_main"] == 1,
+        )
+        max_checks = 2
+    else:
+        predicates = (
+            lambda w: w["worktree_key"] == current_wkey,
+            lambda w: w["is_main"] == 1,
+            lambda w: not w["is_detached"],
+        )
+        max_checks = MAX_DIRTY_CHECK_WORKTREES
+    for predicate in predicates:
         for wt in worktrees:
             if wt["worktree_key"] not in seen and predicate(wt):
                 prioritized.append(wt)
                 seen.add(wt["worktree_key"])
-            if len(prioritized) >= MAX_DIRTY_CHECK_WORKTREES:
+            if len(prioritized) >= max_checks:
                 break
-        if len(prioritized) >= MAX_DIRTY_CHECK_WORKTREES:
+        if len(prioritized) >= max_checks:
             break
     if not prioritized:
         return
@@ -969,11 +1037,29 @@ def fetch_orca_worktrees():
     return parsed
 
 
-def sync_workspaces(conn, repo_info, no_orca=False, include_foreign_orca=False):
+def sync_workspaces(conn, repo_info, no_orca=False, include_foreign_orca=False, fast=False):
     repo_key = repo_info["repo_key"]
     now = time.time()
-    git_wts = parse_git_worktrees(repo_info["checkout_root"], repo_info["main_checkout"])
-    populate_dirty_status(git_wts, repo_info["worktree_key"])
+    if fast:
+        dirty_targets = [repo_info["checkout_root"]]
+        if normalize_path_key(repo_info["main_checkout"]) != repo_info["worktree_key"]:
+            dirty_targets.append(repo_info["main_checkout"])
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(dirty_targets) + 1) as pool:
+            wt_future = pool.submit(parse_git_worktrees, repo_info["checkout_root"], repo_info["main_checkout"])
+            dirty_futures = {normalize_path_key(p): pool.submit(_check_dirty, p) for p in dirty_targets}
+            git_wts = wt_future.result()
+            dirty_results = {}
+            for wkey, fut in dirty_futures.items():
+                try:
+                    dirty_results[wkey] = fut.result()
+                except Exception:
+                    dirty_results[wkey] = (0, 0)
+        for wt in git_wts:
+            if wt["worktree_key"] in dirty_results:
+                wt["is_dirty"], wt["dirty_count"] = dirty_results[wt["worktree_key"]]
+    else:
+        git_wts = parse_git_worktrees(repo_info["checkout_root"], repo_info["main_checkout"])
+        populate_dirty_status(git_wts, repo_info["worktree_key"], fast=False)
     by_key = {wt["worktree_key"]: wt for wt in git_wts}
 
     orca_used = False
@@ -1177,13 +1263,66 @@ def sync_prs(conn, repo_info, offline=False, force_prs=False):
     return len(seen_nums), False
 
 
+def _parse_goal_frontmatter(goal_path):
+    """Extract lightweight YAML frontmatter key/value pairs from a goal markdown file."""
+    try:
+        with open(goal_path, encoding="utf-8", errors="replace") as handle:
+            text = handle.read(32768)
+    except OSError:
+        return {}
+    match = re.match(r"^---\r?\n(.*?)\r?\n---(?:\r?\n|$)", text, re.S)
+    if not match:
+        return {}
+    fields = {}
+    for line in match.group(1).splitlines():
+        if ":" not in line or line.startswith((" ", "\t")):
+            continue
+        key, value = line.split(":", 1)
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        fields[key.strip()] = value
+    return fields
+
+
+def _normalize_rel_manifest(raw_rel):
+    rel = str(raw_rel or "").strip().replace("\\", "/")
+    while rel.startswith("./"):
+        rel = rel[2:]
+    return rel
+
+
 def _scan_project_state_for_checkout(checkout_root):
-    """Scan scope manifests and goal latest-summary.json files inside a checkout."""
+    """Scan goal frontmatter, scope manifests, and goal latest-summary.json files inside a checkout."""
     records = {}
+    root_key = normalize_path_key(checkout_root)
+
+    # Read active_sprint and manifest links from .scratch/goals/*.md frontmatter (newest wins per manifest).
+    goal_by_manifest = {}
+    linked_manifest_paths = set()
+    goal_files = glob.glob(os.path.join(checkout_root, ".scratch", "goals", "*.md"))
+    goal_files.sort(key=lambda p: (os.path.getmtime(p) if os.path.exists(p) else 0.0, p))
+    for gpath in goal_files:
+        fields = _parse_goal_frontmatter(gpath)
+        manifest_rel = _normalize_rel_manifest(fields.get("manifest"))
+        if not manifest_rel:
+            continue
+        raw_sprint = str(fields.get("active_sprint") or "").strip()
+        active_sprint = int(raw_sprint) if raw_sprint.isdigit() and int(raw_sprint) >= 1 else None
+        goal_by_manifest[manifest_rel] = {
+            "goal": str(fields.get("goal") or "").strip(),
+            "active_sprint": active_sprint,
+        }
+        candidate = os.path.join(checkout_root, manifest_rel)
+        if os.path.isfile(candidate):
+            cand_key = normalize_path_key(candidate)
+            if cand_key == root_key or cand_key.startswith(root_key + "/"):
+                linked_manifest_paths.add(os.path.realpath(candidate))
 
     manifest_paths = sorted({
-        *glob.glob(os.path.join(checkout_root, "docs", "specs", "*-manifest.json")),
-        *glob.glob(os.path.join(checkout_root, ".scratch", "goals", "*-manifest.json")),
+        *(os.path.realpath(p) for p in glob.glob(os.path.join(checkout_root, "docs", "specs", "*-manifest.json"))),
+        *(os.path.realpath(p) for p in glob.glob(os.path.join(checkout_root, ".scratch", "goals", "*-manifest.json"))),
+        *linked_manifest_paths,
     })
     for mpath in manifest_paths:
         try:
@@ -1193,20 +1332,16 @@ def _scan_project_state_for_checkout(checkout_root):
             continue
         if not isinstance(data, dict) or not isinstance(data.get("slices"), list):
             continue
-        rel = os.path.relpath(mpath, checkout_root).replace("\\", "/")
+        rel = _normalize_rel_manifest(os.path.relpath(mpath, checkout_root))
         slices = [s for s in data["slices"] if isinstance(s, dict)]
-        raw_sprint = data.get("active_sprint")
-        active_sprint = raw_sprint if isinstance(raw_sprint, int) and not isinstance(raw_sprint, bool) else None
+        goal_meta = goal_by_manifest.get(rel) or {}
+        active_sprint = goal_meta.get("active_sprint")
         if active_sprint is not None:
             active_slices = [s for s in slices if int(s.get("sprint", 1) or 1) <= active_sprint]
             deferred_count = len(slices) - len(active_slices)
         else:
             active_slices = slices
             deferred_count = 0
-        passed_slices = sum(
-            1 for s in active_slices
-            if str(s.get("status") or "").lower() in ("passed", "pass", "done", "complete")
-        )
         pending_inv = sum(
             1 for item in data.get("inventory", ())
             if isinstance(item, dict) and str(item.get("status") or "").lower() == "pending"
@@ -1219,9 +1354,9 @@ def _scan_project_state_for_checkout(checkout_root):
             "state_key": rel,
             "source_kind": "manifest",
             "source_path": rel,
-            "product": cap_sig(str(data.get("product") or Path(mpath).stem), 80),
+            "product": cap_sig(str(data.get("product") or goal_meta.get("goal") or Path(mpath).stem), 80),
             "active_sprint": active_sprint,
-            "passed_slices": passed_slices,
+            "passed_slices": 0,
             "active_slices": len(active_slices),
             "total_slices": len(slices),
             "deferred_count": deferred_count,
@@ -1231,7 +1366,8 @@ def _scan_project_state_for_checkout(checkout_root):
             "last_exit_reason": "",
         }
 
-    summary_paths = sorted(glob.glob(os.path.join(checkout_root, ".scratch", "goals", "*", "latest-summary.json")))
+    summary_paths = glob.glob(os.path.join(checkout_root, ".scratch", "goals", "*", "latest-summary.json"))
+    summary_paths.sort(key=lambda p: (os.path.getmtime(p) if os.path.exists(p) else 0.0, p))
     for spath in summary_paths:
         try:
             with open(spath, encoding="utf-8") as handle:
@@ -1240,7 +1376,7 @@ def _scan_project_state_for_checkout(checkout_root):
             continue
         if not isinstance(data, dict):
             continue
-        rel = os.path.relpath(spath, checkout_root).replace("\\", "/")
+        rel = _normalize_rel_manifest(os.path.relpath(spath, checkout_root))
         exit_code = data.get("exit_code")
         if isinstance(exit_code, bool) or not isinstance(exit_code, int):
             exit_code = None
@@ -1248,9 +1384,7 @@ def _scan_project_state_for_checkout(checkout_root):
         scope = data.get("scope") if isinstance(data.get("scope"), dict) else None
 
         if scope:
-            manifest_rel = str(scope.get("manifest") or "").replace("\\", "/")
-            while manifest_rel.startswith("./"):
-                manifest_rel = manifest_rel[2:]
+            manifest_rel = _normalize_rel_manifest(scope.get("manifest"))
             s_sprint = scope.get("active_sprint")
             if isinstance(s_sprint, bool) or not isinstance(s_sprint, int):
                 s_sprint = None
@@ -1380,12 +1514,20 @@ def upsert_repo_row(conn, repo_info, touch_sync=True):
     )
 
 
-def perform_sync(conn, repo_info, offline=False, no_orca=False, force_prs=False, include_foreign_orca=False):
+def perform_sync(
+    conn,
+    repo_info,
+    offline=False,
+    no_orca=False,
+    force_prs=False,
+    include_foreign_orca=False,
+    fast=False,
+):
     started = time.perf_counter()
     upsert_repo_row(conn, repo_info, touch_sync=True)
     file_stats = sync_files_and_symbols(conn, repo_info)
     wt_count, orca_used = sync_workspaces(
-        conn, repo_info, no_orca=no_orca, include_foreign_orca=include_foreign_orca
+        conn, repo_info, no_orca=no_orca, include_foreign_orca=include_foreign_orca, fast=fast
     )
     pr_count, prs_cached = sync_prs(conn, repo_info, offline=offline, force_prs=force_prs)
     ps_count = sync_project_state(conn, repo_info)
@@ -1623,6 +1765,7 @@ def cmd_sync(opts):
             no_orca=opts.no_orca,
             force_prs=opts.force_prs,
             include_foreign_orca=getattr(opts, "use_global", False),
+            fast=opts.fast,
         )
     finally:
         conn.close()
@@ -1655,6 +1798,7 @@ def cmd_overview(opts):
             no_orca=opts.no_orca,
             force_prs=False,
             include_foreign_orca=getattr(opts, "use_global", False),
+            fast=opts.fast,
         )
         rkey = repo_info["repo_key"]
         docs = [
@@ -1720,12 +1864,14 @@ def cmd_overview(opts):
 def cmd_query(opts):
     repo_info = resolve_repo(opts.path)
     db_path = resolve_db_path(opts, repo_info)
+    just_synced = False
     if not os.path.exists(db_path):
         if repo_info is None:
             raise SystemExit(f"index DB does not exist: {db_path}")
         conn = connect_db(db_path)
         try:
-            perform_sync(conn, repo_info, offline=True, no_orca=True)
+            perform_sync(conn, repo_info, offline=True, no_orca=True, fast=True)
+            just_synced = True
         finally:
             conn.close()
 
@@ -1733,12 +1879,20 @@ def cmd_query(opts):
     conn = connect_db(db_path)
     try:
         repo_key = None if opts.all_repos else (repo_info["repo_key"] if repo_info else None)
-        if repo_key is not None:
-            exists = conn.execute("SELECT 1 FROM repos WHERE repo_key = ?", (repo_key,)).fetchone()
+        if repo_info is not None:
+            exists = conn.execute("SELECT 1 FROM repos WHERE repo_key = ?", (repo_info["repo_key"],)).fetchone()
             if exists is None and getattr(opts, "db", None):
-                repo_key = None
-            elif exists is None and repo_info is not None:
-                perform_sync(conn, repo_info, offline=True, no_orca=True)
+                if repo_key == repo_info["repo_key"]:
+                    repo_key = None
+            elif exists is None and not opts.no_sync and not just_synced:
+                perform_sync(conn, repo_info, offline=True, no_orca=True, fast=True)
+            elif exists is not None and not opts.no_sync and not just_synced:
+                file_stats = sync_files_and_symbols(conn, repo_info)
+                conn.execute(
+                    "UPDATE repos SET file_count = ?, symbol_count = ?, last_sync_ts = ? WHERE repo_key = ?",
+                    (file_stats["total_files"], file_stats["total_symbols"], time.time(), repo_info["repo_key"]),
+                )
+                conn.commit()
 
         results = []
         if fts_q:
@@ -1778,21 +1932,51 @@ def cmd_query(opts):
 def cmd_workspaces(opts):
     repo_info = resolve_repo(opts.path)
     db_path = resolve_db_path(opts, repo_info)
+    just_synced = False
     if not os.path.exists(db_path):
         if repo_info is None:
             raise SystemExit(f"index DB does not exist: {db_path}")
         conn = connect_db(db_path)
         try:
-            perform_sync(conn, repo_info, offline=True, no_orca=False)
+            perform_sync(
+                conn,
+                repo_info,
+                offline=True,
+                no_orca=opts.no_orca,
+                include_foreign_orca=getattr(opts, "use_global", False),
+                fast=opts.fast,
+            )
+            just_synced = True
         finally:
             conn.close()
 
     conn = connect_db(db_path)
     try:
         repo_key = None if opts.all_repos else (repo_info["repo_key"] if repo_info else None)
-        if repo_key is not None and getattr(opts, "db", None):
-            if conn.execute("SELECT 1 FROM repos WHERE repo_key = ?", (repo_key,)).fetchone() is None:
-                repo_key = None
+        if repo_info is not None:
+            exists = conn.execute("SELECT 1 FROM repos WHERE repo_key = ?", (repo_info["repo_key"],)).fetchone()
+            if exists is None and getattr(opts, "db", None):
+                if repo_key == repo_info["repo_key"]:
+                    repo_key = None
+            elif exists is None and not just_synced:
+                perform_sync(
+                    conn,
+                    repo_info,
+                    offline=True,
+                    no_orca=opts.no_orca,
+                    include_foreign_orca=getattr(opts, "use_global", False),
+                    fast=opts.fast,
+                )
+            elif exists is not None and not just_synced:
+                sync_workspaces(
+                    conn,
+                    repo_info,
+                    no_orca=opts.no_orca,
+                    include_foreign_orca=getattr(opts, "use_global", False),
+                    fast=opts.fast,
+                )
+                sync_project_state(conn, repo_info)
+                conn.commit()
         items = collect_workspaces(conn, repo_key)
     finally:
         conn.close()
@@ -1821,21 +2005,44 @@ def cmd_workspaces(opts):
 def cmd_prs(opts):
     repo_info = resolve_repo(opts.path)
     db_path = resolve_db_path(opts, repo_info)
+    just_synced = False
     if not os.path.exists(db_path):
         if repo_info is None:
             raise SystemExit(f"index DB does not exist: {db_path}")
         conn = connect_db(db_path)
         try:
-            perform_sync(conn, repo_info, offline=False, no_orca=True)
+            perform_sync(
+                conn,
+                repo_info,
+                offline=opts.offline,
+                no_orca=True,
+                force_prs=opts.force_prs,
+                fast=True,
+            )
+            just_synced = True
         finally:
             conn.close()
 
     conn = connect_db(db_path)
     try:
         repo_key = None if opts.all_repos else (repo_info["repo_key"] if repo_info else None)
-        if repo_key is not None and getattr(opts, "db", None):
-            if conn.execute("SELECT 1 FROM repos WHERE repo_key = ?", (repo_key,)).fetchone() is None:
-                repo_key = None
+        if repo_info is not None:
+            exists = conn.execute("SELECT 1 FROM repos WHERE repo_key = ?", (repo_info["repo_key"],)).fetchone()
+            if exists is None and getattr(opts, "db", None):
+                if repo_key == repo_info["repo_key"]:
+                    repo_key = None
+            elif exists is None and not just_synced:
+                perform_sync(
+                    conn,
+                    repo_info,
+                    offline=opts.offline,
+                    no_orca=True,
+                    force_prs=opts.force_prs,
+                    fast=True,
+                )
+            elif exists is not None and not opts.offline and not just_synced:
+                sync_prs(conn, repo_info, offline=False, force_prs=opts.force_prs)
+                conn.commit()
         items = collect_prs(conn, repo_key)
     finally:
         conn.close()
@@ -1957,26 +2164,33 @@ def build_parser():
     p_sync.add_argument("--offline", action="store_true", help="skip gh PR lookup")
     p_sync.add_argument("--no-orca", action="store_true", help="skip orca worktree lookup")
     p_sync.add_argument("--force-prs", action="store_true", help="bypass 180s PR TTL cache")
+    p_sync.add_argument("--fast", action="store_true", help="check dirty status on current and main worktrees only")
 
     p_ov = sub.add_parser("overview", parents=[common], help="auto-sync and print a byte-capped turn-1 orientation")
     p_ov.add_argument("path", nargs="?", default=".")
     p_ov.add_argument("--max-bytes", type=int, default=DEFAULT_OVERVIEW_BYTES, help="hard UTF-8 byte cap")
     p_ov.add_argument("--offline", action="store_true", help="skip gh PR lookup")
     p_ov.add_argument("--no-orca", action="store_true", help="skip orca worktree lookup")
+    p_ov.add_argument("--fast", action="store_true", help="check dirty status on current and main worktrees only")
 
     p_q = sub.add_parser("query", parents=[common], help="FTS5 symbol lookup returning rel_path:line kind signature")
     p_q.add_argument("term", help="search term or prefix (e.g. evaluate_manifest or eval*)")
     p_q.add_argument("path", nargs="?", default=".")
     p_q.add_argument("--limit", type=int, default=15, help="max results")
     p_q.add_argument("--all-repos", action="store_true", help="search across every repo in the DB")
+    p_q.add_argument("--no-sync", action="store_true", help="skip incremental file/symbol refresh before querying")
 
     p_ws = sub.add_parser("workspaces", parents=[common], help="list worktrees joined with dirty state, PRs, and manifests")
     p_ws.add_argument("path", nargs="?", default=".")
     p_ws.add_argument("--all-repos", action="store_true", help="include all repos in the DB")
+    p_ws.add_argument("--no-orca", action="store_true", help="skip orca worktree lookup")
+    p_ws.add_argument("--fast", action="store_true", help="check dirty status on current and main worktrees only")
 
     p_prs = sub.add_parser("prs", parents=[common], help="list own open PRs joined with local worktrees")
     p_prs.add_argument("path", nargs="?", default=".")
     p_prs.add_argument("--all-repos", action="store_true", help="include all repos in the DB")
+    p_prs.add_argument("--offline", action="store_true", help="skip gh PR refresh and read cached rows only")
+    p_prs.add_argument("--force-prs", action="store_true", help="bypass 180s PR TTL cache")
 
     p_prune = sub.add_parser("prune", parents=[common], help="drop missing repos/worktrees and stale rows, then VACUUM")
     p_prune.add_argument("--days", type=float, default=DEFAULT_PRUNE_DAYS, help="drop rows older than N days")

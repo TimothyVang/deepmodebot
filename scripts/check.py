@@ -275,7 +275,7 @@ skill_body_bytes = len(skill_text[fm_end + 5:].encode("utf-8")) if skill_text.st
 if skill_body_bytes > SKILL_BODY_MAX_BYTES:
     problems.append(
         f"plugins/deepmodebot/skills/deepmodebot/SKILL.md: body is {skill_body_bytes} bytes "
-        f"(max {SKILL_BODY_MAX_BYTES} for zero-truncation loading)"
+        f"(max {SKILL_BODY_MAX_BYTES} under Antigravity's 24 KB limit)"
     )
 window = skill_bytes.find(b"\n## Routes\n")
 if window < 0 or window > RULES_WINDOW_BYTES:

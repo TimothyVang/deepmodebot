@@ -48,7 +48,7 @@ You own the plan, not the code. The plan is a checklist an owner runs box by box
   - `PR mechanics, for every PR`: `gh` for all PR ops; open ready via **Opening a PR**; lint + typecheck once before the PR-facing push, hooks on; slop review before commit and **no-comments** before review.
      - Triage every automated/security review comment, plus the **pr-review** technique (`references/techniques/pr-review.md`): local mode before the first push, PR mode re-review (steps 6-7) after every push.
      - Rebase onto trunk before code-ready, keep that base in fix rounds, rebase again only at merge prep, on a `git merge-tree` conflict, trunk-caused CI failure, or a known concurrent change to the same files.
-  - `Verdict and merge, for every PR`: one full swarm (the **swarm** technique, `references/techniques/swarm.md`) at the code-ready head, paced in rate-limit-safe batches (3-5 lanes per wave by default) and passing file paths rather than large inline dumps: a gates lane, the ten live lanes, the perf lane, 2+ audit lanes with distinct focus that distrust the PR body.
+  - `Verdict and merge, for every PR`: one full swarm (the **swarm** technique, `references/techniques/swarm.md`) at the code-ready head, paced in rate-limit-safe batches (3-5 lanes per wave by default) and passing file paths rather than large inline dumps: a gates lane, live lanes scaled to the PR's surfaces (up to 10 for full UI apps; fewer for non-UI or smaller PRs), the perf lane, 2+ audit lanes with distinct focus that distrust the PR body.
      - Another full swarm only for new behavior, redesign, or large new diff; rebase/conflict/minor fix → single verifier at new head; wording-only → none.
      - Root audits receipts before the verdict. Clean = no blocking finding. A trunk failure in the regression lane is recorded against trunk and does not block.
      - The verdict is a **panel** at that head (`references/techniques/panel.md`); a new head gets a fresh panel. Merge/handoff rule from the execution playbook.
@@ -56,7 +56,7 @@ You own the plan, not the code. The plan is a checklist an owner runs box by box
      - Input only through the project `verify-<app>` skill (else omp `eval` `browser` or bash), naming read-only diagnostics; save screenshots to `<tmp>/swarm-<pr-id>/worker-<n>/<slug>.png` and return paths.
 - One `## <Task as verb phrase> (<PR id>)` per PR, with bold sub-blocks in exactly this order: `**Depends on.**` (PR id or None) · `**Files.**` (Edit/Create/Delete `<path>` boxes) · `**Build.**` (one change, symbol + file) · `**You see.**` (exact log line or screen state) · `**Verify, unit.**` (test file + case, `Run <command>`) · `**Verify, live.**` · `**Verify, perf.**` · `**Review gate.**` · `**Merge.**`.
   - The three Verify blocks open with the verification rule verbatim.
-  - Verify, live continues "Ten lanes on `<model>` at the PR head, per the boot recipe, run in waves of 3-5 concurrent lanes per provider rate limits." Boxes `Lane 1.`…`Lane 10.`, each with a scenario, ``Save `<slug>.png`.``, and `Pass when <predicate>.`
+  - Verify, live continues "Live lanes (up to ten, scaled to affected surfaces) on `<model>` at the PR head, per the boot recipe, run in waves of 3-5 concurrent lanes per provider rate limits." Boxes `Lane 1.`…`Lane N.`, each with a scenario, ``Save `<slug>.png`.``, and `Pass when <predicate>.`
   - Lane 1 is the "Regression lane against trunk": same load-bearing scenario at trunk and head; if trunk lacks the feature, record that and gate the diff-added behavior plus the end state the user waits for; never invent a trunk result.
   - Verify, perf boxes in order: `Metric.` (measured at trunk and head) · `Probe.` (command, run interleaved at trunk and head, both producing the metric) · `Baseline.` (trunk value first) · `Rule.` (head vs trunk, with the failing number; unlike scenarios → absolute budgets for diff-added work and user-visible end state, no ratio).
   - Review gate: interaction-changing PR → boxes to copy lane screenshots to `<media>/<pr-id>-review-<slug>.png`, record a 30-60 s video `<media>/<pr-id>-review.mp4`, attach both to the PR and give them to the panel's verifiers as receipts. Otherwise exactly `**Review gate.** None. <PR id> is not review-gated.` with no boxes.
@@ -73,7 +73,7 @@ The Plan checklist. Every item must pass, outside code fences:
 - Program checklist `PR mechanics, for every PR` contains `pr-review` and the technique path `references/techniques/pr-review.md`.
 - At least one PR section between Program checklist and Close the program; Close the program exists.
 - Each PR section: all nine sub-blocks in exact order; Depends on non-empty; Files, Build, You see, Verify unit, Merge each have ≥1 box; three Verify blocks open with the rule.
-  - Live names the lane model and has exactly Lanes 1-10, every box a lane with a ``Save `…` `` screenshot and "Pass when".
+  - Live names the lane model and lists Lanes 1..N (up to 10, scaled to affected surfaces), every box a lane with a ``Save `…` `` screenshot and "Pass when".
   - Perf boxes exactly Metric, Probe, Baseline, Rule.
   - Review gate either "None." with no boxes, or boxes mentioning screenshot, video, and attaching both to the PR and the panel.
 - Every `##` after Close the program is an Appendix; Appendix A Prototype evidence exists.
@@ -109,7 +109,7 @@ You coordinate; ticket owners write the code. The tickets are a graph, not a lis
    - Prove each Done when item on the real surface.
    - Run the **pr-review** technique (`references/techniques/pr-review.md`) in local mode against the integration branch and fix, dismiss with a reason, or escalate each finding.
    - Merge the integration tip into the ticket branch, rerun the checks, push (when there is a remote), and report the head SHA with its evidence.
-   - Done when every frontier ticket has an owner on its `ticket/<n>-<slug>` worktree, recorded in the notes file, with at most about ten running.
+   - Done when every frontier ticket has an owner on its `ticket/<n>-<slug>` worktree, recorded in the notes file, capped to 3-5 concurrent owners per wave (scaling higher only when quota allows).
 5. **Merge each finished ticket.** Read the owner's evidence and diff. In a clean worktree of the integration branch, run `git merge --no-ff ticket/<n>-<slug>`, rerun the repo's checks, push when there is a remote. A conflict or red check goes back to the owner with the output.
    No PR exists yet, because Opening a PR hands every PR straight to pr-conversation, which would land a partial build.
    Done when the ticket's merge commit is on the integration branch and the repo's checks pass there.

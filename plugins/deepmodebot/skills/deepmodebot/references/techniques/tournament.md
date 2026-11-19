@@ -3,7 +3,7 @@
 **Use when:** the right system architecture or research direction is open ("tournament", "architecture gaps", "research gaps", "blind spots", "what are we missing", "rethink X", "propose the best system"). Also use it when the auto-router flags a vague ambition where jumping to code would lock in a guess. For two code shapes of a settled feature, use **arena** (`references/techniques/arena.md`). For local module refactors, use **architecture-review** (`references/techniques/architecture-review.md`).
 
 1. **Seed the bracket.** Pick a kebab-case slug and create `<root>/.scratch/tournaments/<slug>/bracket.json` with a non-interpolated heredoc:
-   `python <this skill>/assets/tournament/tournament.py init --root <root> --slug <slug> --prompt-stdin --entrants 12 --json <<'EOF'`
+   `python -B "<this skill>/assets/tournament/tournament.py" init --root <root> --slug <slug> --prompt-stdin --entrants 12 --json <<'EOF'`
    Use `--entrants 12` (four pods of three, two semifinals, and the final) by default, or `--entrants 8` (four quarterfinals, two semifinals, and the final) for a single-subsystem design or tight token/rate-limit budgets.
    Done when `bracket.json` exists under `<root>/.scratch/tournaments/<slug>/` and lists every entrant lens and Round 1 match.
 

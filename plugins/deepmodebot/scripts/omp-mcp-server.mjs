@@ -28,6 +28,8 @@ const MAX_TIMEOUT_SECONDS = 3600;
 const AGENT_PRESETS = {
   scout: {
     tools: ["read", "grep", "glob", "web_search"],
+    model: "@smol",
+    thinking: "medium",
     prompt:
       "You are scout, a fast read-only codebase investigator. Locate relevant files and symbols, " +
       "read key line ranges, and return a concise Summary, Files (path:line), and Architecture " +
@@ -35,6 +37,7 @@ const AGENT_PRESETS = {
   },
   reviewer: {
     tools: ["read", "grep", "glob", "bash", "web_search"],
+    model: "@slow",
     prompt:
       "You are reviewer, a read-only code review specialist. Inspect diffs and surrounding context " +
       "(use bash only for read-only commands like git diff, git log, git show). Report only " +
@@ -115,7 +118,12 @@ const TOOLS = [
         task: { type: "string", description: "Self-contained task instructions for the subagent." },
         cwd: { type: "string", description: "Working directory to inspect or work in." },
         context: { type: "string", description: "Optional shared background context or contracts." },
-        model: { type: "string", description: "Optional explicit `omp` model selector." },
+        model: { type: "string", description: "Optional explicit `omp` model selector (overrides preset default)." },
+        thinking: {
+          type: "string",
+          enum: ["off", "minimal", "low", "medium", "high", "xhigh", "max", "auto"],
+          description: "Optional thinking effort override (overrides preset default).",
+        },
         useSubscription: {
           type: "boolean",
           description: "Delete billing API keys from child env so `omp` uses OAuth logins (default: true).",
@@ -538,11 +546,19 @@ async function handleOmpTask(rawArgs) {
   if (preset.tools) {
     cliArgs.push("--tools", preset.tools.join(","));
   }
-  if (typeof rawArgs.model === "string" && rawArgs.model.trim()) {
-    cliArgs.push("--model", rawArgs.model.trim());
+  const effectiveModel =
+    typeof rawArgs.model === "string" && rawArgs.model.trim()
+      ? rawArgs.model.trim()
+      : preset.model || "";
+  if (effectiveModel) {
+    cliArgs.push("--model", effectiveModel);
   }
-  if (preset.thinking) {
-    cliArgs.push("--thinking", preset.thinking);
+  const effectiveThinking =
+    typeof rawArgs.thinking === "string" && rawArgs.thinking.trim()
+      ? rawArgs.thinking.trim()
+      : preset.thinking || "";
+  if (effectiveThinking) {
+    cliArgs.push("--thinking", effectiveThinking);
   }
 
   const useSubscription = rawArgs.useSubscription !== false;
@@ -860,8 +876,8 @@ function sendResponse(framing, payload) {
   const json = JSON.stringify(payload);
   if (framing === "content-length") {
     const body = Buffer.from(json, "utf8");
-    process.stdout.write(`Content-Length: ${body.length}\r\n\r\n`);
-    process.stdout.write(body);
+    const header = Buffer.from(`Content-Length: ${body.length}\r\n\r\n`, "ascii");
+    process.stdout.write(Buffer.concat([header, body]));
   } else {
     process.stdout.write(json + "\n");
   }
@@ -914,7 +930,6 @@ async function dispatchRequest(msg) {
 
 let inFlight = 0;
 let stdinEnded = false;
-let requestQueue = Promise.resolve();
 
 function maybeFinish() {
   if (stdinEnded && inFlight === 0) {
@@ -940,7 +955,7 @@ function handleRawMessage(rawText, framing) {
   if (msg.id === undefined) return;
 
   inFlight += 1;
-  requestQueue = requestQueue
+  Promise.resolve()
     .then(() => dispatchRequest(msg))
     .then(outcome => {
       if (outcome.error) {

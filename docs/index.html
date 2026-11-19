@@ -191,7 +191,7 @@ Self-hosted orchestration still sends prompts to the configured model provider.<
 
 <section id="factory" aria-labelledby="factory-title">
 <h2 id="factory-title">The software factory</h2>
-<p>One command, <code>/deep</code>, reads your request and the repo and routes it across <strong>30 playbooks, 24 principles, and 52 techniques</strong> from a compact (&lt;24 KB, zero-truncation) <code>SKILL.md</code> backed by <code>references/catalog.md</code>. You never pick a skill. The main line takes an idea to merged code with pre-task model/effort selection, machine-enforced Full-Scope Completion, and SME-in-the-loop incremental sprints; skip the phases a job doesn't need.</p>
+<p>One command, <code>/deep</code>, reads your request and the repo and routes it across <strong>30 playbooks, 24 principles, and 52 techniques</strong> from a compact <code>SKILL.md</code> under Antigravity's 24 KB limit (core rules before <code>## Routes</code> under Claude Code's ~20 KB post-compaction window) backed by <code>references/catalog.md</code>. You never pick a skill. The main line takes an idea to merged code with pre-task model/effort selection, machine-enforced Full-Scope Completion, and SME-in-the-loop incremental sprints; skip the phases a job doesn't need.</p>
 <div class="table-wrap">
 <table>
 <thead><tr><th scope="col">Phase</th><th scope="col">Flow</th><th scope="col">Leaves behind</th></tr></thead>
@@ -210,7 +210,7 @@ Self-hosted orchestration still sends prompts to the configured model provider.<
 <dl class="skills">
 <div><dt>Triage</dt><dd>Sorts incoming issues and outside PRs into a category and a state, and posts a brief or the questions that block them.</dd></div>
 <div><dt>Wayfinder</dt><dd>Charts an effort too big for one session and hands its decisions to a spec.</dd></div>
-<div><dt>Run a goal</dt><dd>Drives one goal to a checkable end without you, in one session or via <code>loop.py</code> (<code>status</code>, <code>check</code>, <code>run</code>, <code>manifest</code>, <code>audit</code>) with sprint-aware Scope Manifests (<code>--sprint N</code>, <code>inventory</code>, <code>sme_gate</code>), cheap-first model escalation, automatic quota/429 fallback, incremental sprint checkpoints (exit 6), and zero-loss JSON resume telemetry (<code>latest-summary.json</code>).</dd></div>
+<div><dt>Run a goal</dt><dd>Drives one goal to a checkable end without you, in one session or via <code>loop.py</code> (<code>status</code>, <code>check</code>, <code>run</code>, <code>manifest</code>, <code>audit</code>) with sprint-aware Scope Manifests (<code>--sprint N</code>, <code>inventory</code>, <code>sme_gate</code>), cheap-first model escalation, quota/429 fallback, iteration cadence checkpoints (<code>checkpoint_every</code>, exit 6), and zero-loss JSON resume telemetry (<code>latest-summary.json</code>).</dd></div>
 <div><dt>End-to-end</dt><dd>Expands a broad prompt or rough idea into a machine-checked Scope Manifest and builds every vertical slice through persistence, error states, and cold-start proof (or pauses only at an explicit sprint/SME checkpoint while reporting remaining sprints as incomplete).</dd></div>
 <div><dt>Work a queue</dt><dd>Turns a backlog, a queue of PRs, or labeled issues (through the <code>factory</code> CLI) into merged PRs, each after a panel pass.</dd></div>
 <div><dt>domain-model</dt><dd>Keeps <code>GLOSSARY.md</code> and ADRs current as names and decisions change.</dd></div>
@@ -226,7 +226,7 @@ Self-hosted orchestration still sends prompts to the configured model provider.<
 <div><dt>teach and course</dt><dd>Explains a change or subsystem, or runs a course on a topic over many sessions.</dd></div>
 <div><dt>pre-commit</dt><dd>Runs the repo's own lint, typecheck and tests at commit time.</dd></div>
 <div><dt>git-guardrails</dt><dd>Turns the git hard stops into a hook the harness enforces before a destructive command runs.</dd></div>
-<div><dt>workspace-map</dt><dd>Zero-bloat memory-mapped SQLite/FTS5 index (<code>workspace_map.py</code>) shared per repo across Orca/git worktrees for ~300-token orientation, exact symbol lookup, own open PRs, and Scope Manifest/loop state.</dd></div>
+<div><dt>workspace-map</dt><dd>Automatic zero-bloat memory-mapped SQLite/FTS5 index (<code>workspace_map.py</code>) shared per repo across Orca/git worktrees for ~300-token orientation, exact symbol lookup, own open PRs, and Scope Manifest/loop state. Antigravity's hook auto-injects a fast offline git-only overview on <code>/deep</code>; omp, Claude Code, and Codex invoke it on Route Step 1; <code>workspaces</code> and <code>prs</code> fetch live Orca/GitHub PR state on demand.</dd></div>
 <div><dt>deep-stack</dt><dd>Stack picks and decision rules for any app, an agent-driven UI design workflow, and a per-task ship loop.</dd></div>
 <div><dt>Verification skills</dt><dd>Build and maintain a per-repo <code>verify-&lt;app&gt;</code> skill so agents can drive your app and capture proof.</dd></div>
 </dl>
@@ -269,7 +269,7 @@ py -3 assets/github-app/install.py      # python3 on macOS and Linux</code></pre
 <h3>What is deepmodebot?</h3>
 <p>deepmodebot is an open-source MIT plugin combining a self-hosted PR and issue bot with workflows for planning, implementation, review and delivery. Local work requires runtime proof; published changes also pass the verifier gate.</p>
 <h3>How do the deepmodebot PR bots work?</h3>
-<p>A poller on your machine checks the repos where your app is installed. An author agent and a reviewer agent, each an ACP agent reached through acpx, keep a session per PR, and a coordinator posts every turn to the thread as your app until no P0 or P1 finding is open. The repo's check command runs, verifiers vote (three, or one for a small change), and a gate in code merges your own PR at the voted head.</p>
+<p>A poller on your machine checks the repos where your app is installed. An author agent and a reviewer agent, each an ACP agent reached through acpx, keep a session per PR, and a coordinator posts every turn to the thread as your app until no P0 or P1 finding is open. The repo's check command runs, three independent verifiers vote (all three must respond validly and at least two must pass), and a gate in code merges your own PR at the voted head.</p>
 <h3>Does deepmodebot need an API key?</h3>
 <p>No. Supported agent CLIs use existing subscription logins, and calls count against their usage. This is not offline inference: prompts and source context can reach the configured model provider.</p>
 <h3>Which agents and harnesses does deepmodebot work with?</h3>

@@ -16,6 +16,7 @@ MCP_CONFIG = PLUGIN / "mcp_config.json"
 
 MOCK_OMP_PY = """import json
 import os
+import re
 import sys
 import time
 
@@ -24,14 +25,21 @@ if "--version" in args or "-v" in args:
     print("omp 18.20.0-mock")
     sys.exit(0)
 
+started = time.time()
 stdin_text = sys.stdin.read()
 if "__HANG__" in stdin_text:
     time.sleep(60)
+sleep_match = re.search(r"__SLEEP_MS:(\\d+)__", stdin_text)
+if sleep_match:
+    time.sleep(int(sleep_match.group(1)) / 1000.0)
+finished = time.time()
 
 record = {
     "args": args,
     "stdin": stdin_text,
     "cwd": os.getcwd(),
+    "started": started,
+    "finished": finished,
     "has_anthropic_key": "ANTHROPIC_API_KEY" in os.environ,
     "has_anthropic_auth_token": "ANTHROPIC_AUTH_TOKEN" in os.environ,
     "has_openai_key": "OPENAI_API_KEY" in os.environ,
@@ -340,7 +348,7 @@ class OmpMcpServerTests(unittest.TestCase):
                 },
             },
         ])
-        self.assertEqual([r["id"] for r in responses], [1, 2])
+        self.assertEqual(sorted(r["id"] for r in responses), [1, 2])
         by_id = {r["id"]: r for r in responses}
         res1 = json.loads(by_id[1]["result"]["content"][0]["text"])
         self.assertEqual(res1["exitCode"], 0)
@@ -366,7 +374,7 @@ class OmpMcpServerTests(unittest.TestCase):
         self.assertTrue(inner2["has_openai_key"])
         self.assertTrue(inner2["has_codex_key"])
 
-    def test_omp_task_enforces_subagent_tool_allowlists(self):
+    def test_omp_task_enforces_subagent_tool_allowlists_and_preset_defaults(self):
         responses = self.rpc_lines([
             {
                 "jsonrpc": "2.0",
@@ -395,14 +403,46 @@ class OmpMcpServerTests(unittest.TestCase):
                     },
                 },
             },
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {
+                    "name": "omp_task",
+                    "arguments": {
+                        "agent": "reviewer",
+                        "task": "Review PR diff",
+                        "cwd": str(self.workspace),
+                    },
+                },
+            },
+            {
+                "jsonrpc": "2.0",
+                "id": 4,
+                "method": "tools/call",
+                "params": {
+                    "name": "omp_task",
+                    "arguments": {
+                        "agent": "scout",
+                        "task": "Deep dive override",
+                        "model": "anthropic/claude-opus-4-6",
+                        "thinking": "high",
+                        "cwd": str(self.workspace),
+                    },
+                },
+            },
         ])
-        self.assertEqual([r["id"] for r in responses], [1, 2])
+        self.assertEqual(sorted(r["id"] for r in responses), [1, 2, 3, 4])
         by_id = {r["id"]: r for r in responses}
         scout_out = json.loads(by_id[1]["result"]["content"][0]["text"])
         self.assertEqual(scout_out["agent"], "scout")
         scout_inner = json.loads(scout_out["findings"])
         tools_idx = scout_inner["args"].index("--tools")
         self.assertEqual(scout_inner["args"][tools_idx + 1], "read,grep,glob,web_search")
+        model_idx = scout_inner["args"].index("--model")
+        self.assertEqual(scout_inner["args"][model_idx + 1], "@smol")
+        think_idx = scout_inner["args"].index("--thinking")
+        self.assertEqual(scout_inner["args"][think_idx + 1], "medium")
         self.assertIn("# Context", scout_inner["stdin"])
         self.assertIn("Find entrypoints", scout_inner["stdin"])
         self.assertFalse(scout_inner["has_anthropic_key"])
@@ -413,6 +453,52 @@ class OmpMcpServerTests(unittest.TestCase):
         sec_inner = json.loads(sec_out["findings"])
         sec_tools_idx = sec_inner["args"].index("--tools")
         self.assertEqual(sec_inner["args"][sec_tools_idx + 1], "read,grep,glob,bash,web_search")
+
+        rev_out = json.loads(by_id[3]["result"]["content"][0]["text"])
+        self.assertEqual(rev_out["agent"], "reviewer")
+        rev_inner = json.loads(rev_out["findings"])
+        rev_model_idx = rev_inner["args"].index("--model")
+        self.assertEqual(rev_inner["args"][rev_model_idx + 1], "@slow")
+
+        override_out = json.loads(by_id[4]["result"]["content"][0]["text"])
+        override_inner = json.loads(override_out["findings"])
+        ov_model_idx = override_inner["args"].index("--model")
+        self.assertEqual(override_inner["args"][ov_model_idx + 1], "anthropic/claude-opus-4-6")
+        ov_think_idx = override_inner["args"].index("--thinking")
+        self.assertEqual(override_inner["args"][ov_think_idx + 1], "high")
+
+    def test_concurrent_tools_call_dispatch_runs_in_parallel_without_interleaving(self):
+        batch = [
+            {
+                "jsonrpc": "2.0",
+                "id": idx,
+                "method": "tools/call",
+                "params": {
+                    "name": "omp_task",
+                    "arguments": {
+                        "agent": "scout",
+                        "task": f"__SLEEP_MS:600__ parallel scout {idx}",
+                        "cwd": str(self.workspace),
+                    },
+                },
+            }
+            for idx in (1, 2, 3)
+        ]
+        for runner in (self.rpc_lines, self.rpc_content_length):
+            responses = runner(batch)
+            self.assertEqual(sorted(r["id"] for r in responses), [1, 2, 3])
+            inners = [
+                json.loads(json.loads(r["result"]["content"][0]["text"])["findings"])
+                for r in responses
+            ]
+            # All 3 children overlap in flight: latest start occurs strictly before earliest finish.
+            max_started = max(item["started"] for item in inners)
+            min_finished = min(item["finished"] for item in inners)
+            self.assertLess(
+                max_started,
+                min_finished,
+                f"expected concurrent execution overlap, got started={[i['started'] for i in inners]} finished={[i['finished'] for i in inners]}",
+            )
 
     def test_omp_run_timeout_kills_hung_child_and_rejects_invalid_timeout(self):
         import time
@@ -448,7 +534,7 @@ class OmpMcpServerTests(unittest.TestCase):
         ])
         elapsed = time.monotonic() - started
         self.assertLess(elapsed, 15.0, f"timeout kill took too long: {elapsed:.2f}s")
-        self.assertEqual([r["id"] for r in responses], [1, 2])
+        self.assertEqual(sorted(r["id"] for r in responses), [1, 2])
         by_id = {r["id"]: r for r in responses}
 
         self.assertTrue(by_id[1]["result"]["isError"])

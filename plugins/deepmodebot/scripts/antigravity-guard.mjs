@@ -1,16 +1,25 @@
 #!/usr/bin/env node
-// Antigravity lifecycle hook: enforce deepmodebot "Contain the work" write boundaries.
+// Antigravity lifecycle hook: enforce deepmodebot "Contain the work" write boundaries and
+// auto-inject a compact workspace-map overview on turn 1.
 // PreInvocation marks a conversation active when lastUserInput invokes a deepmodebot slash command
-// (pruning marks older than 30 days). PreToolUse blocks file writes outside the project root once
-// active (or unconditionally when invoked with CLI argument "enforce"). Always exits 0 because
-// Antigravity treats non-zero hook exits as execution errors and fails open.
+// (pruning marks older than 30 days) and injects workspace-map output inside git repos via
+// injectSteps. PreToolUse blocks file writes outside the project root once active (or
+// unconditionally when invoked with CLI argument "enforce"). Always exits 0 because Antigravity
+// treats non-zero hook exits as execution errors and fails open.
 
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const MARK_MAX_AGE_MS = 30 * 24 * 3600 * 1000;
+const WORKSPACE_MAP_TIMEOUT_MS = 7_000;
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const WORKSPACE_MAP_SCRIPT = path.resolve(
+  SCRIPT_DIR,
+  "../skills/deepmodebot/assets/workspace-map/workspace_map.py",
+);
 const caseless = process.platform === "win32" || process.platform === "darwin";
 
 const WRITE_TOOLS = new Set([
@@ -33,18 +42,21 @@ const SLASH_COMMANDS = [
   "/contribute",
   "/project-brief",
 ];
+// Read-only review commands skip creating .scratch/workspace-map.db unless it already exists.
+const READ_ONLY_MAP_COMMANDS = ["/review-pr"];
 
 function escapeRegex(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function buildActivationRegex() {
-  const names = SLASH_COMMANDS.map(cmd => escapeRegex(cmd.slice(1)));
+function buildCommandRegex(commands) {
+  const names = commands.map(cmd => escapeRegex(cmd.slice(1)));
   const prefix = escapeRegex(SLASH_PREFIX.slice(1));
   return new RegExp(`^\\s*/(?:${prefix})?(?:${names.join("|")})\\b`);
 }
 
-const ACTIVATION_RE = buildActivationRegex();
+const ACTIVATION_RE = buildCommandRegex(SLASH_COMMANDS);
+const READ_ONLY_MAP_RE = buildCommandRegex(READ_ONLY_MAP_COMMANDS);
 
 function homeDirectory() {
   return process.env.HOME || process.env.USERPROFILE || os.homedir();
@@ -86,7 +98,7 @@ function inside(targetPath, rootPath) {
   return !path.isAbsolute(rel);
 }
 
-function projectRoots(cwd) {
+function gitProjectRoots(cwd) {
   try {
     const out = execFileSync(
       "git",
@@ -97,12 +109,80 @@ function projectRoots(cwd) {
       .split(/\r?\n/)
       .map(line => line.replace(/[\\/]+$/, ""))
       .filter(Boolean);
-    if (lines.length < 2) return [cwd];
+    if (lines.length < 2) return null;
     const [toplevel, common] = lines;
     return path.basename(common) === ".git" ? [toplevel, path.dirname(common)] : [toplevel];
   } catch {
-    return [cwd];
+    return null;
   }
+}
+
+function projectRoots(cwd) {
+  return gitProjectRoots(cwd) ?? [cwd];
+}
+
+function workspaceMapDbPath(roots) {
+  const envDb = typeof process.env.DEEPMODEBOT_MAP_DB === "string" ? process.env.DEEPMODEBOT_MAP_DB.trim() : "";
+  if (envDb) return path.resolve(envDb);
+  const mainCheckout = roots[roots.length - 1];
+  return path.join(mainCheckout, ".scratch", "workspace-map.db");
+}
+
+function buildWorkspaceMapOverview(cwd, { onlyIfDbExists = false } = {}) {
+  if (!fs.existsSync(WORKSPACE_MAP_SCRIPT)) return null;
+  const roots = gitProjectRoots(cwd);
+  if (!roots) return null;
+  if (onlyIfDbExists && !fs.existsSync(workspaceMapDbPath(roots))) return null;
+
+  const candidates =
+    process.platform === "win32"
+      ? [
+          ["py", ["-3", "-B"]],
+          ["python3", ["-B"]],
+          ["python", ["-B"]],
+        ]
+      : [
+          ["python3", ["-B"]],
+          ["python", ["-B"]],
+        ];
+  const deadline = Date.now() + WORKSPACE_MAP_TIMEOUT_MS;
+  const env = { ...process.env, PYTHONDONTWRITEBYTECODE: "1" };
+
+  for (const [cmd, prefixArgs] of candidates) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 100) break;
+    try {
+      const out = execFileSync(
+        cmd,
+        [
+          ...prefixArgs,
+          WORKSPACE_MAP_SCRIPT,
+          "overview",
+          cwd,
+          "--fast",
+          "--offline",
+          "--no-orca",
+          "--max-bytes",
+          "1200",
+        ],
+        {
+          encoding: "utf8",
+          timeout: remaining,
+          stdio: ["ignore", "pipe", "ignore"],
+          windowsHide: true,
+          env,
+        },
+      );
+      const trimmed = typeof out === "string" ? out.trim() : "";
+      return trimmed || null;
+    } catch (err) {
+      if (err && (err.code === "ETIMEDOUT" || err.killed)) {
+        return null;
+      }
+      // Try next Python launcher if missing or unusable.
+    }
+  }
+  return null;
 }
 
 function allowedRoots(roots, event) {
@@ -213,11 +293,27 @@ function main() {
     (event.hookEventName == null && event.toolCall != null);
 
   if (!isPreToolUse) {
-    if (markPath && ACTIVATION_RE.test(promptText)) {
+    if (ACTIVATION_RE.test(promptText)) {
+      if (markPath) {
+        try {
+          markSessionActive(markPath);
+        } catch {
+          // Unable to persist session mark; continue without failing the turn.
+        }
+      }
       try {
-        markSessionActive(markPath);
+        const onlyIfDbExists = READ_ONLY_MAP_RE.test(promptText);
+        const overview = buildWorkspaceMapOverview(resolveSessionCwd(event), { onlyIfDbExists });
+        if (overview) {
+          writeJsonAndExit({
+            injectSteps: [
+              { systemMessage: `deepmodebot workspace-map (auto-injected):\n${overview}` },
+            ],
+          });
+          return;
+        }
       } catch {
-        // Unable to persist session mark; continue without failing the turn.
+        // Fail open cleanly if workspace-map overview cannot be generated.
       }
     }
     writeJsonAndExit({});

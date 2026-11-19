@@ -435,6 +435,16 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
     if re.search(r"\bworktree[- ]cleanup\b|\bclean\s*up\s+(?:(?:old|stale|merged|my|the)\s+)*(?:git\s+)?worktrees?\b|\bprune\s+(?:stale\s+)?(?:git\s+)?worktrees?\b", lower):
         return out("worktree-cleanup", "execute", "low", "Git worktree and branch cleanup.")
 
+    if re.search(
+        r"\bworkspace[- ]map\b"
+        r"|\b(?:index|map|reindex|sync)\s+(?:(?:this|the|my|our)\s+)?(?:workspace|repo\s+symbols?|codebase\s+symbols?)\b"
+        r"|\b(?:list|show|map|inspect)\s+(?:(?:my|our|all|active|open|current)\s+)*(?:(?:orca|git)\s+)?worktrees?\b"
+        r"|\b(?:list|show)\s+(?:(?:my|our|all)\s+)?open\s+prs?\b"
+        r"|\b(?:find|search|locate|query|lookup|look\s+up)\s+(?:a\s+|the\s+|this\s+)?symbols?\b",
+        lower,
+    ):
+        return out("workspace-map", "question", "low", "Workspace, worktree, PR, or FTS5 symbol index lookup.")
+
     if re.search(r"\bvisual[- ]parity\b|\bpixel[- ]exact\s+(?:ui|match|parity)\b|\bpixel[- ]diff\s+zero\b|\bmatch\s+(?:this|the)\s+(?:figma|mockup|screenshot)\s+pixel\b", lower):
         return out("visual-parity", "execute", "low", "Pixel-exact UI visual parity work.")
 

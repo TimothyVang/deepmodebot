@@ -156,14 +156,18 @@ class AntigravityGuardTests(unittest.TestCase):
         )
         self.assertEqual(out, {"decision": "allow"})
 
-        # Leading /deep activates containment for this conversationId only.
+        # Leading /deep activates containment for this conversationId only and auto-injects workspace-map.
         pre_res, _ = self.run_hook({
             "hookEventName": "PreInvocation",
             "conversationId": "conv-inactive",
             "workspacePaths": [str(self.proj)],
             "lastUserInput": "  /deep fix the flaky test",
         })
-        self.assertEqual(pre_res, {})
+        self.assertIn("injectSteps", pre_res)
+        self.assertEqual(len(pre_res["injectSteps"]), 1)
+        self.assertTrue(
+            pre_res["injectSteps"][0]["systemMessage"].startswith("deepmodebot workspace-map (auto-injected):\n")
+        )
         denied, _ = self.run_hook(
             self.pre_tool_payload("write_file", outside_file, conv_id="conv-inactive")
         )
@@ -341,6 +345,97 @@ class AntigravityGuardTests(unittest.TestCase):
             cli_args=("enforce",),
         )
         self.assertEqual(bad_gemini["decision"], "deny")
+
+    def test_pre_invocation_auto_injects_workspace_map_only_on_activation_in_git_repo(self):
+        map_repo = self.tmp / "map-repo"
+        map_repo.mkdir()
+        git(map_repo, "init", "-q", "-b", "main")
+        (map_repo / "app.py").write_text("def compute_total(x):\n    return x + 1\n", encoding="utf-8")
+        git(map_repo, "add", "app.py")
+        git(map_repo, "commit", "-q", "-m", "add app")
+
+        # Non-deepmodebot prompt returns {} without invoking workspace_map.py.
+        non_dm, _ = self.run_hook({
+            "hookEventName": "PreInvocation",
+            "conversationId": "conv-map-non",
+            "workspacePaths": [str(map_repo)],
+            "lastUserInput": "explain app.py",
+        })
+        self.assertEqual(non_dm, {})
+        self.assertFalse((map_repo / ".scratch" / "workspace-map.db").exists())
+
+        # /deep inside a git repo auto-injects a compact workspace-map overview.
+        injected, _ = self.run_hook({
+            "hookEventName": "PreInvocation",
+            "conversationId": "conv-map-on",
+            "workspacePaths": [str(map_repo)],
+            "lastUserInput": "/deep inspect compute_total",
+        })
+        self.assertIn("injectSteps", injected)
+        steps = injected["injectSteps"]
+        self.assertEqual(len(steps), 1)
+        msg = steps[0]["systemMessage"]
+        self.assertTrue(msg.startswith("deepmodebot workspace-map (auto-injected):\n"))
+        self.assertIn("repo:", msg)
+        self.assertIn("map-repo", msg)
+        self.assertLessEqual(len(msg.encode("utf-8")), 1400)
+        self.assertTrue((map_repo / ".scratch" / "workspace-map.db").exists())
+
+        # /deep in a non-git directory fails open cleanly with {}.
+        non_git, _ = self.run_hook({
+            "hookEventName": "PreInvocation",
+            "conversationId": "conv-map-nongit",
+            "workspacePaths": [str(self.outside)],
+            "lastUserInput": "/deep build a new tool",
+        })
+        self.assertEqual(non_git, {})
+
+    def test_review_pr_skips_db_creation_until_db_exists(self):
+        review_repo = self.tmp / "review-repo"
+        review_repo.mkdir()
+        git(review_repo, "init", "-q", "-b", "main")
+        (review_repo / "app.py").write_text("def handle_req():\n    return 200\n", encoding="utf-8")
+        git(review_repo, "add", "app.py")
+        git(review_repo, "commit", "-q", "-m", "add app")
+
+        # On a clean repo with no workspace-map.db, /review-pr and /deepmodebot:review-pr
+        # activate write containment without mutating .scratch/ or creating a DB.
+        for idx, cmd in enumerate(("/review-pr 42", "/deepmodebot:review-pr 42")):
+            conv = f"conv-review-clean-{idx}"
+            pre_res, _ = self.run_hook({
+                "hookEventName": "PreInvocation",
+                "conversationId": conv,
+                "workspacePaths": [str(review_repo)],
+                "lastUserInput": cmd,
+            })
+            self.assertEqual(pre_res, {})
+            self.assertFalse((review_repo / ".scratch" / "workspace-map.db").exists())
+            self.assertFalse((review_repo / ".scratch").exists())
+            denied, _ = self.run_hook(
+                self.pre_tool_payload("write_file", self.outside / "escaped.txt", conv_id=conv, workspace=review_repo)
+            )
+            self.assertEqual(denied["decision"], "deny")
+
+        # Once /deep creates .scratch/workspace-map.db, /review-pr reuses it and auto-injects.
+        deep_res, _ = self.run_hook({
+            "hookEventName": "PreInvocation",
+            "conversationId": "conv-review-seed",
+            "workspacePaths": [str(review_repo)],
+            "lastUserInput": "/deep orient",
+        })
+        self.assertIn("injectSteps", deep_res)
+        self.assertTrue((review_repo / ".scratch" / "workspace-map.db").exists())
+
+        warm_review, _ = self.run_hook({
+            "hookEventName": "PreInvocation",
+            "conversationId": "conv-review-warm",
+            "workspacePaths": [str(review_repo)],
+            "lastUserInput": "/review-pr 42",
+        })
+        self.assertIn("injectSteps", warm_review)
+        self.assertTrue(
+            warm_review["injectSteps"][0]["systemMessage"].startswith("deepmodebot workspace-map (auto-injected):\n")
+        )
 
     def test_malformed_stdin_exits_zero_without_crashing(self):
         out, err = self.run_hook("not-valid-json", cli_args=("enforce",))

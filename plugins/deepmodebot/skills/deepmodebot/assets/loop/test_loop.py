@@ -265,6 +265,33 @@ class LoopCase(unittest.TestCase):
         run = self.loop("run", "goals/g.md", action="fail")
         self.assertEqual(run.returncode, 0)
         self.assertIn("already passes", run.stdout)
+        summary = self.latest_summary()
+        self.assertEqual(summary["exit_code"], 0)
+        self.assertEqual(summary["exit_reason"], "already_passed")
+        self.assertEqual(summary["iterations_run"], 0)
+
+    def test_already_passing_sprint_run_writes_latest_summary_with_scope(self):
+        manifest = {
+            "product": "Already Passing Sprint",
+            "slices": [
+                {"id": "s1", "title": "Core", "sprint": 1, "check": "test -f s1.txt"},
+                {"id": "s2", "title": "Later", "sprint": 2, "check": "test -f s2.txt"},
+            ],
+        }
+        (self.repo / "goals" / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        (self.repo / "s1.txt").write_text("", encoding="utf-8")
+        (self.repo / "ok.txt").write_text("", encoding="utf-8")
+        self.goal(manifest="goals/manifest.json", active_sprint=1)
+        run = self.loop("run", "goals/g.md", action="fail")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertIn("sprint 1 check already passes", run.stdout)
+        summary = self.latest_summary()
+        self.assertEqual(summary["exit_code"], 0)
+        self.assertEqual(summary["exit_reason"], "sprint_already_passed")
+        self.assertEqual(summary["iterations_run"], 0)
+        self.assertEqual(summary["scope"]["active_sprint"], 1)
+        self.assertEqual(summary["scope"]["passed_slices"], 1)
+        self.assertEqual(summary["scope"]["deferred_slices"], ["s2"])
 
     def test_iteration_cap_exits_2(self):
         self.goal(max_iterations=2, stall_after=9)
@@ -1134,6 +1161,11 @@ class LoopCase(unittest.TestCase):
         (self.repo / "goals" / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
         self.goal(manifest="goals/manifest.json", active_sprint=1, max_iterations=4, stall_after=9, checkpoint_every=1)
 
+        expected_launcher = "py -3 -B" if os.name == "nt" else "python -B"
+        expected_script = f'"{LOOP}"' if any(ch.isspace() for ch in str(LOOP)) else str(LOOP)
+        expected_s1_cmd = f"{expected_launcher} {expected_script} run goals/g.md --sprint 1"
+        expected_s2_cmd = f"{expected_launcher} {expected_script} run goals/g.md --sprint 2"
+
         pre_json_run = self.loop("status", "goals/g.md", "--json")
         self.assertEqual(pre_json_run.returncode, 0, pre_json_run.stdout + pre_json_run.stderr)
         pre = json.loads(pre_json_run.stdout)
@@ -1143,12 +1175,12 @@ class LoopCase(unittest.TestCase):
         self.assertEqual(pre["scope"]["active_sprint"], 1)
         self.assertEqual(pre["scope"]["deferred_slices"], ["slice-2"])
         self.assertEqual(pre["scope"]["inventory_counts"]["included"], 2)
-        self.assertEqual(pre["resume_command"], "python loop.py run goals/g.md --sprint 1")
+        self.assertEqual(pre["resume_command"], expected_s1_cmd)
 
         pre_text = self.loop("status", "goals/g.md")
         self.assertEqual(pre_text.returncode, 0)
         self.assertIn("goal status (not_started)", pre_text.stdout)
-        self.assertIn("resume: python loop.py run goals/g.md --sprint 1", pre_text.stdout)
+        self.assertIn(f"resume: {expected_s1_cmd}", pre_text.stdout)
 
         chkpt = self.loop("run", "goals/g.md", action="progress")
         self.assertEqual(chkpt.returncode, 6, chkpt.stdout + chkpt.stderr)
@@ -1158,7 +1190,7 @@ class LoopCase(unittest.TestCase):
         self.assertEqual(post_chkpt["last_exit_reason"], "checkpoint")
         self.assertEqual(post_chkpt["iterations_run"], 1)
         self.assertIsNotNone(post_chkpt["last_trail"])
-        self.assertEqual(post_chkpt["resume_command"], "python loop.py run goals/g.md --sprint 1")
+        self.assertEqual(post_chkpt["resume_command"], expected_s1_cmd)
 
         s1 = self.loop("run", "goals/g.md", action="sprint1-done")
         self.assertEqual(s1.returncode, 0, s1.stdout + s1.stderr)
@@ -1166,7 +1198,7 @@ class LoopCase(unittest.TestCase):
         self.assertEqual(post_s1["status"], "sprint_complete")
         self.assertEqual(post_s1["last_exit_code"], 0)
         self.assertEqual(post_s1["scope"]["next_sprint"], 2)
-        self.assertEqual(post_s1["resume_command"], "python loop.py run goals/g.md --sprint 2")
+        self.assertEqual(post_s1["resume_command"], expected_s2_cmd)
 
         s2_sme = json.loads(self.loop("status", "goals/g.md", "--sprint", "2", "--json").stdout)
         self.assertTrue(s2_sme["scope"]["sme_gate_blocked"])

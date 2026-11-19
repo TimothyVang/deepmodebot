@@ -4,7 +4,7 @@
 
 An outer loop (`loop.py`, `run-a-goal`, `work-a-queue`, `/goal`) multiplies whatever the inner loop permits. When the inner loop accepts untyped shapes, inline suppressions, swallowed exceptions, single-caller wrappers, or unverified behavior, automating the outer loop produces slop faster. Turn the inner loop into a deterministic constraint system before scaling iterations.
 
-1. **Audit the repo's inner loop.** Run `python <this skill>/assets/loop/loop.py audit <root> --json` to inventory four layers and protected configs:
+1. **Audit the repo's inner loop.** Run `python -B "<this skill>/assets/loop/loop.py" audit <root> --json` (`py -3 -B` on Windows) to inventory four layers and protected configs:
    - Fast static gates (typechecker, linter, custom structural rules).
    - Behavioral test suite.
    - Commit-time hooks.
@@ -30,7 +30,7 @@ An outer loop (`loop.py`, `run-a-goal`, `work-a-queue`, `/goal`) multiplies what
 5. **Bind outer goal loops to the hardened inner loop.** Before launching `loop.py`, `run-a-goal` (`references/playbooks/run-a-goal.md`), or `self-authoring` (`references/playbooks/self-authoring.md`):
    - Generate or update the goal contract (`loop.py audit <root> --write-goal .scratch/goals/<slug>.md`) with `fast_check`, `check`, and `protect` naming every test, fixture, and check script.
    - Keep `forbid_slop: true` and `protect_configs: true` enabled (their defaults in `loop.py`); set `revert_on_fail: true` on a clean tree when failed attempts must reset automatically between iterations.
-   - Run `python <this skill>/assets/loop/loop.py check <goal.md>` once to verify the contract parses, protects configs, and fails on the unfixed state.
+   - Run `python -B "<this skill>/assets/loop/loop.py" check <goal.md>` once to verify the contract parses, protects configs, and fails on the unfixed state.
    - When an outer loop or review hits the same failure class twice, pause fan-out and encode a permanent check via **correct** (`references/techniques/correct.md`).
    Done when `loop.py check` (or the outer loop's gate) validates the contract and proves a red-to-green path without weakening any check.
 

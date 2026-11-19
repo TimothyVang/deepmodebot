@@ -1663,7 +1663,28 @@ def read_last_trail_row(trail_path):
     return {headers[idx]: values[idx] if idx < len(values) else "" for idx in range(len(headers))}
 
 
-def run_status_cli(opts, fields, goal_rel, manifest_rel, manifest_data, active_sprint, sprint_source,
+def format_loop_command(root, *args):
+    """Build a copy-pasteable command pointing at this loop.py that works from `root`."""
+    launcher = "py -3 -B" if os.name == "nt" else "python -B"
+    script_abs = os.path.abspath(__file__)
+    try:
+        rel = os.path.relpath(script_abs, root)
+    except ValueError:
+        rel = None
+    if rel and not rel.startswith("..") and not os.path.isabs(rel):
+        script_arg = rel.replace("\\", "/")
+    else:
+        script_arg = script_abs
+    quoted_parts = []
+    for part in (script_arg, *args):
+        text = str(part)
+        if any(ch.isspace() for ch in text):
+            text = f'"{text}"'
+        quoted_parts.append(text)
+    return " ".join([launcher, *quoted_parts])
+
+
+def run_status_cli(opts, root, fields, goal_rel, manifest_rel, manifest_data, active_sprint, sprint_source,
                    harness, trail, trail_rel, latest_summary_path, latest_summary_rel):
     summary = None
     if os.path.isfile(latest_summary_path):
@@ -1714,27 +1735,27 @@ def run_status_cli(opts, fields, goal_rel, manifest_rel, manifest_data, active_s
     else:
         status_label = str(summary.get("exit_reason") or "stopped")
 
-    sprint_flag = f" --sprint {effective_sprint}" if effective_sprint is not None else ""
+    sprint_args = ["--sprint", str(effective_sprint)] if effective_sprint is not None else []
     if scope and scope["sme_gate_blocked"]:
         resume_note = SME_GATE_MESSAGE
-        resume_command = f"python loop.py run {goal_rel}{sprint_flag}"
+        resume_command = format_loop_command(root, "run", goal_rel, *sprint_args)
     elif scope and scope["pending_inventory"]:
         resume_note = (
             f"Classify {len(scope['pending_inventory'])} pending inventory item(s) in {manifest_rel} before resuming."
         )
-        resume_command = f"python loop.py run {goal_rel}{sprint_flag}"
+        resume_command = format_loop_command(root, "run", goal_rel, *sprint_args)
     elif summary is not None and summary.get("exit_code") == 0 and scope and scope["deferred_slices"]:
         resume_note = (
             f"Sprint {effective_sprint} passed; advance to sprint {next_sprint} "
             f"({len(scope['deferred_slices'])} deferred slice(s) remain)."
         )
-        resume_command = f"python loop.py run {goal_rel} --sprint {next_sprint}"
+        resume_command = format_loop_command(root, "run", goal_rel, "--sprint", str(next_sprint))
     elif summary is not None and summary.get("exit_code") == 0:
         resume_note = "Goal complete; no resume needed."
         resume_command = None
     else:
         resume_note = "Run or resume the goal loop."
-        resume_command = f"python loop.py run {goal_rel}{sprint_flag}"
+        resume_command = format_loop_command(root, "run", goal_rel, *sprint_args)
 
     payload = {
         "status": status_label,
@@ -1842,7 +1863,7 @@ def main():
 
     if opts.action == "status":
         return run_status_cli(
-            opts, fields, goal_rel, manifest_rel, manifest_data, active_sprint, sprint_source,
+            opts, root, fields, goal_rel, manifest_rel, manifest_data, active_sprint, sprint_source,
             harness, trail, trail_rel, latest_summary_path, latest_summary_rel,
         )
     protect_text = " ".join(protect) or "none"
@@ -1950,7 +1971,47 @@ def main():
         print(f"{timed_out}; nothing was run")
         return 5
     if code == 0:
+        os.makedirs(log_dir, exist_ok=True)
+        ignore = os.path.join(root, ".scratch", ".gitignore")
+        if not os.path.exists(ignore):
+            with open(ignore, "w", encoding="utf-8") as handle:
+                handle.write("*\n")
+        run_id = f"{time.strftime('%Y%m%dT%H%M%S')}-{os.getpid()}"
+        summary_path = os.path.join(log_dir, f"{run_id}-summary.json")
         deferred = last_manifest_summary.get("deferred_slices", []) if last_manifest_summary else []
+        exit_reason = "sprint_already_passed" if deferred else "already_passed"
+        payload = {
+            "run_id": run_id,
+            "goal": fields["goal"],
+            "goal_file": goal_rel,
+            "harness": harness,
+            "iterations_run": 0,
+            "active_args_history": [{
+                "iteration": 0,
+                "tier": "default",
+                "args": fields.get("harness_args", ""),
+                "reason": "initial",
+                "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            }],
+            "rate_limit_retries_used": 0,
+            "exit_code": 0,
+            "exit_reason": exit_reason,
+            "check_exit": 0,
+            "stage": stage,
+            "elapsed_seconds": 0.0,
+            "trail": trail_rel,
+        }
+        if manifest_data is not None:
+            payload["scope"] = build_scope_summary(
+                manifest_rel, manifest_data, active_sprint, last_manifest_summary, sprint_source=sprint_source
+            )
+        encoded = json.dumps(payload, indent=2) + "\n"
+        with open(summary_path, "w", encoding="utf-8") as handle:
+            handle.write(encoded)
+        tmp_latest = os.path.join(log_dir, f".{run_id}-latest-summary.tmp")
+        with open(tmp_latest, "w", encoding="utf-8") as handle:
+            handle.write(encoded)
+        os.replace(tmp_latest, latest_summary_path)
         if deferred:
             print(
                 f"sprint {active_sprint} check already passes; nothing to do "

@@ -5,6 +5,7 @@ Invoke with `/deepmodebot:deep <task>` in omp/Claude Code, `/deep <task>` in Ant
 
 - **Full-scope completion:** Keep 100% of deliverables and inventory in one Scope Manifest (`loop.py manifest`). Single-run builds finish `1/N` to `N/N`; incremental sprints or complex-domain SME gates pause only at the explicit checkpoint and report remaining sprints as incomplete.
 - **Model & SME discipline:** Pick the smallest benchmark-proven model tier and effort before turn 1 or worker kickoff (`skill://agent-harnesses/references/delegation-efficiency.md`). Run **sme-review** before locking specs, starting loops, or advancing past Sprint 1 in complex or regulated domains.
+- **Automatic workspace map:** In any git repo, orient via Antigravity's hook-injected overview or `python -B "<deepmodebot skill>/assets/workspace-map/workspace_map.py" overview --fast --offline --no-orca` (`py -3 -B` on Windows), and run `query`/`workspaces`/`prs` before wide scans; never ask the user to run manual map commands.
 
 ## Verification
 

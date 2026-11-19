@@ -518,6 +518,239 @@ class WorkspaceMapTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertEqual(json.loads(q_after)["count"], 1)
 
+    def test_offline_overview_does_not_poison_prs_workspaces_or_query(self):
+        main_repo = os.path.join(self.tmp, "stale-main")
+        _init_repo(main_repo, remote="https://github.com/acme/fresh-demo.git")
+        _write(main_repo, "mod.py", "def initial_symbol():\n    return 1\n")
+        _git(main_repo, "add", ".")
+        _git(main_repo, "commit", "-m", "init")
+
+        feat_wt = os.path.join(self.tmp, "stale-feat")
+        _git(main_repo, "worktree", "add", "-b", "feat/fresh", feat_wt)
+
+        db = os.path.join(self.tmp, "fresh.db")
+        # Step 1: Turn-1 offline + no-orca overview (like Antigravity's hook).
+        rc, _ = _run_cli(["overview", feat_wt, "--db", db, "--fast", "--offline", "--no-orca"])
+        self.assertEqual(rc, 0)
+
+        gh_calls = []
+        orca_calls = []
+        pr_payload = [
+            {
+                "number": 91,
+                "title": "Live PR after offline overview",
+                "headRefName": "feat/fresh",
+                "baseRefName": "main",
+                "state": "OPEN",
+                "isDraft": False,
+                "mergeStateStatus": "CLEAN",
+                "reviewDecision": "APPROVED",
+                "url": "https://github.com/acme/fresh-demo/pull/91",
+                "updatedAt": "2026-11-19T12:00:00Z",
+                "statusCheckRollup": [{"conclusion": "SUCCESS", "status": "COMPLETED"}],
+            }
+        ]
+        orca_payload = {
+            "worktrees": [
+                {
+                    "id": "wt-live",
+                    "name": "fresh-pod",
+                    "path": feat_wt,
+                    "branch": "feat/fresh",
+                    "host": "local",
+                    "status": "active",
+                }
+            ]
+        }
+
+        real_run_cmd = wm.run_cmd
+        real_which = shutil.which
+
+        def fake_which(cmd):
+            if cmd in ("orca", "gh"):
+                return f"/fake/bin/{cmd}"
+            return real_which(cmd)
+
+        def fake_run_cmd(args, cwd=None, timeout=15):
+            if args and args[0] == "orca":
+                orca_calls.append(list(args))
+                return subprocess.CompletedProcess(args, 0, json.dumps(orca_payload), "")
+            if args and args[0] == "gh":
+                gh_calls.append(list(args))
+                return subprocess.CompletedProcess(args, 0, json.dumps(pr_payload), "")
+            return real_run_cmd(args, cwd=cwd, timeout=timeout)
+
+        # Make feat_wt dirty AFTER offline overview so workspaces must refresh dirty state too.
+        _write(feat_wt, "dirty_after_overview.txt", "wip\n")
+
+        with mock.patch("workspace_map.shutil.which", side_effect=fake_which), mock.patch(
+            "workspace_map.run_cmd", side_effect=fake_run_cmd
+        ):
+            # Step 2: `prs` MUST refresh live via gh even though DB already exists!
+            rc, prs_out = _run_cli(["prs", feat_wt, "--db", db, "--json"])
+            self.assertEqual(rc, 0)
+            prs_data = json.loads(prs_out)["prs"]
+            self.assertEqual(len(prs_data), 1)
+            self.assertEqual(prs_data[0]["number"], 91)
+            self.assertEqual(len(gh_calls), 1)
+
+            # Second `prs` within TTL uses cache (no extra gh call), while `--force-prs` bypasses TTL.
+            rc, _ = _run_cli(["prs", feat_wt, "--db", db, "--json"])
+            self.assertEqual(rc, 0)
+            self.assertEqual(len(gh_calls), 1)
+            rc, _ = _run_cli(["prs", feat_wt, "--db", db, "--force-prs", "--json"])
+            self.assertEqual(rc, 0)
+            self.assertEqual(len(gh_calls), 2)
+            rc, _ = _run_cli(["prs", feat_wt, "--db", db, "--offline", "--json"])
+            self.assertEqual(rc, 0)
+            self.assertEqual(len(gh_calls), 2)
+
+            # Step 3: `workspaces` MUST refresh Orca + dirty state even though DB already exists!
+            rc, ws_out = _run_cli(["workspaces", feat_wt, "--db", db, "--json"])
+            self.assertEqual(rc, 0)
+            ws_items = json.loads(ws_out)["workspaces"]
+            feat_entry = next(w for w in ws_items if w["branch"] == "feat/fresh")
+            self.assertEqual(feat_entry["source"], "git+orca")
+            self.assertEqual(feat_entry["is_dirty"], 1)
+            self.assertEqual(feat_entry["pr"]["number"], 91)
+            self.assertEqual(len(orca_calls), 1)
+
+        # Step 4: Edit a tracked file after overview; `query` MUST incrementally sync and find it!
+        mod_path = _write(feat_wt, "mod.py", "def fresh_live_symbol(v):\n    return v * 2\n")
+        st = os.stat(mod_path)
+        os.utime(mod_path, ns=(st.st_atime_ns, st.st_mtime_ns + 2_000_000_000))
+
+        rc, q_fresh = _run_cli(["query", "fresh_live_symbol", feat_wt, "--db", db, "--json"])
+        self.assertEqual(rc, 0)
+        self.assertEqual(json.loads(q_fresh)["count"], 1)
+
+        # Step 5: `--no-sync` opt-out reads cached DB without syncing new edits.
+        mod_path2 = _write(feat_wt, "mod.py", "def skipped_when_nosync():\n    return 3\n")
+        st2 = os.stat(mod_path2)
+        os.utime(mod_path2, ns=(st2.st_atime_ns, st2.st_mtime_ns + 4_000_000_000))
+        rc, q_nosync = _run_cli(["query", "skipped_when_nosync", feat_wt, "--db", db, "--no-sync", "--json"])
+        self.assertEqual(rc, 0)
+        self.assertEqual(json.loads(q_nosync)["count"], 0)
+
+    def test_fast_flag_limits_dirty_checks_to_current_and_main_worktrees(self):
+        main_repo = os.path.join(self.tmp, "fast-main")
+        _init_repo(main_repo)
+        _write(main_repo, "a.py", "def a():\n    return 1\n")
+        _git(main_repo, "add", ".")
+        _git(main_repo, "commit", "-m", "init")
+
+        wts = []
+        for idx in range(3):
+            wt = os.path.join(self.tmp, f"fast-wt-{idx}")
+            _git(main_repo, "worktree", "add", "-b", f"feat/wt-{idx}", wt)
+            wts.append(wt)
+
+        db = os.path.join(self.tmp, "fast.db")
+        checked_paths = []
+        real_check_dirty = wm._check_dirty
+
+        def spy_check_dirty(raw_path):
+            checked_paths.append(wm.normalize_path_key(raw_path))
+            return real_check_dirty(raw_path)
+
+        with mock.patch("workspace_map._check_dirty", side_effect=spy_check_dirty):
+            rc, _ = _run_cli(["overview", wts[0], "--db", db, "--fast", "--offline", "--no-orca"])
+            self.assertEqual(rc, 0)
+            self.assertEqual(
+                set(checked_paths),
+                {wm.normalize_path_key(wts[0]), wm.normalize_path_key(main_repo)},
+            )
+            self.assertEqual(len(checked_paths), 2)
+
+            checked_paths.clear()
+            rc, _ = _run_cli(["sync", wts[0], "--db", db, "--offline", "--no-orca"])
+            self.assertEqual(rc, 0)
+            self.assertEqual(len(checked_paths), 4)
+
+    def test_project_state_reads_goal_frontmatter_and_merges_latest_summary(self):
+        repo = os.path.join(self.tmp, "goal-frontmatter-repo")
+        _init_repo(repo)
+        _write(repo, "README.md", "# Goal State Demo\n")
+        # Real loop.py manifest JSON has NO active_sprint or slice status fields.
+        _write(
+            repo,
+            "docs/specs/real-manifest.json",
+            json.dumps({
+                "product": "Billing Engine",
+                "slices": [
+                    {"id": "s1", "title": "Core", "sprint": 1, "check": "true"},
+                    {"id": "s2", "title": "Exports", "sprint": 2, "sme_gate": "required", "check": "true"},
+                ],
+                "inventory": [
+                    {"id": "inv-1", "status": "included", "slice": "s1"},
+                    {"id": "inv-2", "status": "pending"},
+                ],
+            }),
+        )
+        _write(
+            repo,
+            ".scratch/goals/billing.md",
+            "---\n"
+            "goal: Ship Billing Engine\n"
+            "manifest: docs/specs/real-manifest.json\n"
+            "active_sprint: 1\n"
+            "check: true\n"
+            "protect: docs/specs/real-manifest.json\n"
+            "max_iterations: 3\n"
+            "---\n"
+            "Deliver Sprint 1.\n",
+        )
+        _git(repo, "add", "README.md", "docs/specs/real-manifest.json")
+        _git(repo, "commit", "-m", "init")
+
+        db = os.path.join(self.tmp, "goal-state.db")
+        rc, ws1 = _run_cli(["workspaces", repo, "--db", db, "--no-orca", "--json"])
+        self.assertEqual(rc, 0)
+        states1 = json.loads(ws1)["workspaces"][0]["project_state"]
+        self.assertEqual(len(states1), 1)
+        ps1 = states1[0]
+        self.assertEqual(ps1["product"], "Billing Engine")
+        self.assertEqual(ps1["active_sprint"], 1)
+        self.assertEqual(ps1["active_slices"], 1)
+        self.assertEqual(ps1["total_slices"], 2)
+        self.assertEqual(ps1["deferred_count"], 1)
+        self.assertEqual(ps1["pending_inventory"], 1)
+        # Sprint 2's sme_gate is deferred while active_sprint=1!
+        self.assertEqual(ps1["sme_gate_blocked"], 0)
+        self.assertEqual(ps1["passed_slices"], 0)
+
+        # Now write latest-summary.json (e.g. from already-passing loop.py run) and confirm clean merge.
+        _write(
+            repo,
+            ".scratch/goals/billing/latest-summary.json",
+            json.dumps({
+                "goal": "Ship Billing Engine",
+                "exit_code": 0,
+                "exit_reason": "sprint_already_passed",
+                "scope": {
+                    "manifest": "docs/specs/real-manifest.json",
+                    "active_sprint": 1,
+                    "passed_slices": 1,
+                    "active_slices": 1,
+                    "total_slices": 2,
+                    "deferred_slices": ["s2"],
+                    "pending_inventory": ["inv-2"],
+                    "sme_gate_blocked": False,
+                },
+            }),
+        )
+        rc, ws2 = _run_cli(["workspaces", repo, "--db", db, "--no-orca", "--json"])
+        self.assertEqual(rc, 0)
+        states2 = json.loads(ws2)["workspaces"][0]["project_state"]
+        self.assertEqual(len(states2), 1)
+        ps2 = states2[0]
+        self.assertEqual(ps2["active_sprint"], 1)
+        self.assertEqual(ps2["passed_slices"], 1)
+        self.assertEqual(ps2["total_slices"], 2)
+        self.assertEqual(ps2["deferred_count"], 1)
+        self.assertEqual(ps2["last_exit_code"], 0)
+        self.assertEqual(ps2["last_exit_reason"], "sprint_already_passed")
+
 
 if __name__ == "__main__":
     unittest.main()

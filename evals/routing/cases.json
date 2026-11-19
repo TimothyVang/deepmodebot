@@ -227,6 +227,13 @@
       "route": "goal-review",
       "size": "none",
       "note": "Goal milestone planning and independent three-reviewer review before loop launch."
+    },
+    {
+      "id": "workspace-map-orient",
+      "request": "Map this workspace, list Orca worktrees and open PRs, and find symbol evaluate_manifest fast.",
+      "route": "workspace-map",
+      "size": "none",
+      "note": "Read-only workspace, worktree, PR, and FTS5 symbol index lookup."
     }
   ]
 }
