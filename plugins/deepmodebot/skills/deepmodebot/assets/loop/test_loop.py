@@ -1119,6 +1119,131 @@ class LoopCase(unittest.TestCase):
         self.assertEqual(chk_ok.returncode, 0)
         self.assertIn("check exit 0 (pass) (already done)", chk_ok.stdout)
 
+    def test_status_reports_not_started_checkpoint_sprint_and_sme_resume_commands(self):
+        manifest = {
+            "product": "Status demo",
+            "slices": [
+                {"id": "slice-1", "title": "Core", "sprint": 1, "check": "test -f s1.txt"},
+                {"id": "slice-2", "title": "Admin", "sprint": 2, "sme_gate": "required", "check": "test -f s2.txt"},
+            ],
+            "inventory": [
+                {"id": "i1", "status": "included", "slice": "slice-1"},
+                {"id": "i2", "status": "included", "slice": "slice-2"},
+            ],
+        }
+        (self.repo / "goals" / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        self.goal(manifest="goals/manifest.json", active_sprint=1, max_iterations=4, stall_after=9, checkpoint_every=1)
+
+        pre_json_run = self.loop("status", "goals/g.md", "--json")
+        self.assertEqual(pre_json_run.returncode, 0, pre_json_run.stdout + pre_json_run.stderr)
+        pre = json.loads(pre_json_run.stdout)
+        self.assertEqual(pre["status"], "not_started")
+        self.assertEqual(pre["iterations_run"], 0)
+        self.assertIsNone(pre["last_exit_code"])
+        self.assertEqual(pre["scope"]["active_sprint"], 1)
+        self.assertEqual(pre["scope"]["deferred_slices"], ["slice-2"])
+        self.assertEqual(pre["scope"]["inventory_counts"]["included"], 2)
+        self.assertEqual(pre["resume_command"], "python loop.py run goals/g.md --sprint 1")
+
+        pre_text = self.loop("status", "goals/g.md")
+        self.assertEqual(pre_text.returncode, 0)
+        self.assertIn("goal status (not_started)", pre_text.stdout)
+        self.assertIn("resume: python loop.py run goals/g.md --sprint 1", pre_text.stdout)
+
+        chkpt = self.loop("run", "goals/g.md", action="progress")
+        self.assertEqual(chkpt.returncode, 6, chkpt.stdout + chkpt.stderr)
+        post_chkpt = json.loads(self.loop("status", "goals/g.md", "--json").stdout)
+        self.assertEqual(post_chkpt["status"], "checkpoint")
+        self.assertEqual(post_chkpt["last_exit_code"], 6)
+        self.assertEqual(post_chkpt["last_exit_reason"], "checkpoint")
+        self.assertEqual(post_chkpt["iterations_run"], 1)
+        self.assertIsNotNone(post_chkpt["last_trail"])
+        self.assertEqual(post_chkpt["resume_command"], "python loop.py run goals/g.md --sprint 1")
+
+        s1 = self.loop("run", "goals/g.md", action="sprint1-done")
+        self.assertEqual(s1.returncode, 0, s1.stdout + s1.stderr)
+        post_s1 = json.loads(self.loop("status", "goals/g.md", "--json").stdout)
+        self.assertEqual(post_s1["status"], "sprint_complete")
+        self.assertEqual(post_s1["last_exit_code"], 0)
+        self.assertEqual(post_s1["scope"]["next_sprint"], 2)
+        self.assertEqual(post_s1["resume_command"], "python loop.py run goals/g.md --sprint 2")
+
+        s2_sme = json.loads(self.loop("status", "goals/g.md", "--sprint", "2", "--json").stdout)
+        self.assertTrue(s2_sme["scope"]["sme_gate_blocked"])
+        self.assertIn("SME gate required before advancing", s2_sme["resume_note"])
+
+    def test_sprint_cli_override_on_check_and_run_without_editing_frontmatter(self):
+        manifest = {
+            "product": "CLI sprint override",
+            "slices": [
+                {"id": "slice-1", "title": "Core", "sprint": 1, "check": "test -f s1.txt"},
+                {"id": "slice-2", "title": "Extra", "sprint": 2, "check": "test -f s2.txt"},
+            ],
+        }
+        (self.repo / "goals" / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        (self.repo / "s1.txt").write_text("", encoding="utf-8")
+        (self.repo / "ok.txt").write_text("", encoding="utf-8")
+        self.goal(manifest="goals/manifest.json", active_sprint=1, max_iterations=2)
+        original_goal = (self.repo / "goals" / "g.md").read_text(encoding="utf-8")
+
+        chk_s1 = self.loop("check", "goals/g.md")
+        self.assertEqual(chk_s1.returncode, 0)
+        self.assertIn("check exit 0 (pass) (already done)", chk_s1.stdout)
+
+        chk_s2 = self.loop("check", "goals/g.md", "--sprint", "2")
+        self.assertEqual(chk_s2.returncode, 0)
+        self.assertIn("active_sprint=2 (CLI override)", chk_s2.stdout)
+        self.assertIn("check exit 1 (manifest)", chk_s2.stdout)
+
+        run_s2 = self.loop("run", "goals/g.md", "--sprint", "2", action="sprint2-done")
+        self.assertEqual(run_s2.returncode, 0, run_s2.stdout + run_s2.stderr)
+        self.assertIn("using CLI --sprint 2 override", run_s2.stdout)
+        self.assertIn("goal met", run_s2.stdout)
+        self.assertEqual((self.repo / "goals" / "g.md").read_text(encoding="utf-8"), original_goal)
+        summary = self.latest_summary()
+        self.assertEqual(summary["scope"]["active_sprint"], 2)
+        self.assertEqual(summary["scope"]["active_sprint_source"], "cli")
+        self.assertTrue(summary["scope"]["scope_complete"])
+        self.assertEqual(summary["scope"]["deferred_slices"], [])
+
+        # Passing --sprint on a goal without a manifest fails cleanly.
+        self.goal(manifest=None)
+        no_manifest = self.loop("check", "goals/g.md", "--sprint", "1")
+        self.assertNotEqual(no_manifest.returncode, 0)
+        self.assertIn("--sprint requires a manifest", no_manifest.stdout + no_manifest.stderr)
+
+    def test_audit_write_goal_auto_detects_single_valid_manifest_and_skips_ambiguous_or_invalid(self):
+        specs = self.repo / "docs" / "specs"
+        specs.mkdir(parents=True)
+        valid_manifest = {"product": "Demo", "slices": [{"id": "s1", "title": "Core", "check": "true"}]}
+        (specs / "app-manifest.json").write_text(json.dumps(valid_manifest), encoding="utf-8")
+        # Invalid manifest should be ignored rather than crashing audit.
+        (specs / "broken-manifest.json").write_text("{not json", encoding="utf-8")
+
+        single = self.loop("audit", "--json", "--write-goal", "goals/auto.md")
+        self.assertEqual(single.returncode, 0, single.stdout + single.stderr)
+        report = json.loads(single.stdout)
+        self.assertEqual(report["guardrails"]["manifests"], ["docs/specs/app-manifest.json"])
+        self.assertEqual(report["recommended"]["manifest"], "docs/specs/app-manifest.json")
+        scaffold = (self.repo / "goals" / "auto.md").read_text(encoding="utf-8")
+        self.assertIn("manifest: docs/specs/app-manifest.json", scaffold)
+        self.assertIn("docs/specs/app-manifest.json", [line for line in scaffold.splitlines() if line.startswith("protect:")][0])
+
+        # Adding a second valid manifest makes selection ambiguous, so audit lists both without guessing.
+        scratch_goals = self.repo / ".scratch" / "goals"
+        scratch_goals.mkdir(parents=True)
+        (scratch_goals / "other-manifest.json").write_text(json.dumps(valid_manifest), encoding="utf-8")
+        multi = self.loop("audit", "--json", "--write-goal", "goals/auto2.md")
+        self.assertEqual(multi.returncode, 0, multi.stdout + multi.stderr)
+        multi_report = json.loads(multi.stdout)
+        self.assertEqual(
+            multi_report["guardrails"]["manifests"],
+            ["docs/specs/app-manifest.json", ".scratch/goals/other-manifest.json"],
+        )
+        self.assertNotIn("manifest", multi_report["recommended"])
+        scaffold2 = (self.repo / "goals" / "auto2.md").read_text(encoding="utf-8")
+        self.assertNotIn("\nmanifest:", scaffold2)
+
 
 class ScanTextSlopCase(unittest.TestCase):
     def scan(self, name, text):

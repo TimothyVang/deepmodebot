@@ -12,11 +12,11 @@ Stopping for later in this same repo is Pause safely (`references/playbooks/paus
 3. Prepare `docs/handoffs/<YYYY-MM-DD>-<slug>.md` (outside a repo: the current folder) with the sections below. Apply step 4's redaction and key-shaped-string scan to its contents before writing this document or any compaction checkpoint.
    - **Goal:** the user's goal and the problem, in your own words (**in-your-own-words**, `references/techniques/in-your-own-words.md`).
    - **Next session's focus:** from step 1, with its done-when check (a command and its expected result).
-   - **State:** repo, branch, head SHA, open PRs and their status, what is verified and how, what is not.
+   - **State:** repo, branch, head SHA, open PRs and their status, what is verified and how, what is not, plus Scope Manifest (`docs/specs/<slug>-manifest.json` or `.scratch/goals/<slug>-manifest.json`) and `latest-summary.json` (`active_sprint`, `deferred_slices`, `inventory_counts`, `sme_gate_blocked`) when present so remaining scope carries across pauses, sprint checkpoints (`exit 6`), SME gates, or quota stops.
    - **Decisions:** each choice made and why, or a pointer to the decision trail that holds them.
    - **Open questions and risks.**
-   - **Next steps:** ordered, the first one concrete enough to start without reading anything else.
-   - **Pointers:** paths and URLs to specs, ADRs, issues, PRs, logs, and trails. Link artifacts; never paste their contents.
+   - **Next steps:** ordered, the first one concrete enough to start without reading anything else (naming the next queued slice or inventory item from the Scope Manifest when active).
+   - **Pointers:** paths and URLs to specs, Scope Manifest, `latest-summary.json`, ADRs, issues, PRs, logs, and trails. Link artifacts; never paste their contents.
    - **Start with:** the deepmodebot route the next agent should take (playbook or technique names and paths), and the skills it should load.
    - Done when the file exists with all eight sections filled.
    Before compaction or session replacement, persist pending actions, active child/process identifiers, remaining task budget, permission limits, and evidence paths alongside this state.
@@ -30,6 +30,8 @@ Stopping for later in this same repo is Pause safely (`references/playbooks/paus
    - omp, attended: `omp @<file>` in a new terminal (the `@` prefix reads the file as the first message).
    - omp, unattended: `nohup omp -p @<file> > <file>.log 2>&1 &`; the run is saved and shows in `omp -r`.
    - Claude Code: `claude --bg -n "<short task name>" -- "$(cat <file>)"`; `claude agents` lists it.
+   - Antigravity (`agy`): `agy -p "Follow the handoff in <file>" --output-format json > <file>.log 2>&1` (resume with `agy -c` or `agy --conversation <id>`).
+   - Codex: `codex exec -s workspace-write --json - < <file> > <file>.log 2>&1` (resume with `codex exec resume --last`).
    - Other harnesses: their headless or background flag with the same file. None → give the user the command to start it themselves.
    Done when the launched name or log path is reported, or no launch was asked for.
 

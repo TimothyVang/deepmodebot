@@ -11,7 +11,7 @@ Use when: the user explicitly asks to pause or stop for now. Explicit only: on "
 4. Make the work durable: save `git diff --binary` (plus untracked files via `git add -N` first, or list them) as a patch next to the resume note, and make one clear `wip:` commit on the current branch; if the tree is broken, say so in one line of its body.
    Done when the patch file exists and `git status --porcelain` prints nothing but untracked files you listed in the resume note.
 5. Write the resume note off-context at `$(git rev-parse --git-common-dir)/omp-resume/<slug>.md` (never committed, shared by worktrees, visible to a cold-start session; `local://` is not) and print its absolute path.
-   It holds intent, what you were doing, progress and what's verified, current state, next steps, key files, gotchas, patch path. If a show-me-your-work trail exists, point at it instead of duplicating it.
+   It holds intent, what you were doing, progress and what's verified, current state, next steps, key files, gotchas, patch path, and (when active) the Scope Manifest + `latest-summary.json` resume ledger (`active_sprint`, `deferred_slices`, `inventory_counts`, `sme_gate_blocked`) so resuming after a pause, sprint checkpoint (`exit 6`), or quota stop picks up at the next queued slice/item without re-scanning. Point at any show-me-your-work trail instead of duplicating it.
    Done when the note exists at that path, its absolute path is printed, and every listed item is filled.
 
 ## Gates
@@ -26,4 +26,5 @@ This is a pause, not a final report:
 - Where you are in the loop.
 - What's on disk versus what was only in your head (paths, no diff dumps).
 - Patch path, the `wip:` commit SHA, and whether the tree is clean.
+- Scope Manifest and `latest-summary.json` paths (and remaining/deferred scope) when active.
 - The resume note's path and the first action on resume.

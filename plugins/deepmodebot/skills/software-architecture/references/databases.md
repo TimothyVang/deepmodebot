@@ -181,7 +181,9 @@ CREATE POLICY tenant_isolation ON invoices
 SELECT set_config('app.tenant_id', $1, true);
 ```
 
-Trust boundary: any role can set a custom setting such as `app.tenant_id` ([set_config](https://www.postgresql.org/docs/current/functions-admin.html#FUNCTIONS-ADMIN-SET)). This policy stops app bugs that omit the tenant filter. It does not stop a caller that can run arbitrary SQL as `app_rw` or `agent_ro`, such as SQL injection or an agent with a SQL tool: that caller calls `set_config` with another tenant's UUID and reads that tenant's rows. Never give agents a SQL connection to pooled multi-tenant data. Where the caller can run arbitrary SQL, key isolation on something it cannot change: a separate database per tenant (silo), or one `LOGIN` role per tenant, with no membership in other tenant roles, and the policy keyed on `current_user`.
+Trust boundary: any role can set a custom setting such as `app.tenant_id` ([set_config](https://www.postgresql.org/docs/current/functions-admin.html#FUNCTIONS-ADMIN-SET)). This policy stops app bugs that omit the tenant filter, not a caller that can run arbitrary SQL as `app_rw` or `agent_ro` (such as SQL injection or an agent with a SQL tool), which can call `set_config` with another tenant's UUID and read their rows.
+
+Never give agents a SQL connection to pooled multi-tenant data. Where the caller can run arbitrary SQL, key isolation on something it cannot change: a separate database per tenant (silo), or one `LOGIN` role per tenant with no membership in other tenant roles and the policy keyed on `current_user`.
 
 ## 10. Access layers (ORMs, query builders, type generation)
 

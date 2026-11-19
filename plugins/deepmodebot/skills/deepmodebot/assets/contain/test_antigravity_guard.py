@@ -202,6 +202,24 @@ class AntigravityGuardTests(unittest.TestCase):
                 )
                 self.assertEqual(res["decision"], "deny")
 
+    def test_every_shipped_command_file_activates_guard(self):
+        cmd_dir = PLUGIN / "commands"
+        cmd_names = sorted(p.stem for p in cmd_dir.glob("*.md"))
+        self.assertTrue(cmd_names, f"No commands found in {cmd_dir}")
+        for name in cmd_names:
+            for variant in (f"/{name} test arg", f"/deepmodebot:{name} test arg"):
+                conv = f"conv-parity-{name}-{len(variant)}"
+                with self.subTest(command=variant):
+                    self.run_hook({
+                        "conversationId": conv,
+                        "workspacePaths": [str(self.proj)],
+                        "lastUserInput": variant,
+                    })
+                    res, _ = self.run_hook(
+                        self.pre_tool_payload("write_file", self.outside / "y.txt", conv_id=conv)
+                    )
+                    self.assertEqual(res["decision"], "deny")
+
     def test_marks_older_than_30_days_are_pruned(self):
         prune_data = self.tmp / "prune-data"
         marks = prune_data / "active-sessions"

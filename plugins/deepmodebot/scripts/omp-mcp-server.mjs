@@ -17,9 +17,13 @@ const caseless = process.platform === "win32" || process.platform === "darwin";
 
 const STRIPPED_API_KEYS = new Set([
   "ANTHROPIC_API_KEY",
+  "ANTHROPIC_AUTH_TOKEN",
   "OPENAI_API_KEY",
   "CODEX_API_KEY",
 ]);
+const DEFAULT_TIMEOUT_SECONDS = 540;
+const MIN_TIMEOUT_SECONDS = 0.05;
+const MAX_TIMEOUT_SECONDS = 3600;
 
 const AGENT_PRESETS = {
   scout: {
@@ -58,13 +62,13 @@ const TOOLS = [
   {
     name: "omp_run",
     description:
-      "Run a headless `omp -p <prompt> --mode json` turn in `cwd`. Strips ANTHROPIC_API_KEY, " +
-      "OPENAI_API_KEY, and CODEX_API_KEY by default (`useSubscription: true`) so `omp` uses " +
-      "stored OAuth subscriptions instead of billing API keys.",
+      "Run a headless `omp -p --mode json` turn in `cwd` (prompt sent on stdin). Strips " +
+      "ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, OPENAI_API_KEY, and CODEX_API_KEY by default " +
+      "(`useSubscription: true`) so `omp` uses stored OAuth subscriptions instead of billing API keys.",
     inputSchema: {
       type: "object",
       properties: {
-        prompt: { type: "string", description: "Prompt to pass to `omp -p`." },
+        prompt: { type: "string", description: "Prompt to pass to `omp -p` via stdin." },
         cwd: { type: "string", description: "Working directory for the `omp` run." },
         model: { type: "string", description: "Optional model selector (e.g. `anthropic/claude-sonnet-4-5` or `@smol`)." },
         role: {
@@ -86,6 +90,10 @@ const TOOLS = [
         useSubscription: {
           type: "boolean",
           description: "Delete billing API keys from child env so `omp` uses OAuth logins (default: true).",
+        },
+        timeoutSeconds: {
+          type: "number",
+          description: "Optional wall-clock timeout in seconds before killing the `omp` process tree (default: 540, max: 3600).",
         },
       },
       required: ["prompt", "cwd"],
@@ -111,6 +119,10 @@ const TOOLS = [
         useSubscription: {
           type: "boolean",
           description: "Delete billing API keys from child env so `omp` uses OAuth logins (default: true).",
+        },
+        timeoutSeconds: {
+          type: "number",
+          description: "Optional wall-clock timeout in seconds before killing the `omp` process tree (default: 540, max: 3600).",
         },
       },
       required: ["agent", "task", "cwd"],
@@ -213,6 +225,49 @@ function buildChildEnv(useSubscription = true) {
   return childEnv;
 }
 
+function parseTimeoutSeconds(rawValue) {
+  if (rawValue === undefined || rawValue === null) {
+    return { value: DEFAULT_TIMEOUT_SECONDS };
+  }
+  if (typeof rawValue !== "number" || !Number.isFinite(rawValue) || rawValue <= 0) {
+    return { error: "`timeoutSeconds` must be a positive finite number." };
+  }
+  return {
+    value: Math.min(MAX_TIMEOUT_SECONDS, Math.max(MIN_TIMEOUT_SECONDS, rawValue)),
+  };
+}
+
+function killProcessTree(child) {
+  const pid = child && typeof child.pid === "number" ? child.pid : null;
+  if (!pid) return;
+  if (process.platform === "win32") {
+    try {
+      spawnSync("taskkill", ["/T", "/F", "/PID", String(pid)], {
+        stdio: "ignore",
+        windowsHide: true,
+        timeout: 10_000,
+      });
+    } catch {
+      // Fall back to direct child kill below.
+    }
+    try {
+      child.kill("SIGKILL");
+    } catch {
+      // Already exited.
+    }
+    return;
+  }
+  try {
+    process.kill(-pid, "SIGKILL");
+  } catch {
+    try {
+      child.kill("SIGKILL");
+    } catch {
+      // Already exited.
+    }
+  }
+}
+
 function spawnOmpProcess(exe, args, cwd, env) {
   const isWinScript = process.platform === "win32" && /\.(cmd|bat)$/i.test(exe);
   if (isWinScript) {
@@ -221,7 +276,7 @@ function spawnOmpProcess(exe, args, cwd, env) {
     return spawn(comspec, ["/d", "/s", "/c", cmdLine], {
       cwd,
       env,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
       windowsVerbatimArguments: true,
     });
@@ -229,7 +284,8 @@ function spawnOmpProcess(exe, args, cwd, env) {
   return spawn(exe, args, {
     cwd,
     env,
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: ["pipe", "pipe", "pipe"],
+    detached: process.platform !== "win32",
     windowsHide: true,
   });
 }
@@ -284,7 +340,7 @@ function parseNdjsonOutput(stdout) {
   return { assistantText, stopReason, errorMessage, model, provider, usage };
 }
 
-function executeOmp(args, cwd, useSubscription = true) {
+function executeOmp(args, cwd, { useSubscription = true, promptStdin = "", timeoutSeconds = DEFAULT_TIMEOUT_SECONDS } = {}) {
   return new Promise((resolve) => {
     const env = buildChildEnv(useSubscription);
     const exe = resolveOmpExecutable(env);
@@ -292,6 +348,7 @@ function executeOmp(args, cwd, useSubscription = true) {
       resolve({
         ok: false,
         exitCode: 127,
+        timedOut: false,
         response: "",
         stderr: "omp executable not found on PATH.",
       });
@@ -301,6 +358,7 @@ function executeOmp(args, cwd, useSubscription = true) {
       resolve({
         ok: false,
         exitCode: 2,
+        timedOut: false,
         response: "",
         stderr: `Working directory does not exist: ${cwd}`,
       });
@@ -316,10 +374,33 @@ function executeOmp(args, cwd, useSubscription = true) {
       resolve({
         ok: false,
         exitCode: 1,
+        timedOut: false,
         response: "",
         stderr: `Failed to spawn omp: ${err instanceof Error ? err.message : String(err)}`,
       });
       return;
+    }
+
+    let settled = false;
+    let timedOut = false;
+    const finish = (outcome) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(outcome);
+    };
+
+    const timeoutMs = Math.max(50, Math.round(timeoutSeconds * 1000));
+    const timer = setTimeout(() => {
+      timedOut = true;
+      killProcessTree(child);
+    }, timeoutMs);
+
+    if (child.stdin) {
+      child.stdin.on("error", () => {
+        // Ignore EPIPE when the child exits before consuming all stdin.
+      });
+      child.stdin.end(promptStdin ?? "", "utf8");
     }
 
     child.stdout.setEncoding("utf8");
@@ -327,20 +408,38 @@ function executeOmp(args, cwd, useSubscription = true) {
     child.stdout.on("data", chunk => { stdout += chunk; });
     child.stderr.on("data", chunk => { stderr += chunk; });
     child.on("error", err => {
-      resolve({
+      finish({
         ok: false,
         exitCode: 1,
+        timedOut: false,
         response: "",
         stderr: `omp process error: ${err instanceof Error ? err.message : String(err)}`,
       });
     });
     child.on("close", code => {
-      const exitCode = code ?? 1;
       const parsed = parseNdjsonOutput(stdout);
+      if (timedOut) {
+        const timeoutMsg = `omp timed out after ${timeoutSeconds}s and its process tree was terminated.`;
+        finish({
+          ok: false,
+          exitCode: 124,
+          timedOut: true,
+          response: parsed.assistantText,
+          stopReason: "timeout",
+          errorMessage: timeoutMsg,
+          model: parsed.model,
+          provider: parsed.provider,
+          usage: parsed.usage,
+          stderr: stderr.trim() ? `${stderr.trim()}\n${timeoutMsg}` : timeoutMsg,
+        });
+        return;
+      }
+      const exitCode = code ?? 1;
       const ok = exitCode === 0 && parsed.stopReason !== "error";
-      resolve({
+      finish({
         ok,
         exitCode,
+        timedOut: false,
         response: parsed.assistantText,
         stopReason: parsed.stopReason,
         errorMessage: parsed.errorMessage,
@@ -361,6 +460,10 @@ async function handleOmpRun(rawArgs) {
   }
   if (!cwd.trim()) {
     return { isError: true, content: [{ type: "text", text: "`cwd` is required." }] };
+  }
+  const timeoutParsed = parseTimeoutSeconds(rawArgs.timeoutSeconds);
+  if (timeoutParsed.error) {
+    return { isError: true, content: [{ type: "text", text: timeoutParsed.error }] };
   }
 
   const cliArgs = ["-p", "--mode", "json", "--no-session"];
@@ -383,13 +486,17 @@ async function handleOmpRun(rawArgs) {
   if (rawArgs.noSkills === true) {
     cliArgs.push("--no-skills");
   }
-  cliArgs.push(prompt);
 
   const useSubscription = rawArgs.useSubscription !== false;
-  const result = await executeOmp(cliArgs, path.resolve(cwd), useSubscription);
+  const result = await executeOmp(cliArgs, path.resolve(cwd), {
+    useSubscription,
+    promptStdin: prompt,
+    timeoutSeconds: timeoutParsed.value,
+  });
   const summary = {
     exitCode: result.exitCode,
     response: result.response,
+    ...(result.timedOut ? { timedOut: true } : {}),
     ...(result.model ? { model: result.model } : {}),
     ...(result.provider ? { provider: result.provider } : {}),
     ...(result.stopReason ? { stopReason: result.stopReason } : {}),
@@ -419,6 +526,10 @@ async function handleOmpTask(rawArgs) {
       content: [{ type: "text", text: "`task` and `cwd` are required." }],
     };
   }
+  const timeoutParsed = parseTimeoutSeconds(rawArgs.timeoutSeconds);
+  if (timeoutParsed.error) {
+    return { isError: true, content: [{ type: "text", text: timeoutParsed.error }] };
+  }
 
   const contextText = typeof rawArgs.context === "string" ? rawArgs.context.trim() : "";
   const fullPrompt = contextText ? `# Context\n${contextText}\n\n# Task\n${taskText}` : taskText;
@@ -433,14 +544,18 @@ async function handleOmpTask(rawArgs) {
   if (preset.thinking) {
     cliArgs.push("--thinking", preset.thinking);
   }
-  cliArgs.push(fullPrompt);
 
   const useSubscription = rawArgs.useSubscription !== false;
-  const result = await executeOmp(cliArgs, path.resolve(cwd), useSubscription);
+  const result = await executeOmp(cliArgs, path.resolve(cwd), {
+    useSubscription,
+    promptStdin: fullPrompt,
+    timeoutSeconds: timeoutParsed.value,
+  });
   const payload = {
     agent: agentName,
     exitCode: result.exitCode,
     findings: result.response,
+    ...(result.timedOut ? { timedOut: true } : {}),
     ...(result.model ? { model: result.model } : {}),
     ...(!result.ok && result.stderr ? { stderr: result.stderr } : {}),
     ...(result.errorMessage ? { errorMessage: result.errorMessage } : {}),

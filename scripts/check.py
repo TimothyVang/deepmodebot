@@ -27,7 +27,8 @@ WHITE_LABEL_EXEMPT = {
 }
 LOCAL_ONLY = {".git", ".scratch", ".worktrees", "__pycache__"}  # self-ignored work folders and caches, never shipped
 RULES_WINDOW_BYTES = 20_000  # about 5,000 tokens at 4 bytes each: what Claude Code keeps of a skill after compaction
-CORE_LINE_BYTES = 600  # deepmodebot's SKILL.md, playbooks and techniques: one instruction per line
+SKILL_BODY_MAX_BYTES = 24_000  # Antigravity truncates skill bodies above 24 KB
+CORE_LINE_BYTES = 600  # deepmodebot's SKILL.md, sibling SKILL.md, playbooks and techniques: one instruction per line
 # Reference skills hold cited facts that go stale; each SKILL.md states the date they were true as of.
 LIBRARY_SKILLS = ("agent-harnesses", "cloud-devsecops", "domain-rules", "frontend-ui", "secrets-and-auth",
                   "software-architecture")
@@ -205,15 +206,44 @@ for kind in ("playbooks", "techniques"):
     for md in sorted((skill_root / "references" / kind).glob("*.md")):
         if "Done when" not in md.read_text(encoding="utf-8"):
             problems.append(f"{md.relative_to(ROOT)}: no 'Done when' completion criterion")
-for md in [skill_root / "SKILL.md", *(skill_root / "references").glob("playbooks/*.md"),
-           *(skill_root / "references").glob("techniques/*.md"),
-           *ROOT.glob("plugins/*/.antigravity-plugin/skills/*/SKILL.md")]:
+core_mds = sorted({
+    *ROOT.glob("plugins/*/skills/*/SKILL.md"),
+    *(skill_root / "references").glob("playbooks/*.md"),
+    *(skill_root / "references").glob("techniques/*.md"),
+    *ROOT.glob("plugins/*/.antigravity-plugin/skills/*/SKILL.md"),
+})
+for md in core_mds:
     text = md.read_text(encoding="utf-8")
     body_start = text.find("\n---\n", 4) + 5 if text.startswith("---\n") else 0  # the frontmatter hook is one line
     for number, line in enumerate(text[body_start:].splitlines(), text[:body_start].count("\n") + 1):
         if len(line.encode("utf-8")) > CORE_LINE_BYTES:
             problems.append(f"{md.relative_to(ROOT)}:{number}: line is {len(line.encode('utf-8'))} bytes "
                             f"(max {CORE_LINE_BYTES} in core files; split it)")
+
+# references/catalog.md must list every playbook, principle, and technique file.
+catalog_path = skill_root / "references/catalog.md"
+if not catalog_path.is_file():
+    problems.append(f"{catalog_path.relative_to(ROOT)}: missing catalog.md")
+else:
+    catalog_text = catalog_path.read_text(encoding="utf-8")
+    for kind in ("playbooks", "principles", "techniques"):
+        for md in sorted((skill_root / "references" / kind).glob("*.md")):
+            if md.name not in catalog_text and f"`{md.stem}`" not in catalog_text:
+                problems.append(f"{catalog_path.relative_to(ROOT)}: missing entry for {kind}/{md.name}")
+
+# Every shipped command file must be registered in antigravity-guard.mjs SLASH_COMMANDS.
+plugin_root = skill_root.parents[1]
+guard_mjs = plugin_root / "scripts/antigravity-guard.mjs"
+if guard_mjs.is_file():
+    guard_text = guard_mjs.read_text(encoding="utf-8")
+    m_cmds = re.search(r"const\s+SLASH_COMMANDS\s*=\s*\[(.*?)\];", guard_text, re.S)
+    guard_cmds = set(re.findall(r'"(/[^"]+)"', m_cmds.group(1))) if m_cmds else set()
+    for cmd_md in sorted((plugin_root / "commands").glob("*.md")):
+        token = f"/{cmd_md.stem}"
+        if token not in guard_cmds:
+            problems.append(
+                f"{guard_mjs.relative_to(ROOT)}: SLASH_COMMANDS is missing {token!r} for {cmd_md.relative_to(ROOT)}"
+            )
 
 # Library skills carry the date their facts were checked; an old one is reported, not failed.
 for name in LIBRARY_SKILLS:
@@ -239,9 +269,26 @@ if fresh != llms.read_text(encoding="utf-8"):
 
 # SKILL.md puts the rules that must survive compaction first; the lookup tables start at "## Routes".
 skill_bytes = (skill_root / "SKILL.md").read_bytes()
+skill_text = skill_bytes.decode("utf-8")
+fm_end = skill_text.find("\n---\n", 4)
+skill_body_bytes = len(skill_text[fm_end + 5:].encode("utf-8")) if skill_text.startswith("---\n") and fm_end >= 0 else len(skill_bytes)
+if skill_body_bytes > SKILL_BODY_MAX_BYTES:
+    problems.append(
+        f"plugins/deepmodebot/skills/deepmodebot/SKILL.md: body is {skill_body_bytes} bytes "
+        f"(max {SKILL_BODY_MAX_BYTES} for zero-truncation loading)"
+    )
 window = skill_bytes.find(b"\n## Routes\n")
 if window < 0 or window > RULES_WINDOW_BYTES:
     problems.append(f"plugins/deepmodebot/skills/deepmodebot/SKILL.md: '## Routes' starts at byte {window}; the rules before it must fit in {RULES_WINDOW_BYTES} bytes")
+
+# Every shipped Node ESM script parses cleanly when node is available.
+node_exe = shutil.which("node")
+if node_exe:
+    for mjs in sorted(ROOT.glob("plugins/*/scripts/*.mjs")):
+        node_check = subprocess.run([node_exe, "--check", str(mjs)],
+                                    capture_output=True, text=True, encoding="utf-8", errors="replace")
+        if node_check.returncode:
+            problems.append(f"{mjs.relative_to(ROOT)}: node --check failed\n{(node_check.stdout + node_check.stderr).strip()}")
 
 # Every skill's own references and skill:// links resolve (check_skill.py, the per-skill checker).
 skill_dirs = sorted(str(p.parent) for p in [

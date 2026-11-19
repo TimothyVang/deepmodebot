@@ -1,6 +1,6 @@
 # Bug Fix
 
-Use when: something is broken and needs a fix. You own the task: plan, review, verify; delegate investigation and the fix to `task` subagents (pick reasoning level per job) and stay in the lead.
+Use when: something is broken and needs a fix. You own the task: plan, review, verify; delegate investigation and the fix to `task` subagents with pre-task model-tier selection (`skill://agent-harnesses/references/delegation-efficiency.md`: small for search/log-digests, mid/`medium` for oracle-backed fixes, flagship `L` for hard root-cause debugging and final review) and stay in the lead.
 
 Be scientific: every shipped line traces to runtime evidence. A "might help" belt-and-suspenders change is a hypothesis, not a fix. It does not ship. When evidence refutes a hypothesis, revert what it motivated. Ship the smallest change the evidence justifies.
 
@@ -14,7 +14,7 @@ Be scientific: every shipped line traces to runtime evidence. A "might help" bel
    - Long or stubborn hunt → keep looping (see **Run a goal**, `references/playbooks/run-a-goal.md`, for the wake mechanism) until one hypothesis survives.
    - Confirm the surviving *mechanism* with runtime evidence before planning the fix.
    - Done when one hypothesis remains and runtime output confirms its mechanism; every other one is eliminated by recorded evidence.
-3. Plan the fix. Changes a module or public interface with two or more viable shapes → the **architect** technique (`references/techniques/architect.md`) first. Size L or a fix that splits cleanly → delegate implementation to a default `task` agent with a specific scope and exclusive file ownership. Size M → make the fix yourself; review separation comes from the **pr-review** self-review (`references/techniques/pr-review.md`, local mode) before reporting.
+3. Plan the fix. Changes a module or public interface with two or more viable shapes → the **architect** technique (`references/techniques/architect.md`) first. Size L or a fix that splits cleanly → delegate implementation to a default `task` agent (tier pinned per `skill://agent-harnesses/references/delegation-efficiency.md`) with a specific scope and exclusive file ownership. Size M → make the fix yourself; review separation comes from the **pr-review** self-review (`references/techniques/pr-review.md`, local mode) before reporting.
    Done when the fix is implemented and, for Size M, the self-review has no open P0/P1.
 4. Verify on the same surface: the original repro now passes.
 5. Order the evidence so the failing repro is shown before the fix (`references/principles/sequence-verifiable-units.md`); when committing, that is also the commit order. Use the **tdd** technique (`references/techniques/tdd.md`) for failing-test-first when a cheap local test path exists; skip it when the test would be expensive, integration-heavy, or unclear.

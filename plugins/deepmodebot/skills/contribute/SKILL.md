@@ -17,7 +17,7 @@ Shell notes: all work stays inside the project's clone (deepmodebot's "Contain t
 
 ## Overlap tool
 
-Use the repo's copy when it exists, else the plugin's copy (omp: `skill://project-brief/assets/pr-overlap.py`; Claude Code: `<this skill's base directory>/../project-brief/assets/pr-overlap.py`):
+Use the repo's copy when it exists, else the plugin's copy (omp: `skill://project-brief/assets/pr-overlap.py`; Claude Code: `<this skill's base directory>/../project-brief/assets/pr-overlap.py`; Antigravity: `~/.gemini/config/plugins/deepmodebot/skills/project-brief/assets/pr-overlap.py` or `omp_resolve`):
 
 ```bash
 OVERLAP=scripts/pr-overlap.py; [ -f "$OVERLAP" ] || OVERLAP="skill://project-brief/assets/pr-overlap.py"
@@ -57,7 +57,7 @@ Released by @<login>: <one-line reason>
    - `viewerPermission` is not `WRITE`, `MAINTAIN`, or `ADMIN` → you can't push branches here. Tell the human you need a fork, and on their yes run `gh repo fork R --remote` (the fork becomes `origin`, the project becomes `upstream`). From then on "main" means `upstream`'s default branch.
    - Below, "main" means the default branch from `defaultBranchRef`, whatever its name.
 
-2. **Read the project.** From the repo root, read whichever exist: `docs/PROJECT_BRIEF.md`, `STACK.md`, `CONTRIBUTING.md`, `AGENTS.md` (or `CLAUDE.md`), `ROADMAP.md`, `.github/PULL_REQUEST_TEMPLATE.md`, and the verify skill (`.omp/skills/verify-*/SKILL.md`, or the path the brief names).
+2. **Read the project.** From the repo root, read whichever exist: `docs/PROJECT_BRIEF.md`, `STACK.md`, `CONTRIBUTING.md`, `AGENTS.md` (or `CLAUDE.md`), `ROADMAP.md`, `.github/PULL_REQUEST_TEMPLATE.md`, and the verify skill (`.omp/skills/verify-*/SKILL.md`, `.claude/skills/verify-*/SKILL.md`, `.agents/skills/verify-*/SKILL.md` for Antigravity/Codex, or the path the brief names).
    - No `docs/PROJECT_BRIEF.md` → tell the human the maintainer hasn't run `project-brief`, so there is no curated brief or claim board yet. Learn the project with the **how** technique (`skill://deepmodebot/references/techniques/how.md`) instead, and still use the overlap tool's plugin copy for PRs and claims.
    - No verify skill → note it; you'll prove changes by hand in step 7 (deepmodebot's **Prove it on the real artifact** rule covers the options).
 

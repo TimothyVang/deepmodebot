@@ -163,6 +163,41 @@ class AutoRouterTests(unittest.TestCase):
                     self.assertEqual(verdict["intent"], intent)
                     self.assertEqual(verdict["checkpoint_before_code"], checkpoint)
 
+    def test_routes_all_extended_playbooks_and_specialist_techniques(self):
+        cases = [
+            ("Run an SME review on our medical claims customer spec", "sme-review"),
+            ("Check the sme_gate before Sprint 2", "sme-review"),
+            ("Turn this vague goal into measurable milestones with goal-review", "goal-review"),
+            ("Review my goal with three agents before running the loop", "goal-review"),
+            ("Run the routing eval suite against our updated skill", "eval"),
+            ("Compare this skill against baseline before promotion", "eval"),
+            ("Hillclimb the parser throughput metric until it hits 50k/s", "hillclimb"),
+            ("Optimize the pass rate in a loop using autoresearch", "hillclimb"),
+            ("Record a visual E2E video of the invoice flow", "visual-e2e"),
+            ("Export editable design evidence to Penpot", "open-design-evidence"),
+            ("Explain native sibling messaging and agent-collaboration handoffs", "agent-collaboration"),
+            ("Which tool should we use here? Check tool-routing", "tool-routing"),
+            ("Build a quick prototype to settle the fork between SQLite and DuckDB", "prototype"),
+            ("Open a PR for this branch with our proof", "opening-a-pr"),
+            ("Ship this PR and verify trunk after merge", "shipping"),
+            ("Pause safely and save a resume note before I step away", "pause-safely"),
+            ("Pick up this handoff and continue from the resume note", "session-pickup"),
+            ("Clean up stale git worktrees under .worktrees", "worktree-cleanup"),
+            ("Reach visual-parity with pixel-diff zero against the Figma mockup", "visual-parity"),
+            ("Run a reference-rebuild to rebuild our UI to match Linear", "reference-rebuild"),
+            ("Run runtime-forensics to diagnose why this live worker is wedged", "runtime-forensics"),
+            ("Inspect this heap dump and CPU profile with trace-forensics", "trace-forensics"),
+            ("Build spec #14 in incremental sprints", "phased-build"),
+        ]
+        for prompt, expected in cases:
+            with self.subTest(prompt=prompt, expected=expected):
+                verdict = tournament.classify_prompt(prompt)
+                self.assertEqual(
+                    verdict["mode"],
+                    expected,
+                    f"prompt {prompt!r} routed to {verdict['mode']} ({verdict['reason']}), expected {expected}",
+                )
+
 
 class TournamentBracketTests(unittest.TestCase):
     def setUp(self):

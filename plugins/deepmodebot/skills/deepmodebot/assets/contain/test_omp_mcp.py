@@ -17,16 +17,23 @@ MCP_CONFIG = PLUGIN / "mcp_config.json"
 MOCK_OMP_PY = """import json
 import os
 import sys
+import time
 
 args = sys.argv[1:]
 if "--version" in args or "-v" in args:
     print("omp 18.20.0-mock")
     sys.exit(0)
 
+stdin_text = sys.stdin.read()
+if "__HANG__" in stdin_text:
+    time.sleep(60)
+
 record = {
     "args": args,
+    "stdin": stdin_text,
     "cwd": os.getcwd(),
     "has_anthropic_key": "ANTHROPIC_API_KEY" in os.environ,
+    "has_anthropic_auth_token": "ANTHROPIC_AUTH_TOKEN" in os.environ,
     "has_openai_key": "OPENAI_API_KEY" in os.environ,
     "has_codex_key": "CODEX_API_KEY" in os.environ,
 }
@@ -135,6 +142,7 @@ class OmpMcpServerTests(unittest.TestCase):
             "PI_CODING_AGENT_DIR",
             "PLUGIN_ROOT",
             "ANTHROPIC_API_KEY",
+            "ANTHROPIC_AUTH_TOKEN",
             "OPENAI_API_KEY",
             "CODEX_API_KEY",
         }
@@ -150,6 +158,7 @@ class OmpMcpServerTests(unittest.TestCase):
             "PLUGIN_ROOT": str(PLUGIN),
             "PATH": str(cls.bin_dir) + (os.pathsep + existing_path if existing_path else ""),
             "ANTHROPIC_API_KEY": "sk-ant-should-be-stripped",
+            "ANTHROPIC_AUTH_TOKEN": "tok-ant-should-be-stripped",
             "OPENAI_API_KEY": "sk-openai-should-be-stripped",
             "CODEX_API_KEY": "sk-codex-should-be-stripped",
         }
@@ -337,6 +346,7 @@ class OmpMcpServerTests(unittest.TestCase):
         self.assertEqual(res1["exitCode"], 0)
         inner1 = json.loads(res1["response"])
         self.assertFalse(inner1["has_anthropic_key"])
+        self.assertFalse(inner1["has_anthropic_auth_token"])
         self.assertFalse(inner1["has_openai_key"])
         self.assertFalse(inner1["has_codex_key"])
         self.assertIn("--model", inner1["args"])
@@ -346,11 +356,13 @@ class OmpMcpServerTests(unittest.TestCase):
         self.assertIn("--tools", inner1["args"])
         self.assertIn("read,grep", inner1["args"])
         self.assertIn("--no-skills", inner1["args"])
-        self.assertEqual(inner1["args"][-1], "Check status")
+        self.assertNotIn("Check status", inner1["args"])
+        self.assertEqual(inner1["stdin"], "Check status")
 
         res2 = json.loads(by_id[2]["result"]["content"][0]["text"])
         inner2 = json.loads(res2["response"])
         self.assertTrue(inner2["has_anthropic_key"])
+        self.assertTrue(inner2["has_anthropic_auth_token"])
         self.assertTrue(inner2["has_openai_key"])
         self.assertTrue(inner2["has_codex_key"])
 
@@ -391,14 +403,89 @@ class OmpMcpServerTests(unittest.TestCase):
         scout_inner = json.loads(scout_out["findings"])
         tools_idx = scout_inner["args"].index("--tools")
         self.assertEqual(scout_inner["args"][tools_idx + 1], "read,grep,glob,web_search")
-        self.assertIn("# Context", scout_inner["args"][-1])
+        self.assertIn("# Context", scout_inner["stdin"])
+        self.assertIn("Find entrypoints", scout_inner["stdin"])
         self.assertFalse(scout_inner["has_anthropic_key"])
+        self.assertFalse(scout_inner["has_anthropic_auth_token"])
 
         sec_out = json.loads(by_id[2]["result"]["content"][0]["text"])
         self.assertEqual(sec_out["agent"], "security-reviewer")
         sec_inner = json.loads(sec_out["findings"])
         sec_tools_idx = sec_inner["args"].index("--tools")
         self.assertEqual(sec_inner["args"][sec_tools_idx + 1], "read,grep,glob,bash,web_search")
+
+    def test_omp_run_timeout_kills_hung_child_and_rejects_invalid_timeout(self):
+        import time
+
+        started = time.monotonic()
+        responses = self.rpc_lines([
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "omp_run",
+                    "arguments": {
+                        "prompt": "__HANG__ simulate stuck subagent",
+                        "cwd": str(self.workspace),
+                        "timeoutSeconds": 0.25,
+                    },
+                },
+            },
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {
+                    "name": "omp_run",
+                    "arguments": {
+                        "prompt": "invalid timeout",
+                        "cwd": str(self.workspace),
+                        "timeoutSeconds": -5,
+                    },
+                },
+            },
+        ])
+        elapsed = time.monotonic() - started
+        self.assertLess(elapsed, 15.0, f"timeout kill took too long: {elapsed:.2f}s")
+        self.assertEqual([r["id"] for r in responses], [1, 2])
+        by_id = {r["id"]: r for r in responses}
+
+        self.assertTrue(by_id[1]["result"]["isError"])
+        timed_out_payload = json.loads(by_id[1]["result"]["content"][0]["text"])
+        self.assertEqual(timed_out_payload["exitCode"], 124)
+        self.assertTrue(timed_out_payload["timedOut"])
+        self.assertIn("timed out", timed_out_payload["errorMessage"])
+
+        self.assertTrue(by_id[2]["result"]["isError"])
+        self.assertIn("timeoutSeconds", by_id[2]["result"]["content"][0]["text"])
+
+    def test_omp_run_delivers_long_special_char_prompt_intact_via_stdin(self):
+        tricky = (
+            "Line 1: %PATH% %USERPROFILE% & echo INJECTED | cat < /dev/null > out\n"
+            "Line 2: \"double quotes\" and 'single quotes' and ^carets^ and !bangs!\n"
+            + ("0123456789abcdef" * 600)
+        )
+        self.assertGreater(len(tricky), 9000)
+        responses = self.rpc_lines([{
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "omp_run",
+                "arguments": {
+                    "prompt": tricky,
+                    "cwd": str(self.workspace),
+                },
+            },
+        }])
+        res = responses[0]["result"]
+        self.assertFalse(res.get("isError"), res)
+        outer = json.loads(res["content"][0]["text"])
+        self.assertEqual(outer["exitCode"], 0)
+        inner = json.loads(outer["response"])
+        self.assertEqual(inner["stdin"], tricky)
+        self.assertFalse(any("INJECTED" in arg or len(arg) > 500 for arg in inner["args"]))
 
 
 if __name__ == "__main__":

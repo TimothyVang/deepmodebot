@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Every serious project needs a scripted way to drive the real app and prove behavior: launch it, exercise a feature the way a user would, and capture evidence. This skill generates that as a project-local omp skill at `<repo>/.omp/skills/verify-<app>/`, which omp discovers automatically for every session in the repo. Write the output for the next agent, not for a human: it will be read cold, mid-task, by an agent that has never seen the app.
 
-Outside omp, write the same skill to the folder your harness discovers and substitute that path for `.omp/skills/` below: Claude Code reads `.claude/skills/verify-<app>/`, and Codex and most other agents read `.agents/skills/verify-<app>/` (`skill://agent-harnesses` has the map). Codex's sandbox makes `.agents/` read-only, so creating it there needs the user's approval.
+Outside omp, write the same skill to the folder your harness discovers and substitute that path for `.omp/skills/` below: Claude Code reads `.claude/skills/verify-<app>/`; Google Antigravity (`agy`/App/IDE; `.gemini/skills/` in workspace is ignored), Codex, and most other agents read `.agents/skills/verify-<app>/` (`skill://agent-harnesses`). Codex's sandbox makes `.agents/` read-only, so creating it there needs user approval.
 
 ## 1. Interview the repo, not the user
 
@@ -83,7 +83,7 @@ AGENTS.md template:
 
 Every behavior change must be proven on the running app before it's done. Passing tests are not proof.
 
-- Use the `verify-<app>` skill (`.omp/skills/verify-<app>/SKILL.md`). Read it before launching, driving, or debugging the app.
+- Use the `verify-<app>` skill (`.omp/skills/verify-<app>/SKILL.md`, or `.claude/skills/` / `.agents/skills/` for Claude Code, Antigravity, and Codex). Read it before launching, driving, or debugging the app.
 - Find the feature in `.omp/skills/verify-<app>/features/README.md` and follow its "Driving it" recipe.
 - Run `<doctor command>` first, and again whenever anything looks off. Never drive an instance you didn't launch.
 - Report evidence: commands run, screenshots/snapshots, observed end state. "Fixed" without artifacts is not done.

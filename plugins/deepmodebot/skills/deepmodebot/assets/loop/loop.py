@@ -5,8 +5,10 @@
     python loop.py manifest <manifest.json> [--sprint N] [--json] [--dry-run]
                                                         run slices in a scope manifest (--sprint N runs sprint <= N
                                                         and reports higher sprints deferred; --dry-run validates only)
-    python loop.py check <goal.md>                      validate the goal file, run its gates once
-    python loop.py run <goal.md> [--harness omp|claude|codex] [--max-iterations N] [--dry-run]
+    python loop.py status <goal.md> [--sprint N] [--json]
+                                                        inspect latest-summary, manifest/sprint state, and resume cmd
+    python loop.py check <goal.md> [--sprint N]         validate the goal file, run its gates once
+    python loop.py run <goal.md> [--harness omp|claude|codex] [--max-iterations N] [--sprint N] [--dry-run]
 
 A goal file is Markdown with frontmatter (one `key: value` per line):
     goal: one-line objective
@@ -1014,6 +1016,27 @@ def revert_failed_iteration(root, goal_path, allowed, base):
         handle.write(goal_bytes)
 
 
+def discover_manifests(root):
+    """Find valid `*-manifest.json` files under `docs/specs/` and `.scratch/goals/`."""
+    valid = []
+    for rel_dir in ("docs/specs", ".scratch/goals"):
+        folder = os.path.join(root, rel_dir)
+        if not os.path.isdir(folder):
+            continue
+        for entry in sorted(os.listdir(folder)):
+            if not entry.endswith("-manifest.json"):
+                continue
+            rel_path = f"{rel_dir}/{entry}"
+            if not os.path.isfile(os.path.join(root, rel_path)):
+                continue
+            try:
+                norm_rel, _ = load_manifest(rel_path, root, "audit")
+            except SystemExit:
+                continue
+            valid.append(norm_rel)
+    return valid
+
+
 def audit_repo(root):
     """Inspect a git repo's inner-loop feedback gates and return a structured readiness report."""
     static_checks = []
@@ -1112,10 +1135,14 @@ def audit_repo(root):
 
     configs = discover_guardrail_configs(root)
     pyproject_guarded = sorted(name for name in PYPROJECT_GUARDRAIL_TOOLS if name in pyproject_tools)
+    manifests = discover_manifests(root)
+    detected_manifest = manifests[0] if len(manifests) == 1 else ""
     protect_candidates = list(configs)
     for candidate in ("tests", "test", "scripts/check.py"):
         if os.path.lexists(os.path.join(root, candidate)) and candidate not in protect_candidates:
             protect_candidates.append(candidate)
+    if detected_manifest and detected_manifest not in protect_candidates:
+        protect_candidates.append(detected_manifest)
 
     gaps = []
     if not static_checks:
@@ -1136,6 +1163,16 @@ def audit_repo(root):
     else:
         check_cmd = "false"
 
+    recommended = {
+        "fast_check": fast_cmd,
+        "check": check_cmd,
+        "protect": " ".join(protect_candidates) if protect_candidates else "none",
+        "forbid_slop": True,
+        "protect_configs": True,
+    }
+    if detected_manifest:
+        recommended["manifest"] = detected_manifest
+
     return {
         "root": root,
         "ready": bool(static_checks and test_checks),
@@ -1149,15 +1186,10 @@ def audit_repo(root):
             "protect_configs": configs,
             "pyproject_guardrail_sections": pyproject_guarded,
             "protect_candidates": protect_candidates,
+            "manifests": manifests,
         },
         "gaps": gaps,
-        "recommended": {
-            "fast_check": fast_cmd,
-            "check": check_cmd,
-            "protect": " ".join(protect_candidates) if protect_candidates else "none",
-            "forbid_slop": True,
-            "protect_configs": True,
-        },
+        "recommended": recommended,
     }
 
 
@@ -1175,6 +1207,8 @@ def write_goal_scaffold(report, dest_arg):
         "---",
         "goal: Replace with one-sentence verifiable objective",
     ]
+    if rec.get("manifest"):
+        lines.append(f"manifest: {rec['manifest']}")
     if rec["fast_check"]:
         lines.append(f"fast_check: {rec['fast_check']}")
     lines.extend([
@@ -1307,12 +1341,12 @@ def active_sme_blockers(manifest_data, active_slices):
     return blockers
 
 
-def build_scope_summary(manifest_rel, manifest_data, active_sprint=None, manifest_summary=None):
+def build_scope_summary(manifest_rel, manifest_data, active_sprint=None, manifest_summary=None, sprint_source=None):
     active_slices, deferred_slices = partition_manifest_slices(manifest_data, active_sprint)
     deferred_ids = [item["id"].strip() for item in deferred_slices]
     inv_counts, pending_ids = summarize_inventory(manifest_data)
     sme_blockers = active_sme_blockers(manifest_data, active_slices)
-    return {
+    scope = {
         "manifest": manifest_rel,
         "active_sprint": active_sprint,
         "passed_slices": manifest_summary["passed"] if manifest_summary is not None else 0,
@@ -1325,6 +1359,9 @@ def build_scope_summary(manifest_rel, manifest_data, active_sprint=None, manifes
         "sme_gate_blocked": bool(sme_blockers),
         "sme_gate_blockers": sme_blockers,
     }
+    if sprint_source:
+        scope["active_sprint_source"] = sprint_source
+    return scope
 
 
 def _append_manifest_scope_lines(lines, manifest_data, deferred_slices, inv_counts, pending_ids):
@@ -1542,6 +1579,8 @@ def run_audit_cli(opts):
         if report["guardrails"]["pyproject_guardrail_sections"]:
             sections = ", ".join(f"[tool.{s}]" for s in report["guardrails"]["pyproject_guardrail_sections"])
             print(f"  pyproject_guardrails: {sections}")
+        if report["guardrails"].get("manifests"):
+            print(f"  manifests: {', '.join(report['guardrails']['manifests'])}")
         if report["gaps"]:
             print("  gaps:")
             for gap in report["gaps"]:
@@ -1609,23 +1648,160 @@ def run_manifest_cli(opts):
     return 0 if code == 0 else 1
 
 
+def read_last_trail_row(trail_path):
+    if not os.path.isfile(trail_path):
+        return None
+    try:
+        with open(trail_path, encoding="utf-8", errors="replace") as handle:
+            lines = [line.rstrip("\r\n") for line in handle if line.strip()]
+    except OSError:
+        return None
+    if len(lines) < 2:
+        return None
+    headers = lines[0].split("\t")
+    values = lines[-1].split("\t")
+    return {headers[idx]: values[idx] if idx < len(values) else "" for idx in range(len(headers))}
+
+
+def run_status_cli(opts, fields, goal_rel, manifest_rel, manifest_data, active_sprint, sprint_source,
+                   harness, trail, trail_rel, latest_summary_path, latest_summary_rel):
+    summary = None
+    if os.path.isfile(latest_summary_path):
+        try:
+            with open(latest_summary_path, encoding="utf-8") as handle:
+                parsed = json.load(handle)
+            if isinstance(parsed, dict):
+                summary = parsed
+        except (OSError, ValueError):
+            summary = None
+    last_trail = read_last_trail_row(trail)
+
+    effective_sprint = active_sprint
+    effective_source = sprint_source
+    if effective_sprint is None and summary and isinstance(summary.get("scope"), dict):
+        prev_sprint = summary["scope"].get("active_sprint")
+        if isinstance(prev_sprint, int) and not isinstance(prev_sprint, bool) and prev_sprint >= 1:
+            effective_sprint = prev_sprint
+            effective_source = summary["scope"].get("active_sprint_source") or "summary"
+
+    scope = None
+    next_sprint = None
+    if manifest_data is not None:
+        prev_scope = summary.get("scope") if (summary and isinstance(summary.get("scope"), dict)) else None
+        prev_manifest_summary = None
+        if prev_scope and prev_scope.get("active_sprint") == effective_sprint:
+            prev_manifest_summary = {
+                "passed": prev_scope.get("passed_slices", 0),
+                "scope_complete": prev_scope.get("scope_complete", False),
+            }
+        scope = build_scope_summary(
+            manifest_rel, manifest_data, effective_sprint,
+            manifest_summary=prev_manifest_summary, sprint_source=effective_source,
+        )
+        _, deferred_objs = partition_manifest_slices(manifest_data, effective_sprint)
+        if deferred_objs:
+            next_sprint = min(item.get("sprint", 1) for item in deferred_objs)
+            scope["next_sprint"] = next_sprint
+
+    if summary is None:
+        status_label = "not_started"
+    elif summary.get("exit_code") == 0:
+        status_label = "sprint_complete" if (scope and scope["deferred_slices"]) else "complete"
+    elif summary.get("exit_reason") == "sme_gate_required" or (scope and scope["sme_gate_blocked"]):
+        status_label = "blocked_sme_gate"
+    elif summary.get("exit_code") == 6:
+        status_label = "checkpoint"
+    else:
+        status_label = str(summary.get("exit_reason") or "stopped")
+
+    sprint_flag = f" --sprint {effective_sprint}" if effective_sprint is not None else ""
+    if scope and scope["sme_gate_blocked"]:
+        resume_note = SME_GATE_MESSAGE
+        resume_command = f"python loop.py run {goal_rel}{sprint_flag}"
+    elif scope and scope["pending_inventory"]:
+        resume_note = (
+            f"Classify {len(scope['pending_inventory'])} pending inventory item(s) in {manifest_rel} before resuming."
+        )
+        resume_command = f"python loop.py run {goal_rel}{sprint_flag}"
+    elif summary is not None and summary.get("exit_code") == 0 and scope and scope["deferred_slices"]:
+        resume_note = (
+            f"Sprint {effective_sprint} passed; advance to sprint {next_sprint} "
+            f"({len(scope['deferred_slices'])} deferred slice(s) remain)."
+        )
+        resume_command = f"python loop.py run {goal_rel} --sprint {next_sprint}"
+    elif summary is not None and summary.get("exit_code") == 0:
+        resume_note = "Goal complete; no resume needed."
+        resume_command = None
+    else:
+        resume_note = "Run or resume the goal loop."
+        resume_command = f"python loop.py run {goal_rel}{sprint_flag}"
+
+    payload = {
+        "status": status_label,
+        "goal": fields["goal"],
+        "goal_file": goal_rel,
+        "harness": summary.get("harness", harness) if summary else harness,
+        "iterations_run": summary.get("iterations_run", 0) if summary else 0,
+        "last_exit_code": summary.get("exit_code") if summary else None,
+        "last_exit_reason": summary.get("exit_reason") if summary else None,
+        "last_trail": last_trail,
+        "latest_summary": latest_summary_rel if summary else None,
+        "trail": trail_rel if last_trail else None,
+        "scope": scope,
+        "resume_note": resume_note,
+        "resume_command": resume_command,
+    }
+    if opts.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        print(f"goal status ({status_label}): {payload['goal']}")
+        print(f"  goal_file: {goal_rel} | harness: {payload['harness']} | iterations_run: {payload['iterations_run']}")
+        if summary is not None:
+            print(f"  last_run: exit {payload['last_exit_code']} ({payload['last_exit_reason']}) [{latest_summary_rel}]")
+        if last_trail is not None:
+            print(
+                f"  last_trail: iter {last_trail.get('iteration')} harness_exit={last_trail.get('harness_exit')} "
+                f"check_exit={last_trail.get('check_exit')} stage={last_trail.get('stage')}"
+            )
+        if scope is not None:
+            print(
+                f"  manifest: {manifest_rel} (active_sprint={scope['active_sprint']}, "
+                f"deferred={len(scope['deferred_slices'])}/{scope['total_slices']}, "
+                f"scope_complete={scope['scope_complete']})"
+            )
+            if scope["deferred_slices"]:
+                print(f"  deferred_slices: {', '.join(scope['deferred_slices'])}")
+            inv_parts = ", ".join(f"{k}={scope['inventory_counts'][k]}" for k in INVENTORY_STATUSES)
+            print(f"  inventory: {inv_parts}")
+            if scope["sme_gate_blocked"]:
+                print(f"  sme_gate_blocked: True ({', '.join(scope['sme_gate_blockers'])})")
+            else:
+                print("  sme_gate_blocked: False")
+        print(f"  resume_note: {resume_note}")
+        if resume_command:
+            print(f"  resume: {resume_command}")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("action", choices=["audit", "manifest", "check", "run"])
-    parser.add_argument("goal", nargs="?", help="goal.md for check/run, manifest.json for manifest, or repo path for audit")
+    parser.add_argument("action", choices=["audit", "manifest", "status", "check", "run"])
+    parser.add_argument("goal", nargs="?", help="goal.md for status/check/run, manifest.json for manifest, or repo path for audit")
     parser.add_argument("--harness")
     parser.add_argument("--max-iterations", type=int)
     parser.add_argument("--sprint", type=int,
-                        help="evaluate manifest slices with sprint <= N and report higher sprints deferred (manifest only)")
+                        help="evaluate manifest slices with sprint <= N and report higher sprints deferred (manifest, status, check, run)")
     parser.add_argument("--check-minutes", type=float, default=15.0, help="per-slice timeout in minutes (manifest only)")
     parser.add_argument("--dry-run", action="store_true",
                         help="run: print the harness command and run nothing, not even the check; "
                              "manifest: validate the schema without running slice checks")
-    parser.add_argument("--json", action="store_true", help="print JSON output (audit and manifest)")
+    parser.add_argument("--json", action="store_true", help="print JSON output (audit, manifest, and status)")
     parser.add_argument("--strict", action="store_true", help="exit 1 when static or test inner-loop checks are missing (audit only)")
     parser.add_argument("--write-goal", help="write a starter goal contract inside the project root (audit only)")
     opts = parser.parse_args()
 
+    if opts.sprint is not None and opts.sprint < 1:
+        raise SystemExit("--sprint must be a positive integer")
     if opts.action == "audit":
         return run_audit_cli(opts)
     if opts.action == "manifest":
@@ -1633,7 +1809,7 @@ def main():
             raise SystemExit("--check-minutes must be a positive number")
         return run_manifest_cli(opts)
     if not opts.goal:
-        raise SystemExit("loop.py check and run require a <goal.md> path")
+        raise SystemExit(f"loop.py {opts.action} requires a <goal.md> path")
 
     fields, digest, plan = parse(opts.goal)
     root = project_root(opts.goal)
@@ -1643,7 +1819,12 @@ def main():
     revert_on_fail = parse_bool(fields, "revert_on_fail", False, opts.goal)
     manifest_arg = fields.get("manifest", "").strip()
     manifest_rel, manifest_data = load_manifest(manifest_arg, root, opts.goal) if manifest_arg else ("", None)
-    active_sprint = int(fields["active_sprint"]) if "active_sprint" in fields else None
+    if opts.sprint is not None and manifest_data is None:
+        raise SystemExit("--sprint requires a manifest in the goal frontmatter")
+    frontmatter_sprint = int(fields["active_sprint"]) if "active_sprint" in fields else None
+    active_sprint = opts.sprint if opts.sprint is not None else frontmatter_sprint
+    sprint_source = "cli" if opts.sprint is not None else ("frontmatter" if frontmatter_sprint is not None else None)
+    sprint_overridden = opts.sprint is not None and opts.sprint != frontmatter_sprint
     protect = protected_paths(fields, root, opts.goal)
     harness = opts.harness or fields.get("harness", "omp")
     if harness not in ("omp", "claude", "codex"):
@@ -1656,6 +1837,14 @@ def main():
     log_dir = os.path.join(root, ".scratch", "goals", slug)
     trail = os.path.join(log_dir, "trail.tsv")
     trail_rel = os.path.relpath(trail, root).replace(os.sep, "/")
+    latest_summary_path = os.path.join(log_dir, "latest-summary.json")
+    latest_summary_rel = os.path.relpath(latest_summary_path, root).replace(os.sep, "/")
+
+    if opts.action == "status":
+        return run_status_cli(
+            opts, fields, goal_rel, manifest_rel, manifest_data, active_sprint, sprint_source,
+            harness, trail, trail_rel, latest_summary_path, latest_summary_rel,
+        )
     protect_text = " ".join(protect) or "none"
     fast_cmd = fields.get("fast_check", "").strip()
     manifest_clause = f", scope manifest (`{manifest_rel}`)," if manifest_rel else ""
@@ -1724,7 +1913,10 @@ def main():
         absent = [path for path in protect if not os.path.lexists(os.path.join(root, path))]
         print(f"goal ok: {fields['goal']}\nprotected: {protect_text}")
         if manifest_rel:
-            sprint_note = f", active_sprint={active_sprint}" if active_sprint is not None else ""
+            sprint_note = (
+                f", active_sprint={active_sprint}" + (" (CLI override)" if sprint_overridden else "")
+                if active_sprint is not None else ""
+            )
             print(f"manifest: {manifest_rel} ({len(manifest_data['slices'])} slices{sprint_note})")
         if fast_cmd:
             print(f"fast_check: {fast_cmd}")
@@ -1782,10 +1974,10 @@ def main():
     run_id = f"{time.strftime('%Y%m%dT%H%M%S')}-{os.getpid()}"
     run_started = time.time()
     summary_path = os.path.join(log_dir, f"{run_id}-summary.json")
-    latest_summary_path = os.path.join(log_dir, "latest-summary.json")
-    latest_summary_rel = os.path.relpath(latest_summary_path, root).replace(os.sep, "/")
     guard = protect_digest(root, protect)
     config_guard = guardrail_state(root, own) if protect_configs else {}
+    if sprint_overridden:
+        print(f"using CLI --sprint {active_sprint} override (goal frontmatter unchanged)")
 
     last_output, unchanged = output, 0
     last_post_harness = workspace_state(root, own)
@@ -1840,7 +2032,9 @@ def main():
             "trail": trail_rel,
         }
         if manifest_data is not None:
-            payload["scope"] = build_scope_summary(manifest_rel, manifest_data, active_sprint, last_manifest_summary)
+            payload["scope"] = build_scope_summary(
+                manifest_rel, manifest_data, active_sprint, last_manifest_summary, sprint_source=sprint_source
+            )
         encoded = json.dumps(payload, indent=2) + "\n"
         with open(summary_path, "w", encoding="utf-8") as handle:
             handle.write(encoded)
