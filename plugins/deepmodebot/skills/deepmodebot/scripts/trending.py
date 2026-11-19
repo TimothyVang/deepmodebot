@@ -26,6 +26,7 @@ from pathlib import Path
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 REFERENCE_FILE = SKILL_DIR / "assets" / "repo-references.json"
+RETRY_FAILED_REFERENCES_SECONDS = 3600
 REFERENCE_REVISION = hashlib.sha256(REFERENCE_FILE.read_text(encoding="utf-8").encode("utf-8")).hexdigest()
 sys.path.insert(0, str(SKILL_DIR / "assets" / "github-app"))
 import brand  # noqa: E402  (the repo that publishes the catalog)
@@ -205,8 +206,28 @@ def _valid_reference_shape(reference):
             and isinstance(reference.get("caution"), str))
 
 
+def _optional_text(value):
+    return value is None or isinstance(value, str)
+
+
+def _valid_entry(entry):
+    """Fields `render` and `find` read; anything else is a malformed cache or published entry."""
+    return (isinstance(entry, dict)
+            and all(isinstance(entry.get(key), str) for key in ("name", "url", "description", "first_seen", "last_seen"))
+            and all(type(entry.get(key)) is int for key in ("stars", "stars_first_seen"))
+            and isinstance(entry.get("topics"), list) and all(isinstance(topic, str) for topic in entry["topics"])
+            and _optional_text(entry.get("language")) and _optional_text(entry.get("license")))
+
+
 def _normalize_catalog(catalog):
+    if (not isinstance(catalog, dict) or not isinstance(catalog.get("repos"), dict)
+            or not isinstance(catalog.get("sources"), dict) or not _optional_text(catalog.get("updated"))):
+        raise ValueError("catalog is not an object with repos, sources and updated")
     for name, entry in list(catalog["repos"].items()):
+        if not _valid_entry(entry):
+            catalog["repos"].pop(name)
+            catalog.pop("reference_revision", None)
+            continue
         repository_id = entry.get("github_id")
         if repository_id is not None and not _valid_github_id(repository_id):
             catalog["repos"].pop(name)
@@ -233,7 +254,10 @@ def _normalize_catalog(catalog):
 
 def load_catalog(path):
     if path.is_file():
-        return _normalize_catalog(json.loads(path.read_text(encoding="utf-8")))
+        try:
+            return _normalize_catalog(json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, ValueError, RecursionError) as err:
+            print(f"warning: ignoring unreadable cache {path} ({err}); it will be rebuilt", file=sys.stderr)
     return {"updated": None, "sources": {}, "repos": {}}
 
 
@@ -392,8 +416,11 @@ def update(args):
     catalog["sources"] = status
     if reference_ready:
         catalog["reference_revision"] = REFERENCE_REVISION
+        catalog.pop("reference_attempt", None)
     else:
         catalog.pop("reference_revision", None)
+        # One unresolvable reference must not force a full rebuild on every find (see recently_attempted).
+        catalog["reference_attempt"] = {"revision": REFERENCE_REVISION, "at": time.time()}
 
     args.out.mkdir(parents=True, exist_ok=True)
     catalog_path.write_text(json.dumps(catalog, indent=1, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
@@ -483,6 +510,14 @@ def is_stale(catalog) -> bool:
             or catalog.get("reference_revision") != REFERENCE_REVISION)
 
 
+def recently_attempted(catalog) -> bool:
+    """A same-day catalog whose reference refresh failed within the hour: skip the rebuild, still report stale."""
+    attempt = catalog.get("reference_attempt")
+    at = attempt.get("at") if isinstance(attempt, dict) else None
+    return (catalog["updated"] == today().isoformat() and isinstance(attempt, dict) and attempt.get("revision") == REFERENCE_REVISION
+            and isinstance(at, (int, float)) and 0 <= time.time() - at < RETRY_FAILED_REFERENCES_SECONDS)
+
+
 def fetch_published(out: Path, local) -> bool:
     """Copy a reference-compatible newer catalog or fresh same-day revision.
     Return freshness of the stored copy, not just the response."""
@@ -490,7 +525,7 @@ def fetch_published(out: Path, local) -> bool:
         return False
     try:
         published = _normalize_catalog(json.loads(fetch(PUBLISHED, None)))
-    except (urllib.error.URLError, OSError, ValueError) as err:
+    except (urllib.error.URLError, OSError, ValueError, RecursionError) as err:
         print(f"warning: could not read the published catalog ({err})", file=sys.stderr)
         return False
     if published.get("reference_revision") != REFERENCE_REVISION:
@@ -517,7 +552,10 @@ def find(args):
     out = args.out or project_cache()
     catalog_path = out / "catalog.json"
     catalog = load_catalog(catalog_path)
-    if not args.no_refresh and is_stale(catalog) and not fetch_published(out, catalog):
+    if recently_attempted(catalog) and not args.no_refresh:
+        print("warning: some cited references could not be resolved within the last hour; "
+              "searching the current catalog without another rebuild", file=sys.stderr)
+    elif not args.no_refresh and is_stale(catalog) and not fetch_published(out, catalog):
         print(f"catalog last updated {catalog['updated']}; rebuilding it", file=sys.stderr)
         try:
             update(argparse.Namespace(out=out))
