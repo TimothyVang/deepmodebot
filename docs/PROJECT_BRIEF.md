@@ -2,7 +2,7 @@
 
 Start here if you're new to this repo, human or agent. `/deepmodebot:contribute` reads this file first.
 
-Last refreshed: 2026-11-18. The manifest and live issue board are authoritative for the current version and available work.
+Last refreshed: 2026-11-19. The manifest and live issue board are authoritative for the current version and available work.
 
 ## What and why
 
@@ -46,13 +46,13 @@ Known gaps reserved for contributors:
 | `plugins/deepmodebot/skills/agent-harnesses/`, `software-architecture/`, `secrets-and-auth/`, `cloud-devsecops/`, `domain-rules/`, `frontend-ui/` | Cited domain references | Each skill's `SKILL.md` |
 | `plugins/deepmodebot/skills/deepmodebot/assets/github-app/` | App identity, polling, ACP conversations, verification and merge gates | `bot.py`, `ghapp.py`, `install.py` |
 | `plugins/deepmodebot/skills/deepmodebot/assets/pr-conversation/` | Text and 8-bit displays of real PR and issue threads | `show_thread.py`, `arena.py` |
-| Other main-skill `assets/` folders | Containment, git guards, goal loops (`loop.py` `status`/`manifest`/`check`/`run`/`audit` with `--sprint`, `inventory`, `sme_gate`, escalation/fallback), wizards, security checks and media helpers | The script named by the technique |
+| Other main-skill `assets/` folders | Containment, git guards, goal loops (`loop.py` `status`/`manifest`/`check`/`run`/`audit` with `--sprint`, `inventory`, `sme_gate`, escalation/fallback), zero-bloat workspace/Orca/PR index (`workspace_map.py`), wizards, security checks and media helpers | The script named by the technique |
 | `plugins/deepmodebot/skills/deepmodebot/scripts/` | Skill validation and trending discovery | `check_skill.py`, `trending.py` |
 | `plugins/deepmodebot/skills/project-brief/`, `contribute/` | Maintainer and contributor workflows | `SKILL.md`, `assets/` |
 | `plugins/deepmodebot/skills/deep-stack/` and the verification skills | Stack choices and reusable app verification | `SKILL.md` |
 | `plugins/deepmodebot/commands/` | `deep`, `tournament`, `review-pr`, `land-pr`, `pr-thread`, `contribute`, `project-brief` | The corresponding command file |
 | `brand/`, `scripts/whitelabel.py`, `scripts/media/` | Brand inputs, distribution builds and rendered media | `brand/brand.json`, `scripts/whitelabel.py` |
-| `scripts/` | Repository gate (`check.py`: 12 test dirs, `<24 KB` `SKILL.md`, `catalog.md`, `node --check`, manifests), overlap checks, claim tests and roadmap generation | `check.py`, `pr-overlap.py`, `sync-roadmap.py` |
+| `scripts/` | Repository gate (`check.py`: 13 test dirs, `<24 KB` `SKILL.md`, `catalog.md`, `node --check`, manifests), overlap checks, claim tests and roadmap generation | `check.py`, `pr-overlap.py`, `sync-roadmap.py` |
 | `evals/` | Routing and outcome evaluations with committed results | `evals/README.md` |
 | `trending/` | Generated repository catalog | `trending/README.md` |
 | `docs/` | Published site, machine-readable documentation and images | `index.html`, `llms.txt` |

@@ -1,6 +1,6 @@
 # Deepmodebot catalog
 
-On-demand index of deepmodebot's autonomous modes, all 30 playbooks, 51 techniques, 24 principles, and habits. `SKILL.md` holds the binding rules and compact router; read only the section and linked file your task needs. Paths are relative to this skill.
+On-demand index of deepmodebot's autonomous modes, all 30 playbooks, 52 techniques, 24 principles, and habits. `SKILL.md` holds the binding rules and compact router; read only the section and linked file your task needs. Paths are relative to this skill.
 
 ## Running without the human
 
@@ -57,9 +57,11 @@ Every playbook lives at `references/playbooks/<file>.md`. Open a `todo` list wit
 
 Large cross-cutting work with no clean fit, or step-away work that must be trusted later, routes to `references/techniques/figure-it-out.md` (designs a bespoke rigorous playbook). Standing multi-day programs route to `references/playbooks/run-a-goal.md` at program scale.
 
-## Full technique triggers (51)
+## Full technique triggers (52)
 
 Each technique is one file at `references/techniques/<name>.md`. Read only what applies; skip for size **S**. Technique and playbook names mean deepmodebot's files, not same-named global skills (`skill://tdd`, `skill://prototype`, `skill://teach`, `skill://wizard`, `skill://retro`, `skill://handoff`).
+
+- **Fast orientation, Orca/git worktrees, own PRs, or manifest state** → **workspace-map** (`references/techniques/workspace-map.md`): zero-bloat memory-mapped SQLite/FTS5 index (`assets/workspace-map/workspace_map.py` `overview`/`query`/`workspaces`/`prs`/`sync`/`prune`), shared per repo across worktrees (~300-token turn-1 map).
 
 - **Before building anything new** → **prior-art** (`references/techniques/prior-art.md`): check trending first (`python -B scripts/trending.py find <terms>`), then GitHub, registries, and docs; check license before copying or forking.
 - **Module/interface with 2+ viable shapes** → **architect** (`references/techniques/architect.md`) before coding; skip for small edits crossing one function boundary.

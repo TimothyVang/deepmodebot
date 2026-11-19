@@ -30,7 +30,7 @@ Applies to every route and harness. Slicing sequences verification; it never shr
 
 `/deep <anything>` routes and sizes without asking which mode to use.
 
-**1. Look around (read-only).** Find root (`git rev-parse --show-toplevel`), `git remote`, `docs/PROJECT_BRIEF.md`, `STACK.md`, and verify skills (`.omp/skills/verify-*`, `.claude/skills/verify-*`, `.agents/skills/verify-*`). Only GitHub delivery needs `gh repo view --json nameWithOwner,viewerPermission,isEmpty` and `gh api user -q .login`. Outside/empty repo: Contain the work.
+**1. Look around (read-only).** Find root (`git rev-parse --show-toplevel`), `git remote`, `docs/PROJECT_BRIEF.md`, `STACK.md`, and verify skills (`.omp/skills/verify-*`, `.claude/skills/verify-*`, `.agents/skills/verify-*`); prefer `workspace_map.py overview` (**workspace-map**) for ~300-token orientation. GitHub delivery also checks `gh repo view --json nameWithOwner,viewerPermission,isEmpty` and `gh api user -q .login`. Outside/empty repo: Contain the work.
 **Process conflicts:** run Setup's check (`references/playbooks/setup.md`, two upfront owner yeses before rewriting rule files). Read-only repos keep maintainers' process.
 
 **2. Route by intent and vagueness.** Match `## Routes` below (first match wins). When ambiguous, pipe to `python -B "<this skill>/assets/tournament/tournament.py" route --stdin --json <<'EOF'`. Concrete tasks run directly; draft plans take **grill**; open architecture/research gaps or vague ambitions take **tournament** (`references/techniques/tournament.md`).
@@ -111,7 +111,7 @@ For **S**, only one-line restate, Scope ledger, real-artifact proof, and (if lan
 
 ## Routes
 
-Step 2 of Route. First match wins. Techniques: `references/techniques/<name>.md`; playbooks: `references/playbooks/<file>.md`. Full catalog (30 playbooks, 51 techniques, 24 principles): `references/catalog.md`.
+Step 2 of Route. First match wins. Techniques: `references/techniques/<name>.md`; playbooks: `references/playbooks/<file>.md`. Full catalog (30 playbooks, 52 techniques, 24 principles): `references/catalog.md`.
 
 | Request or repo looks like | Route |
 |---|---|
@@ -138,6 +138,7 @@ Step 2 of Route. First match wins. Techniques: `references/techniques/<name>.md`
 | Complex domain / customer spec / "SME in the loop" (**sme-review**); client/SME "questionnaire" (**questionnaire**) | Named technique |
 | "hand this off", "continue in a new session", background handoff | `handoff` |
 | "tighten / audit / harden inner loop", "stop AI code slop", block slop before loops | **inner-loop** |
+| "index / map workspace", "list Orca worktrees / open PRs", "find symbol fast" | **workspace-map** (`references/techniques/workspace-map.md`) |
 | "write/improve prompt, skill, goal, or loop", repeated workflow | `self-authoring` |
 | Writing/editing a skill (`SKILL.md`) | `authoring-a-skill` (**writing-for-agents** first) |
 | Writing/editing/generating `AGENTS.md`, `CLAUDE.md`, rule file, brief | **writing-for-agents** (`assets/agents-md/agents_md.py`) |
@@ -167,10 +168,10 @@ List matched steps (`<n>. <short imperative>`) in `todo` first; note skips. Full
 
 ## Technique triggers
 
-M/L when a rule changes work; skip for S. All 51 techniques: `references/catalog.md`. Names mean deepmodebot's files, not global skills.
+M/L when a rule changes work; skip for S. All 52 techniques: `references/catalog.md`. Names mean deepmodebot's files, not global skills.
 
 - **New build** → **prior-art** (`scripts/trending.py`). **2+ shapes** → **architect**. **Open gaps/vague** → **tournament**. **Draft plan** → **grill**.
-- **Complex domain/spec** → **sme-review** + **questionnaire**. **Loops/queues/slop** → **inner-loop**. **Rate limits/tokens** → `guard-the-context-window` + `delegation-efficiency.md`.
+- **Complex domain/spec** → **sme-review** + **questionnaire**. **Loops/queues/slop** → **inner-loop**. **Orientation/Orca/PRs/tokens** → **workspace-map** + `guard-the-context-window` + `delegation-efficiency.md`.
 - **Numbers** → **benchmark-checklist**. **Prose** → **unslop** + **technical-writing**. **Pre-review** → **no-comments**. **Repeated correction** → **correct** + `self-authoring`.
 - **Terms/ADRs** → **domain-model**. **Research** → **research**. **Issues** → **tracker**. **Fan-out** → **swarm** / **arena**. **Contested design** → **interrogate** (run-proved).
 

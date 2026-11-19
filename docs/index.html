@@ -39,7 +39,7 @@
   "license": "https://opensource.org/licenses/MIT",
   "image": "https://timothyvang.github.io/deepmodebot/images/og.png",
   "screenshot": "https://timothyvang.github.io/deepmodebot/images/pr-19-thread.gif",
-  "dateModified": "2026-11-18",
+  "dateModified": "2026-11-19",
   "author": {"@type": "Person", "name": "TimothyVang", "url": "https://github.com/TimothyVang"},
   "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
   "keywords": "AI code review, GitHub App, PR bots, autonomous merge, verifier panel, ACP, acpx, omp, Claude Code, Codex, Google Antigravity, software factory, spec, tickets, TDD, agent skills, self-hosted"
@@ -49,7 +49,7 @@
 {
   "@context": "https://schema.org",
   "@type": "FAQPage",
-  "dateModified": "2026-11-18",
+  "dateModified": "2026-11-19",
   "mainEntity": [
     {"@type": "Question", "name": "What is deepmodebot?",
      "acceptedAnswer": {"@type": "Answer", "text": "deepmodebot is an open-source MIT plugin combining a self-hosted PR and issue bot with workflows for planning, implementation, review and delivery. Local work requires runtime proof; published changes also pass the verifier gate."}},
@@ -191,7 +191,7 @@ Self-hosted orchestration still sends prompts to the configured model provider.<
 
 <section id="factory" aria-labelledby="factory-title">
 <h2 id="factory-title">The software factory</h2>
-<p>One command, <code>/deep</code>, reads your request and the repo and routes it across <strong>30 playbooks, 24 principles, and 51 techniques</strong> from a compact (&lt;24 KB, zero-truncation) <code>SKILL.md</code> backed by <code>references/catalog.md</code>. You never pick a skill. The main line takes an idea to merged code with pre-task model/effort selection, machine-enforced Full-Scope Completion, and SME-in-the-loop incremental sprints; skip the phases a job doesn't need.</p>
+<p>One command, <code>/deep</code>, reads your request and the repo and routes it across <strong>30 playbooks, 24 principles, and 52 techniques</strong> from a compact (&lt;24 KB, zero-truncation) <code>SKILL.md</code> backed by <code>references/catalog.md</code>. You never pick a skill. The main line takes an idea to merged code with pre-task model/effort selection, machine-enforced Full-Scope Completion, and SME-in-the-loop incremental sprints; skip the phases a job doesn't need.</p>
 <div class="table-wrap">
 <table>
 <thead><tr><th scope="col">Phase</th><th scope="col">Flow</th><th scope="col">Leaves behind</th></tr></thead>
@@ -226,6 +226,7 @@ Self-hosted orchestration still sends prompts to the configured model provider.<
 <div><dt>teach and course</dt><dd>Explains a change or subsystem, or runs a course on a topic over many sessions.</dd></div>
 <div><dt>pre-commit</dt><dd>Runs the repo's own lint, typecheck and tests at commit time.</dd></div>
 <div><dt>git-guardrails</dt><dd>Turns the git hard stops into a hook the harness enforces before a destructive command runs.</dd></div>
+<div><dt>workspace-map</dt><dd>Zero-bloat memory-mapped SQLite/FTS5 index (<code>workspace_map.py</code>) shared per repo across Orca/git worktrees for ~300-token orientation, exact symbol lookup, own open PRs, and Scope Manifest/loop state.</dd></div>
 <div><dt>deep-stack</dt><dd>Stack picks and decision rules for any app, an agent-driven UI design workflow, and a per-task ship loop.</dd></div>
 <div><dt>Verification skills</dt><dd>Build and maintain a per-repo <code>verify-&lt;app&gt;</code> skill so agents can drive your app and capture proof.</dd></div>
 </dl>

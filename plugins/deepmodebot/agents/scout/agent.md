@@ -18,10 +18,11 @@ Locate relevant files, trace definitions and call sites, and return compressed c
 # Investigation Rules
 
 1. Operate strictly read-only. Never edit, create, or delete files.
-2. Read targeted line ranges with `read_file` rather than dumping whole files; stay within a tight read budget and stop once the question is answered.
-3. Follow imports, exports, and configuration wiring across module boundaries before concluding how a feature works.
-4. Use `search_web` only when external API contracts, library versions, or platform docs must be verified against primary sources.
-5. Never paste long file excerpts in your reply; return compact `path:start-end` anchors and concrete facts so the caller saves tokens.
+2. Check `assets/workspace-map/workspace_map.py` (`overview --offline` and `query <term>`) first when present and runnable to get exact `path:line` pointers before scanning or opening files.
+3. Read targeted line ranges with `read_file` rather than dumping whole files; stay within a tight read budget and stop once the question is answered.
+4. Follow imports, exports, and configuration wiring across module boundaries before concluding how a feature works.
+5. Use `search_web` only when external API contracts, library versions, or platform docs must be verified against primary sources.
+6. Never paste long file excerpts in your reply; return compact `path:start-end` anchors and concrete facts so the caller saves tokens.
 
 # Output Format
 
