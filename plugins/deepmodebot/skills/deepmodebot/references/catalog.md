@@ -31,23 +31,23 @@ Every playbook lives at `references/playbooks/<file>.md`. Open a `todo` list wit
 | Runtime forensics | `runtime-forensics` | Diagnose a live symptom (leak, idle CPU, glitch) from instrumentation. Deliverable is a diagnosis. |
 | Trace forensics | `trace-forensics` | Diagnose a captured artifact (cpuprofile, trace, heap snapshot). Deliverable is a diagnosis. |
 | Feature | `feature` | New or changed behavior, built from a named data shape. |
-| End-to-end | `end-to-end` | Deliver a whole app, tool, or rough idea across all slices via a protected scope manifest until the finished product works end to end. |
+| End-to-end | `end-to-end` | Deliver a whole app, tool, or rough idea across all slices via a machine-checked Scope Manifest (`slices`, `inventory`, `sprint`/`sme_gate`) until finished (or through an explicit sprint/SME checkpoint with remaining scope tracked). |
 | Refactoring | `refactoring` | Behavior-preserving structural change (rename, extract, inline, dedupe, move, language ports). |
 | Prototype | `prototype` | Throwaway sketch to decide a design, or settle an empirical fork by observing it. |
 | Visual parity | `visual-parity` | Pixel-exact UI equivalence between two implementations or styling systems. |
 | Reference rebuild | `reference-rebuild` | Rebuild a product UI to the standard of a named app: study reference, design on canvas, build, prove live. |
 | Authoring a skill | `authoring-a-skill` | Writing or editing a `SKILL.md` (first step reads `references/techniques/writing-for-agents.md`). |
-| Self-authoring | `self-authoring` | Write and prove a reusable prompt, skill, goal, or loop; run goals headless with `assets/loop/loop.py`. |
+| Self-authoring | `self-authoring` | Write and prove a reusable prompt, skill, goal, or loop; run goals headless with `assets/loop/loop.py` (`active_sprint`, `inventory`, `sme_gate`, escalation/fallback, `latest-summary.json`). |
 | Eval | `eval` | Test how a skill, prompt, or structure change affects agent behavior, blinded, before promoting it. |
-| Phased build | `phased-build` | Multi-phase/PR work: Plan mode (verifiable checklist), Sprint mode (incremental sprints + SME feedback), Build mode (one spec to one PR). |
+| Phased build | `phased-build` | Multi-phase/PR work: Plan mode (verifiable checklist), Sprint mode (incremental sprints + SME feedback gate, remaining sprints tracked), Build mode (one spec to one PR). |
 | Wayfinder | `wayfinder` | Effort too big for one session with a foggy route: map decision tickets and resolve them until the way is clear. |
 | Babysit | `babysit` | Drive a PR or stack to merge-ready: conflicts, review threads, CI. |
 | Shipping | `shipping` | Verify a green stack, then land the contiguous verified run bottom-up, each PR on a panel pass. |
 | Run a goal | `run-a-goal` | Drive one goal to a checkable end unattended: session scale (completion predicate) or program scale (multi-day coordinator). |
 | Work a queue | `work-a-queue` | Turn a queue of board tasks, independent PRs (`merge`/`stack-only`), or `factory` CLI issues into merged PRs on panel passes. |
 | Setup | `setup` | One-time repo setup: tracker (`docs/deepmodebot/tracker.md`), `GLOSSARY.md`, `docs/adr/`, `CODING_STANDARDS.md`, `AGENTS.md` pointer. |
-| Spec | `spec` | Turn a settled conversation into `docs/specs/<slug>.md` plus a `spec` issue. No interview. |
-| Tickets | `tickets` | Split a spec or plan into tracer-bullet tickets with blocking edges and incremental sprints, published to the tracker. |
+| Spec | `spec` | Turn a settled conversation into `docs/specs/<slug>.md`, a Scope Manifest when multi-slice, and a `spec` issue. No interview. |
+| Tickets | `tickets` | Split a spec or plan into tracer-bullet tickets with blocking edges and incremental sprints (preserving 100% of Total Scope), published to the tracker. |
 | Triage | `triage` | Move incoming issues and outside PRs through triage states: verify, shape, brief, label, or decline. |
 | Session pickup | `session-pickup` | Resume or take over a prior agent's in-flight work. |
 | Pause safely | `pause-safely` | Suspend in-flight work so it can be resumed later. |
@@ -68,8 +68,8 @@ Each technique is one file at `references/techniques/<name>.md`. Read only what 
 - **Contested design only** → **interrogate** (`references/techniques/interrogate.md`), keeping only findings a run proves.
 - **Open direction, blind spots, or vague ambition** → **tournament** (`references/techniques/tournament.md`) before locking one shape.
 - **Draft plan or goal to stress-test** → **grill** (`references/techniques/grill.md`; With docs mode when `GLOSSARY.md`/`docs/adr/` exist); vague goal before looping → **goal-review** (`references/techniques/goal-review.md`) then `self-authoring`.
-- **Complex domain or questionable customer spec** → **sme-review** (`references/techniques/sme-review.md`) before locking a spec, starting a goal loop, or advancing past Sprint 1; escalate unverified P0/P1 rules via **questionnaire** (`references/techniques/questionnaire.md`).
-- **Multi-PR or customer-facing spec** → cut **incremental sprints** (Tickets + Phased build sprint mode, Sprint 1 = smallest end-to-end feedback slice) instead of a Big Bang release.
+- **Complex domain or questionable customer spec** → **sme-review** (`references/techniques/sme-review.md`) before locking a spec, starting a loop, or advancing past Sprint 1 (`sme_gate: "required"`); escalate unverified P0/P1 rules via **questionnaire** (`references/techniques/questionnaire.md`).
+- **Multi-PR or customer-facing spec** → cut **incremental sprints** (Tickets + Phased build sprint mode; Sprint 1 = verified feedback slice, Sprint 2..N stay queued/deferred in the Scope Manifest as remaining scope, never falsely marked done).
 - **Before unattended loops/queues or AI code slop** → **inner-loop** (`references/techniques/inner-loop.md`): harden fast static checks, anti-slop guards, and protected configs before scaling iterations.
 - **Tool/skill routing** → **tool-routing** (`references/techniques/tool-routing.md`) for designing automatic tool or skill routers.
 - **Visual E2E & design evidence** → **visual-e2e** (`references/techniques/visual-e2e.md`) to record/replay full E2E workflows with 3-agent video review; **open-design-evidence** (`references/techniques/open-design-evidence.md`) for editable Penpot workflow diagrams linked to recordings.

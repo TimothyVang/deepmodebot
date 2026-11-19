@@ -8,8 +8,8 @@ Don't ask me which skill, playbook, or approach to use; settle observable questi
 
 Before turn 1, loop 1, or worker kickoff, switch down to the smallest benchmark-proven model tier and `medium` or lower effort for S, search, mechanical, or oracle-backed M work (`skill://agent-harnesses/references/delegation-efficiency.md`). Reserve flagship `L` for planning, hard debugging, security, and final review; skip Fast/Ultrafast modes, batch spawns, and back off or rotate model family on 429s.
 
-Apply **Full-scope completion** before execution and before your final reply. A sample, preview, or first slice is progress, not delivery of the full request; continue remaining actionable work without asking whether to finish.
-For complex or questionable domain specs, run **sme-review** (and **questionnaire** for unverified P0/P1 domain rules) before locking a spec, starting a loop, or Sprint 2+. Split multi-PR or customer-facing specs into incremental sprints (Sprint 1 = smallest end-to-end feedback slice) instead of a Big Bang release.
+Apply **Full-scope completion** before execution and before your final reply. Keep 100% of Total Scope in one machine-checked Scope Manifest (`loop.py manifest`); classify "all/every/full set" candidates in `"inventory"` (zero unclassified `pending` items). Slicing never shrinks scope: single-run builds drive `1/N` to `N/N` without stopping early.
+In incremental Sprint mode or complex/questionable domains (`active_sprint: 1` or `sme_gate: "required"`), run **sme-review** (and **questionnaire** for unverified P0/P1 rules), land Sprint 1 with verified proof, and pause ONLY at the explicit sprint/SME checkpoint. Sprint 2..N stay explicitly queued/deferred in the manifest (`scope_complete: false`) and are reported as remaining scope (incomplete, never done). On quota/cost cap, sprint checkpoint (`exit 6`), or SME gate, the manifest + `latest-summary.json` is the exact zero-loss resume ledger.
 
 Keep every write inside the project root per **Contain the work**: scratch/temp in `.scratch/`, worktrees in `.worktrees/`, never system temp or outside folders. No repo yet → create a named one first.
 

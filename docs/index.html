@@ -210,7 +210,8 @@ Self-hosted orchestration still sends prompts to the configured model provider.<
 <dl class="skills">
 <div><dt>Triage</dt><dd>Sorts incoming issues and outside PRs into a category and a state, and posts a brief or the questions that block them.</dd></div>
 <div><dt>Wayfinder</dt><dd>Charts an effort too big for one session and hands its decisions to a spec.</dd></div>
-<div><dt>Run a goal</dt><dd>Drives one goal to a checkable end without you, in one session or via <code>loop.py</code> with automatic model escalation, quota/rate-limit fallback, incremental sprint checkpoints, and structured JSON telemetry.</dd></div>
+<div><dt>Run a goal</dt><dd>Drives one goal to a checkable end without you, in one session or via <code>loop.py</code> with sprint-aware Scope Manifests (<code>active_sprint</code>, <code>inventory</code>, <code>sme_gate</code>), automatic model escalation, quota/rate-limit fallback, incremental sprint checkpoints, and zero-loss JSON resume telemetry.</dd></div>
+<div><dt>End-to-end</dt><dd>Expands a broad prompt or rough idea into a machine-checked Scope Manifest and builds every vertical slice through persistence, error states, and cold-start proof (or pauses only at an explicit sprint/SME checkpoint while reporting remaining sprints as incomplete).</dd></div>
 <div><dt>Work a queue</dt><dd>Turns a backlog, a queue of PRs, or labeled issues (through the <code>factory</code> CLI) into merged PRs, each after a panel pass.</dd></div>
 <div><dt>domain-model</dt><dd>Keeps <code>GLOSSARY.md</code> and ADRs current as names and decisions change.</dd></div>
 <div><dt>research</dt><dd>Writes an answer that later sessions will cite into the repo.</dd></div>

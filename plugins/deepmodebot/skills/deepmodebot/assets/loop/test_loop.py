@@ -185,6 +185,12 @@ elif action == "rate-limit-then-fallback":
     else:
         print("HTTP 429 rate limit exceeded; Retry-After: 0.01", file=sys.stderr)
         sys.exit(1)
+elif action == "sprint1-done":
+    open("s1.txt", "w").close()
+    open("ok.txt", "w").close()
+elif action == "sprint2-done":
+    open("s2.txt", "w").close()
+    open("ok.txt", "w").close()
 if action == "fail":
     sys.exit(3)
 """
@@ -879,6 +885,9 @@ class LoopCase(unittest.TestCase):
             ({"checkpoint_every": "0"}, "checkpoint_every must be a positive integer"),
             ({"checkpoint_every": "-1"}, "checkpoint_every must be a positive integer"),
             ({"checkpoint_every": "soon"}, "checkpoint_every must be a positive integer"),
+            ({"active_sprint": "0"}, "active_sprint must be a positive integer"),
+            ({"active_sprint": "-1"}, "active_sprint must be a positive integer"),
+            ({"active_sprint": "one"}, "active_sprint must be a positive integer"),
         ]
         for fields, expected in cases:
             with self.subTest(fields=fields):
@@ -886,6 +895,229 @@ class LoopCase(unittest.TestCase):
                 run = self.loop("check", "goals/g.md")
                 self.assertNotEqual(run.returncode, 0)
                 self.assertIn(expected, run.stdout + run.stderr)
+
+    def test_sprint_scoped_manifest_defers_later_sprints_and_catches_earlier_regressions(self):
+        manifest = {
+            "product": "Two-sprint app",
+            "slices": [
+                {"id": "slice-1", "title": "Core flow", "sprint": 1, "check": "test -f s1.txt"},
+                {"id": "slice-2", "title": "Admin export", "sprint": 2, "check": "test -f s2.txt"},
+            ],
+            "inventory": [
+                {"id": "inv-1", "status": "included", "slice": "slice-1"},
+                {"id": "inv-2", "status": "included", "slice": "slice-2"},
+            ],
+        }
+        (self.repo / "goals" / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+        # Sprint 1 runs and passes while explicitly reporting Sprint 2 deferred (total scope incomplete).
+        self.goal(manifest="goals/manifest.json", active_sprint=1, max_iterations=2)
+        run_s1 = self.loop("run", "goals/g.md", action="sprint1-done")
+        self.assertEqual(run_s1.returncode, 0, run_s1.stdout + run_s1.stderr)
+        self.assertIn("total scope incomplete", run_s1.stdout)
+        self.assertIn("slice-2", run_s1.stdout)
+        summary_s1 = self.latest_summary()
+        self.assertEqual(summary_s1["exit_code"], 0)
+        scope_s1 = summary_s1["scope"]
+        self.assertEqual(scope_s1["active_sprint"], 1)
+        self.assertEqual(scope_s1["deferred_slices"], ["slice-2"])
+        self.assertEqual(scope_s1["total_slices"], 2)
+        self.assertFalse(scope_s1["scope_complete"])
+        self.assertFalse(scope_s1["sme_gate_blocked"])
+        self.assertEqual(scope_s1["inventory_counts"]["included"], 2)
+
+        cli_s1 = self.loop("manifest", "goals/manifest.json", "--sprint", "1", "--json")
+        self.assertEqual(cli_s1.returncode, 0, cli_s1.stdout + cli_s1.stderr)
+        s1_json = json.loads(cli_s1.stdout)
+        self.assertEqual((s1_json["passed"], s1_json["total"], s1_json["total_slices"]), (1, 1, 2))
+        self.assertEqual(s1_json["active_sprint"], 1)
+        self.assertEqual(s1_json["deferred_slices"], ["slice-2"])
+        self.assertTrue(s1_json["ready"])
+        self.assertFalse(s1_json["scope_complete"])
+
+        # Regressing Sprint 1 while targeting Sprint 2 must fail even when Sprint 2 passes.
+        (self.repo / "s1.txt").unlink()
+        (self.repo / "s2.txt").write_text("", encoding="utf-8")
+        cli_reg = self.loop("manifest", "goals/manifest.json", "--sprint", "2", "--json")
+        self.assertEqual(cli_reg.returncode, 1, cli_reg.stdout + cli_reg.stderr)
+        reg_json = json.loads(cli_reg.stdout)
+        self.assertEqual((reg_json["passed"], reg_json["total"], reg_json["deferred_slices"]), (1, 2, []))
+        self.assertFalse(reg_json["ready"])
+        self.assertFalse(reg_json["scope_complete"])
+
+        # Restoring Sprint 1 makes Sprint 2 (and total scope) complete.
+        (self.repo / "s1.txt").write_text("", encoding="utf-8")
+        (self.repo / "ok.txt").unlink()
+        self.goal(manifest="goals/manifest.json", active_sprint=2, max_iterations=2)
+        run_s2 = self.loop("run", "goals/g.md", action="sprint2-done")
+        self.assertEqual(run_s2.returncode, 0, run_s2.stdout + run_s2.stderr)
+        self.assertIn("goal met", run_s2.stdout)
+        self.assertNotIn("total scope incomplete", run_s2.stdout)
+        summary_s2 = self.latest_summary()
+        self.assertTrue(summary_s2["scope"]["scope_complete"])
+        self.assertEqual(summary_s2["scope"]["deferred_slices"], [])
+        self.assertEqual(summary_s2["scope"]["active_sprint"], 2)
+
+        bad_sprint = self.loop("manifest", "goals/manifest.json", "--sprint", "0")
+        self.assertNotEqual(bad_sprint.returncode, 0)
+        self.assertIn("--sprint must be a positive integer", bad_sprint.stdout + bad_sprint.stderr)
+
+    def test_manifest_inventory_schema_validation_and_pending_gate(self):
+        base_slices = [{"id": "s1", "title": "Slice 1", "check": "test -f s1.txt"}]
+        invalid_cases = [
+            ({"product": "p", "slices": [{**base_slices[0], "sprint": 0}]}, "'sprint' must be a positive integer"),
+            ({"product": "p", "slices": [{**base_slices[0], "sprint": True}]}, "'sprint' must be a positive integer"),
+            ({"product": "p", "slices": base_slices, "inventory": "bad"}, "'inventory' must be a list"),
+            ({"product": "p", "slices": base_slices, "inventory": [{"id": "a", "status": "bogus"}]}, "'status' must be one of"),
+            ({"product": "p", "slices": base_slices, "inventory": [
+                {"id": "a", "status": "pending"}, {"id": "a", "status": "pending"}
+            ]}, "duplicate inventory id"),
+            ({"product": "p", "slices": base_slices, "inventory": [
+                {"id": "d1", "status": "duplicate"}
+            ]}, "requires a non-empty 'representative'"),
+            ({"product": "p", "slices": base_slices, "inventory": [
+                {"id": "d1", "status": "duplicate", "representative": "d1"}
+            ]}, "cannot reference itself"),
+            ({"product": "p", "slices": base_slices, "inventory": [
+                {"id": "d1", "status": "duplicate", "representative": "missing"}
+            ]}, "must match an inventory or slice id"),
+            ({"product": "p", "slices": base_slices, "inventory": [
+                {"id": "n1", "status": "non_target"}
+            ]}, "requires a non-empty 'reason'"),
+            ({"product": "p", "slices": base_slices, "inventory": [
+                {"id": "b1", "status": "blocked", "evidence": "403 log"}
+            ]}, "requires a non-empty 'unblock'"),
+            ({"product": "p", "slices": base_slices, "inventory": [
+                {"id": "b1", "status": "blocked", "unblock": "grant token"}
+            ]}, "requires a non-empty 'evidence'"),
+            ({"product": "p", "slices": base_slices, "inventory": [
+                {"id": "i1", "status": "included", "slice": "no-such-slice"}
+            ]}, "must match a slice id"),
+        ]
+        mpath = self.repo / "goals" / "manifest.json"
+        for payload, expected in invalid_cases:
+            with self.subTest(expected=expected):
+                mpath.write_text(json.dumps(payload), encoding="utf-8")
+                res = self.loop("manifest", "goals/manifest.json", "--dry-run")
+                self.assertNotEqual(res.returncode, 0)
+                self.assertIn(expected, res.stdout + res.stderr)
+
+        # Valid schema with an unclassified pending item fails the manifest gate even when slices pass.
+        (self.repo / "s1.txt").write_text("", encoding="utf-8")
+        (self.repo / "ok.txt").write_text("", encoding="utf-8")
+        pending_manifest = {
+            "product": "Inventory app",
+            "slices": base_slices,
+            "inventory": [
+                {"id": "item-1", "status": "included", "slice": "s1"},
+                {"id": "item-2", "status": "pending"},
+            ],
+        }
+        mpath.write_text(json.dumps(pending_manifest, indent=2), encoding="utf-8")
+        dry = self.loop("manifest", "goals/manifest.json", "--dry-run", "--json")
+        self.assertEqual(dry.returncode, 0, dry.stdout + dry.stderr)
+        self.assertEqual(json.loads(dry.stdout)["inventory_counts"]["pending"], 1)
+
+        blocked_pending = self.loop("manifest", "goals/manifest.json", "--json")
+        self.assertEqual(blocked_pending.returncode, 1, blocked_pending.stdout + blocked_pending.stderr)
+        p_json = json.loads(blocked_pending.stdout)
+        self.assertFalse(p_json["ready"])
+        self.assertEqual(p_json["pending_inventory"], ["item-2"])
+        self.assertEqual(p_json["inventory_counts"], {
+            "included": 1, "duplicate": 0, "non_target": 0, "blocked": 0, "pending": 1,
+        })
+
+        # Classifying all items passes the gate and reports exact inventory counts.
+        classified_manifest = {
+            "product": "Inventory app",
+            "slices": base_slices,
+            "inventory": [
+                {"id": "item-1", "status": "included", "slice": "s1"},
+                {"id": "item-2", "status": "duplicate", "representative": "item-1"},
+                {"id": "item-3", "status": "non_target", "reason": "legacy archive excluded by spec"},
+                {"id": "item-4", "status": "blocked", "evidence": "401 from partner API", "unblock": "provision key", "attempts": 2},
+            ],
+        }
+        mpath.write_text(json.dumps(classified_manifest, indent=2), encoding="utf-8")
+        ok_res = self.loop("manifest", "goals/manifest.json", "--json")
+        self.assertEqual(ok_res.returncode, 0, ok_res.stdout + ok_res.stderr)
+        ok_json = json.loads(ok_res.stdout)
+        self.assertTrue(ok_json["ready"])
+        self.assertTrue(ok_json["scope_complete"])
+        self.assertEqual(ok_json["inventory_counts"], {
+            "included": 1, "duplicate": 1, "non_target": 1, "blocked": 1, "pending": 0,
+        })
+
+    def test_sme_gate_blocks_manifest_check_and_run_until_cleared(self):
+        (self.repo / "s1.txt").write_text("", encoding="utf-8")
+        (self.repo / "s2.txt").write_text("", encoding="utf-8")
+        (self.repo / "ok.txt").write_text("", encoding="utf-8")
+        mpath = self.repo / "goals" / "manifest.json"
+
+        # Invalid sme_gate rejected.
+        mpath.write_text(json.dumps({
+            "product": "Complex domain",
+            "sme_gate": "maybe",
+            "slices": [{"id": "s1", "title": "Core", "check": "test -f s1.txt"}],
+        }), encoding="utf-8")
+        bad = self.loop("manifest", "goals/manifest.json", "--dry-run")
+        self.assertNotEqual(bad.returncode, 0)
+        self.assertIn("'sme_gate' must be one of", bad.stdout + bad.stderr)
+
+        # Manifest-level sme_gate: required blocks manifest, check, and run (without invoking harness).
+        manifest = {
+            "product": "Complex domain",
+            "sme_gate": "required",
+            "slices": [
+                {"id": "s1", "title": "Sprint 1", "sprint": 1, "check": "test -f s1.txt"},
+                {"id": "s2", "title": "Sprint 2", "sprint": 2, "sme_gate": "required", "check": "test -f s2.txt"},
+            ],
+        }
+        mpath.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        m_blocked = self.loop("manifest", "goals/manifest.json", "--json")
+        self.assertEqual(m_blocked.returncode, 1)
+        m_data = json.loads(m_blocked.stdout)
+        self.assertTrue(m_data["sme_gate_blocked"])
+        self.assertFalse(m_data["ready"])
+        self.assertIn("manifest", m_data["sme_gate_blockers"])
+
+        self.goal(manifest="goals/manifest.json", max_iterations=2)
+        chk_blocked = self.loop("check", "goals/g.md")
+        self.assertEqual(chk_blocked.returncode, 0)
+        self.assertIn("check exit 1 (sme_gate)", chk_blocked.stdout)
+        self.assertIn("SME gate required before advancing", chk_blocked.stdout)
+
+        record = self.tmp / "sme_harness.json"
+        run_blocked = self.loop("run", "goals/g.md", action="done", FAKE_RECORD=str(record))
+        self.assertEqual(run_blocked.returncode, 6, run_blocked.stdout + run_blocked.stderr)
+        self.assertIn("SME gate required before advancing", run_blocked.stdout)
+        self.assertFalse(record.exists())
+        summary = self.latest_summary()
+        self.assertEqual(summary["exit_code"], 6)
+        self.assertEqual(summary["exit_reason"], "sme_gate_required")
+        self.assertTrue(summary["scope"]["sme_gate_blocked"])
+
+        # Clearing manifest sme_gate lets Sprint 1 pass while Sprint 2's slice sme_gate still blocks Sprint 2.
+        manifest["sme_gate"] = "cleared"
+        mpath.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        s1_ok = self.loop("manifest", "goals/manifest.json", "--sprint", "1", "--json")
+        self.assertEqual(s1_ok.returncode, 0, s1_ok.stdout + s1_ok.stderr)
+        self.assertFalse(json.loads(s1_ok.stdout)["sme_gate_blocked"])
+
+        s2_blocked = self.loop("manifest", "goals/manifest.json", "--sprint", "2", "--json")
+        self.assertEqual(s2_blocked.returncode, 1)
+        self.assertEqual(json.loads(s2_blocked.stdout)["sme_gate_blockers"], ["slice:s2"])
+
+        # Clearing Sprint 2's sme_gate unblocks both manifest and check.
+        manifest["slices"][1]["sme_gate"] = "cleared"
+        mpath.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        s2_ok = self.loop("manifest", "goals/manifest.json", "--sprint", "2", "--json")
+        self.assertEqual(s2_ok.returncode, 0, s2_ok.stdout + s2_ok.stderr)
+        self.assertTrue(json.loads(s2_ok.stdout)["scope_complete"])
+
+        chk_ok = self.loop("check", "goals/g.md")
+        self.assertEqual(chk_ok.returncode, 0)
+        self.assertIn("check exit 0 (pass) (already done)", chk_ok.stdout)
 
 
 class ScanTextSlopCase(unittest.TestCase):

@@ -88,14 +88,15 @@ The Plan checklist. Every item must pass, outside code fences:
 
 ## Build mode (and Sprint mode)
 
-In **Build mode**, every ticket merges into one **integration branch**, and one PR carries that branch to trunk. In **Sprint mode** (default for multi-sprint specs or complex domains), run steps 1-8 **one sprint at a time** on `spec/<slug>-sprint-<n>`, land each sprint PR with live proof and an **sme-review** pass (`references/techniques/sme-review.md`), and capture customer/SME feedback before starting Sprint `n+1`.
+In **Build mode**, every ticket merges into one **integration branch**, and one PR carries that branch to trunk (`1/N` to `N/N`). In **Sprint mode** (default for multi-sprint specs or complex domains), run steps 1-8 **one sprint at a time** on `spec/<slug>-sprint-<n>` backed by the Scope Manifest (`docs/specs/<slug>-manifest.json`, `active_sprint: <n>` / `loop.py manifest --sprint <n>`).
+Sprint `n` verifies every slice with `sprint <= n`, lands with live proof and **sme-review** (`references/techniques/sme-review.md`), and pauses ONLY at the explicit sprint/SME feedback checkpoint (`sme_gate: "required"` or `checkpoint_every` exit 6). Sprint `n+1..N` stay `queued`/`deferred` (`scope_complete: false`) and are reported as remaining scope (incomplete, never done).
 
 You coordinate; ticket owners write the code. The tickets are a graph, not a list. The **frontier** is every open ticket in the active sprint whose blockers are all merged into the integration branch.
 
 ### Steps
 
-1. **Load the graph.** Read the spec (issue and `docs/specs/<slug>.md`) and every ticket with its Blocked by lines, per the **tracker** technique (`references/techniques/tracker.md`). Record the graph, the active sprint (`1` in Sprint mode, or `all` in Build mode), the integration branch, and each ticket's owner and state in one notes file a cold start can find, as Run a goal, Program scale step 1 describes (`references/playbooks/run-a-goal.md`).
-   Done when the notes file lists the integration branch and every ticket with its sprint, blockers, owner, and state.
+1. **Load the graph.** Read the spec (issue and `docs/specs/<slug>.md`), its Scope Manifest (`docs/specs/<slug>-manifest.json` when present), and every ticket with its Blocked by lines, per **tracker** (`references/techniques/tracker.md`). Record the graph, manifest path, `active_sprint` (`1` in Sprint mode, or `all` in Build mode), `sme_gate` state, integration branch, `latest-summary.json` resume pointer, and each ticket's owner and state in one notes file a cold start can find (`references/playbooks/run-a-goal.md`).
+   Done when the notes file lists the integration branch, manifest/`active_sprint` state, and every ticket with its sprint, blockers, owner, and state.
 2. **Explore once** (optional). Tickets that share unknown code → one `scout` pass that returns file pointers, conventions, and test commands. Save its report beside the notes file and give owners the path, not a pasted copy.
    Done when the scout report sits beside the notes file, or no two tickets share unknown code.
 3. **Integration branch.** In Build mode, use `spec/<slug>` when the Spec playbook created it; else create it off the default branch. In Sprint mode, cut `spec/<slug>-sprint-<n>` off the default branch once Sprint `n-1` has landed. When the repo has a remote, push it with an explicit refspec. Without a remote, every push and PR step below is skipped. Worktrees share one `.git`, so local branches are enough.
@@ -119,8 +120,8 @@ You coordinate; ticket owners write the code. The tickets are a graph, not a lis
    - Local tracker → set each finished ticket (and the spec, once the final sprint closes) to `Status: closed` on the integration branch, so the close lands with the code.
    - With a remote, open one PR from the integration branch to the default branch through Opening a PR (`references/playbooks/opening-a-pr.md`), with `Closes #<ticket>` per finished ticket (and `Closes #<spec>` only on the final sprint). It lands through the **pr-conversation** technique (`references/techniques/pr-conversation.md`) on a **panel** pass (`references/techniques/panel.md`) at its head.
    - No remote → after a panel pass at the integration tip, run `git merge --no-ff <integration branch>` in a clean worktree of the default branch and rerun the checks there. A red result is undone with `git revert -m 1 <merge sha>`.
-   - **Sprint feedback gate (Sprint mode, before Sprint `n+1`):** report the live demo/proof for the landed sprint, surface any unverified domain questions via **questionnaire** (`references/techniques/questionnaire.md`), and incorporate SME or customer feedback into the remaining sprint tickets (Tickets playbook) before starting the next sprint.
-   - Done when the sprint or final PR is merged (no remote: local merge on default branch) on a panel pass at its head, trunk checks pass, and in Sprint mode either SME/customer feedback is gathered or the final sprint is closed.
+   - **Sprint feedback gate (Sprint mode, before Sprint `n+1`):** run `loop.py manifest <manifest.json> --sprint <n>` (when a manifest exists) so slices `<= n` pass with zero `pending` inventory items, report the live proof for landed Sprint `n`, and explicitly list Sprint `n+1..N` as **remaining scope (incomplete, `scope_complete: false`, never marked done)**. Surface unverified domain questions via **questionnaire** (`references/techniques/questionnaire.md`), incorporate SME/customer feedback into Sprint `n+1..N` tickets, and set `"sme_gate": "cleared"` before starting Sprint `n+1`.
+   - Done when the sprint or final PR is merged (no remote: local merge on default branch) on a panel pass at its head, trunk checks pass, and in Sprint mode either SME/customer feedback is gathered (with Sprint `n+1..N` explicitly reported as remaining scope) or the final sprint is closed.
 8. **Clean up** the ticket worktrees and merged ticket branches you created, per Worktree cleanup (`references/playbooks/worktree-cleanup.md`).
    Done when `git worktree list` and `git branch --list 'ticket/*'` show none of the ones you created.
 
@@ -128,6 +129,7 @@ You coordinate; ticket owners write the code. The tickets are a graph, not a lis
 
 - Only you merge into the integration branch, and only a ticket whose evidence you read.
 - The integration branch stays green after every merge. A red merge is reverted on the branch before the next one.
+- Sprinting never shrinks Total Scope: Sprint `n` verifies all slices `<= n`, rejects unclassified `pending` inventory items, honors `"sme_gate": "required"`, and reports deferred Sprint `n+1..N` as incomplete remaining scope (`scope_complete: false`).
 - The final PR (no remote: the final local merge) lands only on a panel pass at its exact head, with no P0 or P1 review finding open.
 - Subagent briefs carry pointers (spec, ticket, notes, commits), not copies of them.
 

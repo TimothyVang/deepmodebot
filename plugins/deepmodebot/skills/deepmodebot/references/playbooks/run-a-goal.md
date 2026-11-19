@@ -24,6 +24,7 @@ One task, one session, one completion predicate.
 1. State the exit condition as a checkable predicate before the first iteration (tests green, repro fixed, all N PRs merged, pixel-diff zero). Write down the command or check that evaluates it.
    Audit the repo's inner loop first (`python <deepmodebot skill>/assets/loop/loop.py audit .` or `references/techniques/inner-loop.md`) so the predicate pairs fast static checks with behavioral proof and cannot pass via inline suppressions, swallowed errors, or weakened configs.
    If the goal enters a complex domain or depends on an unverified customer spec, run **sme-review** (`references/techniques/sme-review.md`) before looping; send a **questionnaire** (`references/techniques/questionnaire.md`) for unresolved P0/P1 domain questions instead of optimizing against a flawed spec.
+   For multi-slice or "all / every" goals, keep total scope in one `manifest` JSON (`loop.py manifest <file> [--sprint N]`), classify every candidate in `inventory` (`included`, `duplicate`, `non_target`, `blocked`; any `pending` item fails the gate), and set `sme_gate: "required"` until SME-cleared.
    Done when the predicate, its inner-loop checks, and its command are written down, one run shows the current state, and any complex-domain spec is SME-cleared.
 2. Start a decision trail per the **show-me-your-work** technique (`references/techniques/show-me-your-work.md`).
    Done when the trail file exists and its absolute path is printed.
@@ -40,7 +41,8 @@ One task, one session, one completion predicate.
 5. Advanced → keep it and commit it. Didn't help → discard it. "Might help" belt-and-suspenders gets reverted, not left to ride.
    Done when the iteration's change is either committed or reverted, and `git status --porcelain` shows nothing left from it.
 6. Sequence the work into verifiable units, verifying each before the next instead of batching checks at the end (`references/principles/sequence-verifiable-units.md`).
-   For multi-capability or customer-facing goals, structure units as **incremental sprints**: deliver Sprint 1 (smallest end-to-end slice), run **sme-review** (`references/techniques/sme-review.md`), and pause for feedback before Sprint 2+ (in `loop.py`, set `checkpoint_every` to pause cleanly with exit 6 and emit `latest-summary.json` for review).
+   For multi-capability or customer-facing goals, keep 100% of total scope in one manifest with per-slice `sprint` numbers and run Sprint 1 via `active_sprint: 1` (or `loop.py manifest --sprint 1`) so Sprint 2+ stay explicitly `deferred` (never dropped or falsely marked done).
+   Use `sme_gate: "required"` on the manifest or later-sprint slices plus `checkpoint_every` (exit 6) so `loop.py` pauses cleanly with `latest-summary.json` scope telemetry until **sme-review** (`references/techniques/sme-review.md`) clears the gate (`sme_gate: "cleared"`).
    Done when every unit kept so far had its check pass before the next unit started, and any Sprint 1 feedback gate is cleared before Sprint 2+ begins.
 7. Own mid-run discoveries that support the goal: broken skills, related bugs, flaky verifiers, review noise, tooling failures, orphaned follow-ups, fixable drift. Fix them yourself, out-of-band fixes kept separate from the main change (on their own branch and PR). Return to the predicate after each side fix.
    Done when each discovery has its own branch and PR, and the next iteration is back on the predicate.
@@ -126,7 +128,7 @@ Program scale also:
 
 Session scale:
 - The exit condition and the check that evaluates it.
-- Iterations run (trail link and `latest-summary.json` when using `loop.py`), what landed, what was discarded and why.
+- Iterations run (trail link and `latest-summary.json`, including `scope` sprint/inventory/SME telemetry when a manifest is configured), what landed, what was discarded and why.
 - Side fixes made and where they live.
 - Final predicate state, shown by running the check.
 
