@@ -18,6 +18,7 @@ Rules distilled from 102 public engineering explainer videos published in 2026 (
 | `references/language-ecosystems.md` | Runtime, memory, and concurrency model, build/test/debug tooling, and traps for C, C++, Rust, Go, Java, C#, Python, JS/TS, PHP, Ruby, Kotlin, Swift |
 | `references/devops-and-fundamentals.md` | Linux, CLI tools, git, Docker, Kubernetes, Terraform, CI/CD, deployment strategies, secrets, data structures and complexity, memory, floats, concurrency, network protocols |
 | `references/engineering-practice.md` | Unfamiliar codebase, stuck on an error, debugging slowness, memory, or races, legacy code, PR or commit text, incidents, estimates, pushing back |
+| `references/high-scale-server-optimization.md` | High-concurrency server tuning, event loops (`epoll`/`io_uring`), TCP/NIC sysctls, Postgres wire/pipelining/batching, zero-alloc JSON/gzip, or runtime GC/PGO optimization |
 
 Deepmodebot's principles, gates, and playbooks win any conflict. These files supply domain rules, not process.
 
