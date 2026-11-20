@@ -118,7 +118,8 @@ Common split: REST or GraphQL at the edge, gRPC inside.
 - Scale vertically first to buy time before distributing. (SYS-4MIN)
 - Reverse proxy (NGINX): TLS termination and caching. Load balancer (ALB): spread requests across instances. API gateway (Kong): central routing, rate limits, client auth. (CONFUSING-3)
 - Do the minimum synchronously in the request. Push heavy work to background workers. (X-DESIGN)
-- For high-concurrency server, reactor (`epoll`/`io_uring`), TCP/NIC, Postgres wire/pipelining, and per-runtime optimization rules, read `high-scale-server-optimization.md`.
+- For high-concurrency server, reactor (`epoll`/`io_uring`), TCP/NIC, Postgres/SQLite, and per-runtime optimization rules, read `high-scale-server-optimization.md`.
+- For hot-path data structures, pointer-free slot tables, cache-line alignment, hugepages, and tight-RAM arenas, read `data-structures-and-cache-optimization.md`.
 
 ## Resilience
 

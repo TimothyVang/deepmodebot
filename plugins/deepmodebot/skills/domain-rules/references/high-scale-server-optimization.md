@@ -2,6 +2,16 @@
 
 Distilled from 96 implementations, infrastructure configs, and benchmarks in the Million Users Challenge (`arjaythedev/million-users-challenge`: 1M-3M concurrent keep-alive connections, ~42k req/s on 2-16 vCPUs + dedicated Postgres 18). Every rule targets measurable CPU, tail-latency, memory-per-connection, packet, or DB-round-trip wins.
 
+## Quick Triage: Symptom -> Suspect -> Fix
+
+| Symptom | Primary Suspects | First Fixes (Rule #) |
+|---|---|---|
+| High idle RSS / OOM at 100k+ conns | Per-socket read/write buffers, fiber/task trees, GC heap scanning, `gin-contrib/gzip` | 16-40 B fd-slots, detach idle buffers, `MAP_NORESERVE`, `gzhttp` (#1-2, #66, #74) |
+| Throughput stalls far below 100% CPU | Soft `RLIMIT_NOFILE=1024`, missing `SO_REUSEPORT`, cross-thread hops, `UnfairSemaphoreSpinLimit` | Raise `nofile`, per-core `SO_REUSEPORT`, pin DB pool to loop, `SpinLimit=0` (#4, #6, #9, #86) |
+| Tail latency (p95/p99) collapses under burst | FIFO backlog >40 ms delayed-ACK spiral, `fq_codel` drops, `ENOBUFS` partial re-arm, GC pauses | LIFO newest-first + `--busy-max`, `tc qdisc fq`, full `ENOBUFS` re-arm, `gc.freeze()` (#16, #23, #34, #88) |
+| High Postgres CPU on simple queries | `ExecMemoize` (`memset`), unnamed prepared stmts, `RESET ALL`, unbatched `Sync`s | `enable_memoize = off`, named `Parse`, `NoResetOnClose`, pass-batched reads (#38, #41, #44-48) |
+| Intermittent 500s / wrong order on writes | `Prepare` without `Sync`, `23503` batch rollback, `GZipStream` `leaveOpen=false`, Swoole flush | Always `Sync` after `Prepare`, unwind `23503`, `leaveOpen=true`, decouple queues (#43, #52, #67, #78) |
+
 ## 1. Cost Model & First-Principles Thinking
 
 1. **Budget per idle connection first.** At 1M open keep-alive sockets, 38 KB/conn (Scala/fs2) needs ~38 GB RAM and OOMs; 16-40 byte pointer-free fd-indexed slots use ~16-40 MB total.
@@ -129,9 +139,35 @@ Distilled from 96 implementations, infrastructure configs, and benchmarks in the
 102. **Test golden-byte exactness (key order, UTC ms truncation without rounding), auth-before-validation ordering, AND `Accept-Encoding: gzip` in CI.**
 103. **Reset DB caches (`sync; echo 3 > /proc/sys/vm/drop_caches`) and clone from `TEMPLATE` DB between runs** so warm-cache runs don't mask cold-start or index-fit bugs.
 104. **Keep `mload`/client GC behavior in mind when tuning compression.** Generating unusually sized bursts can shift client-side GC mark pauses and distort p99.
-105. **Coalesce HTTP headers and body in ASGI/middleware** (`coalesce.py`) to turn 2 `send()` syscalls into 1 TCP write.
-106. **Always coalesce or disable `FlushConsolidationHandler` / idle-timeout `ScheduledFutureTask`s in Netty** — 1M connections x 2 idle tasks = 2M timer heap entries.
-107. **Verify zero primitive boxing in JVM FFM call sites via `javap` in `build.sh`** so JIT regressions fail the build.
+105. **Tune `TCP_RTO_MIN_US` (e.g. `60_000`) and `PR_SET_TIMERSLACK` on latency-sensitive listeners** to tighten Linux retransmission and timer coalescing floors.
+106. **Weigh `SO_ATTACH_REUSEPORT_CBPF` accept steering against single-queue NIC skew:** steering accepts to the SYN core helps multi-queue NICs, but can overload one worker when RPS/softirq concentrates RX.
+107. **Pass `-mllvm -static-func-full-module-prefix=false` during clang PGO (`-fprofile-generate`/`-fprofile-use`)** so static-function profile counters match reliably across unity/LTO builds.
 108. **Use `ABBABAB` online tuning only under healthy headroom (`p99 < 100 ms`, `busy < 60%`)** with an >=8% CPU/req win threshold.
 109. **Co-locate `ksoftirqd` awareness with loop sizing:** on small VMs (2-4 vCPUs), kernel RX/TX softirq share is a first-class competitor for CPU cycles.
 110. **Treat architecture beats micro-tuning as a strict hierarchy:** Share-nothing per-core + zero-idle-buffer + DB pipelining/batching gives 5x-10x; SIMD/gzip/PGO gives the final 10-30%.
+
+## 9. Embedded SQLite & Single-Core Optimization ($12 Server)
+
+111. **Use canonical SQLite OLTP PRAGMAs with `mmap_size=0`.** Set `journal_mode=WAL`, `synchronous=NORMAL`, `temp_store=MEMORY`, `wal_autocheckpoint=0`, `mmap_size=0`, and `cache_size` sized to the hot working set (e.g. `-49152` for 48 MB). `mmap_size=0` beats `mmap` by 3.4-12% CPU.
+112. **Open in-process SQLite connections with `unix-excl` VFS.** Acquires one process-lifetime lock and keeps the WAL index in heap memory, eliminating file-lock and `-shm` I/O.
+113. **Coalesce WAL `pwrite`s in a custom `SQLITE_VFS` shim.** Buffering contiguous 24 B frame headers + pages into one `pwrite` per commit (chunked at `0x1ffff`) cuts `pwrite`s from ~0.24 to ~0.095/req.
+114. **Offload `PASSIVE` checkpoints + `fdatasync` to a `nice 5-10` background thread.** Never run at `nice 19` (starves under 100% load and grows WALs to GBs); pause new writes briefly (reads continue) so the **loop connection's** next write restarts the WAL without dropping its page cache.
+115. **Preallocate DB growth via `SQLITE_FCNTL_CHUNK_SIZE` instead of `journal_size_limit` truncation.** Truncating the WAL forces ext4 extent/metadata journal sync stalls on re-extension; drop copied WAL pages with `POSIX_FADV_DONTNEED`.
+116. **Serialize SQLite writes in-process; never rely on `busy_timeout` contention.** Use one writer connection/queue + read pool (`_mutex=no`), skip `INSERT ... RETURNING` (ephemeral temp table), and avoid redundant `ORDER BY` inside `group_concat`/`json_group_array`.
+117. **Bypass SQLVM via B-tree cursors for hot read paths when justified.** Decode local payloads zero-copy off pinned pages, keep positioned cursors across read passes, and keep writes on prepared SQL with startup schema/cookie validation.
+118. **On 1 vCPU, run ONE event-loop thread driving all rings (`SINGLE_ISSUER | DEFER_TASKRUN`).** Poll secondary rings non-blockingly and sleep only on ring 0; multiple worker threads on 1 core cause context-switch thrash.
+119. **Defeat `RLIMIT_NOFILE=65535` with direct-descriptor ring rollover.** Use `IORING_FILE_INDEX_ALLOC` across 8-16 rings, stop accepting at `margin > accept_depth`, and bind 8 `SO_REUSEPORT` listeners so SYN queues don't drop during ramps.
+120. **Cap answers per pass (`answerCap`) + use LIFO-with-aging (`>= 8s`/`16s`).** Prevents backlog passes from crossing 40 ms and triggering thousands of bare TCP delayed-ACK packets/s.
+121. **Skip Nginx on tight single-box deployments when direct serving works.** Nginx's `keepalive 64` upstream pool and CPU share capped diverse stacks at 24k users with POST EOFs.
+
+## 10. Co-Located DB & Contention Tuning (Multicore)
+
+122. **Set `SCHED_BATCH` + `nice 5` on app reactor loops when sharing cores with Postgres.** Prevents epoll/`io_uring` wakeups from preempting active Postgres backends mid-query (halved feed p95 and cut DB CPU wait 18%).
+123. **Tier CPU priority for heavy crypto (`bcrypt`) + add a 3 s watchdog.** Run 1 primary hasher at `nice 0` and spares at `nice 10` (or `SCHED_IDLE` + watchdog) so hashing never starves Postgres or logins.
+124. **Under-provision HTTP reactors (`cores/2` or `cores/4`) on co-located boxes.** Leaving 4-5 cores for Postgres and 1-2 for heavy compute beats running 1 HTTP loop per core.
+125. **Use ONE box-wide read queue/planner across all reactors, capping active DB concurrency below core count.** Funneling reads through a shared planner (e.g., 6-7 active batches on 8 cores, splitting fast vs slow lanes) cut Postgres CPU 20-33%.
+126. **Use `unshare(CLONE_FILES)` per reactor thread.** Eliminates kernel `files_struct` lock contention across threads and gives each reactor its own `RLIMIT_NOFILE` budget.
+127. **Leave `TCP_QUICKACK` alone under saturation.** Toggling `TCP_QUICKACK=0` per reply helps at medium load but hurts p95 by 33-72 ms at saturation when replies miss the delayed-ACK window.
+128. **Drop already-disconnected client requests before hitting Postgres.** Checking a connection epoch atomic at DB-dispatch time avoids wasting DB CPU on timed-out callers.
+129. **Pipeline Phase A1 (cheap lookups + `Flush`) before Phase A2 (heavy feeds) in one socket write.** Dispatches auth/fast paths concurrently while Postgres executes heavy queries.
+130. **Scope `EXISTS`/flag checks to rendered `(viewer, target)` pairs & pace huge batch replies.** Probing only displayed pairs cut 30% PG time on aged DBs; pacing large batch flushes (`ANSWER_PACE`) avoids NIC TX drops.

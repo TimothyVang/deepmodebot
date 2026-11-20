@@ -7,7 +7,7 @@ metadata:
 
 # Engineering domain rules
 
-Rules distilled from 102 public engineering explainer videos published in 2026 (listed in the Sources table below), current as of 2026-11-11. Rules are paraphrased; transcripts are not shipped. Each rule carries a source key from the table below. Upload dates are approximate and may be off by a few days.
+Rules distilled from 102 public engineering explainer videos published in 2026 (listed in the Sources table below) and 450+ server implementations across the Million Users, $12 Server, and Multicore benchmarks (`high-scale-server-optimization.md`, `data-structures-and-cache-optimization.md`), current as of 2026-11-20. Rules are paraphrased; transcripts are not shipped. Each video rule carries a source key from the table below. Upload dates are approximate and may be off by a few days.
 
 | File | Read when |
 |---|---|
@@ -18,7 +18,8 @@ Rules distilled from 102 public engineering explainer videos published in 2026 (
 | `references/language-ecosystems.md` | Runtime, memory, and concurrency model, build/test/debug tooling, and traps for C, C++, Rust, Go, Java, C#, Python, JS/TS, PHP, Ruby, Kotlin, Swift |
 | `references/devops-and-fundamentals.md` | Linux, CLI tools, git, Docker, Kubernetes, Terraform, CI/CD, deployment strategies, secrets, data structures and complexity, memory, floats, concurrency, network protocols |
 | `references/engineering-practice.md` | Unfamiliar codebase, stuck on an error, debugging slowness, memory, or races, legacy code, PR or commit text, incidents, estimates, pushing back |
-| `references/high-scale-server-optimization.md` | High-concurrency server tuning, event loops (`epoll`/`io_uring`), TCP/NIC sysctls, Postgres wire/pipelining/batching, zero-alloc JSON/gzip, or runtime GC/PGO optimization |
+| `references/high-scale-server-optimization.md` | High-concurrency server tuning, event loops (`epoll`/`io_uring`), TCP/NIC sysctls, Postgres/SQLite pipelining/batching, co-located DB contention, zero-alloc JSON/gzip, or runtime GC/PGO optimization |
+| `references/data-structures-and-cache-optimization.md` | Designing or optimizing hot-path data structures, pointer-free slot tables, 64 B cache-line alignment, L1D/TLB/hugepage tuning, lock-free SPSC rings, timing wheels, or tight-RAM arenas |
 
 Deepmodebot's principles, gates, and playbooks win any conflict. These files supply domain rules, not process.
 
