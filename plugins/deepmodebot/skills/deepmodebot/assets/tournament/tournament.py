@@ -520,7 +520,10 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
     ):
         return out("investigation", "question", "low", "Read-only codebase question.")
 
-    if re.search(r"\b(?:\d+(?:\.\d+)?x\s+slower|got\s+slower|slowness|p9[59]\s+went\s+from|latency\s+regression)\b", lower):
+    if re.search(
+        r"\b(?:\d+(?:\.\d+)?x\s+slower|got\s+slower|slowness|p9[59]\s+went\s+from|p9[59]\s+(?:tail\s+)?latency|tail\s+latency|latency\s+regression|cache\s+misses|memory\s+layout|hits\s+oom|optimize\s+(?:the\s+)?(?:server|db\s+pooling|memory\s+layout|throughput|latency))\b",
+        lower,
+    ):
         return out("perf-issue", "execute", "low", "Measured performance regression.")
 
     gf_match = GREENFIELD_LEAD_RE.search(text)

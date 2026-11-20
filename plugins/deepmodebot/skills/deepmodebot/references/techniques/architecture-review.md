@@ -15,7 +15,8 @@ A **seam** is where one module meets another and where a test or a second implem
    - shallow modules, pass-through layers, wrappers with one caller;
    - pure helpers pulled out for testing while the bugs live in how they are wired together;
    - one internal decision known by several modules (leak);
-   - code that is untested, or hard to test through its current interface.
+   - code that is untested, or hard to test through its current interface;
+   - hot-path performance friction (cross-thread hops, per-connection buffers, unbatched DB round trips, or false sharing; see `domain-rules/references/high-scale-server-optimization.md` and `data-structures-and-cache-optimization.md`).
    It runs the deletion test on every suspect and returns candidates, each with files, problem, proposed change, and deletion-test result.
    Done when the scout has returned and every candidate carries all four fields.
 3. **Screen.** Drop candidates that only move complexity (deletion test fails), that an ADR forbids without strong new evidence, or that sit in code nobody has touched in a year. Rate the rest **Strong**, **Worth exploring**, or **Speculative**, and tag each with the kind of dependency behind the seam: in-process, swappable dependency (database, filesystem), ports and adapters, or external service.
