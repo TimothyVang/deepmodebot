@@ -4,6 +4,7 @@
 
 1. **Read what exists.** The repo's check commands (package scripts, `Makefile`, `justfile`, `pyproject.toml`, `Cargo.toml`, task runner) and the commands any CI workflow runs.
    - Existing hook setup (`.husky/`, `.pre-commit-config.yaml`, `lefthook.yml`, `core.hooksPath` in git config): extend it, never add a second hook manager.
+   - For backend/systems repos, you can also wire `python -B "<deepmodebot>/assets/perf-audit/perf_audit.py" --fail-on-high --files {staged_files}` as a fast staged-file performance gate.
    - The hook runs the same commands CI runs; when they differ, fix the gap in the same change.
    - Done when you can list every check command and the hook manager already in place, or that there is none.
 2. **Pick the manager by language.** Use the repo's existing formatter and linter. Add one only when there is none, and say which and why. Done when one manager is chosen and named with its reason.
