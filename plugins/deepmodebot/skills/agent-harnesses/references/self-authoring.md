@@ -2,7 +2,7 @@
 
 Read when writing a prompt, command, skill, goal, or loop from inside a session, or choosing between native goal and loop modes and `skill://deepmodebot/assets/loop/loop.py`. The steps are in `skill://deepmodebot/references/playbooks/self-authoring.md`; this file holds the cited per-harness facts.
 
-Date: 2026-11-11 (Antigravity checked 2026-11-13). Versions probed: omp 18.18.9, claude 2.1.322, codex 0.163.0.
+Date: 2026-11-11 (Antigravity docs checked 2026-11-13). Versions probed: omp 18.18.9, claude 2.1.322, codex 0.163.0.
 Exit codes are the reliable loop gate in headless runs: omp `--max-cost` exits 3; nonzero on terminal turn failures (omp://cli-reference.md).
 Tags: `[unverified]` = not confirmed in a primary source this session; `[inference]` = derived, not stated.
 
@@ -73,9 +73,10 @@ Tags: `[unverified]` = not confirmed in a primary source this session; `[inferen
 - Same-name skills are not merged; both appear ([build-skills](https://learn.chatgpt.com/docs/build-skills.md)).
 
 ### Google Antigravity
-- Paths: workspace `.agents/skills/<name>/SKILL.md` (cwd and parents up to repo root; `.gemini/skills/` in workspace is ignored), personal `~/.gemini/config/skills/`, plugin `skills/`, and CLI-only `~/.gemini/skills/` (shadows workspace in `agy`, invisible in App) ([customization-discovery](https://antigravity.google/docs/customization-discovery), [skills](https://antigravity.google/docs/skills)).
+- Paths: workspace `.agents/skills/<name>/SKILL.md` walking cwd up to repo root (`.gemini/skills/` in workspace is ignored); personal `~/.gemini/config/skills/<name>/SKILL.md` (shared by App, CLI `agy`, IDE); plugin `<plugin>/skills/<name>/SKILL.md` ([skills](https://antigravity.google/docs/skills), [discovery](https://antigravity.google/docs/customization-discovery)).
+- Antigravity ignores Claude `commands/*.md`; every discovered skill registers `/<name>` directly (`/skills reload` refreshes completions in interactive `agy`). CLI-only `~/.gemini/skills/` and `~/.gemini/antigravity-cli/skills/` outrank workspace skills in `agy` while staying invisible in App ([discovery](https://antigravity.google/docs/customization-discovery)).
 - Frontmatter parses `name` and `description` only; unknown keys (including `disable-model-invocation: true`) are silently ignored ([skills](https://antigravity.google/docs/skills)).
-- Validate plugins and manifests with `agy plugin validate [--strict] <dir>` ([build-plugins](https://antigravity.google/docs/build-plugins)).
+- Validate plugins, manifests, and bundled skills with `agy plugin validate [--strict] <dir>` ([build-plugins](https://antigravity.google/docs/build-plugins)).
 
 ### Cross-harness portable recipe [inference]
 - One `<name>/SKILL.md` with only spec fields loads in all four harnesses if placed in `.agents/skills/<name>/` (omp, Codex, Antigravity) and mirrored to `.claude/skills/<name>/` (Claude Code; copy on Windows instead of symlinking).
@@ -138,9 +139,9 @@ Tags: `[unverified]` = not confirmed in a primary source this session; `[inferen
 - No `--max-turns`/USD cap flag in `codex --help` 0.163.0; goal budget is the documented cap [inference].
 
 ### Google Antigravity
-- `/goal` and `/schedule` cover interactive persistence and recurring schedules; `/run-workflow` executes Python-orchestrated agent loops (`parallel`, `pipeline`, `phase`) ([dynamic-workflows](https://antigravity.google/docs/dynamic-workflows)).
-- `Stop` hook in `.agents/hooks.json`, `~/.gemini/config/hooks.json`, or plugin `hooks.json` receives `continuationActive`, `executionNum`, `terminationReason`, and `fullyIdle`, and returns `{"decision": "continue", "reason": "..."}` to resume; always check `continuationActive` first to prevent infinite loops, and exit `0` (non-zero fails open) ([hooks](https://antigravity.google/docs/hooks)).
-- Headless loops: `agy -p "..." --print-timeout 15m --output-format json` (`0s` = unlimited), or multi-turn `agy --input-format stream-json --output-format stream-json`; resume via `-c` / `--conversation <id>` ([headless](https://antigravity.google/docs/cli/headless)).
+- Interactive `/goal` runs long-horizon tasks to completion; `/schedule` (`schedule` tool) runs one-shot timers or 5-field cron schedules ([overview](https://antigravity.google/docs/overview)); `/run-workflow` executes Python-orchestrated agent loops (`parallel`, `pipeline`, `phase`) ([dynamic-workflows](https://antigravity.google/docs/dynamic-workflows)).
+- Headless loops: `agy -p "<prompt>" --output-format json --json-schema '<schema>' --print-timeout 15m` (`0s` = unlimited), resumed across iterations with `-c` or `--conversation <id>`, or multi-turn `agy --input-format stream-json --output-format stream-json` ([headless](https://antigravity.google/docs/cli/headless)).
+- `Stop` hook in `.agents/hooks.json`, `~/.gemini/config/hooks.json`, or plugin `hooks.json` receives `continuationActive`, `executionNum`, `terminationReason`, and `fullyIdle`, and returns exit `0` with `{"decision": "continue", "reason": "..."}` to resume; check stdin `continuationActive` first to prevent infinite loops (non-zero fails open) ([hooks](https://antigravity.google/docs/hooks)).
 
 ## 5. Skill authoring best practice (Anthropic)
 Source: [best-practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices).

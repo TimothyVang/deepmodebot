@@ -69,6 +69,7 @@ function main() {
   const check = spawnSync(process.execPath, [path.join(skillDir, "validate-findings.cjs"), findingsPath], {
     encoding: "utf8",
     timeout: 60_000,
+    windowsHide: true,
   });
   if (check.error || check.status !== 0) {
     const out = `${check.stdout || ""}${check.stderr || ""}${check.error ? `\n${check.error.message}` : ""}`.trim().slice(0, 3000);

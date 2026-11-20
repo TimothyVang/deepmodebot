@@ -55,6 +55,14 @@ Stale-lease recovery: if a build owner crashes or stalls past `expires` (default
 
 Panel verifiers (`references/techniques/panel.md`) don't message each other or the author before they vote. After the vote, a dissenting verifier sends its reproduction to the owner.
 
+## SAFE handoffs (distributed sub-agents)
+
+Sub-agents sharing state or mutating external systems fail like distributed systems: half-finished workers return fluent text, and multiple workers reading one shared guess create a dirty-read false quorum. When sub-agents touch real state or feed automated decisions, enforce SAFE in code (`https://www.youtube.com/watch?v=DxP5aW4VknQ`, 10:22–19:54):
+- **Sourced reads:** every handed-off fact carries its source, version, and read time; separate observations from inferences and reject stale records at decision time.
+- **At-most-once side effects:** bind each external write to one identity and single-use approval/fencing token; never replay an uncertain write—read back by identity (`submitted` is not `confirmed`).
+- **Fan-out budgets:** cap concurrent calls per downstream service (including shared package/install caches) with bounded waits; treat capacity refusals as health failures.
+- **Explicit outcomes:** return structured states (`ok`, `partial`, `stale`, `unknown`), never prose alone. Record timeouts as `unknown` without overwriting a process's real exit cause, and recompute numeric/rate claims in code before acting.
+
 **Done when** every agreement two coworkers reached is either in the code or in one trail row written by the agent that acts on it.
 
 Workflow inspiration: [project-isolated lead agents](https://www.youtube.com/watch?v=q6NY3KbYCAs&t=643s) and [meeting-to-task review](https://www.youtube.com/watch?v=q6NY3KbYCAs&t=695s).

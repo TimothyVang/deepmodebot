@@ -32,3 +32,9 @@ Done when the PR has the audit comment for its current head and the gate passed,
 - The audit agent reads the PR's text, so a hostile PR can try to talk it into writing an empty `findings.json`. For PRs from people you don't trust, the panel and a human read the diff; the gate alone is not enough.
 - One run finds roughly half of what repeated runs find (Cloudflare's own measurement). The gate is a floor, not a clearance.
 - Each run spends model budget (`AUDIT_BUDGET_USD`, default $8). Run it once per head that will merge, not on every push.
+
+## Auditing skills & agent supply chain
+
+Treat third-party skills, MCP servers, and external context as software dependencies (`https://www.youtube.com/watch?v=_7P580m4kPY`, 01:38–13:33). Static `SKILL.md` scans miss chained skill installs, remote-fetched prompts, lookalike packages with post-install scripts, persistence edits (`AGENTS.md`), and `UserPromptSubmit` hook abuse—and LLM scanners can be tricked by inline "approved" comments.
+- Inspect every install script, registry URL, hook matcher, and chained fetch before trusting a skill; forbid remote-fetched runtime prompts in trusted repos.
+- For untrusted skills or MCP servers, verify runtime behavior in an isolated sandbox that records process creation, filesystem reads/writes, and outbound network traffic—not just the model's conversation trace.

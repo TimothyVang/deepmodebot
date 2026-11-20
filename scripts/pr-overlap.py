@@ -111,6 +111,7 @@ def run_gh(args: list[str]) -> str:
             errors="replace",
             env={**os.environ, "GH_PROMPT_DISABLED": "1", "NO_COLOR": "1"},
             check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
     except OSError as exc:
         raise GhError(f"could not run gh: {exc}") from exc

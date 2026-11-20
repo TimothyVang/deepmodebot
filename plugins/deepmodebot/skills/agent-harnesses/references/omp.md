@@ -2,7 +2,7 @@
 
 Read when deepmodebot runs inside omp, when you must translate a deepmodebot instruction into an omp tool, path, or flag, or when you script omp headlessly (`omp -p`, `--mode json|rpc|acp`).
 
-Checked: omp 18.18.9 on 2026-11-11. Sources: bundled docs (`read omp://<file>.md`, mirrored in the repo's [docs/](https://github.com/can1357/oh-my-pi/tree/main/docs) folder) and `omp --help`. Doc links below point at the repo copy; the local `omp://` copy is authoritative for 18.18.9.
+Checked: omp 18.18.9 on 2026-11-11 (CLI help reconciled against omp 18.22.2 on 2026-11-17). Sources: bundled docs (`read omp://<file>.md`, mirrored in the repo's [docs/](https://github.com/can1357/oh-my-pi/tree/main/docs) folder) and `omp --help`. Doc links below point at the repo copy; local `omp --help` and `omp://` are authoritative for the installed version.
 
 ## 1. Install, update, auth, models
 
@@ -67,7 +67,7 @@ Sources: [skills.md](https://github.com/can1357/oh-my-pi/blob/main/docs/skills.m
 
 ## 5. Agent tools
 
-Default tools: `read bash edit write grep glob lsp python notebook browser task todo web_search ask` (`computer` off by default). `--tools a,b` restricts; `--no-tools` disables built-ins. (omp 18.18.9 --help)
+Default tools (omp 18.22.2 `--help`): `read edit write bash grep glob find eval task wait todo ask web_search lsp ast_edit debug` (`browser` and `computer` run inside `eval`, toggled by `browser.enabled` default on and `computer.enabled` default off; older 18.18.9 docs listed `python`/`notebook`/`browser` standalone). `--tools a,b` restricts; `--no-tools` disables built-ins.
 
 - `task` spawns subagents. Default batch shape `{ context, tasks: [{ name?, agent?, task, solutionSpace, ... }] }`. `agent` goes on each item; a top-level `agent` is rejected. [tools/task.md](https://github.com/can1357/oh-my-pi/blob/main/docs/tools/task.md)
 - Bundled agents: `scout`, `reviewer`, `security-reviewer`, `task`, `sonic`; `seance` when spawnable. [tools/task.md](https://github.com/can1357/oh-my-pi/blob/main/docs/tools/task.md)
@@ -115,7 +115,7 @@ Source: [approval-mode.md](https://github.com/can1357/oh-my-pi/blob/main/docs/ap
 ## 7. Headless and scripting
 
 - `omp -p "prompt"` runs once and exits. Piped stdin selects print mode automatically. `@file` attaches files. [cli-reference.md](https://github.com/can1357/oh-my-pi/blob/main/docs/cli-reference.md)
-- `--mode text|json|rpc|rpc-ui|acp`. `json`: NDJSON events (`message_end` carries full messages). `rpc`: line-delimited JSON commands over stdio, not JSON-RPC 2.0. `--no-ui` makes extensions headless. [cli-reference.md](https://github.com/can1357/oh-my-pi/blob/main/docs/cli-reference.md), [rpc.md](https://github.com/can1357/oh-my-pi/blob/main/docs/rpc.md)
+- `--mode text|json|rpc|rpc-ui` (ACP runs via subcommand `omp acp`, omp 18.22.2 `--help`). `json`: NDJSON events (`message_end` carries full messages). `rpc`: line-delimited JSON commands over stdio, not JSON-RPC 2.0. `--no-ui` makes extensions headless. `--offline` restricts auxiliary services to the active model's provider and is **not** a network firewall. [cli-reference.md](https://github.com/can1357/oh-my-pi/blob/main/docs/cli-reference.md), [rpc.md](https://github.com/can1357/oh-my-pi/blob/main/docs/rpc.md)
 - Exit codes: nonzero on terminal turn failure; `3` when `--max-cost` stops the run. [cli-reference.md](https://github.com/can1357/oh-my-pi/blob/main/docs/cli-reference.md)
 - `--wait-async` keeps print mode alive until background jobs finish and re-wakes the session; pair with `--max-time 2h`. [cli-reference.md](https://github.com/can1357/oh-my-pi/blob/main/docs/cli-reference.md)
 - Isolation for scripted calls: `--no-session`, `--no-context-files`, `--no-rules`, `--no-skills`, `--no-extensions`, `--no-lsp`, `--no-tools`, `--tools`, `--config <overlay.yml>` (repeatable, never persisted), `--cwd`, `--add-dir`. [cli-reference.md](https://github.com/can1357/oh-my-pi/blob/main/docs/cli-reference.md), [settings.md](https://github.com/can1357/oh-my-pi/blob/main/docs/settings.md)

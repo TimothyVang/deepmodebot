@@ -331,6 +331,7 @@ for py in iter_files(".py"):
         problems.append(f"{py.relative_to(ROOT)}:{err.lineno}: {err.msg}")
     if py.name.startswith("test_"):
         test_dirs.add(py.parent)
+# Tests get a repo-local temp folder (Contain the work: never system temp); it is removed afterwards.
 test_tmp = ROOT / ".scratch/tmp" / f"check-{os.getpid()}"
 test_tmp.mkdir(parents=True, exist_ok=True)
 sorted_dirs = sorted(test_dirs)

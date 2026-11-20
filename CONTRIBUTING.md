@@ -83,7 +83,8 @@ A skill or playbook change is proven by running an agent with it (see "Testing a
 
 Passing tests alone are not proof. Show the behavior.
 
-For the evaluation CLIs (requires Python 3.12+), use [.omp/skills/verify-deepmodebot/SKILL.md](.omp/skills/verify-deepmodebot/SKILL.md) and its feature map. Run its doctor before capturing real agent journeys. Preserve failed attempts and distinguish helper tests from actual model execution. Note: `verify-deepmodebot` currently covers the evaluation CLIs and pre-0.9.0 surfaces; 0.9.0 additions (`sme-review`, `workspace-map`, `loop.py` sprint/fallback gates, native Antigravity plugin) rely on `scripts/check.py` unit tests and `agy plugin validate` until dedicated live verification entries are added (and mirrored to `.agents/skills/`).
+For the evaluation CLIs (requires Python 3.12+), use [.omp/skills/verify-deepmodebot/SKILL.md](.omp/skills/verify-deepmodebot/SKILL.md) (mirrored at [.agents/skills/verify-deepmodebot/SKILL.md](.agents/skills/verify-deepmodebot/SKILL.md) for Antigravity, Codex, and other `.agents/` harnesses) and its feature map. Run its doctor before capturing real agent journeys. Preserve failed attempts and distinguish helper tests from actual model execution.
+Note: `verify-deepmodebot` currently covers the evaluation CLIs and pre-0.9.0 surfaces; 0.9.0 additions (`sme-review`, `workspace-map`, `loop.py` sprint/fallback gates, native Antigravity plugin) rely on `scripts/check.py` unit tests and `agy plugin validate` until dedicated live verification entries are added.
 
 ## 6. Open the PR
 

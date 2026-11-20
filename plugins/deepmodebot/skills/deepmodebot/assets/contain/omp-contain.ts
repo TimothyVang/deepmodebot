@@ -58,7 +58,7 @@ function projectRoots(cwd: string): string[] {
 		const [toplevel, common] = execFileSync(
 			"git",
 			["-C", cwd, "rev-parse", "--path-format=absolute", "--show-toplevel", "--git-common-dir"],
-			{ encoding: "utf8", timeout: 10_000, stdio: ["ignore", "pipe", "ignore"] },
+			{ encoding: "utf8", timeout: 10_000, stdio: ["ignore", "pipe", "ignore"], windowsHide: true },
 		)
 			.split(/\r?\n/)
 			.map(line => line.replace(/[\\/]+$/, ""));

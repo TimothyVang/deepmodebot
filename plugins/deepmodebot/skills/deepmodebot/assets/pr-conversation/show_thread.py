@@ -61,7 +61,8 @@ def gh_json(path: str, paginate: bool = False):
     """`gh api <path>` parsed; paginated arrays come back as one list."""
     cmd = ["gh", "api", *(["--paginate", "--jq", ".[]"] if paginate else []), path]
     try:
-        out = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
+        out = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                             timeout=30, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     except FileNotFoundError:
         raise GhError("the GitHub CLI `gh` is not installed or not on PATH") from None
     except subprocess.TimeoutExpired:
