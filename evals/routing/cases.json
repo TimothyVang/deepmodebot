@@ -234,6 +234,20 @@
       "route": "workspace-map",
       "size": "none",
       "note": "Read-only workspace, worktree, PR, and FTS5 symbol index lookup."
+    },
+    {
+      "id": "perf-server-optimize",
+      "request": "Our Go/Postgres API server hits OOM and high p99 tail latency at 200k keep-alive connections. Profile it and optimize the server and DB pooling.",
+      "route": "perf-issue",
+      "size": "M",
+      "note": "Server throughput, memory, and DB pooling optimization tied to measurement."
+    },
+    {
+      "id": "perf-data-structure",
+      "request": "This hot-path SPSC ring buffer and connection slot array are causing L1 cache misses and GC pauses. Optimize the memory layout.",
+      "route": "perf-issue",
+      "size": "M",
+      "note": "Data structure and memory layout performance optimization."
     }
   ]
 }

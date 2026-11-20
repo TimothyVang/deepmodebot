@@ -171,3 +171,11 @@ Distilled from 96 implementations, infrastructure configs, and benchmarks in the
 128. **Drop already-disconnected client requests before hitting Postgres.** Checking a connection epoch atomic at DB-dispatch time avoids wasting DB CPU on timed-out callers.
 129. **Pipeline Phase A1 (cheap lookups + `Flush`) before Phase A2 (heavy feeds) in one socket write.** Dispatches auth/fast paths concurrently while Postgres executes heavy queries.
 130. **Scope `EXISTS`/flag checks to rendered `(viewer, target)` pairs & pace huge batch replies.** Probing only displayed pairs cut 30% PG time on aged DBs; pacing large batch flushes (`ANSWER_PACE`) avoids NIC TX drops.
+
+## 11. Non-CRUD Edge, TLS, Streaming & Lock-Free Observability
+
+131. **Enable TLS 1.3 session resumption (tickets/PSK) and kernel `kTLS` (`SSL_OP_ENABLE_KTLS`).** Offloads symmetric crypto to the kernel so `sendfile`/`splice` zero-copy still works over HTTPS.
+132. **Bound HTTP/2 & HTTP/3 (QUIC) per-connection stream concurrency and HPACK/QPACK dynamic tables.** Unbounded `MAX_CONCURRENT_STREAMS` and huge header tables recreate per-connection memory bloat at 100k+ users.
+133. **Share one ring buffer across SSE/WebSocket subscribers with per-consumer cursors.** Never clone or allocate a payload per subscriber; drop or disconnect slow consumers that fall behind the ring tail.
+134. **Use `sendfile`, `splice`, or `MSG_ZEROCOPY` for static or multi-KB streaming payloads.** Avoids copying file/pipe buffers through user space on the event loop.
+135. **Log and emit metrics through thread-local lock-free ring buffers.** Never call `malloc`, format strings synchronously, or lock a shared logger mutex on the request thread; sample tails asynchronously.
