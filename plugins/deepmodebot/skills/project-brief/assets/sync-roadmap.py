@@ -204,7 +204,7 @@ def render(repo: str, rows: list[dict[str, Any]]) -> str:
         f"_{HEADER}_",
         "",
         f"Tasks are open issues in `{repo}` labeled `{LABEL}`. "
-        "Claim one with `/deepmodebot:contribute` or by commenting on the issue.",
+        "Claim one with `/deepmodebot:contribute` (`/contribute` in Antigravity, `$deepmodebot:contribute` in Codex) or by commenting on the issue.",
         "",
         "This file is a snapshot from the maintainer's last sync, so a task may have been claimed since. "
         f"The live list: [open `{LABEL}` issues](https://github.com/{repo}/issues?q={LIVE_QUERY}).",

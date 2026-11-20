@@ -5,7 +5,7 @@ Use when: something is broken and needs a fix. You own the task: plan, review, v
 Be scientific: every shipped line traces to runtime evidence. A "might help" belt-and-suspenders change is a hypothesis, not a fix. It does not ship. When evidence refutes a hypothesis, revert what it motivated. Ship the smallest change the evidence justifies.
 
 ## Steps
-1. Reproduce it yourself on the matching surface via the repo's `verify-<app>` skill (`.omp/skills/verify-<app>/`); if none, omp `eval` `browser` or bash, even if a debug protocol says to ask the user. If it won't reproduce directly: synthesize the trigger, tighten conditions, or instrument until it fires.
+1. Reproduce it yourself on the matching surface via the repo's `verify-<app>` skill (in `.omp/skills/`, `.claude/skills/`, or `.agents/skills/`); if none, use omp `eval` `browser`, Playwright/CDP, or bash, even if a debug protocol says to ask the user. If it won't reproduce directly: synthesize the trigger, tighten conditions, or instrument until it fires.
    Done when you have captured output showing the failure on that surface.
 2. Binary-search the cause:
    - Seed candidate hypotheses with the **how** technique (`references/techniques/how.md`) over the subsystem and the **why** technique (`references/techniques/why.md`) for regression history.
@@ -19,8 +19,8 @@ Be scientific: every shipped line traces to runtime evidence. A "might help" bel
 4. Verify on the same surface: the original repro now passes.
 5. Order the evidence so the failing repro is shown before the fix (`references/principles/sequence-verifiable-units.md`); when committing, that is also the commit order. Use the **tdd** technique (`references/techniques/tdd.md`) for failing-test-first when a cheap local test path exists; skip it when the test would be expensive, integration-heavy, or unclear.
    Done when the failing output precedes the passing output in the evidence and in commit order.
-6. Commit, run **Opening a PR** (`references/playbooks/opening-a-pr.md`), which lands a single PR through **pr-conversation** on a panel pass; a stack lands through `references/playbooks/shipping.md`.
-   Done when the PR is merged, or the stack is handed to Shipping.
+6. Deliver per SKILL.md's delivery-target rule: for local review or a repo with no remote, leave verified S/M edits uncommitted in the starting working tree with the failing-then-passing repro output (no default-branch commit or push). For publication, commit and run **Opening a PR** (`references/playbooks/opening-a-pr.md`), which lands a single PR through **pr-conversation** on a panel pass (or a stack through `references/playbooks/shipping.md`).
+   Done when the requested delivery target holds (verified uncommitted local fix, merged PR, or stack handed to Shipping).
 
 ## Gates
 - Ask the user to reproduce only with a stated, specific reason the control surface can't reach the target, and only after driving it as far as it goes.

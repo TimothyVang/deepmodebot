@@ -9,7 +9,7 @@ Read when a task touches one of these areas and you need to know which reference
 - Recording UI proof with no `verify-<app>` skill → `skill://deep-stack/references/prove.md`.
 - Your gates and playbooks still govern.
 
-**Harnesses, protocols, and AI-native tooling** (using, configuring, or scripting omp, Claude Code, or Codex; MCP, ACP, A2A, WebMCP; skills, plugins, `AGENTS.md`, hooks, sandboxes, headless runs) → read `skill://agent-harnesses`, then only the file the task touches. Those files carry the cited, dated facts (paths, flags, tool names) and the traps for deepmodebot in each harness.
+**Harnesses, protocols, and AI-native tooling** (using, configuring, or scripting omp, Claude Code, Codex, or Antigravity; MCP, ACP, A2A, WebMCP; skills, plugins, `AGENTS.md`, hooks, sandboxes, headless runs) → read `skill://agent-harnesses`, then only the file the task touches. Those files carry the cited, dated facts (paths, flags, tool names) and the traps for deepmodebot in each harness.
 
 **LangChain ecosystem** (LangChain agents, LangGraph state and durable execution, Deep Agents skills/subagents, LangSmith evaluation and tracing) → `skill://agent-harnesses/references/langchain-ecosystem.md`.
 For automatic tool or skill selection, use `references/techniques/tool-routing.md`; domain references support the selected playbook rather than replacing its intent.
@@ -26,7 +26,7 @@ For vague intent, quantitative milestones and independent two-of-three goal revi
 
 **Agent-assisted language rewrites** (assessing a Rust migration, choosing incremental replacement versus an all-at-once port, or preserving behavior during a rewrite) → `references/rust-migration-case-studies.md`. Cited accounts from the GitHub Copilot runtime and Bun; reported outcomes are separate from transferable guidance.
 
-**Agent tooling** (browser automation, agent sandboxes, coding-agent harnesses or multi-agent orchestrators, autoresearch loops) → read the cited landscape in `research/README.md` of a local checkout of `TimothyVang/automation-tools` before picking a tool. No checkout: `gh repo clone TimothyVang/automation-tools .scratch/refs/automation-tools` from the project root (private; skip if you can't access it). It is a 2026-11-11 snapshot tuned for omp + Orca on Windows, so recheck release dates and licenses of the tool you pick.
+**Agent tooling** (browser automation, agent sandboxes, coding-agent harnesses or multi-agent orchestrators, autoresearch loops) → read the cited landscape in `research/README.md` of a local checkout of `TimothyVang/automation-tools` before picking a tool. No checkout: shallow-clone read-only into gitignored `.scratch/refs/automation-tools` (reference-only exception to the no-nested-project-repos rule; private, skip if inaccessible, never commit from it). It is a 2026-11-11 snapshot tuned for omp + Orca on Windows, so recheck release dates and licenses of the tool you pick.
 
 **Software factories** (choosing a backlog-to-PR runner, comparing agent fleets, or improving dispatch, holdouts, merge gates, and recovery) → `references/factory-landscape.md`. It maps 61 GitHub projects to concrete mechanisms, license caveats, and acceptance experiments. The Work a queue playbook still owns execution and merge policy.
 
@@ -41,9 +41,9 @@ For vague intent, quantitative milestones and independent two-of-three goal revi
 
 **Frontend UI/UX** (building, restyling, or reviewing UI; components; motion and animation; motion graphics or rendered video; color; accessibility; chat or agent UI) → before writing UI code, read `skill://frontend-ui` (always-apply rules, routing, section index), then the `skill://frontend-ui/references/playbook/` section it routes to. `skill://frontend-ui/references/patterns/` holds what the reference images and clips taught, as text: shipped-app layouts, popular pins, 193 animation techniques, the motion-graphics stack. These files are bundled, so they work anywhere deepmodebot is installed.
 
-Frontend evidence and media live in the private `TimothyVang/frontend`. When you need them, shallow-clone it to `.scratch/refs/frontend` (SKILL.md Contain the work) and never commit from it.
+Frontend evidence and media live in the private `TimothyVang/frontend` (skip if inaccessible). When you need them, shallow-clone read-only to gitignored `.scratch/refs/frontend` (reference-only exception to the no-nested-project-repos rule) and never commit from it.
 
-**Cloud security and DevSecOps rules** come from `skill://cloud-devsecops` (cited reports in `TimothyVang/cloud-devsecops`; its `SKILL.md` lists them). They cover securing and wiring up a cloud, where `skill://domain-rules/references/aws-networking.md` covers how AWS networking works. Read the file the task touches before designing, reviewing, or changing cloud access, policy, or pipelines:
+**Cloud security and DevSecOps rules** come from `skill://cloud-devsecops` (cited reports in `TimothyVang/cloud-devsecops`, private — skip direct repo cloning if inaccessible; its `SKILL.md` lists them). They cover securing and wiring up a cloud, where `skill://domain-rules/references/aws-networking.md` covers how AWS networking works. Read the file the task touches before designing, reviewing, or changing cloud access, policy, or pipelines:
 
 - AWS accounts, Organizations, SCP/RCP, IAM, GuardDuty or Security Hub, KMS, or CI access to AWS → `skill://cloud-devsecops/references/aws.md`.
 - Azure subscriptions, management groups, Entra ID, RBAC, Azure Policy, Defender for Cloud, Key Vault, Private Endpoints, AKS, or CI access to Azure → `skill://cloud-devsecops/references/azure.md`.
@@ -53,3 +53,9 @@ Frontend evidence and media live in the private `TimothyVang/frontend`. When you
 - Kubernetes workload operations, Helm/Kustomize, cluster-local development or GitOps → `skill://cloud-devsecops/references/kubernetes.md`.
 - Testing cloud or IaC code without a real account (Floci, LocalStack, moto, Azurite, Google emulators) → `skill://cloud-devsecops/references/local-emulators.md`. Run infra changes there first when the emulator covers the service.
 - Choosing terminal, container, Kubernetes, Terraform, or code-review tooling → `skill://cloud-devsecops/references/devops-tools.md`.
+
+**Verification and contributor sibling skills** bundled alongside deepmodebot:
+- Creating a repo `verify-<app>` skill when repeated journeys justify one → `skill://create-verification-skill`.
+- Auditing or updating an existing `verify-<app>` skill as features drift → `skill://maintain-verification-skill`.
+- Picking unclaimed non-overlapping work in someone else's repo → `skill://contribute`.
+- Publishing a newcomer `PROJECT_BRIEF.md`, task board, and overlap guardrails for contributors → `skill://project-brief`.

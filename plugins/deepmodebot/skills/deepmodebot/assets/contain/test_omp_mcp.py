@@ -44,6 +44,12 @@ record = {
     "has_anthropic_auth_token": "ANTHROPIC_AUTH_TOKEN" in os.environ,
     "has_openai_key": "OPENAI_API_KEY" in os.environ,
     "has_codex_key": "CODEX_API_KEY" in os.environ,
+    "has_gemini_key": "GEMINI_API_KEY" in os.environ,
+    "has_google_key": "GOOGLE_API_KEY" in os.environ,
+    "has_bedrock": "CLAUDE_CODE_USE_BEDROCK" in os.environ,
+    "has_vertex": "CLAUDE_CODE_USE_VERTEX" in os.environ,
+    "has_foundry": "CLAUDE_CODE_USE_FOUNDRY" in os.environ,
+    "tmpdir": os.environ.get("TMPDIR", ""),
 }
 event = {
     "type": "message_end",
@@ -153,6 +159,11 @@ class OmpMcpServerTests(unittest.TestCase):
             "ANTHROPIC_AUTH_TOKEN",
             "OPENAI_API_KEY",
             "CODEX_API_KEY",
+            "GEMINI_API_KEY",
+            "GOOGLE_API_KEY",
+            "CLAUDE_CODE_USE_BEDROCK",
+            "CLAUDE_CODE_USE_VERTEX",
+            "CLAUDE_CODE_USE_FOUNDRY",
         }
         existing_path = os.environ.get("PATH") or os.environ.get("Path") or ""
         clean_env = {
@@ -169,6 +180,11 @@ class OmpMcpServerTests(unittest.TestCase):
             "ANTHROPIC_AUTH_TOKEN": "tok-ant-should-be-stripped",
             "OPENAI_API_KEY": "sk-openai-should-be-stripped",
             "CODEX_API_KEY": "sk-codex-should-be-stripped",
+            "GEMINI_API_KEY": "gem-should-be-stripped",
+            "GOOGLE_API_KEY": "goog-should-be-stripped",
+            "CLAUDE_CODE_USE_BEDROCK": "1",
+            "CLAUDE_CODE_USE_VERTEX": "1",
+            "CLAUDE_CODE_USE_FOUNDRY": "1",
         }
 
     @classmethod
@@ -225,7 +241,7 @@ class OmpMcpServerTests(unittest.TestCase):
         entry = cfg["mcpServers"]["omp"]
         self.assertEqual(entry["command"], "node")
         self.assertEqual(entry["args"], ["${PLUGIN_ROOT}/scripts/omp-mcp-server.mjs"])
-        self.assertEqual(entry["timeoutSeconds"], 600)
+        self.assertEqual(entry["timeoutSeconds"], 3600)
         self.assertNotIn("variables", entry)
 
     def test_initialize_ping_and_tools_list_over_both_framings(self):
@@ -357,6 +373,12 @@ class OmpMcpServerTests(unittest.TestCase):
         self.assertFalse(inner1["has_anthropic_auth_token"])
         self.assertFalse(inner1["has_openai_key"])
         self.assertFalse(inner1["has_codex_key"])
+        self.assertFalse(inner1["has_gemini_key"])
+        self.assertFalse(inner1["has_google_key"])
+        self.assertFalse(inner1["has_bedrock"])
+        self.assertFalse(inner1["has_vertex"])
+        self.assertFalse(inner1["has_foundry"])
+        self.assertEqual(Path(inner1["tmpdir"]).resolve(), (self.workspace / ".scratch" / "tmp").resolve())
         self.assertIn("--model", inner1["args"])
         self.assertIn("@smol", inner1["args"])
         self.assertIn("--thinking", inner1["args"])
@@ -452,11 +474,13 @@ class OmpMcpServerTests(unittest.TestCase):
         self.assertEqual(sec_out["agent"], "security-reviewer")
         sec_inner = json.loads(sec_out["findings"])
         sec_tools_idx = sec_inner["args"].index("--tools")
-        self.assertEqual(sec_inner["args"][sec_tools_idx + 1], "read,grep,glob,bash,web_search")
+        self.assertEqual(sec_inner["args"][sec_tools_idx + 1], "read,grep,glob")
 
         rev_out = json.loads(by_id[3]["result"]["content"][0]["text"])
         self.assertEqual(rev_out["agent"], "reviewer")
         rev_inner = json.loads(rev_out["findings"])
+        rev_tools_idx = rev_inner["args"].index("--tools")
+        self.assertEqual(rev_inner["args"][rev_tools_idx + 1], "read,grep,glob")
         rev_model_idx = rev_inner["args"].index("--model")
         self.assertEqual(rev_inner["args"][rev_model_idx + 1], "@slow")
 

@@ -23,6 +23,7 @@ The workflow that must never break is installing the plugin, running `/deep <tas
 Read `plugins/deepmodebot/.claude-plugin/plugin.json` for the release version. Both marketplace manifests must agree with it. Do not copy a version number into this brief.
 
 Run evidence lives in `evals/results/` and merged PR threads. A reseller must obtain its own deployment evidence. Contributor PRs receive review comments only; their code is not run by write-enabled agents, and a maintainer decides whether to merge.
+Post-overhaul evaluation status (0.9.0): committed 2026-11-12 and 2026-11-15 eval reports predate the 0.9.0 overhaul; post-overhaul routing evals (`evals/routing/cases.json`, 33 cases) and live agent journeys for 0.9.0 features (`sme-review`, `workspace-map`, `loop.py` sprint/fallback gates, Sprint mode, native Antigravity plugin) have not yet been re-run against the compacted `<24 KB` `SKILL.md`.
 
 Known gaps reserved for contributors:
 
@@ -52,7 +53,7 @@ Known gaps reserved for contributors:
 | `plugins/deepmodebot/skills/deep-stack/` and the verification skills | Stack choices and reusable app verification | `SKILL.md` |
 | `plugins/deepmodebot/commands/` | `deep`, `tournament`, `review-pr`, `land-pr`, `pr-thread`, `contribute`, `project-brief` | The corresponding command file |
 | `brand/`, `scripts/whitelabel.py`, `scripts/media/` | Brand inputs, distribution builds and rendered media | `brand/brand.json`, `scripts/whitelabel.py` |
-| `scripts/` | Repository gate (`check.py`: 13 test dirs, `<24 KB` `SKILL.md`, `catalog.md`, `node --check`, manifests), overlap checks, claim tests and roadmap generation | `check.py`, `pr-overlap.py`, `sync-roadmap.py` |
+| `scripts/` | Repository gate (`check.py`: 13 test dirs, `<24 KB` `SKILL.md`, `catalog.md`, `node --check`, manifests, `agy plugin validate` when `agy` is installed), overlap checks, claim tests and roadmap generation | `check.py`, `pr-overlap.py`, `sync-roadmap.py` |
 | `evals/` | Routing and outcome evaluations with committed results | `evals/README.md` |
 | `trending/` | Generated repository catalog | `trending/README.md` |
 | `docs/` | Published site, machine-readable documentation and images | `index.html`, `llms.txt` |
@@ -76,9 +77,9 @@ py -3 scripts/sync-roadmap.py --repo TimothyVang/deepmodebot --check
 py -3 plugins/deepmodebot/skills/deepmodebot/assets/github-app/bot.py --help
 ```
 
-Use `python3` instead of `py -3` on macOS and Linux. `check.py` runs the repository's checks and test directories. The individual claim test is useful while changing the contributor tools. The roadmap command checks the committed snapshot against live issues and may legitimately report drift.
+Use `python3` instead of `py -3` on macOS and Linux. `check.py` runs the repository's checks and test directories (Python 3.10+; when `agy` is installed it also runs `agy plugin validate` checking 0 errors and 0 truncation warnings, while allowing the 3 expected cross-harness layout warnings for `commands`, `hooks/hooks.json`, and `.antigravity-plugin/skills`). The individual claim test is useful while changing the contributor tools. The roadmap command checks the committed snapshot against live issues and may legitimately report drift.
 
-Use [.omp/skills/verify-deepmodebot/SKILL.md](../.omp/skills/verify-deepmodebot/SKILL.md) for the evaluation CLIs. Run its doctor, read the matching feature map, and capture the real agent path in a disposable project under `.scratch/`. Follow [CONTRIBUTING.md](../CONTRIBUTING.md) and include actual outcomes in the PR. Structural checks and collector tests do not replace live execution.
+Use [.omp/skills/verify-deepmodebot/SKILL.md](../.omp/skills/verify-deepmodebot/SKILL.md) for the evaluation CLIs (requires Python 3.12+ for `control.py doctor`). Run its doctor, read the matching feature map, and capture the real agent path in a disposable project under `.scratch/`. Follow [CONTRIBUTING.md](../CONTRIBUTING.md) and include actual outcomes in the PR. Structural checks and collector tests do not replace live execution. Note: `verify-deepmodebot` covers the evaluation CLIs and pre-0.9.0 surfaces; 0.9.0 additions currently rely on `scripts/check.py` unit tests and `agy plugin validate` until dedicated live verification procedures are added (and mirrored to `.agents/skills/`).
 
 For bot changes, preview a read-only cycle with `bot.py once --repo <owner/repo> --dry-run`. Do not use a live cycle to test an untrusted contributor's code.
 

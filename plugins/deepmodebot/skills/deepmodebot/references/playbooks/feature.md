@@ -37,7 +37,7 @@ Escalate real design or safety uncertainty; do not turn hypothetical extreme inp
    - Comments per the **no-comments** technique (`references/techniques/no-comments.md`). Surgical edits; re-ground upstream-derived files against the source.
    - Port shared-primitive improvements to every consumer and verify each.
    - Done when every delegated scope reports done against its success criteria and every consumer of a changed shared primitive is verified.
-6. Verify on the matching surface (project `verify-<app>` skill first; else omp `eval` `browser` or bash). "Inconclusive" or wrong-surface is not a pass; flag it.
+6. Verify on the matching surface (project `verify-<app>` skill in `.omp/skills/`, `.claude/skills/`, or `.agents/skills/` first; else omp `eval` `browser`, Playwright/CDP, or bash). "Inconclusive" or wrong-surface is not a pass; flag it.
    Done when captured output on that surface shows the new behavior.
 7. Sequence into small, ordered, verifiable units (`references/principles/sequence-verifiable-units.md`): build, verify, then the next. Stack follow-ups.
    Done when each unit has its own passing verification before the next unit starts.

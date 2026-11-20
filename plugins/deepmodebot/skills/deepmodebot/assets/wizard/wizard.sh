@@ -12,6 +12,15 @@ STEP_NO=0
 SAVED_KEYS=()
 SET_REMOTE=()
 LEFT_FOR_HUMAN=()
+WIZ_TMP_FILES=()
+
+wiz_cleanup_tmps() {
+  local f
+  for f in "${WIZ_TMP_FILES[@]-}"; do
+    [[ -n "$f" ]] && rm -f "$f"
+  done
+}
+trap wiz_cleanup_tmps EXIT INT TERM
 
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
   C_B=$'\e[1m' C_D=$'\e[2m' C_0=$'\e[0m' C_H=$'\e[36m' C_OK=$'\e[32m' C_W=$'\e[33m'
@@ -76,7 +85,24 @@ wiz_confirm() {
 wiz_saved() {
   [[ -f "$ENV_FILE" ]] || return 1
   local raw sq="'\\''" q="'"
-  raw="$(awk -v k="$1" 'index($0, k "=") == 1 { v = substr($0, length(k) + 2) } END { if (v == "") exit 1; print v }' "$ENV_FILE")" || return 1
+  raw="$(awk -v k="$1" '
+    { sub(/\r$/, "") }
+    in_sq {
+      v = v "\n" $0
+      if (substr($0, length($0)) == "\x27" && substr($0, length($0) - 2) != "\x27\\\x27") { in_sq = 0 }
+      next
+    }
+    index($0, k "=") == 1 {
+      v = substr($0, length(k) + 2)
+      if (substr(v, 1, 1) == "\x27") {
+        rest = substr(v, 2)
+        gsub(/\x27\\\x27\x27/, "", rest)
+        if (index(rest, "\x27") == 0) in_sq = 1
+      }
+    }
+    END { if (v == "" || in_sq) exit 1; print v }
+  ' "$ENV_FILE")" || return 1
+  raw="${raw%$'\r'}"
   case "$raw" in
     \'*\')
       raw="${raw#\'}"
@@ -111,13 +137,36 @@ wiz_ask() {
 }
 
 # wiz_env KEY VALUE: insert or replace KEY in ENV_FILE. New files are created private (0600).
+# Tempfiles stay beside ENV_FILE (never /tmp) and are cleaned up on exit or interrupt.
 wiz_env() {
-  local key="$1" value="$2" quoted tmp sq="'\\''" q="'"
+  local key="$1" value="$2" quoted tmp env_dir env_base sq="'\\''" q="'"
   quoted=${value//"$q"/$sq}
   quoted="'$quoted'"
+  env_dir="$(dirname "$ENV_FILE")"
+  env_base="$(basename "$ENV_FILE")"
+  mkdir -p "$env_dir"
   [[ -e "$ENV_FILE" ]] || (umask 077; : >"$ENV_FILE")
-  tmp="$(mktemp)"
-  awk -v k="$1" 'index($0, k "=") != 1' "$ENV_FILE" >"$tmp"
+  tmp="$(umask 077; mktemp "${env_dir}/.${env_base}.tmp.XXXXXX")"
+  WIZ_TMP_FILES+=("$tmp")
+  awk -v k="$1" '
+    { line = $0; sub(/\r$/, "", line) }
+    skip_sq {
+      rest = line
+      gsub(/\x27\\\x27\x27/, "", rest)
+      if (index(rest, "\x27") > 0) skip_sq = 0
+      next
+    }
+    index(line, k "=") == 1 {
+      val = substr(line, length(k) + 2)
+      if (substr(val, 1, 1) == "\x27") {
+        rest = substr(val, 2)
+        gsub(/\x27\\\x27\x27/, "", rest)
+        if (index(rest, "\x27") == 0) skip_sq = 1
+      }
+      next
+    }
+    { print $0 }
+  ' "$ENV_FILE" >"$tmp"
   printf '%s=%s\n' "$key" "$quoted" >>"$tmp"
   cat "$tmp" >"$ENV_FILE"
   rm -f "$tmp"

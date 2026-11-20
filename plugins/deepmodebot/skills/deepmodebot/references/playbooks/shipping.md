@@ -6,13 +6,13 @@ You own what lands: verify each PR independently, land only the verified run fro
 ## Steps
 
 1. Name the scope (which PRs). Use `gh`; never require Graphite. Done when the PR numbers are listed bottom to top.
-2. Verify each PR with the **panel** technique (`references/techniques/panel.md`) at its head: three skeptical verifiers that did not write the code run the change the way a user would (the repo's `verify-<app>` skill first, else `eval` `browser` or bash), parent against head.
+2. Verify each PR with the **panel** technique (`references/techniques/panel.md`) at its head: three skeptical verifiers that did not write the code run the change the way a user would (the repo's `verify-<app>` skill in `.omp/skills/`, `.claude/skills/`, or `.agents/skills/` first, else omp `eval` `browser`, Playwright/CDP, or bash), parent against head.
    The PR is `PASS` when at least two agree with evidence you checked; post the panel line on the PR (`gh pr comment <pr> --body-file <file>`).
    Green CI and an approving bot review are not verdicts: neither runs the change as a user would. An author's self-check doesn't count.
-   - Review: run the **pr-review** technique (`references/techniques/pr-review.md`) in PR mode on the exact head being landed.
+   - Review & security: run the **pr-review** technique (`references/techniques/pr-review.md`) in PR mode on the exact head being landed, plus **security-audit** (`references/techniques/security-audit.md`, blocking = P0) when opted in or touching auth, permissions, parsing, or secrets.
      The verdict counts only once that round is on that head (never triage a stale SHA) with no P0/P1 open and every P2 fixed or dismissed with a recorded reason.
      It is evidence beside the verdict, not a substitute: a clean review waives no live proof.
-   - Done when every PR in scope has a posted panel line and a pr-review line, each naming its current head SHA.
+   - Done when every PR in scope has a posted panel line, a pr-review line, and any required security-audit pass, each naming its current head SHA.
 3. Find the run: walk up from the lowest unmerged PR and stop at the first without a panel pass at its current head. The PRs below it are the run; the top one is the ceiling.
    - A verified PR above an unverified one waits.
    - One whose branch neither holds nor needs the unverified code may move onto trunk and land alone, after a fresh verdict, since its old one ran with that code beneath it.
@@ -32,14 +32,14 @@ You own what lands: verify each PR independently, land only the verified run fro
    A push after arming → `gh pr merge <pr> --disable-auto`, then a fresh panel (step 4) before arming again. Done when `gh pr view <pr> --json autoMergeRequest` shows auto-merge armed at the panel SHA.
 8. After each landing, move the next PR (its auto-merge already off, step 5): `gh pr edit <pr> --base <trunk>`, move its patch onto the merge result, `git push --force-with-lease`.
    Run a fresh panel at the new head (step 4); merge, or re-arm per step 7, once checks pass and that panel passes. Done when the next PR's base is trunk and its new head has a panel pass.
-9. Leave the stack alone while it lands. Step 8 is the only branch/base change. Watch with `gh pr checks <pr> --watch` (background `bash`, `timeout: 0`) and re-read `gh pr view` each time it returns, until the ceiling reads merged.
+9. Leave the stack alone while it lands. Step 8 is the only branch/base change. Watch with `gh pr checks <pr> --watch` (background `bash` with `timeout: 0` in omp, or background command/task in other harnesses) and re-read `gh pr view` each time it returns, until the ceiling reads merged.
    A base that moves to trunk when its parent merges is expected, not damage. A stalled merge: find out why before changing anything. Done when the ceiling PR reads `MERGED`.
 10. Stop at the ceiling. Extending the run takes new verdicts, a new pass from step 2.
 
 ## Gates
 
 - No panel pass at the current head → that PR and everything above it waits.
-- The latest pr-review round isn't on the head being landed, or a P0/P1 is open, or any P2 stands neither fixed nor dismissed with a reason → that PR waits.
+- The latest pr-review round isn't on the head being landed, or a P0/P1 is open, or a required security-audit failed/skipped without verifier review, or any P2 stands neither fixed nor dismissed with a reason → that PR waits.
 - Never give an approval. Never bypass a branch protection the forge enforces, except a required review on the user's own PR under the **pr-conversation** technique's Authorization (`references/techniques/pr-conversation.md`).
 - Ceiling reached → stop landing; panel the next PR. Each unlanded PR stays a ledger item.
 

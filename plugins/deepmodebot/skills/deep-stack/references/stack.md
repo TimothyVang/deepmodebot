@@ -1,6 +1,6 @@
 # Default stack for web, SaaS, and AI apps (2026)
 
-Layer-by-layer default picks, each with its reason and the date of the source it came from. When two entries conflict, the newer date wins. Use a pick when the user wants the default or has no preference. An existing project's stack always beats these defaults. Tools that appeared only in paid sponsor segments are excluded.
+Layer-by-layer opinionated TypeScript/web-app defaults distilled from 2026 talks, each with its reason and source date. When two entries conflict, the newer date wins. An existing project's stack always beats these defaults. For general relational monoliths, free-tier Postgres 18 (Neon/Supabase + Drizzle), PaaS deploys (Render/Railway/Fly), or deciding single-package vs monorepo, see `skill://software-architecture`. Tools that appeared only in paid sponsor segments are excluded.
 
 Vendor relationships worth knowing: several Convex and Orgo recommendations came from sources with a commercial tie to those companies. Weigh them with that in mind and prefer evidence from your own prototype.
 
@@ -18,7 +18,7 @@ Vendor relationships worth knowing: several Convex and Orgo recommendations came
 ## 2. Mobile / desktop / monorepo
 - **Mobile: Expo + React Native** for cross-platform. Use Swift when Android is not needed (2026-07-02).
 - **Desktop: Electron** wrapping the web app (2026-07-02).
-- **Start with a Turborepo monorepo.** The agent sees the whole codebase, and every client shares one backend and one UI library. Turborepo pairs well with Vercel (2026-07-02, 2026-01-23).
+- **Start with a Turborepo monorepo when shipping multiple apps or shared packages.** The agent sees the whole codebase, and every client shares one backend and one UI library (2026-07-02, 2026-01-23). For a single deployable with no shared code, keep a single-package repo per `skill://software-architecture/references/monorepos.md`.
 
 ## 3. Styling / UI
 - **Tailwind v4 + shadcn/ui.** Start from shadcn/ui's New Project page: choose Base UI components, a style, radius, and theme, then run the generated `bunx` command (2026-01-23).

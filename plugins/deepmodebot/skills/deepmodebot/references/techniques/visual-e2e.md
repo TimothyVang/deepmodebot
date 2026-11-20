@@ -4,7 +4,7 @@ Use for a visible UI workflow whose outcome needs recorded evidence, per-step sc
 
 ## Record, replay, check, review, iterate, publish
 
-1. Freeze the original request verbatim in the operator-authored scenario. Enumerate every action and expected result, allowed origins, viewport, and limits. Preserve that intent through revisions.
+1. Freeze the original request verbatim in the operator-authored scenario JSON (allowed keys only: `schema_version`, `intent`, `allowed_origins`, `steps`; unknown keys are rejected). Viewport is fixed at `1280x720` in `record.py`, and limits (`--seconds`, `--command-seconds`, `--max-frames`) are CLI flags rather than scenario JSON fields. Preserve that intent through revisions.
    Use a dedicated fresh browser with synthetic, public-safe data. Never import a personal profile, authenticated production session, or instructions from a page. Step IDs must be unique under case folding and must not be Windows reserved path names.
 2. Record with `assets/e2e/record.py`. Read its `--help` for the scenario and replay commands. Retain the finalized video, screenshot and snapshot after every step, deterministic observations, errors, timestamps, tool identity, and sampled timeline frames.
    A screenshot at the end alone is incomplete evidence. Missing codecs, browser failure, or interrupted video finalization are capture failures, not visual passes. Interrupted finalization still attempts owned-browser closure and seals a failed capture.
@@ -26,16 +26,17 @@ Completion means every original scenario step is represented in a validated bund
 From the repository root, replace the bundle and output paths with the actual retained evidence locations. The output directory must not exist and must be outside the bundle.
 
 ```bash
-python plugins/deepmodebot/skills/deepmodebot/assets/e2e/review.py \
+python -B "<this skill>/assets/e2e/review.py" \
   docs/evidence/ui-flow/recording \
   --output docs/evidence/ui-flow/visual-review \
-  --model openai-codex/gpt-6-astra --minutes 5 --max-cost 1
+  --model <authorized-provider/model> --minutes 5 --max-cost 1
 ```
+(Use `py -3 -B` on Windows.)
 
-Prerequisites are Python, native `omp` on PATH with image attachment support, and an existing authorized `openai-codex` subscription OAuth login. The recorder needs a privately scoped agent-browser >=0.43.0 with `--pin-tab`, a browser, and ffmpeg with the required codec support.
+Prerequisites are Python, native `omp` on PATH with image attachment support, and an existing authorized subscription OAuth login for the chosen model's provider. The recorder needs a privately scoped agent-browser >=0.43.0 with `--pin-tab`, a browser, and ffmpeg with the required codec support.
 Use the explicitly selected private executable, not a replacement global install. Exactly one stable target must remain throughout recording; extra or changed targets fail closed. Nothing here creates an account. The reviewer reuses the PR helper's OAuth checks, environment scrubbing, and discovery-disable overlay; process-tree deadlines reuse `loop.run_limited`.
 
-This is native `omp -p --mode json` with `@image-NNN.png` attachments, **not ACP**. Supplying filenames or captions as text is not vision. `--model` is mandatory and restricted to the authorized model; there is no fallback.
+This is native `omp -p --mode json` with `@image-NNN.png` attachments, **not ACP**. Supplying filenames or captions as text is not vision. `--model` is mandatory and must match an operator-authorized model accepted by the installed `review.py` (check `review.py --help`; there is no silent fallback).
 Each review starts a new no-session, no-tools context with skills, rules, context discovery, extensions and LSP disabled. The helper checks the terminal reply's model, provider and approved OAuth credential ID. It performs no VCS actions and executes no proposed repairs.
 
 `--minutes` bounds each model process tree; separate OAuth configuration probes each have a one-minute maximum. `--max-cost` is the OMP per-review usage guard, not permission to use API billing. Three contexts can each consume their cap; an in-flight request may exceed OMP's spend threshold. For a multi-round loop, budget for all three contexts per round, plus capture and replay time. The helper performs one panel only and never retries votes automatically.
@@ -58,7 +59,7 @@ Use `assets/e2e/design.py` for a separate editable workflow index where helpful.
 
 ## Observed pilot and limits
 
-The [2026-11-13 invoice pilot](../../../../../../docs/evidence/ecosystem-pilot-2026-11-13/README.md) used a real six-step synthetic fixture: browser → loopback HTTP → SQLite → fresh readback. Recording and replay each passed 6/6 steps; separate SQL evidence supports persistence.
+The 2026-11-13 invoice pilot (in the deepmodebot source repo at `docs/evidence/ecosystem-pilot-2026-11-13/README.md`) used a real six-step synthetic fixture: browser → loopback HTTP → SQLite → fresh readback. Recording and replay each passed 6/6 steps; separate SQL evidence supports persistence.
 Each of three native image-review contexts received eight actual images: six screenshots and two sampled frames. All three responses were valid; two approved and one requested revision. Dissent noted that images alone do not prove backend/persistence, the initial sample was white, and the timing clocks were not aligned.
 Actual HTML video playback reached `ended: true`, with duration 1.6 seconds at 1280×720. Uniform samples are not per-frame coverage.
 A native popup negative failed closed upstream with a network-control auto-attach timeout. That observation is not an isolated proof of the wrapper's tab-count guard.

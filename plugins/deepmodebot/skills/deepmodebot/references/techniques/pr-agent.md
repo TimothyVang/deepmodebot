@@ -17,10 +17,11 @@ It also refuses omp's auth-broker mode, or a broker setting it can't read, since
    Done when `gh auth status` succeeds, `uvx` is on PATH, and omp is logged in to a subscription, or the report says omp is missing and pr-review ran in its place.
 2. **Run the three commands** on the PR, in order, from any directory:
    ```bash
-   python <deepmodebot skill dir>/assets/pr-agent/pr_agent_local.py <pr-url> describe
-   python <deepmodebot skill dir>/assets/pr-agent/pr_agent_local.py <pr-url> review
-   python <deepmodebot skill dir>/assets/pr-agent/pr_agent_local.py <pr-url> improve
+   python -B "<deepmodebot skill dir>/assets/pr-agent/pr_agent_local.py" <pr-url> describe
+   python -B "<deepmodebot skill dir>/assets/pr-agent/pr_agent_local.py" <pr-url> review
+   python -B "<deepmodebot skill dir>/assets/pr-agent/pr_agent_local.py" <pr-url> improve
    ```
+   (Use `py -3 -B` on Windows.)
    Each posts to the PR as the user, which needs no ask on the user's own PRs. On someone else's PR, add `--dry-run` to read the output without posting; posting there is a hard stop. `--model` picks the model as `provider/id` (default: omp's `modelRoles.default`). `ask "<question>"` asks about the PR.
 
    Done when all three commands exited 0 on the PR's current head.

@@ -34,6 +34,10 @@ Bundled omp agent frontmatter was read from the embedded definitions inside omp.
 - Reserve at least 25,000 tokens for reasoning plus output when experimenting; hitting `max_output_tokens` can bill reasoning with no visible answer ([oa-reasoning](https://developers.openai.com/api/docs/guides/reasoning)).
 - Planner/workhorse split: reasoning models plan and decide, cheaper models execute well-defined tasks; "Most AI workflows will use a combination" ([oa-rbp](https://developers.openai.com/api/docs/guides/reasoning-best-practices)).
 
+### Google Antigravity / Gemini
+- Subagent model tiers: `flash_lite` (small/fast scans), `flash` (balanced mid tier), `pro` (frontier reasoning/review), or `inherit` (default); CLI `agy models` lists available slugs and `--effort low|medium|high|xhigh|max` tunes reasoning ([subagents](https://antigravity.google/docs/subagents), [reference](https://antigravity.google/docs/cli/reference)).
+- Gemini CLI transitioned Pro, Ultra, and free users to `agy` on 2026-06-18 ([migration](https://antigravity.google/docs/cli/gcli-migration)).
+
 ## 2. Subscription metering
 
 ### Claude Pro / Max / Ultra
@@ -52,6 +56,11 @@ Bundled omp agent frontmatter was read from the embedded definitions inside omp.
 - Fast mode consumes included usage at 2.5x; Astra or Sol Ultrafast at 8x ([cx-pricing](https://learn.chatgpt.com/docs/pricing)).
 - Usage depends on model, context, reasoning, tool use, retrieval and caching; "prompt length alone isn't a reliable estimate" ([cx-pricing](https://learn.chatgpt.com/docs/pricing)).
 - Over limit: buy credits, or run local chats with an API key at API rates ([cx-pricing](https://learn.chatgpt.com/docs/pricing)).
+
+### Google AI Pro / Ultra (Antigravity)
+- Cached Google OAuth sign-in (`agy` / `agy acp --login`) draws on Google AI Pro, Ultra, or free plan quotas; setting `GEMINI_API_KEY` with `"modelProvider": "gemini"` bills API rates instead ([install](https://antigravity.google/docs/install), [reference](https://antigravity.google/docs/cli/reference)).
+- Paid plans unlock `/boost`, `/teamwork`, and `/swarm`; `Idle` subagents and waiting `/swarm` workers consume zero tokens while parked ([boost](https://antigravity.google/docs/boost), [swarm](https://antigravity.google/docs/swarm), [subagents](https://antigravity.google/docs/subagents)).
+- Exact per-plan token/message ceilings are account-dependent and not published as fixed numbers in the Antigravity docs [unverified].
 
 ## 3. Harness knobs
 
@@ -176,17 +185,17 @@ Bundled omp agent frontmatter was read from the embedded definitions inside omp.
    - **Antigravity:** `/model` or `--model <slug>`, `--effort low|medium|high`, `invoke_subagent` `Model: "flash_lite" | "flash" | "pro"`, `swarm` `add`/`model`
 4. Pin the chosen `--model` / `--effort` in `loop.py` `harness_args` and subagent kickoffs up front so loops never inherit an unnecessarily expensive session model.
 
-Tiers: S = small (Haiku 5.5, gpt-6-luna, omp `@smol`); M = mid (Sonnet 5.5, gpt-6.1-sol or gpt-6.1-terra, omp `@task`/`@default`); L = large (Opus 5.5 high/xhigh, Fable 5.2, gpt-6-astra, omp `@slow`). Mapping is [inference] from the sources in sections 1-5 unless cited.
+Tiers: S = small (Haiku 5.5, gpt-6-luna, omp `@smol`, Antigravity `flash_lite`); M = mid (Sonnet 5.5, gpt-6.1-sol or gpt-6.1-terra, omp `@task`/`@default`, Antigravity `flash`); L = large (Opus 5.5 high/xhigh, Fable 5.2, gpt-6-astra, omp `@slow`, Antigravity `pro`). Mapping is [inference] from sections 1-5 unless cited.
 
-| Task type | Tier and effort | omp | Claude Code | Codex | Delegate? | Why |
-| --- | --- | --- | --- | --- | --- | --- |
-| Search / locate | S, low-medium | `scout` (`@smol`, medium) | Explore, or user `Explore` with `model: haiku` | `explorer` or custom agent on `gpt-6-luna` high | Yes if results span many files; no for one known symbol | Keeps raw search out of main context ([cc-subagents](https://code.claude.com/docs/en/sub-agents), [cx-subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)) |
-| Mechanical edit (rename, boilerplate) | S, medium | `sonic` | subagent `model: haiku`, `effort: low` | custom agent `gpt-6-luna` | Only when many files or parallel; else inline | Haiku "for quick mechanical work" ([help-limits](https://support.claude.com/en/articles/14552983)) |
-| Routine feature | M, medium | main session or `task` (thinking auto) | Sonnet 5.5 or Opus 5.5 at medium | `gpt-6.1-sol` medium | Usually no; yes for independent slices | Shared context, few parallel parts ([ma-post](https://www.anthropic.com/engineering/multi-agent-research-system)) |
-| Hard design, debug, concurrency | L, high-xhigh | main on `@slow` or `^model:high`; delegate only evidence gathering | Opus 5.5 high/xhigh or Fable 5.2 | `gpt-6-astra` high/xhigh | No for the reasoning itself | omp warns against offloading reasoning to scout/sonic (omp://task-agent-discovery.md) |
-| Review / judge | M-L, high | `reviewer` (`@slow`) | subagent `opus`, `effort: high` | reviewer agent `gpt-6.1-sol` medium-high | Yes; fresh context avoids author bias [inference] | `high` for reviewer agents ([cx-subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)) |
-| Long autonomous run | L planning, M/S execution | `--prewalk` or `prewalk.auto: on`; `--plan-yolo`; `--max-cost` | `fable` or `opusplan`; `--max-budget-usd` with `-p` | `gpt-6.1-sol` for repeated long runs, Astra for hardest | Plan once, execute cheaper | Fable sustains long sessions ([cc-model](https://code.claude.com/docs/en/model-config)); Sol for long-running work ([cx-models](https://learn.chatgpt.com/docs/models)) |
-| Summarize transcripts / logs | S, medium-high | `sonic` or `seance` consult | subagent `haiku` (watch 100K repricing) | `gpt-6-luna` | Yes | Luna for structured summaries ([cx-models](https://learn.chatgpt.com/docs/models)); Haiku price jump over 100K ([anth-pricing](https://platform.claude.com/docs/en/about-claude/pricing)) |
+| Task type | Tier and effort | omp | Claude Code | Codex | Antigravity | Delegate? | Why |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Search / locate | S, low-medium | `scout` (`@smol`, medium) | Explore, or user `Explore` (`model: haiku`) | `explorer` or `gpt-6-luna` high | `scout` (`flash`) or `research` / `flash_lite` | Yes if many files; no for one symbol | Keeps raw search out of main context ([cc-subagents](https://code.claude.com/docs/en/sub-agents), [cx-subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)) |
+| Mechanical edit | S, medium | `sonic` | subagent `haiku`, `effort: low` | custom `gpt-6-luna` | `invoke_subagent` `flash_lite` / `flash` | Only when many files or parallel; else inline | Haiku "for quick mechanical work" ([help-limits](https://support.claude.com/en/articles/14552983)) |
+| Routine feature | M, medium | main or `task` (auto) | Sonnet 5.5 or Opus 5.5 medium | `gpt-6.1-sol` medium | main or worker on `flash`, `--effort medium` | Usually no; yes for independent slices | Shared context, few parallel parts ([ma-post](https://www.anthropic.com/engineering/multi-agent-research-system)) |
+| Hard design, debug | L, high-xhigh | main `@slow` or `^model:high` | Opus 5.5 high/xhigh or Fable 5.2 | `gpt-6-astra` high/xhigh | main on `pro` high/xhigh (or `/boost`) | No for reasoning itself | omp warns against offloading reasoning to scout/sonic (omp://task-agent-discovery.md) |
+| Review / judge | M-L, high | `reviewer` (`@slow`) | subagent `opus`, `effort: high` | reviewer `gpt-6.1-sol` med-high | `reviewer` (`pro`, high) | Yes; fresh context avoids bias [inference] | `high` for reviewer agents ([cx-subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)) |
+| Long autonomous run | L plan, M/S exec | `--prewalk` / `--plan-yolo`; `--max-cost` | `fable` or `opusplan`; `--max-budget-usd` | `gpt-6.1-sol` (or Astra for hardest) | `/goal` or `/swarm` (`pro` plan, `flash` workers); `--print-timeout` | Plan once, execute cheaper | Fable sustains long sessions ([cc-model](https://code.claude.com/docs/en/model-config)); Sol for long-running work ([cx-models](https://learn.chatgpt.com/docs/models)) |
+| Summarize logs | S, medium-high | `sonic` or `seance` | subagent `haiku` (<100K) | `gpt-6-luna` | subagent `flash_lite` / `flash` | Yes | Luna for summaries ([cx-models](https://learn.chatgpt.com/docs/models)); Haiku >100K jump ([anth-pricing](https://platform.claude.com/docs/en/about-claude/pricing)) |
 
 When NOT to delegate:
 - One-file or one-grep tasks: a fresh child re-pays system prompt, context files and a cold cache, and the parent pays to read its report [inference from [cc-cache](https://code.claude.com/docs/en/prompt-caching)].
@@ -196,12 +205,12 @@ When NOT to delegate:
 - Fork instead of fresh subagent when the child needs the whole conversation (shared cache) ([cc-subagents](https://code.claude.com/docs/en/sub-agents)).
 
 ## 7. Guardrails
-- Per-agent budgets: omp `task.softRequestBudget` / `task.agentSoftRequestBudget` / `task.maxRuntimeMs`; Claude `maxTurns`; Codex [unverified: no documented per-agent turn cap found] (omp://tools/task.md, [cc-subagents](https://code.claude.com/docs/en/sub-agents)).
-- Session spend caps: omp `--max-cost` (subagents included, exit 3); Claude `--max-budget-usd` (print only) (omp://cli-reference.md, claude 2.1.322 --help).
-- Concurrency caps: omp `task.maxConcurrency` 32; Claude 20; Codex `agents.max_concurrent_threads_per_session` (doc examples use 6-8) (omp://tools/task.md, [cc-subagents](https://code.claude.com/docs/en/sub-agents), [cx-subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)).
-- Depth caps: omp `task.maxRecursionDepth` 2; Claude 3 layers (omp://tools/task.md, [cc-subagents](https://code.claude.com/docs/en/sub-agents)).
+- Per-agent budgets: omp `task.softRequestBudget` / `task.agentSoftRequestBudget` / `task.maxRuntimeMs`; Claude `maxTurns`; Antigravity `--print-timeout` (wall clock in `-p`) and `Stop` `continuationActive`; Codex [unverified: no documented per-agent turn cap found] (omp://tools/task.md, [cc-subagents](https://code.claude.com/docs/en/sub-agents), [headless](https://antigravity.google/docs/cli/headless)).
+- Session spend caps: omp `--max-cost` (subagents included, exit 3); Claude `--max-budget-usd` (print only); Antigravity `--print-timeout` (wall clock only; no USD cap flag documented) (omp://cli-reference.md, claude 2.1.322 --help, [headless](https://antigravity.google/docs/cli/headless)).
+- Concurrency caps: omp `task.maxConcurrency` 32; Claude 20; Codex `agents.max_concurrent_threads_per_session` (doc examples use 6-8); Antigravity concurrent subagents and `/swarm` workers (no fixed concurrency integer published [unverified]) (omp://tools/task.md, [cc-subagents](https://code.claude.com/docs/en/sub-agents), [cx-subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents), [subagents](https://antigravity.google/docs/subagents)).
+- Depth caps: omp `task.maxRecursionDepth` 2; Claude 3 layers; Antigravity 10 nesting levels (omp://tools/task.md, [cc-subagents](https://code.claude.com/docs/en/sub-agents), [subagents](https://antigravity.google/docs/subagents)).
 - Put explicit effort-scaling rules in the orchestrator prompt (agent count, tool-call budget) ([ma-post](https://www.anthropic.com/engineering/multi-agent-research-system)).
-- Measure after a run: omp `omp usage`, `omp stats`, Agent Hub, task `usage`; Claude `/usage` attribution (subagent share), `modelUsage` in JSON output; Codex `/status` and the usage dashboard weekly (omp://cli-reference.md, [cc-costs](https://code.claude.com/docs/en/costs), [cx-pricing](https://learn.chatgpt.com/docs/pricing)).
+- Measure after a run: omp `omp usage`, `omp stats`, Agent Hub, task `usage`; Claude `/usage` attribution (subagent share), `modelUsage` in JSON output; Codex `/status` and the usage dashboard weekly; Antigravity `usage`, `num_turns`, and `duration_seconds` in `agy -p --output-format json` (omp://cli-reference.md, [cc-costs](https://code.claude.com/docs/en/costs), [cx-pricing](https://learn.chatgpt.com/docs/pricing), [headless](https://antigravity.google/docs/cli/headless)).
 - Watch cache health: Claude `/usage` "Prompt cache (main)" line; OpenAI `cached_tokens` and `cache_write_tokens` ([cc-costs](https://code.claude.com/docs/en/costs), [oa-cache](https://developers.openai.com/api/docs/guides/prompt-caching)).
 - Judges: a single LLM call with a rubric and 0.0-1.0 score plus pass/fail was most consistent with human judgment; keep human spot checks ([ma-post](https://www.anthropic.com/engineering/multi-agent-research-system)).
 - Cross-family judging (e.g., Claude work reviewed by a GPT model and vice versa) reduces shared blind spots [inference; no primary source this session states it].

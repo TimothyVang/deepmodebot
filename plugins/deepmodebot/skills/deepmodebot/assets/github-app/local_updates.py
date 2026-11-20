@@ -6,6 +6,7 @@ from pathlib import Path, PurePosixPath
 import re
 import shutil
 import subprocess
+import time
 import uuid
 
 CANONICAL = "https://github.com/TimothyVang/deepmodebot.git"
@@ -15,6 +16,11 @@ SKILLS = PLUGIN + "/skills"
 TIMEOUT = 120
 HISTORY_LIMIT = 2000
 CACHES = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+IO_REPARSE_TAG_MOUNT_POINT = 0xA0000003
+IO_REPARSE_TAG_SYMLINK = 0xA000000C
+FILE_ATTRIBUTE_REPARSE_POINT = 0x400
+FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS = 0x00400000
 
 
 class GitCommandError(RuntimeError):
@@ -30,7 +36,8 @@ def git(path, *args, check=True, data=None):
     env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
     env.update(GIT_TERMINAL_PROMPT="0", GIT_OPTIONAL_LOCKS="0")
     proc = subprocess.run(["git", "-c", "core.hooksPath=", "-C", str(path), *args],
-                          input=data, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=TIMEOUT, env=env)
+                          input=data, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=TIMEOUT, env=env,
+                          creationflags=NO_WINDOW)
     if check and proc.returncode:
         raise GitCommandError(proc.stderr.decode("utf-8", "replace").strip() or "git failed")
     return proc
@@ -47,9 +54,43 @@ def origin_problem(path):
     return None
 
 
+def _is_link_or_junction(p):
+    """Detect symlinks and Windows directory junctions (live or dangling) without false-positiving on OneDrive Cloud Files."""
+    if p.is_symlink():
+        return True
+    if os.name == "nt":
+        isjunction = getattr(os.path, "isjunction", None)
+        if isjunction is not None:
+            try:
+                if isjunction(p):
+                    return True
+            except OSError:
+                pass
+        try:
+            st = os.lstat(p)
+        except OSError:
+            return False
+        tag = getattr(st, "st_reparse_tag", 0)
+        if tag:
+            return tag in (IO_REPARSE_TAG_MOUNT_POINT, IO_REPARSE_TAG_SYMLINK)
+        attrs = getattr(st, "st_file_attributes", 0)
+        return bool(attrs & FILE_ATTRIBUTE_REPARSE_POINT) and not bool(attrs & FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS)
+    return False
+
+
 def linked(path):
-    return any(p.is_symlink() or (p.exists() and getattr(p.lstat(), "st_file_attributes", 0) & 0x400)
-               for p in (path, *path.parents))
+    return any(_is_link_or_junction(p) for p in (path, *path.parents))
+
+
+def _replace_with_retry(src, dst):
+    for attempt in range(20):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if attempt == 19:
+                raise
+            time.sleep(0.05)
 
 
 def generated(name):
@@ -139,7 +180,7 @@ def repository_metadata():
     proc = subprocess.run(
         ["gh", "api", "repos/TimothyVang/deepmodebot", "--jq",
          "{id: .id, fork: .fork, default_branch: .default_branch}"],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=TIMEOUT)
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=TIMEOUT, creationflags=NO_WINDOW)
     if proc.returncode:
         raise RuntimeError("canonical repository identity unavailable: "
                            + proc.stderr.decode("utf-8", "replace").strip())
@@ -340,7 +381,7 @@ def save_pending(journal, data):
         stream.write(json.dumps(data, sort_keys=True).encode("utf-8"))
         stream.flush()
         os.fsync(stream.fileno())
-    os.replace(temp, journal)
+    _replace_with_retry(temp, journal)
 
 
 def resume_plan(path, prefix, source, pending):
@@ -418,7 +459,7 @@ def sync_copy(path, prefix, source, manifest, cache, dry):
             tmp.chmod(mode & 0o777)
             if (signature(dest) if dest.exists() else None) != observed or linked(dest):
                 raise RuntimeError(f"copy changed before replacement: {name}; pending recovery retained")
-            os.replace(tmp, dest)
+            _replace_with_retry(tmp, dest)
         elif tmp.exists():
             # This exact path was reserved by this transaction before any copy mutation.
             tmp.unlink()

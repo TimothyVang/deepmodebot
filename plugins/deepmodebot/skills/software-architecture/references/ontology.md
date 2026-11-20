@@ -36,7 +36,7 @@ Rules:
 - One row per term per bounded context. If two contexts use the same word differently, it gets two rows [inference from Fowler above].
 - Casing is mechanical (PascalCase type, snake_case table, kebab or plural path, past-tense event) and the root word never changes. A rename changes every column in one PR, and an ADR records the reason [inference].
 - Enforce it cheaply: a CI `rg` check for banned synonyms listed in the glossary (for example `rg -n -w -i "client" src/billing`) [inference].
-- The repo's `domain-modeling` skill covers writing GLOSSARY.md and ADRs. This file covers how they feed schemas and agents.
+- deepmodebot's `domain-model` technique (`skill://deepmodebot/references/techniques/domain-model.md`) covers writing `GLOSSARY.md` and ADRs. This file covers how they feed schemas and agents.
 
 ### Tools
 

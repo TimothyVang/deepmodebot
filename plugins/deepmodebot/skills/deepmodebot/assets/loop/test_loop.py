@@ -1329,5 +1329,98 @@ class ScanTextSlopCase(unittest.TestCase):
         text = "/**\n * Loads the view.\n * TODO wire the cache\n * eslint-disable no-console\n */\nexport const a = 1;\n"
         self.assertEqual(self.scan("ui.ts", text), [(3, "stub-placeholder"), (4, "suppression-comment")])
 
+    def test_inline_block_comment_rust_stub_multi_comment_and_js_regex_slop(self):
+        self.assertEqual(self.scan("lib.rs", "/* ok */ todo!();\n"), [(1, "stub-placeholder")])
+        self.assertEqual(
+            self.scan("multi.ts", "/* a */ const x = 1; /* b\n * TODO finish\n */\n"),
+            [(2, "stub-placeholder")],
+        )
+        self.assertEqual(
+            self.scan("re.js", "const re = /https?:\\/\\//; try { go(); } catch (e) {}\n"),
+            [(1, "swallowed-exception")],
+        )
+
+    def test_nested_pyproject_and_package_json_and_root_tool_sections_protected(self):
+        sys.path.insert(0, str(LOOP.parent))
+        self.addCleanup(sys.path.remove, str(LOOP.parent))
+        import loop
+        with tempfile.TemporaryDirectory(prefix="loop-guard-") as tmp:
+            root = Path(tmp)
+            (root / "package.json").write_text(
+                json.dumps({"name": "root", "eslintConfig": {"rules": {"no-console": "error"}}}),
+                encoding="utf-8",
+            )
+            (root / "subpkg").mkdir()
+            (root / "subpkg" / "pyproject.toml").write_text('[tool.ruff]\nselect = ["E"]\n', encoding="utf-8")
+            (root / "packages" / "app").mkdir(parents=True)
+            (root / "packages" / "app" / "package.json").write_text(
+                json.dumps({"name": "app", "scripts": {"lint": "eslint ."}}),
+                encoding="utf-8",
+            )
+            before = loop.guardrail_state(str(root), set())
+            self.assertIn("package.json scripts", before)
+            self.assertIn("subpkg/pyproject.toml [tool.*]", before)
+            self.assertIn("packages/app/package.json [guardrails]", before)
+
+            # Weakening root eslintConfig, nested pyproject.toml, or nested package.json scripts must change state.
+            (root / "package.json").write_text(
+                json.dumps({"name": "root", "eslintConfig": {"rules": {}}}),
+                encoding="utf-8",
+            )
+            self.assertNotEqual(before, loop.guardrail_state(str(root), set()))
+
+            (root / "subpkg" / "pyproject.toml").write_text("[tool.ruff]\nselect = []\n", encoding="utf-8")
+            after_sub = loop.guardrail_state(str(root), set())
+            self.assertNotEqual(before["subpkg/pyproject.toml [tool.*]"], after_sub["subpkg/pyproject.toml [tool.*]"])
+
+            (root / "packages" / "app" / "package.json").write_text(
+                json.dumps({"name": "app", "scripts": {"lint": "true"}}),
+                encoding="utf-8",
+            )
+            after_pkg = loop.guardrail_state(str(root), set())
+            self.assertNotEqual(
+                before["packages/app/package.json [guardrails]"],
+                after_pkg["packages/app/package.json [guardrails]"],
+            )
+
+            # _rel_inside_root allows `..env` inside root and rejects `../outside`.
+            self.assertEqual(loop._rel_inside_root(str(root / "..env"), str(root)), "..env")
+            self.assertIsNone(loop._rel_inside_root(str(root.parent / "outside.txt"), str(root)))
+
+    def test_corrupted_goal_frontmatter_exits_4_and_writes_summary(self):
+        with tempfile.TemporaryDirectory(prefix="loop-corrupt-") as tmp:
+            root = Path(tmp)
+            subprocess.run(["git", "init", "-q", "-b", "main", str(root)], check=True, capture_output=True)
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            (root / "check.sh").write_text("#!/bin/sh\ntest -f ok.txt\n", encoding="utf-8")
+            (root / "goals").mkdir()
+            goal = root / "goals" / "g.md"
+            goal.write_text(
+                "---\ngoal: test corrupt\ncheck: test -f ok.txt\nprotect: check.sh\nmax_iterations: 2\nmax_cost_usd: 1\n---\nPlan.\n",
+                encoding="utf-8",
+            )
+            corrupt_script = bin_dir / "corrupt_omp.py"
+            corrupt_script.write_text(
+                'import sys; sys.stdin.read(); open("goals/g.md", "w", encoding="utf-8").write("no frontmatter\\n")\n',
+                encoding="utf-8",
+            )
+            if os.name == "nt":
+                (bin_dir / "omp.cmd").write_text(f'@"{sys.executable}" "{corrupt_script}" %*\r\n', encoding="utf-8")
+            else:
+                omp = bin_dir / "omp"
+                omp.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{corrupt_script}" "$@"\n', encoding="utf-8")
+                omp.chmod(0o755)
+            env = {**os.environ, "PATH": str(bin_dir) + os.pathsep + os.environ.get("PATH", "")}
+            proc = subprocess.run(
+                [sys.executable, "-B", str(LOOP), "run", "goals/g.md", "--harness", "omp"],
+                cwd=str(root), capture_output=True, text=True, env=env,
+            )
+            self.assertEqual(proc.returncode, 4, proc.stdout + proc.stderr)
+            summary = json.loads((root / ".scratch" / "goals" / "g" / "latest-summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(summary["exit_code"], 4)
+            self.assertEqual(summary["exit_reason"], "tampered_frontmatter")
+
+
 if __name__ == "__main__":
     unittest.main()

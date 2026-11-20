@@ -1,5 +1,5 @@
 ## 2. Review rubric
-Weighted design-first, because craft and functionality already come out fine by default. [anthropic harness]
+Weighted design-first to counter generic AI layouts, while still enforcing the craft and functionality checks in `references/playbook/08-quality-floor.md` (never assume functionality or accessibility passes without real-browser verification). [anthropic harness]
 
 | Criterion | Weight | Fails when |
 | --- | --- | --- |

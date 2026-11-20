@@ -7,7 +7,7 @@ A **seam** is where one module meets another and where a test or a second implem
 
 **Leverage** is how many callers one interface serves. **Locality** is how much of one change, bug, or concept lives in one place. The **deletion test**: imagine deleting the module and inlining it into its callers. If complexity collapses into one place, the module was shallow. If the same complexity reappears in every caller, the module earns its keep.
 
-1. **Scope.** If the user named an area, use it. Otherwise find the hot spots, because deepening pays off where code keeps changing: `git log --since=6.months --format= --name-only | sort | uniq -c | sort -rn | head -40`. Group the top paths by directory. Changes scattered with no cluster → widen the window.
+1. **Scope.** If the user named an area, use it. Otherwise find the hot spots, because deepening pays off where code keeps changing: POSIX `git log --since=6.months --format= --name-only | sort | uniq -c | sort -rn | head -40`; Windows PowerShell `git log --since=6.months --format= --name-only | Where-Object { $_ } | Group-Object | Sort-Object Count -Descending | Select-Object -First 40`. Group the top paths by directory. Changes scattered with no cluster → widen the window.
    Read `GLOSSARY.md` and every ADR in `docs/adr/` that touches the scope; ADRs are settled unless the friction is strong enough to reopen one.
    Done when the scope is named as a list of directories and the in-scope ADRs are read.
 2. **Explore.** Spawn one `scout` with a fresh context, the scope, the vocabulary above, and the red flags from the **architect** technique. Ask it to note where it felt friction, with file paths:

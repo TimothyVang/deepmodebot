@@ -160,14 +160,37 @@ class AntigravityGuardTests(unittest.TestCase):
         pre_res, _ = self.run_hook({
             "hookEventName": "PreInvocation",
             "conversationId": "conv-inactive",
+            "invocationNum": 1,
             "workspacePaths": [str(self.proj)],
             "lastUserInput": "  /deep fix the flaky test",
         })
         self.assertIn("injectSteps", pre_res)
         self.assertEqual(len(pre_res["injectSteps"]), 1)
+        sys_msg = pre_res["injectSteps"][0]["systemMessage"]
+        self.assertIsInstance(sys_msg, dict)
         self.assertTrue(
-            pre_res["injectSteps"][0]["systemMessage"].startswith("deepmodebot workspace-map (auto-injected):\n")
+            sys_msg["systemMessage"].startswith("deepmodebot workspace-map (auto-injected):\n")
         )
+        self.assertIsInstance(sys_msg.get("metadata"), dict)
+
+        # Subsequent LLM invocation in the same turn (invocationNum > 1) and later turns in the
+        # same conversation must NOT re-inject duplicate workspace-map steps.
+        loop_res, _ = self.run_hook({
+            "hookEventName": "PreInvocation",
+            "conversationId": "conv-inactive",
+            "invocationNum": 2,
+            "workspacePaths": [str(self.proj)],
+            "lastUserInput": "  /deep fix the flaky test",
+        })
+        self.assertEqual(loop_res, {})
+        repeat_turn, _ = self.run_hook({
+            "hookEventName": "PreInvocation",
+            "conversationId": "conv-inactive",
+            "invocationNum": 1,
+            "workspacePaths": [str(self.proj)],
+            "lastUserInput": "/deep follow-up turn",
+        })
+        self.assertEqual(repeat_turn, {})
         denied, _ = self.run_hook(
             self.pre_tool_payload("write_file", outside_file, conv_id="conv-inactive")
         )
@@ -374,12 +397,22 @@ class AntigravityGuardTests(unittest.TestCase):
         self.assertIn("injectSteps", injected)
         steps = injected["injectSteps"]
         self.assertEqual(len(steps), 1)
-        msg = steps[0]["systemMessage"]
+        self.assertIsInstance(steps[0]["systemMessage"], dict)
+        msg = steps[0]["systemMessage"]["systemMessage"]
         self.assertTrue(msg.startswith("deepmodebot workspace-map (auto-injected):\n"))
         self.assertIn("repo:", msg)
         self.assertIn("map-repo", msg)
         self.assertLessEqual(len(msg.encode("utf-8")), 1400)
         self.assertTrue((map_repo / ".scratch" / "workspace-map.db").exists())
+
+        # Invocation 2 with no conversationId still deduplicates via invocationNum.
+        inv2, _ = self.run_hook({
+            "hookEventName": "PreInvocation",
+            "invocationNum": 2,
+            "workspacePaths": [str(map_repo)],
+            "lastUserInput": "/deep inspect compute_total",
+        })
+        self.assertEqual(inv2, {})
 
         # /deep in a non-git directory fails open cleanly with {}.
         non_git, _ = self.run_hook({
@@ -398,9 +431,9 @@ class AntigravityGuardTests(unittest.TestCase):
         git(review_repo, "add", "app.py")
         git(review_repo, "commit", "-q", "-m", "add app")
 
-        # On a clean repo with no workspace-map.db, /review-pr and /deepmodebot:review-pr
+        # On a clean repo with no workspace-map.db, /review-pr, /pr-thread, and namespaced variants
         # activate write containment without mutating .scratch/ or creating a DB.
-        for idx, cmd in enumerate(("/review-pr 42", "/deepmodebot:review-pr 42")):
+        for idx, cmd in enumerate(("/review-pr 42", "/deepmodebot:review-pr 42", "/pr-thread 42", "/deepmodebot:pr-thread 42")):
             conv = f"conv-review-clean-{idx}"
             pre_res, _ = self.run_hook({
                 "hookEventName": "PreInvocation",
@@ -433,8 +466,11 @@ class AntigravityGuardTests(unittest.TestCase):
             "lastUserInput": "/review-pr 42",
         })
         self.assertIn("injectSteps", warm_review)
+        self.assertIsInstance(warm_review["injectSteps"][0]["systemMessage"], dict)
         self.assertTrue(
-            warm_review["injectSteps"][0]["systemMessage"].startswith("deepmodebot workspace-map (auto-injected):\n")
+            warm_review["injectSteps"][0]["systemMessage"]["systemMessage"].startswith(
+                "deepmodebot workspace-map (auto-injected):\n"
+            )
         )
 
     def test_malformed_stdin_exits_zero_without_crashing(self):

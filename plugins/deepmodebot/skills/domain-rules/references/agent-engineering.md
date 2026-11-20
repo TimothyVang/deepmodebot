@@ -77,9 +77,9 @@ Audit every agent against all seven. Each names the failure it prevents.
 
 ## Agent instruction files (CLAUDE.md)
 
-The four lines every file needs (CLAUDE-MD):
+The four lines highlighted by the talk (CLAUDE-MD) — note that under deepmodebot, `SKILL.md` Autonomy wins on line 1 (resolve reversible ambiguity autonomously; ask only on genuine hard stops or irreversible design forks):
 
-1. Do not assume. Name missing requirements, ask on ambiguity, show trade-offs before building.
+1. Do not silently guess on irreversible requirements or major trade-offs; surface assumptions (under deepmodebot, decide reversible details yourself instead of blocking on questions).
 2. Write the minimum code that solves the problem. No speculative abstractions or unrequested features. Same idea as principle `laziness-protocol`.
 3. Touch only what the task needs. Clean up only your own changes. No drive-by reformatting or renames.
 4. Define success, write a reproducing test, fix, and loop until verified. Same idea as principle `prove-it-works`.

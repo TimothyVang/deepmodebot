@@ -205,8 +205,35 @@ def _valid_reference_shape(reference):
             and isinstance(reference.get("caution"), str))
 
 
+def _write_atomic(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    tmp.write_text(text, encoding="utf-8", newline="\n")
+    try:
+        for attempt in range(20):
+            try:
+                os.replace(tmp, path)
+                return
+            except PermissionError:
+                if attempt == 19:
+                    raise
+                time.sleep(0.05)
+    finally:
+        if tmp.exists():
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+
+
 def _normalize_catalog(catalog):
+    if not isinstance(catalog, dict) or not isinstance(catalog.get("repos"), dict):
+        raise ValueError("invalid catalog schema: expected object with 'repos' dict")
     for name, entry in list(catalog["repos"].items()):
+        if not isinstance(entry, dict):
+            catalog["repos"].pop(name)
+            catalog.pop("reference_revision", None)
+            continue
         repository_id = entry.get("github_id")
         if repository_id is not None and not _valid_github_id(repository_id):
             catalog["repos"].pop(name)
@@ -233,7 +260,10 @@ def _normalize_catalog(catalog):
 
 def load_catalog(path):
     if path.is_file():
-        return _normalize_catalog(json.loads(path.read_text(encoding="utf-8")))
+        try:
+            return _normalize_catalog(json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, ValueError, KeyError, TypeError) as err:
+            print(f"warning: ignoring unreadable catalog {path}: {err}", file=sys.stderr)
     return {"updated": None, "sources": {}, "repos": {}}
 
 
@@ -396,8 +426,8 @@ def update(args):
         catalog.pop("reference_revision", None)
 
     args.out.mkdir(parents=True, exist_ok=True)
-    catalog_path.write_text(json.dumps(catalog, indent=1, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
-    (args.out / "README.md").write_text(render(catalog), encoding="utf-8", newline="\n")
+    _write_atomic(catalog_path, json.dumps(catalog, indent=1, ensure_ascii=False) + "\n")
+    _write_atomic(args.out / "README.md", render(catalog))
     print(f"{len(found)} repos found this run, {len(catalog['repos'])} in catalog; sources: {status}")
 
 
@@ -469,8 +499,18 @@ def render(catalog):
 def project_cache() -> Path:
     """<project root>/.scratch/trending, the root being the git worktree holding the current folder, so the catalog
     stays inside the project (deepmodebot: Contain the work) and out of every commit (.scratch holds a `*` ignore)."""
-    proc = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True)
-    root = Path(proc.stdout.strip()) if proc.returncode == 0 else Path.cwd()
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=15,
+        )
+        root = Path(proc.stdout.strip()) if proc.returncode == 0 and proc.stdout.strip() else Path.cwd()
+    except (OSError, subprocess.SubprocessError):
+        root = Path.cwd()
     scratch = root / ".scratch"
     scratch.mkdir(exist_ok=True)
     if not (scratch / ".gitignore").exists():
@@ -497,18 +537,16 @@ def fetch_published(out: Path, local) -> bool:
         if not local["repos"] and published.get("repos"):
             published.pop("reference_revision", None)
             out.mkdir(parents=True, exist_ok=True)
-            (out / "catalog.json").write_text(json.dumps(published, indent=1, ensure_ascii=False) + "\n",
-                                              encoding="utf-8", newline="\n")
-            (out / "README.md").write_text(render(published), encoding="utf-8", newline="\n")
+            _write_atomic(out / "catalog.json", json.dumps(published, indent=1, ensure_ascii=False) + "\n")
+            _write_atomic(out / "README.md", render(published))
             return False
         return not is_stale(local)
     published_stamp, local_stamp = published.get("updated") or "", local["updated"] or ""
     if published_stamp > local_stamp or (
             published_stamp == local_stamp and not is_stale(published) and is_stale(local)):
         out.mkdir(parents=True, exist_ok=True)
-        (out / "catalog.json").write_text(json.dumps(published, indent=1, ensure_ascii=False) + "\n",
-                                          encoding="utf-8", newline="\n")
-        (out / "README.md").write_text(render(published), encoding="utf-8", newline="\n")
+        _write_atomic(out / "catalog.json", json.dumps(published, indent=1, ensure_ascii=False) + "\n")
+        _write_atomic(out / "README.md", render(published))
         local = published
     return not is_stale(local)
 

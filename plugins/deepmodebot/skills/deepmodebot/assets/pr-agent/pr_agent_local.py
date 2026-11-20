@@ -79,7 +79,8 @@ def _omp(*args: str) -> subprocess.CompletedProcess:
     """Run an omp command from an empty directory, so a repo's .omp/config.yml can't change the answer."""
     with tempfile.TemporaryDirectory(prefix="pr-agent-omp-") as work:
         return subprocess.run([shutil.which("omp") or "omp", *args], cwd=work, capture_output=True, text=True,
-                              encoding="utf-8", errors="replace", env=scrubbed_env(), creationflags=NO_WINDOW)
+                              encoding="utf-8", errors="replace", env=scrubbed_env(), timeout=60,
+                              creationflags=NO_WINDOW)
 
 
 def omp_default_model() -> str:
@@ -312,8 +313,9 @@ def main() -> int:
         sys.exit("pr_agent_local: neither `pr-agent` nor `uvx` is on PATH")
     model = opts.model or omp_default_model()
     credentials = omp_oauth_credentials(model)
-    token = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True,
-                           env=scrubbed_env(github=True)).stdout.strip()
+    token = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", env=scrubbed_env(github=True), timeout=30,
+                           creationflags=NO_WINDOW).stdout.strip()
     if not token:
         sys.exit("pr_agent_local: `gh auth token` returned nothing; run `gh auth login`")
 

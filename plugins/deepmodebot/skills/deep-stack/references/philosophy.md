@@ -266,7 +266,7 @@ How to use:
 | Next.js for everything | 2025-11-03 | SvelteKit (compiled, snappy) | 2026-03-24 |
 | Clerk as default auth | 2026-01-23 | WorkOS default; Better Auth when you need ownership | 2026-03-13 |
 | Claude Code as the best agent | 2025-06-06 | Cursor, then T3 Code; Claude CLI over SSH | 2025-10-17 / 2026-10-21 |
-| Gemini models as the lead pick | 2025-11-25 | Avoid Gemini models for agent work | 2026-02-12 |
+| Gemini models as the lead pick | 2025-11-25 | Single-talk opinion: avoid Gemini for agent work [unverified: no benchmarks; superseded by current Google Antigravity/Gemini support in `skill://agent-harnesses/references/antigravity.md`] | 2026-02-12 |
 | Codex/GPT best value | 2026-07-24 | Opus 5.5 main model | 2026-10-01 |
 | OpenClaw as agent core | 2026-05-05 | Eve [caption?], a lighter agent core | 2026-09-11 |
 | Daytona agent computers | 2026-05-22 | Orgo | 2026-10-01 |

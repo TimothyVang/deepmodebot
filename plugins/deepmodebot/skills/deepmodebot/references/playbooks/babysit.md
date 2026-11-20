@@ -15,9 +15,9 @@ Use when: the user asks to babysit, get green, make merge-ready, address review 
    Done when the frontier PR number is named and the frozen bottom-to-top PR list is recorded.
 4. Read the forge state (GitHub CLI; never require Graphite):
    - `gh pr view <pr> --json state,isDraft,mergeable,mergeStateStatus,reviewDecision,baseRefName,headRefOid,statusCheckRollup`
-   - `gh pr checks <pr> --required`; in `drive`, `gh pr checks <pr> --watch` as a background `bash` job (`timeout: 0`); re-read the PR and threads every time it returns.
+   - `gh pr checks <pr> --required`; in `drive`, run `gh pr checks <pr> --watch` as a background shell job (`bash` with `timeout: 0` in omp, or background command/task/scheduler in other harnesses); re-read the PR and threads every time it returns.
    - Threads: `gh api graphql` over `pullRequest.reviewThreads` (`id isResolved isOutdated comments{databaseId author body path line}`).
-   - Review (not `check`): alongside the CI watch, run the **pr-review** technique (`references/techniques/pr-review.md`) in PR mode for the current `headRefOid` as a background subagent: steps 1-4 on the first head, then step 6 (Re-review) on each new head.
+   - Review & security (not `check`): alongside the CI watch, run the **pr-review** technique (`references/techniques/pr-review.md`) in PR mode for the current `headRefOid` as a background subagent: steps 1-4 on the first head, then step 6 (Re-review) on each new head. When the repo opted in or the diff touches auth, permissions, parsing, or secrets, also run **security-audit** (`references/techniques/security-audit.md`, blocking = P0) on the merge head.
    - A review for an older SHA is stale: never triage it; after any push, the new head needs its own round before the PR counts as review-clean. `check` mode only reads the latest `<!-- deepmodebot:review -->` review; it never runs one.
    - Done when the forge state above is read for the current `headRefOid` and, outside `check`, a review round for that SHA is running or posted.
 5. Work blockers in order (conflicts, then review threads, then CI) and batch every known fix into one push wave. Push fixes to the PR's own branch; landing starts where this playbook ends (see Use when).
@@ -60,7 +60,7 @@ Verify every claim against the code before acting. Not every comment is a requir
 
 ## Gates
 
-- Stop `drive` at merge-ready: PR open, not draft, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`, required checks green, no unresolved threads without a pushed fix or a recorded dismissal, and a completed pr-review round on the current head SHA with no P0/P1 open. With a merge queue, a blocker-free frontier is merge-ready: report and stop watching; don't wait for merges.
+- Stop `drive` at merge-ready: PR open, not draft, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`, required checks green, any applicable **security-audit** passed, no unresolved threads without a pushed fix or recorded dismissal, and a completed pr-review round on the current head SHA with no P0/P1 open. With a merge queue, a blocker-free frontier is merge-ready: report and stop watching; don't wait for merges.
 - pr-review is evidence, not a waiver: a clean review never waives the checks above, and a P2 doesn't block once it has a recorded dismissal.
 - All stack PRs merged by others → done.
 - Owner approval (`reviewDecision: REVIEW_REQUIRED`) is a wait, not a blocker to fix. On the user's own PR, the **pr-conversation** technique's Authorization decides whether its panel replaces that review.

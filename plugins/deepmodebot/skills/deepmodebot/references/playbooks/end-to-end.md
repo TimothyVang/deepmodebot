@@ -25,7 +25,7 @@ Single-run builds drive `1/N` to `N/N` without stopping early. Incremental Sprin
    - Write the goal contract once: `.scratch/goals/<slug>.md` with `manifest: <manifest.json>`, `fast_check`, `check` (cold-start end-to-end check), `protect` (tests, check scripts, and manifest), `forbid_slop: true`, and `protect_configs: true`. Omit `active_sprint` for single-run full delivery (`1/N` to `N/N`); set `active_sprint: 1` (and optional `checkpoint_every`) only for incremental Sprint mode.
    - In-session when remaining slices fit the context window: implement slice `k`, run `python -B "<this skill>/assets/loop/loop.py" check .scratch/goals/<slug>.md` (runs `fast_check`, slop guard against `HEAD`, all active manifest slices with `sprint <= active_sprint` plus inventory/SME status, then `check`), and immediately start slice `k + 1` in the same turn.
    - Across fresh context windows or unattended runs (`omp|claude|codex`): `python -B "<this skill>/assets/loop/loop.py" run .scratch/goals/<slug>.md`. On quota/cost cap, `checkpoint_every` / `sme_gate: "required"` (exit `6`), or passing Sprint 1 with deferred slices (exit `0`, `scope_complete: false`), the Scope Manifest + `latest-summary.json` form the exact zero-loss resume ledger.
-   Done when `loop.py check .scratch/goals/<slug>.md` prints `check exit 0 (pass)` with zero `pending` inventory items, zero slop findings, and either `N/N` slices green (`scope_complete: true`) or the active sprint gate cleanly met with Sprint `n+1..N` recorded as deferred remaining scope (`scope_complete: false`).
+   Done when `python -B "<this skill>/assets/loop/loop.py" check .scratch/goals/<slug>.md` (`py -3 -B` on Windows) prints `check exit 0 (pass)` with zero `pending` inventory items, zero slop findings, and either `N/N` slices green (`scope_complete: true`) or the active sprint gate cleanly met with Sprint `n+1..N` recorded as deferred remaining scope (`scope_complete: false`).
 5. **Prove the finished product from a cold start.** Run the built CLI, service, or UI from scratch against fresh persisted state (`references/principles/prove-it-works.md`):
    - Exercise the full primary workflow (or the active sprint's end-to-end journey), restart or re-invoke the process to prove state persisted, trigger invalid-input handling, and check the empty state.
    - Save command transcripts, outputs, or UI captures under `.scratch/evidence/<slug>/`.
@@ -44,7 +44,7 @@ Single-run builds drive `1/N` to `N/N` without stopping early. Incremental Sprin
 
 ## Evidence
 
-- The Scope Manifest path and `loop.py manifest <manifest.json>` scoreboard (slice pass ratio, `scope_complete`, `deferred_slices`, and inventory classification counts when used).
+- The Scope Manifest path and `python -B "<this skill>/assets/loop/loop.py" manifest <manifest.json>` (`py -3 -B` on Windows) scoreboard (slice pass ratio, `scope_complete`, `deferred_slices`, and inventory classification counts when used).
 - Inner-loop check output (`fast_check`, anti-slop status, and `sme_gate` state).
 - Cold-start end-to-end proof artifacts under `.scratch/evidence/<slug>/` (plus `latest-summary.json` resume ledger if paused at a sprint, SME, or quota gate).
 - Product decisions made when expanding the prompt, each with how to override it.

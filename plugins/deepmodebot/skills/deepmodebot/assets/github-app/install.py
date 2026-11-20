@@ -16,6 +16,7 @@ Steps, each skipped when already done:
 """
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -26,6 +27,23 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import brand  # noqa: E402
+
+API_KEY_VARS = {
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN",
+    "OPENAI_API_KEY",
+    "CODEX_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
+    "CLAUDE_CODE_USE_BEDROCK",
+    "CLAUDE_CODE_USE_VERTEX",
+    "CLAUDE_CODE_USE_FOUNDRY",
+}
+
+
+def subscription_env() -> dict[str, str]:
+    """Strip API keys and cloud provider overrides so ACP harnesses use subscription logins."""
+    return {k: v for k, v in os.environ.items() if k.upper() not in API_KEY_VARS}
 
 
 def apply_brand_flag() -> None:
@@ -41,7 +59,9 @@ def apply_brand_flag() -> None:
             brand.BRAND = brand.derive(known.brand, {"homepage": known.homepage})
         else:
             brand.BRAND = brand.write_local(known.brand, known.homepage)
-        brand.CONFIG_DIR = Path.home() / ".config" / brand.BRAND["configDirName"]
+        brand.CONFIG_DIR = Path(
+            os.environ.get("DEEPMODEBOT_CONFIG_DIR") or Path.home() / ".config" / brand.BRAND["configDirName"]
+        )
         brand.CACHE_DIR = Path.home() / ".cache" / brand.BRAND["configDirName"] / "bot"
 
 
@@ -52,11 +72,11 @@ ACPX_VERSION = "0.22"
 BOT_CONFIG = ghapp.CONFIG_DIR / "bot.json"
 
 
-def run(cmd: list[str], timeout=120) -> subprocess.CompletedProcess:
+def run(cmd: list[str], timeout=120, env=None) -> subprocess.CompletedProcess:
     exe = shutil.which(cmd[0]) or cmd[0]
     try:
         return subprocess.run([exe, *cmd[1:]], capture_output=True, text=True, encoding="utf-8",
-                              errors="replace", timeout=timeout)
+                              errors="replace", timeout=timeout, env=env)
     except (OSError, subprocess.TimeoutExpired) as err:
         return subprocess.CompletedProcess(cmd, 1, "", str(err))
 
@@ -79,7 +99,8 @@ def check_tools(args) -> bool:
     for tool, hint in [("git", "https://git-scm.com/downloads"), ("gh", "https://cli.github.com"),
                        ("openssl", "ships with Git for Windows; brew/apt install openssl"),
                        ("npm", "https://nodejs.org")]:
-        if shutil.which(tool):
+        found = ghapp.find_openssl() if tool == "openssl" else shutil.which(tool)
+        if found:
             say("ok", tool)
         else:
             say("missing", f"{tool}: install it ({hint})")
@@ -139,9 +160,10 @@ def detect_agents(args) -> list[str]:
 def acp_round_trip(agents: list[str], needed: int) -> list[str]:
     print("3. ACP round trip")
     working = []
+    env = subscription_env()
     for agent in agents:
         result = run(["acpx", "--deny-all", "--timeout", "240", "--format", "quiet", agent, "exec",
-                      "Reply with exactly: acp-ready-7"], timeout=300)
+                      "Reply with exactly: acp-ready-7"], timeout=300, env=env)
         if "acp-ready-7" in result.stdout:
             working.append(agent)
             say("ok", f"{agent} answered over ACP")

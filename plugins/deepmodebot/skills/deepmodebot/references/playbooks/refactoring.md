@@ -13,7 +13,7 @@ Use the two accounts in `references/rust-migration-case-studies.md` as evidence,
 5. **Check parity and completeness separately.** Exercise the unchanged oracle in supported release configurations and compare externally visible results. Independently reconcile the inventory against current source, including changes that arrived during the port. Compilation cannot detect an omitted callback. Done when every row is proven or explicitly blocked; stubs, skipped tests and lowered baselines never close rows.
 6. **Close the migration.** Migrate callers and remove superseded implementations in each closed slice. Remove temporary scaffolding before declaring the port complete. Record real consumer runs and workload-matched resource measurements; keep merge, rollout and release readiness distinct. Done when the requested native/runtime boundary holds end to end, not merely on the hot path.
 
-The language-port steps are the acceptance sequence, not a prerequisite to structural redesign. Preserve the architecture and valid branches unless the target runtime boundary requires a change. Keep the behavior pin, real-artifact proof and PR requirements below; mandatory subtraction and reader-load reduction do not apply. Judge the port against its stated migration objective.
+The language-port steps are the acceptance sequence, not a prerequisite to structural redesign. Preserve the architecture and valid branches unless the target runtime boundary requires a change. Keep the behavior pin, real-artifact proof, and SKILL.md delivery-target rules below; mandatory subtraction and reader-load reduction do not apply. Judge the port against its stated migration objective.
 
 Apply clean cutover to each closed slice: migrate its callers and delete its superseded implementation. Source implementations outside that slice may remain during an incremental port. Any temporary internal interop needs an approved boundary, owner and removal criterion; it cannot leave duplicate completed implementations or override repository rules. A separately approved structural redesign follows the sequence below.
 
@@ -39,8 +39,8 @@ Apply clean cutover to each closed slice: migrate its callers and delete its sup
    Larger reshapes: equivalence check (old-vs-new output diff script, recorded baseline replay, or smoke run on the matching surface via the project `verify-<app>` skill).
    Done when the real-artifact run or equivalence check shows no behavior difference, with its run path recorded.
 7. Confirm it is worth keeping: the diff must lower reader load somewhere (`references/principles/minimize-reader-load.md`); else revert. Done when the reader-load reduction is named, or the change is reverted.
-8. Sequence commits: subtraction, then reshape, then follow-on cleanup, each green (`references/principles/sequence-verifiable-units.md`). Commit and run **Opening a PR** (`references/playbooks/opening-a-pr.md`).
-   Done when the pin passes at every commit and the PR is open.
+8. Deliver per SKILL.md's delivery-target rule: for local review or a repo with no remote, leave verified S/M edits uncommitted in the starting working tree with the pin green (no default-branch commit or push). For publication, sequence commits (subtraction, reshape, follow-on cleanup, each green per `references/principles/sequence-verifiable-units.md`), commit, and run **Opening a PR** (`references/playbooks/opening-a-pr.md`).
+   Done when the pin passes and the requested delivery target holds (verified uncommitted local tree, or green commits with the PR open).
 
 ## Gates
 

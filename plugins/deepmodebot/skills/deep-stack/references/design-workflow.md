@@ -16,7 +16,7 @@ Source dates: 2026-09-28 (Paper workflow, newest), 2026-06-23 (Claude Design wor
 - Never let the agent design from nothing. Without a system, output looks generic and machine-made. Use the agent to build on a foundation, not to be the foundation (2026-09-28, 2026-05-08).
 - Inspiration is a base, not a copy. Add your own taste, or the site looks like every other generated site. The agent will not reproduce a screenshot exactly; treat its output as a canvas to tweak (2026-06-23).
 - The first output is never final. Plan for many rounds (2026-09-28).
-- Model: Claude models, Opus 5.5 in particular, follow design systems best. OpenAI models are acceptable when given a system (2026-09-28).
+- Model: one talk reported Claude models (Opus 5.5 in particular) followed design systems best, with OpenAI models acceptable when given a system (2026-09-28) [unverified: single-talk opinion, no benchmarks; test against your own design system across available harnesses including Antigravity/Gemini].
 
 ## Prerequisites
 - Paper desktop app with its MCP connected to the harness.

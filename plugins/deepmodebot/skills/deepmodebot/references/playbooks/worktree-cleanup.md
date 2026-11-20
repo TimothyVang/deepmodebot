@@ -6,7 +6,7 @@ Use when: the user asks to prune git worktrees or reclaim disk space from agent 
 
 1. Snapshot free disk space (`df -h` on the repo's volume, or the platform equivalent) and record it. Done when the free space number is in your notes.
 2. Audit every worktree, reading paths from `git worktree list --porcelain`. Never hand-type them, since agent worktrees can live outside the repo's sibling directory (`references/principles/encode-lessons-in-structure.md`). Skip the main worktree. Per worktree record:
-   - size (`du -sh`) and age (`git log -1 --format=%ct`)
+   - size (`du -sh`, or the platform equivalent) and age (`git log -1 --format=%ct`)
    - merged: `git merge-base --is-ancestor HEAD <base>`, base = the branch PRs target (fetch it first; not necessarily `origin/HEAD`). Squash merges fail this check, so PR state is the real signal.
    - dirty: `git status --porcelain --ignored` → `clean`, `wip:N` (N tracked edits), `scratch:N` (N untracked non-ignored files, `??` lines), or `ignored-only` (only `!!` lines: build artifacts)
    - remote: pushed / ahead N / no-remote / detached

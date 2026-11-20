@@ -18,6 +18,7 @@ SKILL_SHA="${SKILL_SHA:-c1c8a8c1471069fb0e188eeaff69b8e8db6564a8}"
 AUDIT_MODEL="${AUDIT_MODEL:-sonnet}"
 AUDIT_AGENTS="${AUDIT_AGENTS:-12}"
 AUDIT_BUDGET_USD="${AUDIT_BUDGET_USD:-8}"
+AUDIT_TIMEOUT_SECONDS="${AUDIT_TIMEOUT_SECONDS:-1800}"
 FAIL_AT="${FAIL_AT:-high}"
 BLOCK_ON_UNVALIDATED="${BLOCK_ON_UNVALIDATED:-true}"
 ACCEPTED_PATH=".deepmodebot/security-audit-accepted.txt"
@@ -84,12 +85,15 @@ fi
 # Run from an empty folder with user settings only, no hooks, and no MCP servers, so the PR's
 # .claude/ settings, hooks, .mcp.json, and CLAUDE.md never load. Reads stay in the temp folder.
 READS="Read(/$T/**),Grep(/$T/**),Glob(/$T/**)"
-( cd "$T/agent-cwd" && claude -p --model "$AUDIT_MODEL" --output-format json --permission-mode dontAsk \
-    --setting-sources user --settings '{"disableAllHooks": true}' --strict-mcp-config \
-    --allowedTools "$READS,Write(/$OUT/**),Edit(/$OUT/**),Task,TodoWrite,Bash(node $SKILL/validate-findings.cjs:*),Bash(node $SKILL/validate-coverage-ledger.cjs:*)" \
-    --disallowedTools "WebFetch,WebSearch" \
-    --add-dir "$T" --max-budget-usd "$AUDIT_BUDGET_USD" \
-    < "$T/prompt.md" > "$T/claude.json" ) \
+RUN_CLAUDE=(claude -p --model "$AUDIT_MODEL" --output-format json --permission-mode dontAsk
+  --setting-sources user --settings '{"disableAllHooks": true}' --strict-mcp-config
+  --allowedTools "$READS,Write(/$OUT/**),Edit(/$OUT/**),Task,TodoWrite,Bash(node $SKILL/validate-findings.cjs:*),Bash(node $SKILL/validate-coverage-ledger.cjs:*)"
+  --disallowedTools "WebFetch,WebSearch"
+  --add-dir "$T" --max-budget-usd "$AUDIT_BUDGET_USD")
+if command -v timeout >/dev/null 2>&1; then
+  RUN_CLAUDE=(timeout "$AUDIT_TIMEOUT_SECONDS" "${RUN_CLAUDE[@]}")
+fi
+( cd "$T/agent-cwd" && "${RUN_CLAUDE[@]}" < "$T/prompt.md" > "$T/claude.json" ) \
   || echo "warning: the audit agent exited non-zero; the gate decides from its output" >&2
 
 # The agent could write inside $T, so restore the pinned skill before gating.
@@ -103,8 +107,12 @@ set -e
 cat "$T/comment.md"
 
 if [ -n "$PR" ]; then
-  id=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
-    --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" | tail -n 1)
+  ME="$(gh api user --jq .login 2>/dev/null || true)"
+  id=""
+  if [ -n "$ME" ]; then
+    id="$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+      --jq ".[] | select((.user.login // \"\") == \"$ME\" and ((.body // \"\") | contains(\"$MARKER\"))) | .id" | tail -n 1 || true)"
+  fi
   if [ -n "$id" ]; then
     gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@"$T/comment.md" > /dev/null
   else

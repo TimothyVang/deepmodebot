@@ -15,10 +15,10 @@ Within an approved task, deepmodebot may author and revise its own bounded loop 
 
    | Need | Artifact | Write to |
    |---|---|---|
-   | A reusable instruction triggered by name | Prompt | omp `.omp/commands/<name>.md`; Claude Code `.claude/skills/<name>/SKILL.md` (commands are skills now); Codex has no project prompts, so write a skill |
-   | A procedure with files, loaded on demand | Skill | `.agents/skills/<name>/` (Codex, omp, most agents) plus `.claude/skills/<name>/` for Claude Code; `.omp/skills/<name>/` for omp only |
+   | A reusable instruction triggered by name | Prompt / workflow | omp `.omp/commands/<name>.md`; Claude Code `.claude/skills/<name>/SKILL.md`; Antigravity `.agents/workflows/<name>.md` (or `.agents/rules/` for rules); Codex has no project prompts, so write a skill |
+   | A procedure with files, loaded on demand | Skill | `.agents/skills/<name>/` (Antigravity, Codex, omp, most agents) plus `.claude/skills/<name>/` for Claude Code; `.omp/skills/<name>/` for omp only |
    | An objective with a checkable end state | Goal file | `.scratch/goals/<slug>.md` for working state; `docs/goals/<slug>.md` when the team should see it |
-   | Iterate until the check passes | Loop | Interactive: the harness's native `/goal`. Unattended, scripted, or cross-harness: `assets/loop/loop.py` |
+   | Iterate until the check passes | Loop | Interactive: the harness's native `/goal` (or Antigravity `/schedule`). Unattended, scripted, or cross-harness (`omp|claude|codex`): `assets/loop/loop.py` |
    | Improve a metric (score, latency, pass rate) | Experiment loop | Hillclimb playbook (`references/playbooks/hillclimb.md`); omp `/autoresearch` |
 
 3. **Write it.** Done when the artifact file exists at the chosen path with every field its kind requires below.
@@ -43,7 +43,8 @@ Within an approved task, deepmodebot may author and revise its own bounded loop 
      - omp: `/goal <objective>` (needs `goal.enabled`; interactive only).
      - Claude Code: `/goal <condition>` (a small model judges the transcript, so name the command whose printed output proves done); `/loop <interval> <prompt>` for recurring work (expires after 7 days).
      - Codex: `/goal <end state> verified by <evidence> while preserving <constraints>`.
-     - Headless (`omp|claude|codex`): `python -B "<this skill>/assets/loop/loop.py" run <goal.md> [--sprint N]` (`manifest`/`audit`/`check`/`status` are harness-agnostic). It runs omp, Claude Code, or Codex on the subscription until the check passes, logging prompts, checks, `trail.tsv`, `<run_id>-summary.json`, and `latest-summary.json` to `.scratch/goals/<slug>/`. Inspect state and resume command via `loop.py status <goal.md> [--json]`.
+     - Antigravity (`agy`): native `/goal` for long-running objectives and `/schedule` for recurring checks. (`loop.py run` supports `--harness omp|claude|codex` only; in Antigravity, pair native `/goal` with `loop.py check`, `status`, and `manifest`.)
+     - Headless (`omp|claude|codex`): `python -B "<this skill>/assets/loop/loop.py" run <goal.md> [--sprint N]` (`py -3 -B` on Windows; `manifest`/`audit`/`check`/`status` are harness-agnostic). It runs omp, Claude Code, or Codex on the subscription until the check passes, logging prompts, checks, `trail.tsv`, `<run_id>-summary.json`, and `latest-summary.json` to `.scratch/goals/<slug>/`. Inspect state and resume command via `loop.py status <goal.md> [--json]`.
        Exit 0 done (or active sprint passed with deferred slices, `scope_complete: false`), 2 iteration cap, 3 stalled (neither check output nor working files changed; body-only edits do not count), 4 edited frontmatter or a `protect` path, 6 iteration cadence checkpoint (`checkpoint_every`) or `sme_gate: "required"` pause (`latest-summary.json` records `scope` telemetry: `active_sprint`, `deferred_slices`, `inventory_counts`, `sme_gate_blocked`).
        Exit 5 a harness failure with the check still failing, a run passed its time limit, or quota exhaustion / persistent 429s when no `fallback_harness_args` is set (or the fallback also fails). A passing acceptance check wins over a nonzero harness exit. `--dry-run` prints the command and prompt without running the check.
        The runner owns the acceptance check; each agent performs one bounded step and returns.
@@ -56,7 +57,7 @@ Within an approved task, deepmodebot may author and revise its own bounded loop 
    Done when the real outcome, expected non-trigger and safe failure are supported by retained transcripts/artifacts, plus an Eval verdict when required. Missing runtime access is an unavailable proof, not a pass.
 6. **Freeze and review.** For an authored or revised skill, run the full three-reviewer gate below, even for a small text diff. Other artifacts use the applicable panel (`references/techniques/panel.md`). Done when every required vote is valid for the same frozen subject and its evidence is checked.
 7. **Promote in order.** Project-local, committed through a PR only after the skill gate passes. Then deepmodebot itself: a PR via authoring-a-skill and Eval. Use authoring-a-skill's writing/validation steps first; defer its PR step until this gate.
-   User-level folders (`~/.omp/agent/`, omp `manage_skill`, `~/.claude/`, `~/.agents/`) only with the user's yes, because they are outside the root.
+   User-level folders (`~/.omp/agent/`, omp `manage_skill`, `~/.claude/`, `~/.agents/`, `~/.gemini/`) only with the user's yes, because they are outside the root.
    Done when the PR for the level reached is open, its own merge gate is satisfied before merging, and any user-level write has the user's yes on record. Local skill approval does not replace PR approval.
 8. **Log and prune.** Use the show-me-your-work trail (`references/techniques/show-me-your-work.md`): what changed, why, evidence and removal path. Route observed recurring failures through correct/reflect/retro rather than appending another instruction layer.
    Done when the trail holds all four, superseded instructions are removed, and the report separates authored, executed, reviewed and promoted states.

@@ -751,6 +751,129 @@ class WorkspaceMapTests(unittest.TestCase):
         self.assertEqual(ps2["last_exit_code"], 0)
         self.assertEqual(ps2["last_exit_reason"], "sprint_already_passed")
 
+    def test_linked_worktrees_on_different_branches_do_not_clobber_each_other(self):
+        main_repo = os.path.join(self.tmp, "iso-main")
+        _init_repo(main_repo)
+        _write(main_repo, "shared.py", "def shared_unchanged():\n    return 1\n")
+        _write(main_repo, "core.py", "def main_branch_fn():\n    return 'main'\n")
+        _write(main_repo, "only_main.py", "def stay_on_main():\n    return True\n")
+        _git(main_repo, "add", ".")
+        _git(main_repo, "commit", "-m", "main baseline")
+
+        wt_b = os.path.join(self.tmp, "iso-wt-b")
+        _git(main_repo, "worktree", "add", "-b", "feat/b", wt_b)
+        _write(wt_b, "core.py", "def feat_b_fn():\n    return 'b'\n")
+        _write(wt_b, "only_b.py", "def b_only_helper():\n    return 2\n")
+        _git(wt_b, "rm", "-f", "only_main.py")
+        _git(wt_b, "add", ".")
+        _git(wt_b, "commit", "-m", "branch b changes")
+
+        with mock.patch.dict(os.environ, {"DEEPMODEBOT_MAP_DB": ""}, clear=False):
+            self.assertEqual(_run_cli(["sync", main_repo, "--offline", "--no-orca", "--json"])[0], 0)
+            self.assertEqual(_run_cli(["sync", wt_b, "--offline", "--no-orca", "--json"])[0], 0)
+
+            # Querying main with --no-sync must still see main's symbols and NOT feat/b's symbols.
+            rc, q_main_core = _run_cli(["query", "main_branch_fn", main_repo, "--no-sync", "--json"])
+            self.assertEqual(rc, 0)
+            self.assertEqual(json.loads(q_main_core)["count"], 1)
+            rc, q_main_only = _run_cli(["query", "stay_on_main", main_repo, "--no-sync", "--json"])
+            self.assertEqual(rc, 0)
+            self.assertEqual(json.loads(q_main_only)["count"], 1)
+            rc, q_main_no_b = _run_cli(["query", "b_only_helper", main_repo, "--no-sync", "--json"])
+            self.assertEqual(rc, 0)
+            self.assertEqual(json.loads(q_main_no_b)["count"], 0)
+
+            # Querying wt_b with --no-sync must see feat/b's symbols + unchanged shared.py, NOT main's deleted/shadowed ones.
+            rc, q_b_core = _run_cli(["query", "feat_b_fn", wt_b, "--no-sync", "--json"])
+            self.assertEqual(rc, 0)
+            self.assertEqual(json.loads(q_b_core)["count"], 1)
+            rc, q_b_only = _run_cli(["query", "b_only_helper", wt_b, "--no-sync", "--json"])
+            self.assertEqual(rc, 0)
+            self.assertEqual(json.loads(q_b_only)["count"], 1)
+            rc, q_b_shared = _run_cli(["query", "shared_unchanged", wt_b, "--no-sync", "--json"])
+            self.assertEqual(rc, 0)
+            self.assertEqual(json.loads(q_b_shared)["count"], 1)
+            rc, q_b_no_main_core = _run_cli(["query", "main_branch_fn", wt_b, "--no-sync", "--json"])
+            self.assertEqual(rc, 0)
+            self.assertEqual(json.loads(q_b_no_main_core)["count"], 0)
+            rc, q_b_no_deleted = _run_cli(["query", "stay_on_main", wt_b, "--no-sync", "--json"])
+            self.assertEqual(rc, 0)
+            self.assertEqual(json.loads(q_b_no_deleted)["count"], 0)
+
+        # Unchanged shared.py is stored ONCE (baseline only, zero duplication).
+        db = os.path.join(main_repo, ".scratch", "workspace-map.db")
+        conn = wm.connect_db(db, readonly=True)
+        try:
+            shared_rows = conn.execute("SELECT COUNT(*) FROM files WHERE rel_path = 'shared.py'").fetchone()[0]
+            self.assertEqual(shared_rows, 1)
+        finally:
+            conn.close()
+
+    def test_malformed_manifest_ints_and_readonly_query_and_foreign_repo_prune(self):
+        repo = os.path.join(self.tmp, "malformed-repo")
+        _init_repo(repo)
+        _write(repo, "app.py", "def handle_ok():\n    return 1\n")
+        _write(
+            repo,
+            "docs/specs/bad-manifest.json",
+            json.dumps({
+                "product": "Bad Types",
+                "slices": [{"id": "s1", "title": "Core", "sprint": "not-an-int"}],
+            }),
+        )
+        _write(
+            repo,
+            ".scratch/goals/bad/latest-summary.json",
+            json.dumps({
+                "goal": "Bad Summary",
+                "exit_code": 0,
+                "scope": {
+                    "manifest": "docs/specs/bad-manifest.json",
+                    "passed_slices": "oops",
+                    "active_slices": "bad",
+                    "total_slices": "nan",
+                    "deferred_slices": "nope",
+                    "pending_inventory": "nope",
+                },
+            }),
+        )
+        _git(repo, "add", "app.py", "docs/specs/bad-manifest.json")
+        _git(repo, "commit", "-m", "init")
+
+        db = os.path.join(self.tmp, "ro-prune.db")
+        rc, _ = _run_cli(["sync", repo, "--db", db, "--offline", "--no-orca"])
+        self.assertEqual(rc, 0)
+
+        # Insert an aged foreign Orca repo row with last_sync_ts = 0.0 and verify prune drops it.
+        foreign_dir = os.path.join(self.tmp, "foreign-orca-dir")
+        os.makedirs(foreign_dir)
+        conn = wm.connect_db(db)
+        try:
+            old_ts = time.time() - 40 * 86400
+            fkey = wm.normalize_path_key(foreign_dir)
+            conn.execute(
+                "INSERT INTO repos(repo_key, name, main_checkout, common_dir, last_sync_ts) VALUES(?, 'foreign', ?, ?, 0)",
+                (fkey, foreign_dir, os.path.join(foreign_dir, ".git")),
+            )
+            conn.execute(
+                "INSERT INTO workspaces(worktree_key, repo_key, path, updated_at) VALUES(?, ?, ?, ?)",
+                (fkey, fkey, foreign_dir, old_ts),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        rc, prune_out = _run_cli(["prune", "--db", db, "--days", "30", "--json"])
+        self.assertEqual(rc, 0)
+        self.assertEqual(json.loads(prune_out)["dropped_repos"], 1)
+
+        # Read-only query --no-sync works even when DB file is chmod read-only.
+        os.chmod(db, stat.S_IREAD)
+        self.addCleanup(lambda: os.chmod(db, stat.S_IREAD | stat.S_IWRITE) if os.path.exists(db) else None)
+        rc, q_out = _run_cli(["query", "handle_ok", repo, "--db", db, "--no-sync", "--json"])
+        self.assertEqual(rc, 0)
+        self.assertEqual(json.loads(q_out)["count"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

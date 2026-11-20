@@ -34,8 +34,8 @@
   - Running each generative-UI request 3–4 times gives the same layout and labels.
 - **Streaming performance** [youtube/uAmRtE52mYk]:
   - Never hold the thread (messages, tool calls, token deltas) in one root context value. Use a store with per-message subscriptions.
-  - Enable React Compiler and virtualize long threads.
-  - Park hidden panels with `<Activity>`.
+  - Enable React Compiler and virtualize long threads (in SvelteKit or other frameworks, use fine-grained reactive subscriptions and list virtualization).
+  - Park hidden panels with React `<Activity>` (or equivalent state-preserving visibility toggle in non-React frameworks).
   - Use transitions or optimistic updates for non-urgent work.
 - Stress-test with worst-case data: long names, one-letter names, huge counts, empty lists [.claude/skills/break-ui]:
   - Decide per field whether text wraps, truncates at the end, truncates in the middle (filenames, emails) or clamps.
@@ -55,7 +55,7 @@
   - `viewport-fit=cover`, `interactive-widget=resizes-content`, a per-scheme `theme-color`.
   - `touch-action: manipulation`, `100dvh`, safe-area insets.
   - `overscroll-behavior` only under `(pointer: fine)`, to keep pull-to-refresh.
-- **Native ports** (if boop-agent ships them) follow `TimothyVang/frontend:reference/articles/app-type-guides.md`:
+- **Native ports** (when an app ships native clients; optional private-repo detail in `TimothyVang/frontend:reference/articles/app-type-guides.md`):
   - platform target sizes: 48 dp Android, 60 pt visionOS, 66 pt tvOS (44 px stays the web floor);
   - native body text sizes: 13 pt macOS, 14 epx Windows;
   - Wear OS black backgrounds (an exception to "never #000").

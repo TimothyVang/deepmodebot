@@ -19,7 +19,7 @@ Checked: omp 18.18.9 on 2026-11-11. Sources: bundled docs (`read omp://<file>.md
 - An exported `ANTHROPIC_API_KEY` loses to stored OAuth, but `--api-key` wins over everything. Never pass `--api-key` when the user wants subscription billing. [inference]
 - Model flags: `--model <fuzzy|provider/id>`, `--smol`, `--slow`, `--plan` (env `PI_SMOL_MODEL`, `PI_SLOW_MODEL`, `PI_PLAN_MODEL`), `--models a,b` for Ctrl+P cycling. (omp 18.18.9 --help)
 - `--thinking off|minimal|low|medium|high|xhigh|max|auto`. (omp 18.18.9 --help)
-- Roles live in `modelRoles` in `config.yml` (`default`, `smol`, `slow`, `plan`, plus custom like `review`, `judge`, `advisor`). Values are selectors with optional `:level`, e.g. `openai/gpt-5.4:high`. Agent frontmatter `model: "@review"` resolves through `modelRoles.review`. [task-agent-discovery.md](https://github.com/can1357/oh-my-pi/blob/main/docs/task-agent-discovery.md)
+- Roles live in `modelRoles` in `config.yml` (`default`, `smol`, `slow`, `plan`, plus custom like `review`, `judge`, `advisor`). Values are selectors with optional `:level`, e.g. `openai-codex/gpt-6.1-sol:high`. Agent frontmatter `model: "@review"` resolves through `modelRoles.review`. [task-agent-discovery.md](https://github.com/can1357/oh-my-pi/blob/main/docs/task-agent-discovery.md)
 
 ## 2. Context files and rules
 

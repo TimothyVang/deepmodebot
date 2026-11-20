@@ -5,12 +5,12 @@ Use when: the user explicitly asks to pause or stop for now. Explicit only: on "
 ## Steps
 
 1. Stop at a safe boundary: finish the current atomic step or back out of it. Start nothing new. Done when no edit is half-applied.
-2. Cancel nested subagents and background jobs you started (`write proc://<id>/kill`); note any whose results you still need.
-   Done when `read proc://` lists none of your jobs as running.
+2. Cancel nested subagents and background jobs you started (`write proc://<id>/kill` in omp; `manage_task` `kill` in Antigravity; harness task/job cancellation elsewhere); note any whose results you still need.
+   Done when your harness's task/process list (`read proc://` in omp, `manage_task` `list` in Antigravity, or equivalent) shows none of your jobs running.
 3. Take no irreversible action to pause: no new PR, no push unless you already had one out.
 4. Make the work durable: save `git diff --binary` (plus untracked files via `git add -N` first, or list them) as a patch next to the resume note, and make one clear `wip:` commit on the current branch; if the tree is broken, say so in one line of its body.
    Done when the patch file exists and `git status --porcelain` prints nothing but untracked files you listed in the resume note.
-5. Write the resume note off-context at `$(git rev-parse --git-common-dir)/omp-resume/<slug>.md` (never committed, shared by worktrees, visible to a cold-start session; `local://` is not) and print its absolute path.
+5. Write the resume note off-context at `$(git rev-parse --git-common-dir)/omp-resume/<slug>.md`, or `<root>/.scratch/resume-<slug>.md` when the harness cannot write `.git` (such as Codex's sandbox, per `references/contain.md`). Never commit it and never store it only in session-only storage (`local://`). Print its absolute path.
    It holds intent, what you were doing, progress and what's verified, current state, next steps, key files, gotchas, patch path, and (when active) the Scope Manifest + `latest-summary.json` resume ledger (`active_sprint`, `deferred_slices`, `inventory_counts`, `sme_gate_blocked`) so resuming after a pause, sprint checkpoint (`exit 6`), or quota stop picks up at the next queued slice/item without re-scanning. Point at any show-me-your-work trail instead of duplicating it.
    Done when the note exists at that path, its absolute path is printed, and every listed item is filled.
 

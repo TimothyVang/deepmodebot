@@ -19,7 +19,7 @@ Ticket types, one `wayfinder:<type>` label each. All are worked by agents by def
 **Chart the map** (the user brings a loose idea):
 1. Name the destination with the **grill** technique. It fixes the scope. Done when the destination is one or two lines the user did not correct.
 2. Grill again breadth-first across the whole space to find the open decisions. No fog (the whole route fits one session) → no map: say so and run the matching playbook instead. Done when the open decisions are listed, or you named the playbook to run instead.
-3. Create the map issue, then every ticket you can state precisely now. Wire `Blocked by` lines in a second pass, once every ticket has a number. A question you can't yet phrase sharply goes in **Not yet specified**, not a ticket. Done when every listed decision is a ticket or a **Not yet specified** line.
+3. On `github`, create any missing `wayfinder:map` and `wayfinder:<type>` labels first (`gh label list`, then `gh label create <name> --description "<meaning>"`, never `--force`). Create the map issue, then every ticket you can state precisely now. Wire `Blocked by` lines in a second pass, once every ticket has a number. A question you can't yet phrase sharply goes in **Not yet specified**, not a ticket. Done when every listed decision is a ticket or a **Not yet specified** line.
 4. Start every `research` ticket in parallel, one fresh `scout` each. Done when every open `research` ticket has a running scout.
 
 **Work the map** (repeat until done):

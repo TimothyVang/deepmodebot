@@ -4,18 +4,20 @@
 
 Checked 2026-11-13 against this omp tool surface and installed task documentation. Use the current tool schema when it differs from examples. Protocol facts and research are cited below.
 
-## Native omp: dispatch, address, answer
+## Native harness dispatch, address, answer
 
-1. Scope real independent slices before dispatch. Put the root, fixed acceptance check, shared API, file owners, integration/build owner and total budget in `task.context`. Each `tasks[]` item supplies `task`, `solutionSpace`, optional `name`, and the appropriate `agent`. Use only an operator-approved exact model if setting `model`.
+The schema below describes **omp**'s native `task`/`write` surface. On other harnesses, map to native equivalents: **Claude Code** uses Agent/subagent spawns + `SendMessage`; **Antigravity** uses `invoke_subagent` + `send_message` (or `swarm` + `post_message`/`swarm_wait` on a board); **Codex** routes handoffs through the coordinator or project-local files under `.scratch/`.
+
+1. Scope real independent slices before dispatch. Put the root, fixed acceptance check, shared API, file owners, integration/build owner and total budget in the shared brief (`task.context` in omp). Each item (`tasks[]` in omp) supplies the task, scope (`solutionSpace`), optional name, and agent role. Use only an operator-approved exact model if setting `model`.
    Done when every slice has one owner and an observable handoff condition; shared prerequisites stay with the coordinator.
-2. Use the IDs returned by `task`, or the injected peer roster. Requested names can be uniquified; copy the actual ID. A model name, role label, process ID and ACP session ID are not native task recipients.
+2. Use the IDs returned by the harness (`task` ID, conversation ID, or roster name). Requested names can be uniquified; copy the actual ID. A model name, role label, process ID and ACP session ID are not native task recipients.
    Done when the sender can identify the specific owner of the blocking fact.
-3. Send one material question or contract decision with `write`, as below. Keep working on independent work. The receiver answers with the same tool addressed to the sender's exact ID.
+3. Send one material question or contract decision with the harness's messaging tool (`write agent://<id>` in omp, `SendMessage` in Claude Code, `send_message`/`post_message` in Antigravity). Keep working on independent work. The receiver answers addressed to the sender's exact ID.
    Done when the answer resolves the dependency or identifies the missing evidence; a delivery receipt alone does not establish agreement.
-4. Record the agreed fact in the code or the existing decision trail, with the affected revision and evidence path. Let completion auto-deliver. Read `agent://<id>` only for a missing result, necessary status or retained output, not a polling loop. Use `wait` only when completely blocked on work or an answer you are owed.
+4. Record the agreed fact in the code or the existing decision trail, with the affected revision and evidence path. Let completion auto-deliver. Read peer output (`agent://<id>` in omp, `read_board` in Antigravity) only for a missing result, necessary status or retained output, not a polling loop. Wait (`wait` / `swarm_wait`) only when completely blocked on work or an answer you are owed.
    Done when the integration owner has the actual handoff artifacts and outstanding failures, not merely a worker's claim of completion.
 
-Native `write` arguments, after substituting the actual recipient ID and evidence location:
+Native omp `write` arguments, after substituting the actual recipient ID and evidence location:
 
 ```json
 {
@@ -24,9 +26,9 @@ Native `write` arguments, after substituting the actual recipient ID and evidenc
 }
 ```
 
-The angle-bracket fields are explanatory, not runnable IDs. This is the real `write` tool's `path`/`content` shape, not a shell command or an imagined `send_message` API. Outbound messaging requires `write` to be exposed to that agent. If absent, return the question to the coordinator; do not claim direct delivery.
+The angle-bracket fields are explanatory, not runnable IDs. In **omp**, outbound messaging uses `write` with `agent://<id>` (there is no `send_message` tool in omp, whereas Antigravity provides `send_message`/`post_message` and Claude Code provides `SendMessage`). If direct peer messaging is absent, return the question to the coordinator; do not claim direct delivery.
 
-`agent://` and `local://` are harness-managed session resources. Durable evidence belongs under the project root. Preserve a small redacted request, delivery result and substantive answer in the existing evidence trail when proving collaboration. Do not export private session transcripts, credentials or unrelated user context.
+`agent://` and `local://` are omp session-only URIs. Durable evidence on every harness belongs under the project root (e.g. `.scratch/`). Preserve a small redacted request, delivery result and substantive answer in the existing evidence trail when proving collaboration. Do not export private session transcripts, credentials or unrelated user context.
 
 A capability probe must answer a real shared question. Sending an empty greeting to manufacture a collaboration receipt proves little and wastes a task. Implementation fact exchange is permitted; pre-vote persuasion is not.
 
@@ -73,8 +75,8 @@ Native task messaging is a real capability, but instructions alone do not enforc
 
 ## Sources and limits
 
-- Native task schema and lifecycle: [omp task docs](https://github.com/can1357/oh-my-pi/blob/main/docs/tools/task.md), checked against installed `omp://tools/task.md` and this session's `task`/`write` schemas.
+- Native task schema and lifecycle: [omp task docs](https://github.com/can1357/oh-my-pi/blob/main/docs/tools/task.md) (checked against `omp://tools/task.md` in omp; other harnesses use their own tool schemas).
 - ACP identities: [session setup](https://agentclientprotocol.com/protocol/v1/session-setup.md); typed turns and completion: [prompt turn](https://agentclientprotocol.com/protocol/v1/prompt-turn.md).
-- Pinned upstream comparison: repo `docs/research/community-skills-review.md`. Its phase-boundary synthesis is guidance, not a new runtime feature.
+- Pinned upstream comparison: `docs/research/community-skills-review.md` in the deepmodebot source repo (not installed plugin copies). Its phase-boundary synthesis is guidance, not a new runtime feature.
 
 **Done when** the needed fact reached its actual owner, the response is retained with evidence, ownership remains intact, and final reviewers stayed blind through vote lock. Tool availability without an observed exchange is not an execution proof.

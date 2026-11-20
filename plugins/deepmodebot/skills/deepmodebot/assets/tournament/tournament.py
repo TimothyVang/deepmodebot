@@ -83,7 +83,9 @@ CONCRETE_ANCHOR_RE = re.compile(
 ENV_ANCHOR_RE = re.compile(r"\b[A-Z][A-Z0-9]*_[A-Z0-9_]+\b")
 
 TOURNAMENT_EXPLICIT_RE = re.compile(
-    r"(\btournament\b"
+    r"(^\s*tournament\b"
+    r"|\b(?:run|start|use|hold|do|launch)\s+(?:a\s+|the\s+)?(?:agent\s+|idea\s+|design\s+|architecture\s+|research\s+)?tournament\b"
+    r"|\btournament\s+(?:mode|bracket|debate|of\s+ideas|to\s+decide|on\s+(?:our|this|the)|and\s+(?:build|implement|let|wait|create|deliver|only))\b"
     r"|\barena\s+debate\b"
     r"|\bdebate\s+(?:research|architecture|design|system|ideas|the\s+best)\b"
     r"|\b(?:architecture|architectural|research)\s+(?:gaps?|blind\s*spots?)\b"
@@ -223,6 +225,7 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
 
     if re.search(
         rf"\binstall\s+(?:{brand_names})\s+on\s+my\s+repos\b|\brun\s+the\s+bots\s+on\s+their\s+own\b"
+        rf"|\bauto[- ]update\s+(?:local\s+)?(?:{brand_names})\s+copies\b"
         r"|\bai\s+review\s+on\s+my\s+own\s+subscription\b|\b(?:start|stop|opt\b.*\bout\s+of)\s+the\s+bots\b",
         lower,
     ):
@@ -234,7 +237,12 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
     ):
         return out("project-brief", "execute", "low", "Maintainer contributor-onboarding request.")
 
-    if re.search(r"\bwhat\s+can\s+i\s+work\s+on\b|\bcontribute\s+to\b|\bhelp\s+(?:out\s+)?on\s+(?:this|the)\s+(?:repo|project)\b", lower):
+    if re.search(
+        r"\bwhat\s+can\s+i\s+work\s+on\b"
+        r"|\b(?:how\s+(?:can|do)\s+i\s+|want\s+to\s+|i'?d\s+like\s+to\s+|looking\s+to\s+)?contribute\s+to\s+(?:this|the)\s+(?:repo|project|codebase|open[- ]source)\b"
+        r"|\bhelp\s+(?:out\s+)?on\s+(?:this|the)\s+(?:repo|project)\b",
+        lower,
+    ):
         return out("contribute", "execute", "low", "Contributor task-picking request.")
 
     if (
@@ -242,7 +250,14 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
             r"\brun\s+the\s+factory\b|\bwork\s+the\s+issue\s+queue\b|\bturn\s+issues\s+into\s+prs\b|\bset\s+up\s+a\s+software\s+factory\b",
             lower,
         )
-        or (has_factory and "factory" in lower)
+        or (
+            has_factory
+            and re.search(
+                r"\b(?:run|start|work|drive|check|status\s+of)\s+(?:the\s+)?factory\b"
+                r"|\bfactory\s+(?:queue|board|backlog|run|loop|workers?)\b",
+                lower,
+            )
+        )
         or re.search(
             r"\b(?:drive|work)\s+the\s+(?:board|backlog)\b|\brun\s+this\s+project\s+autonomously\b"
             r"|\bkeep\s+going\s+on\s+the\s+roadmap\b|\bautopilot\b|\bstack\s+them,\s+don'?t\s+ship\b|\bbuild\s+the\s+stack,\s+i'?ll\s+land\s+it\b",
@@ -254,7 +269,11 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
     if re.search(rf"\bset\s+up\s+(?:{brand_names})\b|\bconfigure\s+the\s+(?:tracker|labels)\b|\badd\s+a\s+glossary\s+and\s+adrs\b", lower):
         return out("setup", "execute", "low", "Repository tracker and conventions setup request.")
 
-    if re.search(r"\btriage\b|\bwhat\s+needs\s+my\s+attention\b|\bis\s+#\d+\s+ready\s+for\s+an\s+agent\b|\bmove\s+#\d+\s+to\s+agent-ready\b", lower):
+    if re.search(
+        r"^\s*triage\b|\btriage\s+(?:the\s+|our\s+|open\s+|new\s+|incoming\s+)?(?:issues?|prs?|pull\s+requests?|bugs?|backlog|queue|inbox|tickets?)\b"
+        r"|\bwhat\s+needs\s+my\s+attention\b|\bis\s+#\d+\s+ready\s+for\s+an\s+agent\b|\bmove\s+#\d+\s+to\s+agent-ready\b",
+        lower,
+    ):
         return out("triage", "execute", "low", "Issue or PR triage request.")
 
     if re.search(
@@ -319,7 +338,13 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
     ):
         return out("architecture-review", "audit", "low", "Codebase structural refactoring scan.")
 
-    if re.search(r"\bretro(?:spective)?\b|\bwhat\s+should\s+we\s+change\s+after\s+this\s+session\b", lower):
+    if re.search(
+        r"^\s*retro(?:spective)?\b|\bretrospective\b"
+        r"|\b(?:run|do|write|hold|start)\s+(?:a\s+|the\s+|our\s+)?retro\b"
+        r"|\b(?:session|sprint|post[- ]merge|project)\s+retro\b"
+        r"|\bwhat\s+should\s+we\s+change\s+after\s+this\s+session\b",
+        lower,
+    ):
         return out("retro", "audit", "low", "Session retrospective request.")
 
     if re.search(r"\bmake\s+me\s+a\s+setup\s+script\b|\bwalk\s+me\s+through\s+setting\s+up\b|\bsteps\s+only\s+a\s+human\s+can\s+do\b", lower):
@@ -350,7 +375,9 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
         return out("pre-commit", "execute", "low", "Pre-commit hook setup request.")
 
     if re.search(
-        r"\bbe\s+my\s+chief\s+of\s+staff\b|\bgoing\s+to\s+bed\b|\bkeep\s+going\s+until\b|\bloop\s+until\b"
+        r"\bbe\s+my\s+chief\s+of\s+staff\b|\bgoing\s+to\s+bed\b|\bkeep\s+going\s+until\b"
+        r"|(?:^|[.;,]\s*)loop\s+until\b|\b(?:run|iterate|work|keep\s+running)\s+in\s+a\s+loop\s+until\b"
+        r"|\bloop\s+until\s+(?:it'?s?\s+|all\s+)?(?:green|done|passing|passes|clean|tests?\s+pass)\b"
         r"|\bkeep\s+pushing\s+(?:it|this\s+goal)\s+forward\s+across\s+sessions\b|\bown\s+this\s+(?:goal|migration)\b",
         lower,
     ):
@@ -363,7 +390,9 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
         return out("wayfinder", "chart", "high", "Multi-session foggy route mapping request.")
 
     if re.search(
-        r"\b(?:rename|extract|inline|dedupe)\b|\b(?:port|rewrite|migrate)\b.*\bto\s+another\s+language\b|\b(?:port|rewrite)\b.*\bpreserving\s+behavior\b",
+        r"\b(?:rename|extract|dedupe)\b"
+        r"|^\s*inline\b|\binline\s+(?:the|this|that|these|those|helper|function|method|variable|const|class|module)\b"
+        r"|\b(?:port|rewrite|migrate)\b.*\bto\s+another\s+language\b|\b(?:port|rewrite)\b.*\bpreserving\s+behavior\b",
         lower,
     ):
         return out("refactoring", "execute", "low", "Behavior-preserving structural change.")

@@ -15,30 +15,30 @@
 # Discards uncommitted work
 git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +reset( +[^ ;&|]+)* +--hard
 git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +clean( +[^ ;&|]+)* +(-[a-zA-Z]*f|--force)
-git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +(checkout|restore)( +-[^ ]+)* +\.( |;|&|\||\)|$)
+git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +(checkout|restore)( +[^ ;&|]+)* +(\.|"\."|'\.')( |;|&|\||\)|$)
 git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +stash +(clear|drop)
 git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +worktree +remove( +[^ ;&|]+)* +(-f|--force)
 
 # Deletes branches or rewrites history
-git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +branch( +[^ ;&|]+)* +(-D|--delete +--force|--force +--delete|-d +-f|-f +-d)( |;|&|\||\)|$)
+git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +branch( +[^ ;&|]+)* +(-[a-zA-Z]*D[a-zA-Z]*|-[a-zA-Z]*d[a-zA-Z]*f[a-zA-Z]*|-[a-zA-Z]*f[a-zA-Z]*d[a-zA-Z]*|(--delete|-[a-zA-Z]*d[a-zA-Z]*)( +[^ ;&|]+)* +(--force|-[a-zA-Z]*f[a-zA-Z]*)|(--force|-[a-zA-Z]*f[a-zA-Z]*)( +[^ ;&|]+)* +(--delete|-[a-zA-Z]*d[a-zA-Z]*))( |;|&|\||\)|$)
 git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +(filter-branch|filter-repo)
-git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +update-ref +-d
+git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +update-ref( +[^ ;&|]+)* +(-d|--delete)( |;|&|\||\)|$)
 git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +reflog +expire
 git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +gc( +[^ ;&|]+)* +--prune=now
 
 # Pushes that overwrite or delete remote history. --force-with-lease to a feature branch stays allowed.
 git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +push( +[^ ;&|]+)* +(--force|-f)( |;|&|\||\)|$)
 git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +push( +[^ ;&|]+)* +-[a-zA-Z]*f[a-zA-Z]*( |;|&|\||\)|$)
-git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +push( +[^ ;&|]+)* +\+[^ ]+
+git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +push( +[^ ;&|]+)* +["']?\+[^ ;&|]+
 git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +push( +[^ ;&|]+)* +(--mirror|--delete|-d|--prune)( |;|&|\||\)|$)
-git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +push( +[^ ;&|]+)* +:[^ ]+
+git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +push( +[^ ;&|]+)* +["']?:[^ ;&|]+
 
 # Pushes straight to the default branch (merges go through a reviewed PR): a destination that names it,
 # --all, and, while it is checked out, a push that names no destination or pushes HEAD.
-git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +push( +[^ ;&|]+)* +([^ ]*:)?(refs/heads/)?(main|master|trunk)( |;|&|\||\)|$)
+git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +push( +[^ ;&|]+)* +["']?([^ ;&|'"]*:)?(refs/heads/)?(main|master|trunk)["']?( |;|&|\||\)|$)
 git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +push( +[^ ;&|]+)* +--all( |;|&|\||\)|$)
 @branch (main|master|trunk) git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +push( +-[^ ]+)*( +[^- ;&|)][^ ;&|)]*)?( +-[^ ]+)* *(;|&|\||\)|$)
-@branch (main|master|trunk) git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +push( +[^ ;&|]+)* +(HEAD|@)( |;|&|\||\)|$)
+@branch (main|master|trunk) git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +push( +[^ ;&|]+)* +["']?(HEAD|@)["']?( |;|&|\||\)|$)
 
 # Strict mode: remove the # below to block every push, so only the human pushes.
 # git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +push( |;|&|\||\)|$)

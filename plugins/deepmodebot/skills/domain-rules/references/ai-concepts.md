@@ -49,14 +49,14 @@ Read when a task involves LLM fundamentals, RAG or retrieval, fine-tuning, infer
 - **Tool calling**: the model emits JSON with a tool name and arguments; app code runs it and returns the result. (LAWS)
 - **ReAct**: alternate reasoning, a tool action, and observing the result. (AI-COURSE)
 - **Skills**: folders of procedure with a light header, loaded on demand. (AI-COURSE)
-- **MCP**: Anthropic's open client-server protocol (November 2024) for discovering tools, resources, and prompts; solves N×M integration. (MCP)
+- **MCP**: open client-server protocol (introduced by Anthropic in Nov 2024; transferred to the Agentic AI Foundation under the Linux Foundation in Dec 2025) for discovering tools, resources, and prompts; solves N×M integration. (MCP)
 - **WebMCP**: a W3C proposal letting pages expose tools through JS APIs and HTML annotations. (WEBMCP)
 - **LangGraph**: agent workflows as stateful graphs of nodes (functions or agents), edges (routing), and checkpoints for human pauses. (LANGGRAPH)
 - **LangSmith**: tracing, run-tree visualization, evals, latency and cost tracking. (LANGSMITH)
 - **AI gateway**: middleware for multi-tenant LLM traffic: rate limits, cost accounting, model fallback, PII masking. (AI-COURSE)
 - **Hermes Agent** (Nous Research, open source): persistent memory, scheduled background tasks, learned reusable skills. (HERMES)
-- **Jev** (Typesafe AI): answers many typed questions (choice, score, yes/no) in parallel in 70–500 ms instead of generating text. (JEV)
-- **REA (Reverse Engineer Anything)**: open source, 139 MCP tools in 12 families, wiring coding agents to Ghidra, Hopper, and IDA Pro to inspect, decompile, and reconstruct software. (REA)
+- **Jev** (Typesafe AI): answers many typed questions (choice, score, yes/no) in parallel in 70–500 ms [unverified: video claim] instead of generating text. (JEV)
+- **REA (Reverse Engineer Anything)**: open source, reportedly 139 MCP tools in 12 families [unverified: video count], wiring coding agents to Ghidra, Hopper, and IDA Pro to inspect, decompile, and reconstruct software. (REA)
 - **Prompt injection**: direct (a user message overrides the system prompt) or indirect (instructions hidden in a document or web page the agent reads). (AI-COURSE)
 - **Evals**: score outputs over a versioned golden dataset as pass rates, with an LLM judge using a rubric for groundedness, relevance, and tone. (AI-COURSE)
 
@@ -72,7 +72,7 @@ Read when a task involves LLM fundamentals, RAG or retrieval, fine-tuning, infer
 - **Mixture of Experts**: routes each token to a few expert sub-networks, so only part of the parameters run per token (for example Qwen 3 Coder 480B). (OPEN-MODELS)
 - **Local runtimes**: Ollama and LM Studio run quantized GGUF models on your own CPU or GPU with no data leaving the machine. (OLLAMA, LM-STUDIO)
 - **Model routing**: easy tasks to small models, hard ones to big reasoning models. (AI-COURSE)
-- **Research watch**: Next Concept Modeling (Stanford Hazy Research) generates text coarse to fine with residual VQ-VAE hierarchies, reported up to 31× faster than diffusion models. (NCM)
+- **Research watch**: Next Concept Modeling (Stanford Hazy Research) generates text coarse to fine with residual VQ-VAE hierarchies, reported up to 31× faster than diffusion models [unverified: secondary video summary]. (NCM)
 
 ## Model and tool landscape (as of the video dates)
 
@@ -80,7 +80,7 @@ Read when a task involves LLM fundamentals, RAG or retrieval, fine-tuning, infer
 |---|---|
 | OpenAI GPT | General baseline for reasoning, code, structured output |
 | Anthropic Claude (Haiku, Sonnet, Opus) | Hard coding, long documents, architecture writing |
-| Claude Fable 5.2, Mythos 5.2 | Frontier reasoning; $8/M input, $40/M output; 49.1% on Frontier Code 2.0; long-horizon agent swarms (FABLE, 2026-11-10) |
+| Claude Fable 5.2 (video also mentions Mythos 5.2 [unverified]) | Frontier reasoning; $8/M input, $40/M output (Fable 5.2 per Anthropic pricing); video claims 49.1% on Frontier Code 2.0 [unverified] (FABLE, 2026-11-10) |
 | Google Gemini (Pro, Flash, Flash-Lite) | Native multimodal (text, audio, video, PDF), very large context |
 | Meta Llama | Open weights for self-hosting, privacy, fine-tuning |
 | xAI Grok | Real-time X and news context |

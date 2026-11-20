@@ -19,12 +19,15 @@ Done when each child has a bounded parent task and a termination path; agent cou
 
 ## Shared build resources
 
-Writing workers return their changes and diagnostics without running builds, tests or formatters mid-flight. The build owner runs the combined checks after the edit wave. Across independent active sessions on one machine, record one build lease (owner, command, start, release) in the tracker and grant the next only after the current process exits. Waiting workers continue non-conflicting source work; they do not start duplicate builds or kill a peer's process. Done when each check has one owner and the lease is released on success or failure.
+Writing workers return their changes and diagnostics without running builds, tests or formatters mid-flight. The build owner runs the combined checks after the edit wave. Across independent active sessions on one machine, record one build lease (`owner`, `pid`, `command`, `start`, `expires`, `release`) in the tracker and grant the next only after the current process exits. Waiting workers continue non-conflicting source work; they do not start duplicate builds or kill a live peer's process.
+Stale-lease recovery: if a build owner crashes or stalls past `expires` (default 30 min without progress), verify its PID is dead (or confirm with the coordinator), log a stale-lease takeover row in the tracker, and reclaim the lease cleanly. Done when each check has one owner and the lease is released on success, failure, or verified stale recovery.
 
 ## How to reach a coworker
 
 - omp: `write agent://<id>` sends a message and wakes an idle agent. `agent://all` broadcasts; use it only for something every coworker must act on (trunk is red, a shared contract changed).
 - Claude Code: `SendMessage` to the agent's name.
+- Antigravity (`agy`): `send_message` to a subagent's conversation ID, or `post_message` (`@<name>` / `@all`) paired with `swarm_wait` on a swarm message board.
+- Codex / other harnesses without direct peer messaging: route handoffs through the coordinator or the shared tracker file under `.scratch/`.
 
 ## When to message
 

@@ -268,8 +268,8 @@ if fresh != llms.read_text(encoding="utf-8"):
         problems.append("docs/llms-full.txt: embedded files are stale; run `python scripts/check.py --fix`")
 
 # SKILL.md puts the rules that must survive compaction first; the lookup tables start at "## Routes".
-skill_bytes = (skill_root / "SKILL.md").read_bytes()
-skill_text = skill_bytes.decode("utf-8")
+skill_text = (skill_root / "SKILL.md").read_text(encoding="utf-8").replace("\r\n", "\n")
+skill_bytes = skill_text.encode("utf-8")
 fm_end = skill_text.find("\n---\n", 4)
 skill_body_bytes = len(skill_text[fm_end + 5:].encode("utf-8")) if skill_text.startswith("---\n") and fm_end >= 0 else len(skill_bytes)
 if skill_body_bytes > SKILL_BODY_MAX_BYTES:
@@ -286,9 +286,31 @@ node_exe = shutil.which("node")
 if node_exe:
     for mjs in sorted(ROOT.glob("plugins/*/scripts/*.mjs")):
         node_check = subprocess.run([node_exe, "--check", str(mjs)],
-                                    capture_output=True, text=True, encoding="utf-8", errors="replace")
+                                    capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
         if node_check.returncode:
             problems.append(f"{mjs.relative_to(ROOT)}: node --check failed\n{(node_check.stdout + node_check.stderr).strip()}")
+
+# Validate Antigravity plugin manifests when agy is on PATH (0 errors, 0 truncation warnings).
+agy_exe = shutil.which("agy")
+if agy_exe:
+    for agy_manifest in sorted(ROOT.glob("plugins/*/.antigravity-plugin/plugin.json")):
+        pdir = agy_manifest.parent.parent
+        agy_run = subprocess.run([agy_exe, "plugin", "validate", str(pdir), "--json"],
+                                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
+        if agy_run.returncode:
+            problems.append(f"{pdir.relative_to(ROOT)}: agy plugin validate exited {agy_run.returncode}\n"
+                            f"{(agy_run.stdout + agy_run.stderr).strip()[-2000:]}")
+        else:
+            try:
+                report = json.loads(agy_run.stdout)
+            except ValueError as err:
+                problems.append(f"{pdir.relative_to(ROOT)}: agy plugin validate returned invalid JSON ({err})")
+            else:
+                for item in report.get("findings") or []:
+                    sev = str(item.get("severity") or "").lower()
+                    msg = str(item.get("message") or "")
+                    if sev == "error" or "truncat" in msg.lower():
+                        problems.append(f"{pdir.relative_to(ROOT)}: agy plugin validate {sev}: {item.get('file')}: {msg}")
 
 # Every skill's own references and skill:// links resolve (check_skill.py, the per-skill checker).
 skill_dirs = sorted(str(p.parent) for p in [
@@ -296,7 +318,7 @@ skill_dirs = sorted(str(p.parent) for p in [
     *ROOT.glob("plugins/*/.antigravity-plugin/skills/*/SKILL.md"),
 ])
 run = subprocess.run([sys.executable, str(skill_root / "scripts/check_skill.py"), *skill_dirs],
-                     capture_output=True, text=True, encoding="utf-8", errors="replace")
+                     capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
 if run.returncode:
     problems.append(f"check_skill.py found problems:\n{(run.stdout + run.stderr).strip()[-3000:]}")
 
@@ -320,7 +342,7 @@ def _run_test_dir(item):
     sub_tmp.mkdir(parents=True, exist_ok=True)
     env = {**os.environ, "TMP": str(sub_tmp), "TEMP": str(sub_tmp), "TMPDIR": str(sub_tmp)}
     run = subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", str(test_dir), "-p", "test_*.py"],
-                         env=env, capture_output=True, text=True, encoding="utf-8", errors="replace")
+                         env=env, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
     return test_dir, run
 
 
@@ -339,7 +361,7 @@ finally:
 # AGENTS.md and CLAUDE.md carry the current generated block (agents_md.py, writing-for-agents technique).
 agents_md = skill_root / "assets/agents-md/agents_md.py"
 run = subprocess.run([sys.executable, str(agents_md), "check", str(ROOT)],
-                     capture_output=True, text=True, encoding="utf-8", errors="replace")
+                     capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
 if run.returncode:
     problems.append(f"{run.stdout.strip()}\n  fix: python {agents_md.relative_to(ROOT).as_posix()} build .")
 

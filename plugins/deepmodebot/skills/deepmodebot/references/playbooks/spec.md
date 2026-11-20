@@ -2,7 +2,7 @@
 
 Use when: the conversation has settled what to build and it should be written down before anyone builds it ("write the spec", "turn this into a spec", "spec it up", "make this an issue an agent can build"), or the Wayfinder playbook's route is clear and its destination is a feature. Synthesis, not interview: everything needed is already in the conversation, the code, and the decisions made so far. An open question → the **grill** technique (`references/techniques/grill.md`) first, then come back.
 
-The spec is the contract a build is judged against: the **pr-review** technique's spec findings and the panel's Done when both read it. It lives in `docs/specs/<slug>.md` and one tracker issue labeled `spec`; for multi-slice or sprint builds, pair it with a machine-checked Scope Manifest (`docs/specs/<slug>-manifest.json`, validated by `loop.py manifest`) holding 100% of Total Scope (all stories, slices, and any `"inventory"` candidates) so slicing never drops scope.
+The spec is the contract a build is judged against: the **pr-review** technique's spec findings and the panel's Done when both read it. It lives in `docs/specs/<slug>.md` and one tracker issue labeled `spec`; for multi-slice or sprint builds, pair it with a machine-checked Scope Manifest (`docs/specs/<slug>-manifest.json`, validated with `python -B "<this skill>/assets/loop/loop.py" manifest <file> --dry-run`, `py -3 -B` on Windows) holding 100% of Total Scope (all stories, slices, and `"inventory"` candidates) so slicing never drops scope.
 
 ## Steps
 

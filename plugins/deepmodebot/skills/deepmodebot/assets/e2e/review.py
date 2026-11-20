@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import json
 import math
+import os
 from pathlib import Path
 import shutil
 import struct
@@ -191,8 +192,9 @@ def native_reply(raw, model, credentials):
 
 class NativeOMP:
     def __init__(self, model, minutes, max_cost):
-        if model != MODEL:
-            raise ValueError(f"only operator-authorized model {MODEL} is supported; no fallback")
+        if (not isinstance(model, str) or "/" not in model or any(ch.isspace() for ch in model)
+                or model.startswith("-") or not all(part.strip() for part in model.split("/", 1))):
+            raise ValueError(f"model must be a valid provider/model-id selector (got {model!r}); no fallback")
         if not math.isfinite(minutes) or not 0 < minutes <= 30 or not math.isfinite(max_cost) or not 0 < max_cost <= 10:
             raise ValueError("per-review caps must be finite: minutes (0,30], max-cost (0,10]")
         self.model, self.minutes, self.max_cost = model, minutes, max_cost
@@ -316,7 +318,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("bundle", type=Path)
     parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--model", required=True, choices=[MODEL])
+    parser.add_argument(
+        "--model",
+        default=os.environ.get("DEEPMODEBOT_E2E_MODEL") or MODEL,
+        help=f"provider/model-id for subscription OAuth review (default: {MODEL}; override with --model or DEEPMODEBOT_E2E_MODEL)",
+    )
     parser.add_argument("--minutes", required=True, type=float, help="process-tree deadline per reviewer")
     parser.add_argument("--max-cost", required=True, type=float, help="OMP per-review spend cap; subscription auth only")
     args = parser.parse_args()

@@ -34,7 +34,7 @@ Skip phases the work doesn't need. One PR of settled work starts at phase 5 with
 | A workflow done the same way twice, or a goal to run unattended until a check passes | Self-authoring (`references/playbooks/self-authoring.md`), to write and prove a prompt, skill, goal, or loop |
 | Choosing a repo layout, data model, database, or backend shape | `skill://software-architecture` |
 | Secrets, logins, or agent authentication | `skill://secrets-and-auth` |
-| Running in or scripting omp, Claude Code, or Codex; MCP or ACP | `skill://agent-harnesses` |
+| Running in or scripting omp, Claude Code, Codex, or Antigravity; MCP or ACP | `skill://agent-harnesses` |
 
 ## Between phases
 

@@ -18,8 +18,8 @@ Locate relevant files, trace definitions and call sites, and return compressed c
 
 # Investigation Rules
 
-1. Operate strictly read-only. Use `run_command` only for non-mutating inspection (`workspace_map.py`, `git status`, `git diff`, `git log`). Never edit, create, or delete project files.
-2. Orient via any `workspace-map` pointers in the brief or by running `python -B "<deepmodebot skill>/assets/workspace-map/workspace_map.py"` (`py -3 -B` on Windows) with `overview --fast --offline --no-orca` and `query <term>` to get exact `path:line` pointers before scanning or opening files; never ask the user to run manual map commands.
+1. Operate read-only on repository files (enforced by prompt policy, since `run_command` under `sandbox` can still write workspace files). Use `run_command` only for non-mutating inspection (`git status`, `git diff`, `git log`, `workspace_map.py query/workspaces/prs`). Never edit, create, or delete tracked project files.
+2. Orient via any `workspace-map` pointers in the brief or, when `<main-checkout>/.scratch/workspace-map.db` already exists, run `python -B "<deepmodebot skill>/assets/workspace-map/workspace_map.py"` (`py -3 -B` on Windows) with `query <term>` to get exact `path:line` pointers before scanning or opening files; skip `overview` when no DB exists on a strictly read-only inspection (since `overview` creates `.scratch/workspace-map.db` and `.scratch/.gitignore`), and never ask the user to run manual map commands.
 3. Read targeted line ranges with `read_file` rather than dumping whole files; stay within a tight read budget and stop once the question is answered.
 4. Follow imports, exports, and configuration wiring across module boundaries before concluding how a feature works.
 5. Use `search_web` only when external API contracts, library versions, or platform docs must be verified against primary sources.

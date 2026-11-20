@@ -140,10 +140,27 @@ SEALED_NOTE = ("You have no tools and no files: everything you can check is in t
 
 # Repos are polled in parallel worker threads. A worker holds BIG whenever it runs Python, so bot state is only
 # ever touched by one thread, and lets go of it while it waits on a subprocess, a sleep, or a sealed model call.
+# Panel verifier threads run concurrently with BIG released; LOG_LOCK, TRANSCRIPT_LOCK, and KNOWN_AGENTS_LOCK
+# serialize shared file/cache touches from those worker threads.
 BIG = threading.Lock()
+LOG_LOCK = threading.Lock()
+TRANSCRIPT_LOCK = threading.Lock()
+KNOWN_AGENTS_LOCK = threading.Lock()
 _holding = threading.local()
 # Set on Ctrl-C: each worker stops at its next blocking call instead of finishing its whole repo cycle.
 STOP = threading.Event()
+SUBSCRIPTION_SCRUB_VARS = {v.upper() for v in goal_loop.API_KEY_VARS} | {
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
+    "CLAUDE_CODE_USE_BEDROCK",
+    "CLAUDE_CODE_USE_VERTEX",
+    "CLAUDE_CODE_USE_FOUNDRY",
+}
+
+
+def subscription_env() -> dict:
+    """Environment for ACP/harness subprocesses: strips API keys and cloud overrides so subscriptions are used."""
+    return {k: v for k, v in os.environ.items() if k.upper() not in SUBSCRIPTION_SCRUB_VARS}
 
 
 class Stopped(BaseException):
@@ -185,10 +202,11 @@ def now_iso() -> str:
 
 def log(message: str) -> None:
     line = f"{now_iso()} {message}"
-    print(line, flush=True)
-    LOGS.mkdir(parents=True, exist_ok=True)
-    with open(LOGS / "bot.log", "a", encoding="utf-8") as fh:
-        fh.write(line + "\n")
+    with LOG_LOCK:
+        print(line, flush=True)
+        LOGS.mkdir(parents=True, exist_ok=True)
+        with open(LOGS / "bot.log", "a", encoding="utf-8") as fh:
+            fh.write(line + "\n")
 
 
 def run(cmd, cwd=None, stdin=None, check=True, timeout=600, env=None):
@@ -250,16 +268,20 @@ _KNOWN_AGENTS = {}
 
 def known_agents(acpx: str) -> set:
     """Agent names acpx can launch: its built-in registry plus ~/.acpx/config.json (both show in --help)."""
-    if acpx not in _KNOWN_AGENTS:
-        listed = run([acpx, "--help"], check=False).stdout
-        names = set(re.findall(r"^\s+(\S+) \[options\] \[prompt\.\.\.\]\s+Use \S+ agent", listed, re.M))
-        if ACPX_CONFIG.is_file():
-            try:
-                names |= set((json.loads(ACPX_CONFIG.read_text(encoding="utf-8")).get("agents") or {}).keys())
-            except ValueError:
-                pass
+    with KNOWN_AGENTS_LOCK:
+        cached = _KNOWN_AGENTS.get(acpx)
+    if cached is not None:
+        return cached
+    listed = run([acpx, "--help"], check=False).stdout
+    names = set(re.findall(r"^\s+(\S+) \[options\] \[prompt\.\.\.\]\s+Use \S+ agent", listed, re.M))
+    if ACPX_CONFIG.is_file():
+        try:
+            names |= set((json.loads(ACPX_CONFIG.read_text(encoding="utf-8")).get("agents") or {}).keys())
+        except ValueError:
+            pass
+    with KNOWN_AGENTS_LOCK:
         _KNOWN_AGENTS[acpx] = names
-    return _KNOWN_AGENTS[acpx]
+        return _KNOWN_AGENTS[acpx]
 
 
 def fenced_blocks(text: str) -> list:
@@ -617,8 +639,14 @@ def load_bot_config(write: bool = True, note=None) -> dict:
         if not isinstance(cfg["verifiers"], list) or len(cfg["verifiers"]) != 3:
             raise ValueError("verifiers must contain exactly three reviewer roles")
         cfg["verifiers"] = [as_role(v) for v in cfg["verifiers"]]
-        if not isinstance(cfg["parallelRepos"], int) or cfg["parallelRepos"] < 1:
+        if isinstance(cfg["parallelRepos"], bool) or not isinstance(cfg["parallelRepos"], int) or cfg["parallelRepos"] < 1:
             raise ValueError("parallelRepos must be a positive integer")
+        if not isinstance(cfg["autonomousMerge"], bool):
+            raise ValueError("autonomousMerge must be true or false")
+        if isinstance(cfg["maxRounds"], bool) or not isinstance(cfg["maxRounds"], int) or cfg["maxRounds"] < 1:
+            raise ValueError("maxRounds must be a positive integer")
+        if isinstance(cfg["interval"], bool) or not isinstance(cfg["interval"], (int, float)) or cfg["interval"] <= 0:
+            raise ValueError("interval must be a positive number")
         if not isinstance(cfg["autoUpdate"], bool):
             raise ValueError("autoUpdate must be true or false")
         if isinstance(cfg["updateMinutes"], bool) or not isinstance(cfg["updateMinutes"], int) \
@@ -642,7 +670,14 @@ def load_state() -> dict:
 def save_state(state: dict) -> None:
     tmp = STATE_PATH.with_suffix(".tmp")
     tmp.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
-    os.replace(tmp, STATE_PATH)
+    for attempt in range(20):
+        try:
+            os.replace(tmp, STATE_PATH)
+            return
+        except PermissionError:
+            if attempt == 19:
+                raise
+            time.sleep(0.05)
 
 
 class Identity:
@@ -676,8 +711,8 @@ class Identity:
         if cooldown.get("until", 0) > time.time():
             raise ghapp.RateLimited(cooldown["until"], cooldown["reason"])
         if repo not in self.installs:
-            self.installs[repo] = ghapp.installation_for(self.app, repo)
-        return ghapp.installation_token(self.app, self.installs[repo])
+            self.installs[repo] = unlocked(ghapp.installation_for, self.app, repo)
+        return unlocked(ghapp.installation_token, self.app, self.installs[repo])
 
     def read(self, repo: str, path: str):
         token = self.read_token(repo)
@@ -777,8 +812,8 @@ class Identity:
     def post(self, repo: str, number: int, body: str) -> None:
         if self.app:
             if repo not in self.installs:
-                self.installs[repo] = ghapp.installation_for(self.app, repo)
-            token = ghapp.installation_token(self.app, self.installs[repo])
+                self.installs[repo] = unlocked(ghapp.installation_for, self.app, repo)
+            token = unlocked(ghapp.installation_token, self.app, self.installs[repo])
             unlocked(ghapp.request, "POST", f"/repos/{repo}/issues/{number}/comments", token, {"body": body},
                      bearer=False)
         else:
@@ -1131,9 +1166,10 @@ class Item:
         self.sessions = {}  # session name -> the acpx command prefix (agent, model, cwd) that opened it
 
     def note(self, text: str) -> None:
-        self.transcript.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.transcript, "a", encoding="utf-8") as fh:
-            fh.write(f"\n\n## {now_iso()}\n\n{text}\n")
+        with TRANSCRIPT_LOCK:
+            self.transcript.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.transcript, "a", encoding="utf-8") as fh:
+                fh.write(f"\n\n## {now_iso()}\n\n{text}\n")
 
     def say(self, role: str, agent, sha: str, text: str) -> None:
         body = f"{signature(role, agent, sha)}\n\n{defang_post(text.strip())}"
@@ -1161,8 +1197,9 @@ class Item:
         prompt_file = prompts / f"{self.tag}-{uuid.uuid4().hex[:8]}.txt"
         prompt_file.write_text(prompt, encoding="utf-8")
         base = [acpx, "--cwd", cwd] + (["--model", role["model"]] if role.get("model") else [])
+        env = subscription_env()
         if session:
-            run(base + [agent, "sessions", "ensure", "--name", session], timeout=600)
+            run(base + [agent, "sessions", "ensure", "--name", session], timeout=600, env=env)
             self.sessions[session] = base + [agent, "sessions"]
         cmd = base + [perms, "--non-interactive-permissions", "deny", "--timeout", str(AGENT_TIMEOUT),
                       "--format", "quiet", agent]
@@ -1171,7 +1208,7 @@ class Item:
         self.note(f"PROMPT -> {role_label(role)} ({where})\n\n{prompt}")
         log(f"{self.key}: {role_label(role)} turn ({where})")
         try:
-            proc = run(cmd, check=False, timeout=AGENT_TIMEOUT + 300)
+            proc = run(cmd, check=False, timeout=AGENT_TIMEOUT + 300, env=env)
         finally:
             prompt_file.unlink(missing_ok=True)
         reply = "\n".join(line for line in proc.stdout.strip().splitlines()

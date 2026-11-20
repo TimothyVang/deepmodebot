@@ -194,6 +194,7 @@ class AutoRouterTests(unittest.TestCase):
             ("Run runtime-forensics to diagnose why this live worker is wedged", "runtime-forensics"),
             ("Inspect this heap dump and CPU profile with trace-forensics", "trace-forensics"),
             ("Build spec #14 in incremental sprints", "phased-build"),
+            ("auto-update local deepmodebot copies", "github-app"),
         ]
         for prompt, expected in cases:
             with self.subTest(prompt=prompt, expected=expected):
@@ -202,6 +203,25 @@ class AutoRouterTests(unittest.TestCase):
                     verdict["mode"],
                     expected,
                     f"prompt {prompt!r} routed to {verdict['mode']} ({verdict['reason']}), expected {expected}",
+                )
+
+    def test_ordinary_engineering_prompts_do_not_misroute_to_false_positive_playbooks(self):
+        non_matches = [
+            ("Why do these queries contribute to high p99?", {}, "contribute"),
+            ("Fix bug in UserFactory", {"has_factory": True}, "work-a-queue"),
+            ("Fix crash when inline styles have quotes", {}, "refactoring"),
+            ("Add a triage status column to the issues table", {}, "triage"),
+            ("Add a retro arcade game page with score table", {}, "retro"),
+            ("Add a tournament system for chess with an API endpoint and standings table", {}, "tournament"),
+            ("Fix parser loop until OOM crash", {}, "run-a-goal"),
+        ]
+        for prompt, kwargs, forbidden in non_matches:
+            with self.subTest(prompt=prompt, forbidden=forbidden):
+                verdict = tournament.classify_prompt(prompt, **kwargs)
+                self.assertNotEqual(
+                    verdict["mode"],
+                    forbidden,
+                    f"prompt {prompt!r} falsely routed to {forbidden} ({verdict['reason']})",
                 )
 
 

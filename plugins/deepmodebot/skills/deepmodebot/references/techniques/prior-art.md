@@ -6,7 +6,7 @@
    When the project starts from a saved startup idea or video anecdote, read [startup references](../startup-ideas.md) before treating it as product or market evidence.
    Done when those constraints are explicit; a source's popularity or revenue story is not validation.
 2. **Search, in parallel `scout` subagents**, one per source. Start with what's new, because the idea you already know may have been beaten this month:
-   - **Repository catalog** (GitHub Trending/search, githubawesome.com and the [dated reference library](../../assets/repo-references.json)): run `python <this skill>/scripts/trending.py find <project terms>` from the project root.
+   - **Repository catalog** (GitHub Trending/search, githubawesome.com and the [dated reference library](../../assets/repo-references.json)): run `python -B "<this skill>/scripts/trending.py" find <project terms>` (`py -3 -B` on Windows) from the project root.
      It keeps `.scratch/trending/`; stale data or a changed reference revision is replaced by a matching published catalog or rebuilt with network and `gh auth`.
      Search by role, platform or problem.
      Reference topics, dates and cautions are discovery leads, not tested suitability.

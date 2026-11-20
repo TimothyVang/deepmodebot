@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 // Antigravity lifecycle hook: enforce deepmodebot "Contain the work" write boundaries and
-// auto-inject a compact workspace-map overview on turn 1.
+// auto-inject a compact workspace-map overview once per conversation on turn 1.
 // PreInvocation marks a conversation active when lastUserInput invokes a deepmodebot slash command
 // (pruning marks older than 30 days) and injects workspace-map output inside git repos via
-// injectSteps. PreToolUse blocks file writes outside the project root once active (or
-// unconditionally when invoked with CLI argument "enforce"). Always exits 0 because Antigravity
-// treats non-zero hook exits as execution errors and fails open.
+// injectSteps (deduplicated across tool-loop invocations and subsequent turns). PreToolUse blocks
+// file writes outside the project root once active (or unconditionally when invoked with CLI
+// argument "enforce"). Shell/command tools (run_command), workflows (run_workflow), and MCP tools
+// are not covered here. Always exits 0 because Antigravity treats non-zero hook exits as execution
+// errors and fails open.
 
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
@@ -42,8 +44,8 @@ const SLASH_COMMANDS = [
   "/contribute",
   "/project-brief",
 ];
-// Read-only review commands skip creating .scratch/workspace-map.db unless it already exists.
-const READ_ONLY_MAP_COMMANDS = ["/review-pr"];
+// Read-only commands skip creating .scratch/workspace-map.db unless it already exists.
+const READ_ONLY_MAP_COMMANDS = ["/review-pr", "/pr-thread"];
 
 function escapeRegex(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -224,7 +226,30 @@ function sessionMarkPath(event) {
   return cleanId ? path.join(dataDir, "active-sessions", cleanId) : null;
 }
 
-function markSessionActive(markPath) {
+function readMarkState(markPath) {
+  try {
+    const raw = fs.readFileSync(markPath, "utf8").trim();
+    if (!raw) return { active: true, mapInjected: false };
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") {
+      return { active: true, mapInjected: Boolean(parsed.mapInjected) };
+    }
+    return { active: true, mapInjected: false };
+  } catch {
+    return null;
+  }
+}
+
+function writeMarkState(markPath, state) {
+  fs.mkdirSync(path.dirname(markPath), { recursive: true });
+  fs.writeFileSync(
+    markPath,
+    JSON.stringify({ active: true, mapInjected: Boolean(state && state.mapInjected) }),
+    "utf8",
+  );
+}
+
+function markSessionActive(markPath, prevState = null) {
   const folder = path.dirname(markPath);
   fs.mkdirSync(folder, { recursive: true });
   const now = Date.now();
@@ -233,7 +258,7 @@ function markSessionActive(markPath) {
       const candidate = path.join(folder, entry);
       try {
         const stat = fs.statSync(candidate);
-        if (now - stat.mtimeMs > MARK_MAX_AGE_MS) {
+        if (stat.isFile() && now - stat.mtimeMs > MARK_MAX_AGE_MS) {
           fs.unlinkSync(candidate);
         }
       } catch {
@@ -243,7 +268,8 @@ function markSessionActive(markPath) {
   } catch {
     // Ignore directory scan errors.
   }
-  fs.writeFileSync(markPath, "", "utf8");
+  const existing = prevState ?? readMarkState(markPath);
+  writeMarkState(markPath, { active: true, mapInjected: Boolean(existing && existing.mapInjected) });
 }
 
 function resolveSessionCwd(event) {
@@ -294,26 +320,43 @@ function main() {
 
   if (!isPreToolUse) {
     if (ACTIVATION_RE.test(promptText)) {
+      const prevState = markPath ? readMarkState(markPath) : null;
       if (markPath) {
         try {
-          markSessionActive(markPath);
+          markSessionActive(markPath, prevState);
         } catch {
           // Unable to persist session mark; continue without failing the turn.
         }
       }
-      try {
-        const onlyIfDbExists = READ_ONLY_MAP_RE.test(promptText);
-        const overview = buildWorkspaceMapOverview(resolveSessionCwd(event), { onlyIfDbExists });
-        if (overview) {
-          writeJsonAndExit({
-            injectSteps: [
-              { systemMessage: `deepmodebot workspace-map (auto-injected):\n${overview}` },
-            ],
-          });
-          return;
+      const invocationNum = typeof event.invocationNum === "number" ? event.invocationNum : null;
+      const alreadyInjected = Boolean(prevState && prevState.mapInjected);
+      if (!alreadyInjected && (invocationNum === null || invocationNum <= 1)) {
+        try {
+          const onlyIfDbExists = READ_ONLY_MAP_RE.test(promptText);
+          const overview = buildWorkspaceMapOverview(resolveSessionCwd(event), { onlyIfDbExists });
+          if (overview) {
+            if (markPath) {
+              try {
+                writeMarkState(markPath, { active: true, mapInjected: true });
+              } catch {
+                // Non-fatal: still return the overview for this invocation.
+              }
+            }
+            writeJsonAndExit({
+              injectSteps: [
+                {
+                  systemMessage: {
+                    systemMessage: `deepmodebot workspace-map (auto-injected):\n${overview}`,
+                    metadata: { source: "deepmodebot", kind: "workspace-map" },
+                  },
+                },
+              ],
+            });
+            return;
+          }
+        } catch {
+          // Fail open cleanly if workspace-map overview cannot be generated.
         }
-      } catch {
-        // Fail open cleanly if workspace-map overview cannot be generated.
       }
     }
     writeJsonAndExit({});

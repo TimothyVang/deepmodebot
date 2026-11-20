@@ -27,7 +27,7 @@ import sys
 import time
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 MAX_FILE_BYTES = 256 * 1024
 MAX_SIGNATURE_CHARS = 120
 PR_TTL_SECONDS = 180.0
@@ -170,19 +170,29 @@ CREATE TABLE IF NOT EXISTS repos (
 CREATE TABLE IF NOT EXISTS files (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     repo_key TEXT NOT NULL REFERENCES repos(repo_key) ON DELETE CASCADE,
+    worktree_key TEXT NOT NULL DEFAULT '',
     rel_path TEXT NOT NULL,
     mtime_ns INTEGER NOT NULL,
     size INTEGER NOT NULL,
     lang TEXT NOT NULL,
     role TEXT NOT NULL,
-    UNIQUE(repo_key, rel_path)
+    blob_sha TEXT NOT NULL DEFAULT '',
+    UNIQUE(repo_key, worktree_key, rel_path)
 );
-CREATE INDEX IF NOT EXISTS idx_files_repo_role ON files(repo_key, role);
+CREATE INDEX IF NOT EXISTS idx_files_repo_role ON files(repo_key, worktree_key, role);
+
+CREATE TABLE IF NOT EXISTS worktree_deleted (
+    repo_key TEXT NOT NULL REFERENCES repos(repo_key) ON DELETE CASCADE,
+    worktree_key TEXT NOT NULL,
+    rel_path TEXT NOT NULL,
+    PRIMARY KEY (repo_key, worktree_key, rel_path)
+);
 
 CREATE TABLE IF NOT EXISTS symbols (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
     repo_key TEXT NOT NULL REFERENCES repos(repo_key) ON DELETE CASCADE,
+    worktree_key TEXT NOT NULL DEFAULT '',
     rel_path TEXT NOT NULL,
     name TEXT NOT NULL,
     kind TEXT NOT NULL,
@@ -190,6 +200,7 @@ CREATE TABLE IF NOT EXISTS symbols (
     signature TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_symbols_file ON symbols(file_id);
+CREATE INDEX IF NOT EXISTS idx_symbols_repo_wt ON symbols(repo_key, worktree_key);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS symbols_fts USING fts5(
     name,
@@ -518,7 +529,19 @@ def resolve_db_path(opts, repo_info=None):
     return global_db_path()
 
 
-def connect_db(db_path):
+def connect_db(db_path, readonly=False):
+    if readonly:
+        uri = f"file:{Path(os.path.abspath(db_path)).as_posix()}?mode=ro"
+        conn = sqlite3.connect(uri, uri=True, timeout=10.0)
+        conn.row_factory = sqlite3.Row
+        try:
+            conn.execute("PRAGMA query_only=ON")
+            conn.execute(f"PRAGMA mmap_size={MMAP_SIZE_BYTES}")
+            conn.execute("PRAGMA busy_timeout=5000")
+        except Exception:
+            conn.close()
+            raise
+        return conn
     parent = os.path.dirname(os.path.abspath(db_path))
     if parent:
         os.makedirs(parent, exist_ok=True)
@@ -531,6 +554,16 @@ def connect_db(db_path):
         conn.execute(f"PRAGMA mmap_size={MMAP_SIZE_BYTES}")
         conn.execute("PRAGMA foreign_keys=ON")
         conn.execute("PRAGMA busy_timeout=5000")
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(files)").fetchall()}
+        if cols and "worktree_key" not in cols:
+            conn.executescript(
+                "DROP TRIGGER IF EXISTS symbols_ai;"
+                "DROP TRIGGER IF EXISTS symbols_ad;"
+                "DROP TRIGGER IF EXISTS symbols_au;"
+                "DROP TABLE IF EXISTS symbols_fts;"
+                "DROP TABLE IF EXISTS symbols;"
+                "DROP TABLE IF EXISTS files;"
+            )
         conn.executescript(SCHEMA_SQL)
         conn.execute(
             "INSERT OR REPLACE INTO meta(key, value) VALUES('schema_version', ?)",
@@ -787,26 +820,117 @@ def list_tracked_files(checkout_root):
     return [item.decode("utf-8", errors="replace") for item in raw_items if item]
 
 
-def sync_files_and_symbols(conn, repo_info):
-    repo_key = repo_info["repo_key"]
-    checkout_root = repo_info["checkout_root"]
-    tracked = list_tracked_files(checkout_root)
+def list_tracked_blobs(checkout_root):
+    """Return ordered list of (rel_path, clean_blob_sha) for tracked files; dirty files get '' as blob_sha."""
+    res = run_cmd_bytes(["git", "-C", checkout_root, "ls-files", "-s", "-z"])
+    if res.returncode != 0:
+        return [(p.replace("\\", "/"), "") for p in list_tracked_files(checkout_root)]
+    dirty_res = run_cmd_bytes(["git", "-C", checkout_root, "diff", "--name-only", "-z"])
+    dirty = set()
+    if dirty_res.returncode == 0:
+        for item in dirty_res.stdout.split(b"\x00"):
+            if item:
+                dirty.add(item.decode("utf-8", errors="replace").replace("\\", "/"))
+    by_path = {}
+    for entry in res.stdout.split(b"\x00"):
+        if not entry or b"\t" not in entry:
+            continue
+        meta, raw_path = entry.split(b"\t", 1)
+        parts = meta.decode("ascii", errors="replace").split()
+        blob_sha = parts[1] if len(parts) >= 2 else ""
+        rel_path = raw_path.decode("utf-8", errors="replace").replace("\\", "/")
+        by_path[rel_path] = "" if rel_path in dirty else blob_sha
+    return list(by_path.items())
 
-    existing = {
-        row["rel_path"]: (row["id"], row["mtime_ns"], row["size"])
+
+def _active_view_counts(conn, repo_key, wt_key):
+    """Count files and symbols visible from `wt_key` (baseline '' plus per-worktree overlay minus tombstones)."""
+    is_main = not wt_key or wt_key == repo_key
+    if is_main:
+        total_files = conn.execute(
+            "SELECT COUNT(*) FROM files WHERE repo_key = ? AND worktree_key = ''",
+            (repo_key,),
+        ).fetchone()[0]
+        total_symbols = conn.execute(
+            "SELECT COUNT(*) FROM symbols WHERE repo_key = ? AND worktree_key = ''",
+            (repo_key,),
+        ).fetchone()[0]
+        return total_files, total_symbols
+    total_files = conn.execute(
+        """SELECT COUNT(*) FROM files f
+           WHERE f.repo_key = ?
+             AND (f.worktree_key = ? OR (
+                 f.worktree_key = ''
+                 AND NOT EXISTS (
+                     SELECT 1 FROM files ov
+                     WHERE ov.repo_key = f.repo_key AND ov.worktree_key = ? AND ov.rel_path = f.rel_path
+                 )
+                 AND NOT EXISTS (
+                     SELECT 1 FROM worktree_deleted wd
+                     WHERE wd.repo_key = f.repo_key AND wd.worktree_key = ? AND wd.rel_path = f.rel_path
+                 )
+             ))""",
+        (repo_key, wt_key, wt_key, wt_key),
+    ).fetchone()[0]
+    total_symbols = conn.execute(
+        """SELECT COUNT(*) FROM symbols s
+           WHERE s.repo_key = ?
+             AND (s.worktree_key = ? OR (
+                 s.worktree_key = ''
+                 AND NOT EXISTS (
+                     SELECT 1 FROM files ov
+                     WHERE ov.repo_key = s.repo_key AND ov.worktree_key = ? AND ov.rel_path = s.rel_path
+                 )
+                 AND NOT EXISTS (
+                     SELECT 1 FROM worktree_deleted wd
+                     WHERE wd.repo_key = s.repo_key AND wd.worktree_key = ? AND wd.rel_path = s.rel_path
+                 )
+             ))""",
+        (repo_key, wt_key, wt_key, wt_key),
+    ).fetchone()[0]
+    return total_files, total_symbols
+
+
+def sync_files_and_symbols(conn, repo_info):
+    """Sync tracked files and symbols for a checkout.
+
+    Main checkout owns the shared baseline (`worktree_key = ''`). Linked worktrees inherit unchanged baseline
+    files (same clean git blob SHA) with zero duplication and store only added/modified files in their own
+    `worktree_key` overlay plus tombstones in `worktree_deleted`, so branches never clobber each other.
+    """
+    repo_key = repo_info["repo_key"]
+    wt_key = repo_info["worktree_key"]
+    checkout_root = repo_info["checkout_root"]
+    is_main = wt_key == repo_key
+    target_wt = "" if is_main else wt_key
+    tracked = list_tracked_blobs(checkout_root)
+
+    baseline = {
+        row["rel_path"]: (row["id"], row["mtime_ns"], row["size"], row["blob_sha"])
         for row in conn.execute(
-            "SELECT id, rel_path, mtime_ns, size FROM files WHERE repo_key = ?",
+            "SELECT id, rel_path, mtime_ns, size, blob_sha FROM files WHERE repo_key = ? AND worktree_key = ''",
             (repo_key,),
         )
     }
+    existing = (
+        baseline
+        if is_main
+        else {
+            row["rel_path"]: (row["id"], row["mtime_ns"], row["size"], row["blob_sha"])
+            for row in conn.execute(
+                "SELECT id, rel_path, mtime_ns, size, blob_sha FROM files WHERE repo_key = ? AND worktree_key = ?",
+                (repo_key, target_wt),
+            )
+        }
+    )
 
-    seen = set()
+    seen_target = set()
+    seen_all_tracked = set()
     files_indexed = 0
     files_skipped = 0
     files_filtered = 0
 
-    for raw_rel in tracked:
-        rel_path = raw_rel.replace("\\", "/")
+    for rel_path, blob_sha in tracked:
         if should_skip_relpath(rel_path):
             files_filtered += 1
             continue
@@ -821,9 +945,18 @@ def sync_files_and_symbols(conn, repo_info):
             files_filtered += 1
             continue
 
+        seen_all_tracked.add(rel_path)
+
+        if not is_main:
+            base_row = baseline.get(rel_path)
+            if base_row is not None and blob_sha and base_row[3] and base_row[3] == blob_sha:
+                # Identical clean file in shared baseline: inherit without duplicating rows.
+                files_skipped += 1
+                continue
+
         prev = existing.get(rel_path)
-        if prev is not None and prev[1] == st.st_mtime_ns and prev[2] == st.st_size:
-            seen.add(rel_path)
+        if prev is not None and prev[1] == st.st_mtime_ns and prev[2] == st.st_size and prev[3] == blob_sha:
+            seen_target.add(rel_path)
             files_skipped += 1
             continue
 
@@ -844,32 +977,56 @@ def sync_files_and_symbols(conn, repo_info):
         if prev is not None:
             file_id = prev[0]
             conn.execute(
-                "UPDATE files SET mtime_ns = ?, size = ?, lang = ?, role = ? WHERE id = ?",
-                (st.st_mtime_ns, st.st_size, lang, role, file_id),
+                "UPDATE files SET mtime_ns = ?, size = ?, lang = ?, role = ?, blob_sha = ? WHERE id = ?",
+                (st.st_mtime_ns, st.st_size, lang, role, blob_sha, file_id),
             )
             conn.execute("DELETE FROM symbols WHERE file_id = ?", (file_id,))
         else:
             cur = conn.execute(
-                "INSERT INTO files(repo_key, rel_path, mtime_ns, size, lang, role) VALUES(?, ?, ?, ?, ?, ?)",
-                (repo_key, rel_path, st.st_mtime_ns, st.st_size, lang, role),
+                "INSERT INTO files(repo_key, worktree_key, rel_path, mtime_ns, size, lang, role, blob_sha) "
+                "VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
+                (repo_key, target_wt, rel_path, st.st_mtime_ns, st.st_size, lang, role, blob_sha),
             )
             file_id = cur.lastrowid
 
         if symbols:
             conn.executemany(
-                "INSERT INTO symbols(file_id, repo_key, rel_path, name, kind, line, signature) "
-                "VALUES(?, ?, ?, ?, ?, ?, ?)",
-                [(file_id, repo_key, rel_path, name, kind, line, sig) for name, kind, line, sig in symbols],
+                "INSERT INTO symbols(file_id, repo_key, worktree_key, rel_path, name, kind, line, signature) "
+                "VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
+                [(file_id, repo_key, target_wt, rel_path, name, kind, line, sig) for name, kind, line, sig in symbols],
             )
-        seen.add(rel_path)
+        seen_target.add(rel_path)
         files_indexed += 1
 
-    removed_ids = [file_id for rel_path, (file_id, _, _) in existing.items() if rel_path not in seen]
+    removed_ids = [file_id for rel_path, (file_id, _, _, _) in existing.items() if rel_path not in seen_target]
     if removed_ids:
         conn.executemany("DELETE FROM files WHERE id = ?", [(fid,) for fid in removed_ids])
 
-    total_files = conn.execute("SELECT COUNT(*) FROM files WHERE repo_key = ?", (repo_key,)).fetchone()[0]
-    total_symbols = conn.execute("SELECT COUNT(*) FROM symbols WHERE repo_key = ?", (repo_key,)).fetchone()[0]
+    if is_main:
+        # Prune redundant linked-worktree overlay rows that now match the clean main baseline.
+        conn.execute(
+            """DELETE FROM files
+               WHERE repo_key = ? AND worktree_key != '' AND blob_sha != ''
+                 AND EXISTS (
+                     SELECT 1 FROM files b
+                     WHERE b.repo_key = files.repo_key AND b.worktree_key = ''
+                       AND b.rel_path = files.rel_path AND b.blob_sha = files.blob_sha
+                 )""",
+            (repo_key,),
+        )
+    else:
+        conn.execute(
+            "DELETE FROM worktree_deleted WHERE repo_key = ? AND worktree_key = ?",
+            (repo_key, target_wt),
+        )
+        deleted_from_base = [rp for rp in baseline if rp not in seen_all_tracked]
+        if deleted_from_base:
+            conn.executemany(
+                "INSERT OR IGNORE INTO worktree_deleted(repo_key, worktree_key, rel_path) VALUES(?, ?, ?)",
+                [(repo_key, target_wt, rp) for rp in deleted_from_base],
+            )
+
+    total_files, total_symbols = _active_view_counts(conn, repo_key, wt_key)
     return {
         "files_indexed": files_indexed,
         "files_skipped": files_skipped,
@@ -1133,6 +1290,11 @@ def sync_workspaces(conn, repo_info, no_orca=False, include_foreign_orca=False, 
     stale_keys = existing_keys - set(by_key.keys())
     if stale_keys:
         conn.executemany("DELETE FROM workspaces WHERE worktree_key = ?", [(k,) for k in stale_keys])
+        conn.executemany("DELETE FROM files WHERE repo_key = ? AND worktree_key = ?", [(repo_key, k) for k in stale_keys])
+        conn.executemany(
+            "DELETE FROM worktree_deleted WHERE repo_key = ? AND worktree_key = ?",
+            [(repo_key, k) for k in stale_keys],
+        )
 
     for wt in by_key.values():
         conn.execute(
@@ -1292,6 +1454,22 @@ def _normalize_rel_manifest(raw_rel):
     return rel
 
 
+def _safe_int(value, default=0):
+    if value is None or isinstance(value, bool):
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_relpath(target, root):
+    try:
+        return os.path.relpath(target, root)
+    except ValueError:
+        return None
+
+
 def _scan_project_state_for_checkout(checkout_root):
     """Scan goal frontmatter, scope manifests, and goal latest-summary.json files inside a checkout."""
     records = {}
@@ -1332,12 +1510,15 @@ def _scan_project_state_for_checkout(checkout_root):
             continue
         if not isinstance(data, dict) or not isinstance(data.get("slices"), list):
             continue
-        rel = _normalize_rel_manifest(os.path.relpath(mpath, checkout_root))
+        raw_rel = _safe_relpath(mpath, checkout_root)
+        if raw_rel is None:
+            continue
+        rel = _normalize_rel_manifest(raw_rel)
         slices = [s for s in data["slices"] if isinstance(s, dict)]
         goal_meta = goal_by_manifest.get(rel) or {}
         active_sprint = goal_meta.get("active_sprint")
         if active_sprint is not None:
-            active_slices = [s for s in slices if int(s.get("sprint", 1) or 1) <= active_sprint]
+            active_slices = [s for s in slices if _safe_int(s.get("sprint"), 1) <= active_sprint]
             deferred_count = len(slices) - len(active_slices)
         else:
             active_slices = slices
@@ -1376,7 +1557,10 @@ def _scan_project_state_for_checkout(checkout_root):
             continue
         if not isinstance(data, dict):
             continue
-        rel = _normalize_rel_manifest(os.path.relpath(spath, checkout_root))
+        raw_rel = _safe_relpath(spath, checkout_root)
+        if raw_rel is None:
+            continue
+        rel = _normalize_rel_manifest(raw_rel)
         exit_code = data.get("exit_code")
         if isinstance(exit_code, bool) or not isinstance(exit_code, int):
             exit_code = None
@@ -1389,12 +1573,12 @@ def _scan_project_state_for_checkout(checkout_root):
             if isinstance(s_sprint, bool) or not isinstance(s_sprint, int):
                 s_sprint = None
             deferred_val = scope.get("deferred_slices", 0)
-            deferred_count = len(deferred_val) if isinstance(deferred_val, list) else int(deferred_val or 0)
+            deferred_count = len(deferred_val) if isinstance(deferred_val, list) else _safe_int(deferred_val, 0)
             pending_val = scope.get("pending_inventory", 0)
-            pending_count = len(pending_val) if isinstance(pending_val, list) else int(pending_val or 0)
-            passed = int(scope.get("passed_slices", 0) or 0)
-            active_cnt = int(scope.get("active_slices", 0) or 0)
-            total_cnt = int(scope.get("total_slices", 0) or 0)
+            pending_count = len(pending_val) if isinstance(pending_val, list) else _safe_int(pending_val, 0)
+            passed = _safe_int(scope.get("passed_slices"), 0)
+            active_cnt = _safe_int(scope.get("active_slices"), 0)
+            total_cnt = _safe_int(scope.get("total_slices"), 0)
             sme_blocked = 1 if scope.get("sme_gate_blocked") else 0
 
             if manifest_rel and manifest_rel in records:
@@ -1801,27 +1985,29 @@ def cmd_overview(opts):
             fast=opts.fast,
         )
         rkey = repo_info["repo_key"]
-        docs = [
-            r["rel_path"]
-            for r in conn.execute(
-                "SELECT rel_path FROM files WHERE repo_key = ? AND role = 'doc' ORDER BY length(rel_path), rel_path LIMIT 8",
-                (rkey,),
-            )
-        ]
-        entrypoints = [
-            r["rel_path"]
-            for r in conn.execute(
-                "SELECT rel_path FROM files WHERE repo_key = ? AND role = 'entrypoint' ORDER BY length(rel_path), rel_path LIMIT 8",
-                (rkey,),
-            )
-        ]
-        verify_skills = [
-            r["rel_path"]
-            for r in conn.execute(
-                "SELECT rel_path FROM files WHERE repo_key = ? AND role = 'verify-skill' ORDER BY rel_path LIMIT 8",
-                (rkey,),
-            )
-        ]
+        wkey = repo_info["worktree_key"]
+        is_main = wkey == rkey
+
+        def role_files(role_name, order_by, limit=8):
+            if is_main:
+                sql = f"SELECT rel_path FROM files WHERE repo_key = ? AND worktree_key = '' AND role = ? ORDER BY {order_by} LIMIT ?"
+                params = (rkey, role_name, limit)
+            else:
+                sql = (
+                    "SELECT rel_path FROM files f "
+                    "WHERE f.repo_key = ? AND f.role = ? "
+                    "AND (f.worktree_key = ? OR ("
+                    "  f.worktree_key = '' "
+                    "  AND NOT EXISTS (SELECT 1 FROM files ov WHERE ov.repo_key = f.repo_key AND ov.worktree_key = ? AND ov.rel_path = f.rel_path) "
+                    "  AND NOT EXISTS (SELECT 1 FROM worktree_deleted wd WHERE wd.repo_key = f.repo_key AND wd.worktree_key = ? AND wd.rel_path = f.rel_path)"
+                    f")) ORDER BY {order_by} LIMIT ?"
+                )
+                params = (rkey, role_name, wkey, wkey, wkey, limit)
+            return [r["rel_path"] for r in conn.execute(sql, params)]
+
+        docs = role_files("doc", "length(rel_path), rel_path")
+        entrypoints = role_files("entrypoint", "length(rel_path), rel_path")
+        verify_skills = role_files("verify-skill", "rel_path")
         workspaces = collect_workspaces(conn, rkey)
         prs = collect_prs(conn, rkey)
         states = [
@@ -1876,14 +2062,16 @@ def cmd_query(opts):
             conn.close()
 
     fts_q = build_fts_query(opts.term)
-    conn = connect_db(db_path)
+    conn = connect_db(db_path, readonly=bool(opts.no_sync))
     try:
         repo_key = None if opts.all_repos else (repo_info["repo_key"] if repo_info else None)
+        wt_key = repo_info["worktree_key"] if (repo_info and repo_key is not None) else None
         if repo_info is not None:
             exists = conn.execute("SELECT 1 FROM repos WHERE repo_key = ?", (repo_info["repo_key"],)).fetchone()
             if exists is None and getattr(opts, "db", None):
                 if repo_key == repo_info["repo_key"]:
                     repo_key = None
+                    wt_key = None
             elif exists is None and not opts.no_sync and not just_synced:
                 perform_sync(conn, repo_info, offline=True, no_orca=True, fast=True)
             elif exists is not None and not opts.no_sync and not just_synced:
@@ -1907,6 +2095,23 @@ def cmd_query(opts):
             if repo_key is not None:
                 sql += " AND s.repo_key = ?"
                 params.append(repo_key)
+                if wt_key and wt_key != repo_key:
+                    sql += (
+                        " AND (s.worktree_key = ? OR ("
+                        "  s.worktree_key = '' "
+                        "  AND NOT EXISTS (SELECT 1 FROM files ov WHERE ov.repo_key = s.repo_key AND ov.worktree_key = ? AND ov.rel_path = s.rel_path) "
+                        "  AND NOT EXISTS (SELECT 1 FROM worktree_deleted wd WHERE wd.repo_key = s.repo_key AND wd.worktree_key = ? AND wd.rel_path = s.rel_path)"
+                        "))"
+                    )
+                    params.extend([wt_key, wt_key, wt_key])
+                else:
+                    sql += " AND s.worktree_key = ''"
+            else:
+                sql += (
+                    " AND (s.worktree_key = '' OR NOT EXISTS ("
+                    "  SELECT 1 FROM files fb WHERE fb.repo_key = s.repo_key AND fb.worktree_key = ''"
+                    "))"
+                )
             sql += " ORDER BY bm25(symbols_fts, 10.0, 3.0, 1.0), s.rel_path, s.line LIMIT ?"
             params.append(max(1, opts.limit))
             try:
@@ -2090,19 +2295,34 @@ def cmd_prune(opts):
     try:
         drop_repos = []
         for row in conn.execute("SELECT repo_key, main_checkout, last_sync_ts FROM repos").fetchall():
-            stale = row["last_sync_ts"] and row["last_sync_ts"] < cutoff
+            last_ts = float(row["last_sync_ts"] or 0.0)
+            if last_ts <= 0.0:
+                wt_ts = conn.execute(
+                    "SELECT MAX(updated_at) FROM workspaces WHERE repo_key = ?",
+                    (row["repo_key"],),
+                ).fetchone()[0]
+                last_ts = float(wt_ts or 0.0)
+            stale = (last_ts <= 0.0 and float(opts.days) >= 0.0) or (last_ts > 0.0 and last_ts < cutoff)
             if not os.path.isdir(row["main_checkout"]) or stale:
                 drop_repos.append(row["repo_key"])
         if drop_repos:
             conn.executemany("DELETE FROM repos WHERE repo_key = ?", [(k,) for k in drop_repos])
 
         drop_wts = []
-        for row in conn.execute("SELECT worktree_key, path, updated_at FROM workspaces").fetchall():
+        for row in conn.execute("SELECT repo_key, worktree_key, path, updated_at FROM workspaces").fetchall():
             stale = row["updated_at"] and row["updated_at"] < cutoff
             if not os.path.isdir(row["path"]) or stale:
-                drop_wts.append(row["worktree_key"])
+                drop_wts.append((row["repo_key"], row["worktree_key"]))
         if drop_wts:
-            conn.executemany("DELETE FROM workspaces WHERE worktree_key = ?", [(k,) for k in drop_wts])
+            conn.executemany("DELETE FROM workspaces WHERE worktree_key = ?", [(wk,) for _, wk in drop_wts])
+            conn.executemany(
+                "DELETE FROM files WHERE repo_key = ? AND worktree_key = ?",
+                [(rk, wk) for rk, wk in drop_wts if wk != rk],
+            )
+            conn.executemany(
+                "DELETE FROM worktree_deleted WHERE repo_key = ? AND worktree_key = ?",
+                [(rk, wk) for rk, wk in drop_wts if wk != rk],
+            )
 
         pr_cur = conn.execute("DELETE FROM prs WHERE synced_at > 0 AND synced_at < ?", (cutoff,))
         dropped_prs = pr_cur.rowcount

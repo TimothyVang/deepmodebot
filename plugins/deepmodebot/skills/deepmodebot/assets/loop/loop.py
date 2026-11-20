@@ -117,6 +117,9 @@ GUARDRAIL_CONFIGS = (
 )
 GUARDRAIL_CONFIG_BASENAMES = {os.path.normcase(name) for name in GUARDRAIL_CONFIGS}
 PYPROJECT_GUARDRAIL_TOOLS = ("ruff", "mypy", "pyright", "pytest", "coverage", "flake8", "pylint", "bandit")
+PACKAGE_JSON_GUARDRAIL_KEYS = (
+    "scripts", "eslintConfig", "jest", "biome", "prettier", "stylelint", "lint-staged", "husky",
+)
 CODE_EXTS = {".py", ".pyi", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts", ".rs", ".go"}
 PY_SUPPRESSION_RE = re.compile(
     r"#\s*(?:type:\s*ignore|pyright:\s*ignore|ruff:\s*noqa|noqa|pylint:\s*disable|nosec|pragma:\s*no\s*cover"
@@ -269,9 +272,8 @@ def load_pyproject_tools(text):
     return tools
 
 
-def pyproject_guard_digest(root):
-    """Hash guardrail tool tables in pyproject.toml while leaving [project] editable for dependencies and scripts."""
-    path = os.path.join(root, "pyproject.toml")
+def _pyproject_file_digest(path):
+    """Hash guardrail tool tables in a pyproject.toml file while leaving [project] editable."""
     if not os.path.lexists(path):
         return None
     if os.path.islink(path) or not os.path.isfile(path):
@@ -288,9 +290,13 @@ def pyproject_guard_digest(root):
     return hashlib.sha256(blob).hexdigest()
 
 
-def package_scripts_digest(root):
-    """Hash package.json `scripts` so an agent cannot turn `npm run lint` into `true`; dependencies stay editable."""
-    path = os.path.join(root, "package.json")
+def pyproject_guard_digest(root):
+    """Hash guardrail tool tables in root pyproject.toml while leaving [project] editable."""
+    return _pyproject_file_digest(os.path.join(root, "pyproject.toml"))
+
+
+def _package_json_file_digest(path):
+    """Hash package.json scripts and embedded linter/test configs while leaving dependencies editable."""
     if not os.path.lexists(path):
         return None
     if os.path.islink(path) or not os.path.isfile(path):
@@ -300,24 +306,42 @@ def package_scripts_digest(root):
             data = json.load(handle)
     except (OSError, ValueError) as exc:
         return f"invalid:{type(exc).__name__}"
-    scripts = data.get("scripts") if isinstance(data, dict) else None
-    return hashlib.sha256(json.dumps(scripts, sort_keys=True).encode("utf-8")).hexdigest() if scripts else None
+    if not isinstance(data, dict):
+        return None
+    guarded = {key: data[key] for key in PACKAGE_JSON_GUARDRAIL_KEYS if key in data and data[key]}
+    if not guarded:
+        return None
+    return hashlib.sha256(json.dumps(guarded, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def package_scripts_digest(root):
+    """Hash root package.json `scripts` and guardrail tool configs; dependencies stay editable."""
+    return _package_json_file_digest(os.path.join(root, "package.json"))
 
 
 def guardrail_state(root, skip):
     """Map of every guardrail config anywhere in the tree (root or nested, existing or newly created) to its content
-    hash, plus the guardrail tables of pyproject.toml and package.json. A nested ruff.toml or conftest.py overrides
-    the root config for its subtree, so creating one weakens the gate just like editing the root one."""
+    hash, plus the guardrail tables of every pyproject.toml and package.json at any depth. A nested ruff.toml,
+    pyproject.toml, package.json, or conftest.py overrides the root config for its subtree, so creating or editing one
+    weakens the gate just like editing the root one."""
     state = {}
-    for key, value in (("pyproject.toml [tool.*]", pyproject_guard_digest(root)),
-                       ("package.json scripts", package_scripts_digest(root))):
-        if value is not None:
-            state[key] = value
     for rel in walk_files(root, ".", skip, skip_names=SLOP_SKIP_DIRS):
         parts = rel.split("/")
-        if os.path.normcase(parts[-1]) not in GUARDRAIL_CONFIG_BASENAMES and not {".husky", ".githooks"} & set(parts[:-1]):
-            continue
+        base_norm = os.path.normcase(parts[-1])
         full = os.path.join(root, rel)
+        if base_norm == os.path.normcase("pyproject.toml"):
+            val = _pyproject_file_digest(full)
+            if val is not None:
+                state[f"{rel} [tool.*]"] = val
+            continue
+        if base_norm == os.path.normcase("package.json"):
+            val = _package_json_file_digest(full)
+            if val is not None:
+                key = "package.json scripts" if rel == "package.json" else f"{rel} [guardrails]"
+                state[key] = val
+            continue
+        if base_norm not in GUARDRAIL_CONFIG_BASENAMES and not {".husky", ".githooks"} & set(parts[:-1]):
+            continue
         if os.path.islink(full):
             state[rel] = f"link:{os.readlink(full)}"
         elif os.path.isfile(full):
@@ -334,10 +358,21 @@ def discover_guardrail_configs(root):
     return [name for name in GUARDRAIL_CONFIGS if os.path.lexists(os.path.join(root, name))]
 
 
+def _rel_inside_root(full, root):
+    """Return root-relative path if `full` lives strictly inside `root`, else None (handles Windows cross-drive and `..name`)."""
+    try:
+        rel = os.path.relpath(full, root)
+    except ValueError:
+        return None
+    if rel == "." or rel == ".." or rel.startswith(".." + os.sep) or os.path.isabs(rel):
+        return None
+    return rel
+
+
 def load_manifest(manifest_arg, root, source_label="manifest"):
     full = os.path.normpath(os.path.join(root, manifest_arg) if not os.path.isabs(manifest_arg) else manifest_arg)
-    rel = os.path.relpath(full, root)
-    if rel == "." or rel.startswith(".."):
+    rel = _rel_inside_root(full, root)
+    if rel is None:
         raise SystemExit(f"{source_label}: manifest path {manifest_arg!r} must live inside the project root")
     if not os.path.isfile(full):
         raise SystemExit(f"{source_label}: manifest path {manifest_arg!r} does not exist")
@@ -474,8 +509,8 @@ def protected_paths(fields, root, goal_path):
             absent = entry.startswith("absent:")
             name = entry[len("absent:"):] if absent else entry
             full = os.path.normpath(os.path.join(root, name))
-            rel = os.path.relpath(full, root)
-            if rel == "." or rel.startswith(".."):
+            rel = _rel_inside_root(full, root)
+            if rel is None:
                 raise SystemExit(f"{goal_path}: protect path {name!r} must be inside the project root and not the root")
             if absent and os.path.lexists(full):
                 raise SystemExit(f"{goal_path}: protect path {name!r} exists; drop its `absent:` prefix")
@@ -615,11 +650,30 @@ def _broad_suppress_lines(tree):
                     yield node.lineno
 
 
+def _js_allows_regex(text, pos):
+    """Return True when a `/` at `pos` in JS/TS starts a regex literal rather than division."""
+    j = pos - 1
+    while j >= 0 and text[j] in " \t\r\n":
+        j -= 1
+    if j < 0:
+        return True
+    prev_ch = text[j]
+    if prev_ch in "([{:;,=!&|?+-*%^~<>":
+        return True
+    if prev_ch.isalnum() or prev_ch in "_$":
+        start = j
+        while start > 0 and (text[start - 1].isalnum() or text[start - 1] in "_$"):
+            start -= 1
+        return text[start:j + 1] in JS_REGEX_KW
+    return False
+
+
 def _strip_strings_keep_comments(text, ext=""):
-    """Replace string literal bodies with spaces while keeping newlines and comments intact. Single-line string
-    kinds end at a newline, so a stray quote (a JSX apostrophe, a regex literal) cannot hide the rest of the file;
-    a Rust `'a` lifetime is not a string at all."""
+    """Replace string and JS regex literal bodies with spaces while keeping newlines and comments intact. Single-line
+    kinds end at a newline, so a stray quote or regex cannot hide the rest of the file; a Rust `'a` lifetime is not
+    a string at all."""
     rust, go = ext == ".rs", ext == ".go"
+    js_like = ext in {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".mts", ".cts"}
     out = []
     i, n = 0, len(text)
     while i < n:
@@ -648,6 +702,32 @@ def _strip_strings_keep_comments(text, ext=""):
             end = n if end < 0 else end + 2
             out.append(text[i:end])
             i = end
+        elif js_like and ch == "/" and nxt not in ("/", "*", "\n", "") and _js_allows_regex(text, i):
+            j = i + 1
+            in_class = False
+            closed = False
+            while j < n and text[j] != "\n":
+                c = text[j]
+                if c == "\\" and j + 1 < n and text[j + 1] != "\n":
+                    j += 2
+                    continue
+                if c == "[":
+                    in_class = True
+                elif c == "]" and in_class:
+                    in_class = False
+                elif c == "/" and not in_class:
+                    closed = True
+                    j += 1
+                    while j < n and text[j].isalpha():
+                        j += 1
+                    break
+                j += 1
+            if closed:
+                out.append(" " * (j - i))
+                i = j
+            else:
+                out.append(ch)
+                i += 1
         elif ch in ("'", '"', "`"):
             quote = ch
             multiline = quote == "`" or (rust and quote == '"')
@@ -809,19 +889,37 @@ def scan_text_slop(rel, text):
                 "fix the compiler or clippy warning instead of suppressing it",
             ))
         comments = []
+        code_parts = []
         rest = line
-        if in_block:
-            end = rest.find("*/")
-            comments.append(rest if end < 0 else rest[:end + 2])
-            rest = "" if end < 0 else rest[end + 2:]
-            in_block = end < 0
-        code_part = rest
-        starts = [pos for pos in (rest.find("//"), rest.find("/*")) if pos >= 0]
-        if starts:
+        while rest:
+            if in_block:
+                end = rest.find("*/")
+                if end < 0:
+                    comments.append(rest)
+                    rest = ""
+                else:
+                    comments.append(rest[:end + 2])
+                    rest = rest[end + 2:]
+                    in_block = False
+                continue
+            starts = [pos for pos in (rest.find("//"), rest.find("/*")) if pos >= 0]
+            if not starts:
+                code_parts.append(rest)
+                break
             pos = min(starts)
-            code_part = rest[:pos]
-            comments.append(rest[pos:])
-            in_block = rest.startswith("/*", pos) and "*/" not in rest[pos + 2:]
+            if pos > 0:
+                code_parts.append(rest[:pos])
+            if rest.startswith("//", pos):
+                comments.append(rest[pos:])
+                break
+            close_rel = rest.find("*/", pos + 2)
+            if close_rel < 0:
+                comments.append(rest[pos:])
+                in_block = True
+                break
+            comments.append(rest[pos:close_rel + 2])
+            rest = rest[close_rel + 2:]
+        code_part = " ".join(code_parts)
         comment = " ".join(comments)
         if ext == ".rs" and RS_STUB_MACRO_RE.search(code_part):
             macro = RS_STUB_MACRO_RE.search(code_part).group(0)
@@ -1196,8 +1294,8 @@ def audit_repo(root):
 def write_goal_scaffold(report, dest_arg):
     root = report["root"]
     dest = os.path.normpath(os.path.abspath(dest_arg))
-    rel = os.path.relpath(dest, root)
-    if rel == "." or rel.startswith(".."):
+    rel = _rel_inside_root(dest, root)
+    if rel is None:
         raise SystemExit(f"--write-goal path {dest_arg!r} must live inside the project root ({root})")
     if os.path.lexists(dest):
         raise SystemExit(f"--write-goal refuses to overwrite existing file {dest_arg!r}")
@@ -1671,7 +1769,7 @@ def format_loop_command(root, *args):
         rel = os.path.relpath(script_abs, root)
     except ValueError:
         rel = None
-    if rel and not rel.startswith("..") and not os.path.isabs(rel):
+    if rel and rel != ".." and not rel.startswith(".." + os.sep) and not os.path.isabs(rel):
         script_arg = rel.replace("\\", "/")
     else:
         script_arg = script_abs
@@ -2117,6 +2215,12 @@ def main():
         print(output.rstrip())
         return finish(6, "sme_gate_required")
 
+    def safe_parse_goal():
+        try:
+            return parse(opts.goal)
+        except (SystemExit, OSError):
+            return None
+
     for i in range(1, limit + 1):
         if i > 1 and cooldown > 0:
             time.sleep(cooldown)
@@ -2125,7 +2229,11 @@ def main():
         before = workspace_state(root, own)
         while True:
             cmd = harness_command(fields, harness, cost, extra_args=active_args)
-            _, current_digest, plan = parse(opts.goal)
+            parsed_before = safe_parse_goal()
+            if parsed_before is None:
+                print(f"iteration {i}: goal frontmatter is missing or corrupted; stopping")
+                return finish(4, "tampered_frontmatter")
+            _, current_digest, plan = parsed_before
             current_config = guardrail_state(root, own) if protect_configs else {}
             if current_digest != digest or protect_digest(root, protect) != guard or current_config != config_guard:
                 print(f"iteration {i}: goal frontmatter or protected files changed; stopping")
@@ -2145,12 +2253,14 @@ def main():
                                               stdout=log, stderr=subprocess.STDOUT)
             iterations_run = i
             if harness_exit is None:
-                if revert_on_fail and parse(opts.goal)[1] == digest and protect_digest(root, protect) == guard:
+                parsed_timeout = safe_parse_goal()
+                if revert_on_fail and parsed_timeout is not None and parsed_timeout[1] == digest and protect_digest(root, protect) == guard:
                     revert_failed_iteration(root, opts.goal, own, base)
                 print(f"iteration {i}: the harness ran past {limits['iteration_minutes']} minutes and was stopped. Log: "
                       f"{os.path.relpath(log_path, root)}")
                 return finish(5, "harness_timeout")
-            if parse(opts.goal)[1] != digest:
+            parsed_after = safe_parse_goal()
+            if parsed_after is None or parsed_after[1] != digest:
                 print(f"iteration {i}: the agent changed the goal's frontmatter; stopping")
                 return finish(4, "tampered_frontmatter")
             current = protect_digest(root, protect)

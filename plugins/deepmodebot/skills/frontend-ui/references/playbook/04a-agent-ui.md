@@ -1,5 +1,5 @@
-## 4a. Agent UI (boop-agent's core surface)
-Source: `TimothyVang/frontend:.claude/skills/shadcn/rules/chat.md`. Install with `npx shadcn@latest add message-scroller message bubble attachment marker trace code-block`. Start from **`shadcn-ui/chatbot-template`** (AI SDK transport + these components). **AI Elements (elements.ai-sdk.dev) is deprecated at the end of November 2026**; its patterns now live in shadcn/ui. Recommended stack: `TimothyVang/frontend:reference/github/ai-ui/_batch-ai-ui-libraries.md`. [github/ai-ui/shadcn-ui-chatbot-template; github/ai-ui/vercel-ai-elements]
+## 4a. Agent UI (chat and agent-console surfaces)
+For React apps, run `npx shadcn@latest add message-scroller message bubble attachment marker trace code-block` or start from **`shadcn-ui/chatbot-template`** (AI SDK transport + these components). For SvelteKit (`skill://deep-stack`'s default) or other frameworks, port the same component contracts (`MessageScroller`, `Trace`, approval `Item`, streaming Markdown sanitizer) onto native primitives. **AI Elements (elements.ai-sdk.dev) is deprecated at the end of November 2026**; its patterns live in shadcn/ui. Optional private-repo notes: `TimothyVang/frontend:.claude/skills/shadcn/rules/chat.md`. [github/ai-ui/shadcn-ui-chatbot-template; github/ai-ui/vercel-ai-elements]
 
 - **Thread**
   - Build it with: `MessageScroller`. The user's turn is the `scrollAnchor`; `autoScroll` follows the reply but yields as soon as the user scrolls up; `MessageScrollerButton` jumps to latest. Once a streamed reply grows past the viewport, keep its *start* in view rather than following the bottom [articles/ai-ux/nngroup-ai-ux-research]
@@ -89,7 +89,7 @@ Source: `TimothyVang/frontend:.claude/skills/shadcn/rules/chat.md`. Install with
   - Restore pending approvals from thread state after a reload.
   - Several pending approvals get one card each and one combined submit.
   - Approvals are verified on the server (signed or issued); free text never authorizes. [github/ai-ui/ag-ui-protocol-ag-ui; github/ai-ui/assistant-ui-assistant-ui; github/ai-ui/vercel-ai]
-- **Frame the request as a proposal and say what to check:** target, effect, reversibility, evidence. Duolingo moved correct rejections of bad AI flags from 50% to 71% by rewording alone. A bare Approve / Deny on a high-stakes action invites rubber-stamping.
+- **Frame the request as a proposal and say what to check:** target, effect, reversibility, evidence. Clear proposal framing substantially improves rejection of bad AI flags (one talk cited Duolingo moving correct rejections from 50% to 71% by rewording alone [unverified: no primary study linked]). A bare Approve / Deny on a high-stakes action invites rubber-stamping.
 - **One decision per approval.** "Is the agent's reading right?" and "should it act?" are separate questions.
 - **Multi-step work:**
   - Approve a numbered plan card first, with the one open question that changes the approach.

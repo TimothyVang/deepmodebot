@@ -102,7 +102,7 @@ Pair Flow Logs with CloudTrail, which records who changed a security group, rout
 
 ## IAM and security
 
-- Do not use the root user for daily work. Give it a strong password and MFA, then work through least-privilege IAM users or roles. (AWS-SENSE)
+- Do not use the root user for daily work. Give it a strong password and MFA, then work through least-privilege IAM roles (federate humans via IAM Identity Center and CI via OIDC; avoid static IAM users or long-lived access keys per `skill://cloud-devsecops/references/aws.md`). (AWS-SENSE)
 - Split network power: developers can read networks and attach security groups; only the platform team can edit route tables, create gateways, or delete VPCs.
 - Shared responsibility: AWS secures the physical facilities, virtualization, and hardware. You secure IAM, OS patching, encryption, and firewall rules. (AWS-SENSE)
 
