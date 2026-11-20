@@ -78,7 +78,7 @@ A skill or playbook change is proven by running an agent with it (see "Testing a
 
 Passing tests alone are not proof. Show the behavior.
 
-For the evaluation CLIs, use [.omp/skills/verify-deepmodebot/SKILL.md](.omp/skills/verify-deepmodebot/SKILL.md) and its feature map. Run its doctor before capturing real agent journeys. Preserve failed attempts and distinguish helper tests from actual model execution.
+For the evaluation CLIs, use [.omp/skills/verify-deepmodebot/SKILL.md](.omp/skills/verify-deepmodebot/SKILL.md) (mirrored at [.agents/skills/verify-deepmodebot/SKILL.md](.agents/skills/verify-deepmodebot/SKILL.md) for Antigravity, Codex, and other `.agents/` harnesses) and its feature map. Run its doctor before capturing real agent journeys. Preserve failed attempts and distinguish helper tests from actual model execution.
 
 ## 6. Open the PR
 

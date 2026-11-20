@@ -61,7 +61,8 @@ The S lane skips step 5's implementation-review subagents and step 12 (PR-Agent)
    - `## Scope`: always; 1 to 3 items on what it covers and deliberately leaves out.
    - `## Tradeoffs`: only rejected alternatives a reviewer would ask about.
    - `## Blast Radius`: 1 to 2 sentences on who/what it touches and why safe or risky; if main is red, the cost of leaving it red.
-   - `## Verification`: 1 to 3 bullets, each a real run path and outcome. Perf: one primary number with unit, `before → after`, link to the arena/swarm directory.
+   - `## Verification`: 1 to 3 bullets, each a real run path and outcome tied to the exact submitted head SHA (command, order, exit status—never from compacted session memory or conflicting concurrent runs, `https://www.youtube.com/watch?v=gbeuC0ud1p4`, 09:10–15:25). Perf: one primary number with unit, `before → after`, link to the arena/swarm directory.
+     Never mask a check's exit code behind `| head` or `| tail` without `pipefail`; capture raw exit status and print a short failure summary + log path at the end (`https://www.youtube.com/watch?v=rS36lYuvXQ8`, 01:37–02:59).
    - Then videos/screenshots that prove a claim. SHAs, lane recitals, file-by-file checklists, "CLEAN" verdicts go in a linked artifact.
 
    Done when the body has `## Scope` and `## Verification`, its headings follow this order, and it is under 40 lines.

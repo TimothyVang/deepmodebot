@@ -174,7 +174,8 @@ def parse(goal_path):
 
 
 def git(root, *args):
-    return subprocess.run(["git", "-C", root, *args], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    return subprocess.run(["git", "-C", root, *args], capture_output=True, text=True, encoding="utf-8",
+                          errors="replace", creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
 
 
 def project_root(path):
@@ -1061,6 +1062,7 @@ def run_limited(argv, minutes, stdin_text=None, **popen):
     if os.name == "nt":
         from windows_job import wrap_command
         argv = wrap_command(argv, shell=popen.pop("shell", False))
+        popen["creationflags"] = popen.get("creationflags", 0) | subprocess.CREATE_NO_WINDOW
     proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL if stdin_text is None else subprocess.PIPE, text=True,
                             encoding="utf-8", errors="replace", start_new_session=os.name != "nt", **popen)
 

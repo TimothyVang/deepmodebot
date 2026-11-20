@@ -18,6 +18,7 @@ PROC_THREAD_ATTRIBUTE_JOB_LIST = 0x0002000D
 PROC_THREAD_ATTRIBUTE_DESKTOP_APP_POLICY = 0x00020012
 PROCESS_CREATION_DESKTOP_APP_BREAKAWAY_DISABLE_PROCESS_TREE = 0x02
 EXTENDED_STARTUPINFO_PRESENT = 0x00080000
+CREATE_NO_WINDOW = 0x08000000
 
 
 class _BasicLimitInformation(ctypes.Structure):
@@ -158,7 +159,7 @@ def _run_in_job(api, job, argv, shell, python_context=None):
         application = os.environ.get("ComSpec") or os.path.join(os.environ["SystemRoot"], "System32", "cmd.exe")
         command = f'{subprocess.list2cmdline([application])} /c "{command}"'
     environment = None
-    flags = EXTENDED_STARTUPINFO_PRESENT
+    flags = EXTENDED_STARTUPINFO_PRESENT | CREATE_NO_WINDOW
     if python_context:
         application, launcher = python_context
         child_env = {**os.environ, "__PYVENV_LAUNCHER__": launcher}

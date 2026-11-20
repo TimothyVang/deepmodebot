@@ -11,7 +11,7 @@
 ## Checks
 
 - Checks, after every edit and before calling a part done: `python scripts/check.py`. No separate test command was found; if this check does not run the tests, add one.
-- Live proof: the `.omp/skills/verify-deepmodebot` skill. Tests alone are not proof.
+- Live proof: the `.omp/skills/verify-deepmodebot`, `.agents/skills/verify-deepmodebot` skill. Tests alone are not proof.
 
 ## Work area
 

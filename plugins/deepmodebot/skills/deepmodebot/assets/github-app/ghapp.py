@@ -65,7 +65,8 @@ def app_jwt(config: dict) -> str:
     signing_input = f"{header}.{payload}".encode()
     openssl = shutil.which("openssl") or r"C:\Program Files\Git\usr\bin\openssl.exe"
     proc = subprocess.run([openssl, "dgst", "-sha256", "-sign", config["private_key_path"]],
-                          input=signing_input, capture_output=True, check=True)
+                          input=signing_input, capture_output=True, check=True,
+                          creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     return f"{header}.{payload}.{b64url(proc.stdout)}"
 
 
@@ -187,7 +188,8 @@ def setup(args) -> None:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     if CONFIG_PATH.is_file() and not args.force:
         sys.exit(f"{CONFIG_PATH} exists (app {load_config()['slug']}); pass --force to create another app")
-    login = subprocess.run(["gh", "api", "user", "-q", ".login"], capture_output=True, text=True).stdout.strip()
+    login = subprocess.run(["gh", "api", "user", "-q", ".login"], capture_output=True, text=True,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout.strip()
     name = args.name or f"{BRAND['name']}-{login.lower()}"[:34]
     state = secrets.token_urlsafe(16)
     done = threading.Event()

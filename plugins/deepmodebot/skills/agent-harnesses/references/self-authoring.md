@@ -1,8 +1,8 @@
-# Self-authoring research: prompts, skills, goals, loops (omp, Claude Code, Codex)
+# Self-authoring research: prompts, skills, goals, loops (omp, Claude Code, Codex, Antigravity)
 
 Read when writing a prompt, command, skill, goal, or loop from inside a session, or choosing between native goal and loop modes and `skill://deepmodebot/assets/loop/loop.py`. The steps are in `skill://deepmodebot/references/playbooks/self-authoring.md`; this file holds the cited per-harness facts.
 
-Date: 2026-11-11. Versions probed: omp 18.18.9, claude 2.1.322, codex 0.163.0.
+Date: 2026-11-11 (Antigravity docs checked 2026-11-13). Versions probed: omp 18.18.9, claude 2.1.322, codex 0.163.0.
 Exit codes are the reliable loop gate in headless runs: omp `--max-cost` exits 3; nonzero on terminal turn failures (omp://cli-reference.md).
 Tags: `[unverified]` = not confirmed in a primary source this session; `[inference]` = derived, not stated.
 
@@ -68,6 +68,11 @@ Tags: `[unverified]` = not confirmed in a primary source this session; `[inferen
 - "Codex detects skill changes automatically. If an update doesn't appear, restart Codex." Config changes (`[[skills.config]] enabled=false`, `[skills.bundled] enabled=false`) need restart ([build-skills](https://learn.chatgpt.com/docs/build-skills.md)).
 - Same-name skills are not merged; both appear ([build-skills](https://learn.chatgpt.com/docs/build-skills.md)).
 
+### Google Antigravity
+- Paths: workspace `.agents/skills/<name>/SKILL.md` walking cwd up to repo root; personal `~/.gemini/config/skills/<name>/SKILL.md` (shared by App, CLI `agy`, IDE); plugin `<plugin>/skills/<name>/SKILL.md` ([skills](https://antigravity.google/docs/skills), [discovery](https://antigravity.google/docs/customization-discovery)).
+- Antigravity ignores Claude `commands/*.md` and `.gemini/skills/`; every discovered skill registers `/<name>` directly (`/skills reload` refreshes completions in interactive `agy`). CLI-only `~/.gemini/skills/` and `~/.gemini/antigravity-cli/skills/` outrank workspace skills in `agy` while staying invisible in App ([discovery](https://antigravity.google/docs/customization-discovery)).
+- Validate plugins and bundled skills with `agy plugin validate --strict <dir>` ([build-plugins](https://antigravity.google/docs/build-plugins)).
+
 ### Cross-harness portable recipe [inference]
 - One `<name>/SKILL.md` with only spec fields loads in all three if placed in each harness's dir; omp additionally reads `.claude/skills` and `.agents`-style dirs, so `.claude/skills/<name>/` + `.agents/skills/<name>/` (or symlink; Claude and Codex both follow symlinks per their docs) covers all three.
 
@@ -123,6 +128,11 @@ Tags: `[unverified]` = not confirmed in a primary source this session; `[inferen
 - `codex cloud` [EXPERIMENTAL]: browse Codex Cloud tasks and apply locally (codex 0.163.0 --help).
 - `codex queue` queues a message to an existing session (codex 0.163.0 --help).
 - No `--max-turns`/USD cap flag in `codex --help` 0.163.0; goal budget is the documented cap [inference].
+
+### Google Antigravity
+- Interactive `/goal` runs long-horizon tasks to completion; `/schedule` (`schedule` tool) runs one-shot timers or 5-field cron schedules ([overview](https://antigravity.google/docs/overview)).
+- Headless loop building blocks: `agy -p "<prompt>" --output-format json --json-schema '<schema>' --print-timeout 15m`, resumed across iterations with `-c` or `--conversation <id>`, or driven over `agy --input-format stream-json --output-format stream-json` ([headless](https://antigravity.google/docs/cli/headless)).
+- `Stop` hook in `.agents/hooks.json`, `~/.gemini/config/hooks.json`, or plugin `hooks.json`: exit `0` with `{"decision": "continue", "reason": "..."}` resumes the agent; check stdin `continuationActive` so the hook does not loop forever ([hooks](https://antigravity.google/docs/hooks)). Non-zero exit codes fail open ([hooks](https://antigravity.google/docs/hooks)).
 
 ## 5. Skill authoring best practice (Anthropic)
 Source: [best-practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices).

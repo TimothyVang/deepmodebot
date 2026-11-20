@@ -867,6 +867,7 @@ class DiscoveryRateLimitTest(unittest.TestCase):
 
     def test_interrupted_first_poll_keeps_its_event_floor(self):
         b = object.__new__(bot.Bot)
+        b.dry = True
         b.args, b.cfg = mock.Mock(item=None), {"mention": MENTION}
         b.state = {"items": {}, "lastCycle": "earlier"}
         b.ident = AppDiscoveryTest().identity()
@@ -1344,6 +1345,7 @@ class AfterMergeRetryTest(unittest.TestCase):
             with self.subTest(cannot_start=cannot_start):
                 step = {"pr": {"number": 7, "merged": True}, **({"checkCannotStart": True} if cannot_start else {})}
                 b = object.__new__(bot.Bot)
+                b.dry = True
                 b.args = mock.Mock(item=None, backlog=False)
                 b.cfg, b.ident = {"mention": MENTION}, mock.Mock(
                     owner=OWNER, is_ours=ours, app=None, open_items=mock.Mock(return_value=[]))
@@ -2059,6 +2061,29 @@ class WindowsAutostartTest(unittest.TestCase):
                 text = log_file.read_text(encoding="utf-8", errors="replace") if log_file.is_file() else ""
             self.assertIn("stub ran ['watch']", text)
             self.assertIn("RuntimeError: stub boom", text)
+
+
+class InstallAcpTest(unittest.TestCase):
+    def test_agy_is_detected_and_registered_for_acp_without_disturbing_existing_agents(self):
+        import install
+        self.assertIn(("agy", "agy"), install.KNOWN_AGENTS)
+        self.assertEqual(install.ACPX_CUSTOM_AGENTS["agy"], ("agy", ["acp"]))
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = Path(tmp) / "acpx" / "config.json"
+            cfg.parent.mkdir()
+            cfg.write_text(json.dumps({"agents": {"omp": {"command": "omp", "args": ["acp"]}}}), encoding="utf-8")
+            which = lambda exe: f"/bin/{exe}" if exe in ("agy", "claude") else None  # noqa: E731
+            with mock.patch.object(install, "ACPX_CONFIG", cfg), \
+                    mock.patch.object(install.shutil, "which", side_effect=which), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                check_found = install.detect_agents(mock.Mock(author=None, reviewer=None, check=True))
+                self.assertEqual(check_found, ["claude", "agy"])
+                self.assertNotIn("agy", json.loads(cfg.read_text(encoding="utf-8"))["agents"])
+                found = install.detect_agents(mock.Mock(author=None, reviewer=None, check=False))
+                self.assertEqual(found, ["claude", "agy"])
+                agents = json.loads(cfg.read_text(encoding="utf-8"))["agents"]
+                self.assertEqual(agents["omp"], {"command": "omp", "args": ["acp"]})
+                self.assertEqual(agents["agy"], {"command": "agy", "args": ["acp"]})
 
 
 if __name__ == "__main__":

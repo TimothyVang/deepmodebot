@@ -2,7 +2,7 @@
 
 Read when a task touches the conventions every coding agent now shares (AGENTS.md, Agent Skills, Agent Plugins and marketplaces, llms.txt), when deepmodebot runs in a harness other than omp, Claude Code or Codex (Gemini CLI, Antigravity CLI, Cursor, Copilot, OpenCode, Amp, Goose, Zed, Devin, Kiro), or when you pick browser automation, docs lookup, worktree, sandbox or orchestrator tooling for agents. MCP and ACP wire details live in the protocols file of this folder.
 
-Checked 2026-11-11 against the linked primary docs. Local probes: omp 18.18.9, codex-cli 0.163.0, Claude Code 2.1.322. Specs: Agent Skills (agentskills.io), Agent Plugins 1.0.0 and 1.1.0, llms.txt v2.
+Checked 2026-11-11 against the linked primary docs (Google Antigravity docs checked 2026-11-13). Local probes: omp 18.18.9, codex-cli 0.163.0, Claude Code 2.1.322. Specs: Agent Skills (agentskills.io), Agent Plugins 1.0.0 and 1.1.0, llms.txt v2.
 
 ## Portable defaults
 
@@ -45,7 +45,7 @@ Where each harness looks (project | user | explicit invoke):
 | Codex | `.agents/skills/` in cwd and each parent to repo root; `/etc/codex/skills` admin | `~/.agents/skills/` | `$name` ([skills](https://developers.openai.com/codex/skills)) |
 | omp | `.omp/skills/` up the tree, plus `.claude`, `.agents`, `.codex`, `.opencode`, `.github/skills` providers | `~/.omp/agent/skills/` | `/skill:name` ([skills](https://github.com/can1357/oh-my-pi/blob/main/docs/skills.md)) |
 | Gemini CLI | `.gemini/skills/`, `.agents/skills/` (alias wins) | `~/.gemini/skills/`, `~/.agents/skills/` | `activate_skill` tool, `/skills` ([skills](https://geminicli.com/docs/cli/skills/)) |
-| Antigravity CLI | `.agents/skills/` up to repo root; `.gemini/skills/` NOT read | `~/.gemini/config/skills/` (+ legacy) | `/name` ([skills](https://antigravity.google/docs/skills), [migration](https://antigravity.google/docs/cli/gcli-migration)) |
+| Antigravity (App, CLI `agy`, IDE) | `.agents/skills/` up to repo root; `.gemini/skills/` NOT read | `~/.gemini/config/skills/` (CLI `~/.gemini/skills/` outranks workspace) | `/name` ([skills](https://antigravity.google/docs/skills), [discovery](https://antigravity.google/docs/customization-discovery)) |
 | Cursor | `.cursor/skills/`, `.agents/skills/` anywhere in repo (scoped to subtree), `.claude/skills/`, `.codex/skills/` | `~/.cursor/skills/`, `~/.agents/skills/`, `~/.claude/skills/`, `~/.codex/skills/` | `/name` ([skills](https://cursor.com/docs/skills)) |
 | GitHub Copilot (CLI, cloud agent, VS Code, app) | `.github/skills/`, `.claude/skills/`, `.agents/skills/` | `~/.copilot/skills/`, `~/.agents/skills/` | `/name` ([skills](https://docs.github.com/en/copilot/concepts/agents/about-agent-skills)) |
 | OpenCode | `.opencode/skills`, `.claude/skills`, `.agents/skills`, cwd up to root | `~/.config/opencode/skills`, `~/.claude/skills`, `~/.agents/skills` | `skill` tool, `@id` ([skills](https://opencode.ai/docs/skills/)) |
@@ -89,7 +89,8 @@ Claude-format plugins: `<plugin>/.claude-plugin/plugin.json` plus `skills/`, `co
 | Cursor | root `plugin.json` or `.cursor-plugin/plugin.json` only | `.cursor-plugin/marketplace.json` | Customize page, team marketplaces, a local `plugins/local` folder under `~/.cursor` ([docs](https://cursor.com/docs/plugins)) |
 | Devin | `.devin-plugin/` > `.claude-plugin/` > root `plugin.json` | team marketplace | `devin plugins` ([docs](https://docs.devin.ai/cli/extensibility/plugins/overview)) |
 | Goose | `plugin.json`, `.plugin/`, `.goose-plugin/`, `gemini-extension.json` | none documented | ([docs](https://goose-docs.ai/docs/guides/context-engineering/plugins/)) |
-| Gemini / Antigravity CLI | `gemini-extension.json` / Antigravity plugins | official marketplace | `gemini extensions install <url>`, `agy plugin install <url or path>` ([Gemini](https://geminicli.com/docs/extensions/), [Antigravity](https://antigravity.google/docs/skills)) |
+| Gemini CLI | `gemini-extension.json` | GitHub URL or path | `gemini extensions install <url>` ([Gemini](https://geminicli.com/docs/extensions/)) |
+| Google Antigravity | `.antigravity-plugin/plugin.json` (wins) or root `plugin.json` | `antigravity-plugins-official`, GitHub URL, or local path | `agy plugin install <name\|github-url\|path>`, `agy plugin validate --strict <dir>` into `~/.gemini/config/plugins/` ([plugins](https://antigravity.google/docs/plugins), [build-plugins](https://antigravity.google/docs/build-plugins)) |
 
 - A root Agent Plugins `plugin.json` outranks `.claude-plugin/plugin.json` in Copilot CLI, and Agent Plugins components load only from fixed paths ([Copilot plugin ref](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-plugin-reference)). [inference: root `commands/` then stops loading in Copilot.]
 - `${CLAUDE_PLUGIN_ROOT}` expands in Cursor, VS Code and Copilot. Cursor does not expand `${PLUGIN_ROOT}` or `${PLUGIN_DATA}` ([Cursor ref](https://cursor.com/docs/reference/plugins), [VS Code ref](https://code.visualstudio.com/docs/agents/reference/agent-plugin-reference)).
@@ -100,7 +101,7 @@ Claude-format plugins: `<plugin>/.claude-plugin/plugin.json` plus `skills/`, `co
 | Harness | Context files | Headless | MCP config | ACP |
 |---|---|---|---|---|
 | Gemini CLI | `GEMINI.md` (user `~/.gemini/GEMINI.md` + project tree), `context.fileName` | `gemini -p "..." --output-format json` | `mcpServers` in `settings.json` | `gemini --acp` ([headless](https://geminicli.com/docs/cli/headless/), [ACP](https://geminicli.com/docs/cli/acp-mode/), [MCP](https://geminicli.com/docs/tools/mcp-server/)) |
-| Antigravity CLI `agy` | workspace `GEMINI.md` and `AGENTS.md`, `~/.gemini/GEMINI.md` | `agy -p "..." --output-format json` or `stream-json` | `.agents/mcp_config.json`, `~/.gemini/config/mcp_config.json` | [unverified] ([headless](https://antigravity.google/docs/cli/headless), [migration](https://antigravity.google/docs/cli/gcli-migration)) |
+| Antigravity CLI `agy` | workspace `AGENTS.md` and `GEMINI.md`, `~/.gemini/config/`, `~/.gemini/AGENTS.md`, `~/.gemini/GEMINI.md` | `agy -p "..." --output-format json` or `stream-json` | `.agents/mcp_config.json`, `~/.gemini/config/mcp_config.json`, plugin `mcp_config.json` | `agy acp` ([headless](https://antigravity.google/docs/cli/headless), [ACP](https://antigravity.google/docs/cli/acp), [discovery](https://antigravity.google/docs/customization-discovery)) |
 | Cursor IDE + CLI `agent` | `AGENTS.md` root and nested, `.cursor/rules/*.mdc` (plain `.md` ignored) | `agent -p "..."`; `--force` runs unapproved actions; `--output-format json` | `.cursor/mcp.json`, `~/.cursor/mcp.json` | `agent acp` ([rules](https://cursor.com/docs/rules), [headless](https://cursor.com/docs/cli/headless), [ACP](https://cursor.com/docs/cli/acp)) |
 | Copilot CLI | `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `.github/instructions/**`, `.claude/rules/**` | `copilot -p "..." -s`; `--allow-all-tools` or `--yolo` | `~/.copilot/mcp-config.json`; repo `.mcp.json` needs trust | `copilot --acp` ([CLI ref](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference)) |
 | OpenCode | `AGENTS.md`, `CLAUDE.md` fallback, `~/.config/opencode/AGENTS.md` | `opencode run "..."` | `mcp` in `opencode.json(c)` | `opencode acp` ([rules](https://opencode.ai/docs/rules/), [CLI](https://opencode.ai/docs/cli/), [ACP](https://opencode.ai/docs/acp/)) |
@@ -168,7 +169,7 @@ Tool-owned state outside the repo (not yours; do not clean it, do not report it 
 
 - Playwright MCP profile: `%USERPROFILE%\AppData\Local\ms-playwright\mcp-{channel}-{workspace-hash}`, `~/.cache/ms-playwright/...` on Linux ([playwright-mcp](https://github.com/microsoft/playwright-mcp)).
 - chrome-devtools-mcp profile: `$HOME/.cache/chrome-devtools-mcp/chrome-profile` ([config](https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/configuration.md)).
-- Copilot: `~/.copilot/installed-plugins/`, `~/.cache/copilot/marketplaces/`; Codex: `~/.codex/plugins/cache/`; Agent Plugins `PLUGIN_DATA` dirs ([Copilot ref](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-plugin-reference), [Codex](https://developers.openai.com/codex/plugins/build)).
+- Copilot: `~/.copilot/installed-plugins/`, `~/.cache/copilot/marketplaces/`; Codex: `~/.codex/plugins/cache/`; Antigravity: `~/.gemini/config/plugins/`, `~/.gemini/antigravity*/brain/`, `${PLUGIN_DATA}`; Agent Plugins `PLUGIN_DATA` dirs ([Copilot ref](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-plugin-reference), [Codex](https://developers.openai.com/codex/plugins/build), [Antigravity](https://antigravity.google/docs/build-plugins)).
 
 ## Traps for deepmodebot
 
