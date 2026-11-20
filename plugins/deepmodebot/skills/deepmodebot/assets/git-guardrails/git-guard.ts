@@ -38,6 +38,7 @@ function checkedOutBranch(cwd: string): string | undefined {
 			cwd,
 			encoding: "utf8",
 			stdio: ["ignore", "pipe", "ignore"],
+			windowsHide: true,
 		});
 		return out.trim() || undefined;
 	} catch {

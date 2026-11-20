@@ -14,6 +14,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 import uuid
 from unittest.mock import patch
 
@@ -76,7 +77,9 @@ def _fixture(role, mode, root, token):
         _wait(api, event("finish"), FIXTURE_LIFETIME_MS)
         return 0
     if role == "parent":
-        leaf = subprocess.Popen([sys.executable, "-B", str(HERE), "--fixture", "leaf", mode, str(root), token])
+        leaf = subprocess.Popen([sys.executable, "-B", str(HERE), "--fixture", "leaf", mode, str(root), token],
+                                stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr,
+                                creationflags=subprocess.CREATE_NO_WINDOW)
         (root / "processes.json").write_text(json.dumps([os.getpid(), leaf.pid]), encoding="utf-8")
         if _wait(api, event("leaf"), 3000) != WAIT_OBJECT_0:
             return 91
@@ -169,6 +172,7 @@ class WindowsJobCase(unittest.TestCase):
                         stream.close()
 
     def start(self, argv, **kwargs):
+        kwargs.setdefault("creationflags", subprocess.CREATE_NO_WINDOW)
         process = subprocess.Popen(argv, cwd=self.root, env=self.env, stdin=subprocess.PIPE,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                    text=True, encoding="utf-8", **kwargs)
@@ -203,6 +207,39 @@ class WindowsJobCase(unittest.TestCase):
         self.assertEqual(json.loads(out), {"argv": arguments, "stdin": "stdin-value\n",
                                           "cwd": str(self.root), "marker": "inherited-value"})
         self.assertEqual(err, "stderr-marker\n")
+
+    def test_loop_does_not_allocate_supervisor_or_command_consoles(self):
+        import loop
+        probe = (
+            "import ctypes, json; from ctypes import wintypes; "
+            "api = ctypes.WinDLL('kernel32'); api.GetConsoleWindow.restype = wintypes.HWND; "
+        )
+        supervisor = probe + (
+            "import runpy, sys; "
+            "print(json.dumps({'supervisor_console': bool(api.GetConsoleWindow())}), flush=True); "
+            "sys.argv = sys.argv[1:]; runpy.run_path(sys.argv[0], run_name='__main__')"
+        )
+        command = probe + (
+            "import sys; "
+            "print(json.dumps({'command_console': bool(api.GetConsoleWindow())}), flush=True); "
+            "print('diagnostic remains visible', file=sys.stderr); sys.exit(17)"
+        )
+        wrap = windows_job.wrap_command
+
+        def observe_supervisor(argv, shell=False):
+            wrapped = wrap(argv, shell)
+            return [*wrapped[:2], "-c", supervisor, *wrapped[2:]]
+
+        # Observe inside the real supervisor; AttachConsole can fail with access
+        # denied for packaged Python and cannot establish absence of a console.
+        with patch.object(windows_job, "wrap_command", side_effect=observe_supervisor):
+            code, output = loop.run_limited(
+                [sys.executable, "-B", "-c", command], 0.1, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        parent, child, diagnostic = output.splitlines()
+        self.assertEqual(json.loads(parent), {"supervisor_console": False})
+        self.assertEqual(json.loads(child), {"command_console": False})
+        self.assertEqual(diagnostic, "diagnostic remains visible")
+        self.assertEqual(code, 17)
 
     def test_shell_string_is_not_requoted(self):
         process = self.start(windows_job.wrap_command("echo shell-marker&exit /b 29", shell=True))

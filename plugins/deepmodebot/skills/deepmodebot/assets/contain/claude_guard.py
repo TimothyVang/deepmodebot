@@ -41,7 +41,8 @@ def project_roots(cwd):
     try:
         out = subprocess.run(
             ["git", "-C", cwd, "rev-parse", "--path-format=absolute", "--show-toplevel", "--git-common-dir"],
-            capture_output=True, text=True, timeout=10)
+            capture_output=True, text=True, timeout=10,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     except (OSError, subprocess.TimeoutExpired):
         return [cwd]
     lines = out.stdout.splitlines()

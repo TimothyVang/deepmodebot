@@ -60,3 +60,15 @@ Local marketplace snapshots prove local upgrades, not remote publication, watche
 For changes to `plugins/deepmodebot/skills/deepmodebot/assets/loop/loop.py`, `inner-loop`, or `end-to-end`, run `loop.py audit --json` and `loop.py manifest <manifest.json>` on a disposable git repo under `.scratch/evidence/<slug>/`, then drive `loop.py run <goal.md>` with a live subscription harness (`omp`).
 Verify `manifest` slice progression (`1/N` to `N/N`), `fast_check`, `forbid_slop` (suppressions, swallowed exceptions, and `TODO`/`NotImplementedError` stubs), `protect_configs`, and the acceptance `check` against actual candidate edits, keeping `trail.tsv` and per-iteration prompt and check logs under `.scratch/`.
 Synthetic fake-harness unit tests in `test_loop.py` prove deterministic runner state machines, not live model compliance.
+
+## Completed-job cleanup
+
+Exercise the bot's cleanup CLI with isolated `HOME`/`USERPROFILE` and local bare Git remotes, never the production cache. Preview must not delete; explicit apply must dispose eligible completed work and newly owned clones while preserving unfinished jobs, dirty/untracked files, unpushed commits, locked or foreign worktrees and changed clone metadata. Inspect real filesystem and Git state, not just exit codes. Cleanup failures must not turn completed jobs into retried jobs.
+
+Use focused real-Git regression tests for deletion safety. A local lifecycle smoke does not prove hosted GitHub, production watcher, or every model's instruction compliance. Preserve required installation folders even when the harness calls their parent `cache`.
+
+## Hidden Windows background helpers
+
+Run doctor, then run `python -B -m unittest test_windows_job` from `assets/loop` with `TMP`, `TEMP` and `TMPDIR` pointing to a fresh repo-local scratch directory. The real Win32 probe checks both the command and supervisor have no console, while stderr, nonzero exits, stdin and process-tree deadlines remain intact.
+
+Drive `loop.run_limited` from a consoleless Python process against the source and installed helper copies; record `GetConsoleWindow` inside both the supervisor and command rather than inferring visibility from creation flags or failed `AttachConsole` calls. Check captured helper launch paths with the Windows background-process regression. Do not start a production watcher or invoke real authentication. Interactive setup and explicitly requested user interfaces must remain available.

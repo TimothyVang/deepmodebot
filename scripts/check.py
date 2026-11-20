@@ -3,6 +3,7 @@
 import ast
 import datetime as dt
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -171,13 +172,20 @@ for py in ROOT.rglob("*.py"):
         problems.append(f"{py.relative_to(ROOT)}:{err.lineno}: {err.msg}")
     if py.name.startswith("test_"):
         test_dirs.add(py.parent)
-for test_dir in sorted(test_dirs):
-    run = subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", str(test_dir), "-p", "test_*.py"],
-                         capture_output=True, text=True, encoding="utf-8", errors="replace")
-    if run.returncode:
-        problems.append(f"{test_dir.relative_to(ROOT)}: tests failed\n{run.stderr[-3000:]}")
-    elif "skipped" in run.stderr.splitlines()[-1]:
-        print(f"note: {test_dir.relative_to(ROOT)}: {run.stderr.splitlines()[-1]} ({'bun' if shutil.which('bun') else 'no bun'} on PATH)")
+# Tests get a repo-local temp folder (Contain the work: never system temp); it is removed afterwards.
+test_tmp = ROOT / ".scratch/tmp" / f"check-{os.getpid()}"
+test_tmp.mkdir(parents=True, exist_ok=True)
+test_env = {**os.environ, "TMP": str(test_tmp), "TEMP": str(test_tmp), "TMPDIR": str(test_tmp)}
+try:
+    for test_dir in sorted(test_dirs):
+        run = subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", str(test_dir), "-p", "test_*.py"],
+                             env=test_env, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        if run.returncode:
+            problems.append(f"{test_dir.relative_to(ROOT)}: tests failed\n{run.stderr[-3000:]}")
+        elif "skipped" in run.stderr.splitlines()[-1]:
+            print(f"note: {test_dir.relative_to(ROOT)}: {run.stderr.splitlines()[-1]} ({'bun' if shutil.which('bun') else 'no bun'} on PATH)")
+finally:
+    shutil.rmtree(test_tmp, ignore_errors=True)
 
 # AGENTS.md and CLAUDE.md carry the current generated block (agents_md.py, writing-for-agents technique).
 agents_md = skill_root / "assets/agents-md/agents_md.py"

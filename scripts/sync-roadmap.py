@@ -53,6 +53,7 @@ def gh_api(path: str) -> list[Any]:
         text=True,
         encoding="utf-8",
         errors="replace",
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
     if proc.returncode != 0:
         raise GhError(f"gh api {path} failed: {proc.stderr.strip() or proc.stdout.strip()}")
