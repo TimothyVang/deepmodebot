@@ -47,6 +47,7 @@ function main() {
   }
   const check = spawnSync(process.execPath, [path.join(skillDir, "validate-findings.cjs"), findingsPath], {
     encoding: "utf8",
+    windowsHide: true,
   });
   if (check.status !== 0) {
     lines.push("", "**Blocked:** `findings.json` failed validation.", "", "```", (check.stdout + check.stderr).trim().slice(0, 3000), "```");

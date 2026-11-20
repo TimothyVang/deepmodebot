@@ -18,6 +18,7 @@ PROC_THREAD_ATTRIBUTE_JOB_LIST = 0x0002000D
 PROC_THREAD_ATTRIBUTE_DESKTOP_APP_POLICY = 0x00020012
 PROCESS_CREATION_DESKTOP_APP_BREAKAWAY_DISABLE_PROCESS_TREE = 0x02
 EXTENDED_STARTUPINFO_PRESENT = 0x00080000
+CREATE_NO_WINDOW = 0x08000000
 
 
 class _BasicLimitInformation(ctypes.Structure):
@@ -168,7 +169,8 @@ def _run_in_job(api, job, argv, shell):
         startup.StartupInfo.hStdError = api.GetStdHandle(-12)
         startup.lpAttributeList = ctypes.cast(attributes, ctypes.c_void_p)
         if not api.CreateProcessW(application, ctypes.create_unicode_buffer(command), None, None, True,
-                                  EXTENDED_STARTUPINFO_PRESENT, None, None, ctypes.byref(startup), ctypes.byref(process)):
+                                  EXTENDED_STARTUPINFO_PRESENT | CREATE_NO_WINDOW, None, None,
+                                  ctypes.byref(startup), ctypes.byref(process)):
             raise ctypes.WinError(ctypes.get_last_error())
     finally:
         api.DeleteProcThreadAttributeList(attributes)

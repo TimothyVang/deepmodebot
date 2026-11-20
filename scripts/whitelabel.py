@@ -86,7 +86,10 @@ class Rebrand:
         add(f"skill://{s['mainSkillName']}", f"skill://{d['mainSkillName']}", "", r"(?![\w-])")
         add(f"skills/{s['mainSkillName']}", f"skills/{d['mainSkillName']}", edge_b, r"(?![\w-])")
         add(f"${s['mainSkillName']}", f"${d['mainSkillName']}", "", r"(?![\w:-])")
-        add(f"name: {s['mainSkillName']}", f"name: {d['mainSkillName']}", "^", "$")
+        add(f"name: {s['mainSkillName']}", f"name: {d['mainSkillName']}", "^", r"(?=\r?$)")
+        add(f".antigravity-plugin/skills/{s['commandName']}", f".antigravity-plugin/skills/{d['commandName']}", "", r"(?![\w-])")
+        add(f"skills/{s['commandName']}", f"skills/{d['commandName']}", edge_b, r"(?![\w-])")
+        add(f"name: {s['commandName']}", f"name: {d['commandName']}", "^", r"(?=\r?$)")
         add(f"commands/{s['commandName']}.md", f"commands/{d['commandName']}.md", edge_b, "")
         add(f"/{s['commandName']}", f"/{d['commandName']}", r"(?<![\w.~/:-])", r"(?![\w-])")
         add(s["stackSkillName"], d["stackSkillName"], edge_b, r"(?![\w])")
@@ -342,6 +345,13 @@ def update_manifests(out: Path, d: dict) -> None:
         data.update(name=d["slug"], description=d["description"], homepage=d["homepage"], repository=repo_url,
                     author={"name": d["author"]["name"], "url": d["author"]["url"]})
         write_json(plugin, data)
+    agy_plugin = out / "plugins" / d["slug"] / ".antigravity-plugin/plugin.json"
+    if agy_plugin.is_file():
+        data = json.loads(agy_plugin.read_text(encoding="utf-8"))
+        data.update(name=d["slug"], displayName=d["displayName"], description=d["description"],
+                    homepage=d["homepage"], repository=repo_url,
+                    author={"name": d["author"]["name"], "url": d["author"]["url"]})
+        write_json(agy_plugin, data)
     for manifest in (out / ".omp-plugin/marketplace.json", out / ".claude-plugin/marketplace.json"):
         if not manifest.is_file():
             continue
@@ -364,7 +374,8 @@ def update_manifests(out: Path, d: dict) -> None:
 
 def write_brand(out: Path, d: dict, assets: dict) -> None:
     write_json(out / "brand/brand.json", brandlib.to_json(d))
-    for key, targets in (("logo", ("brand/logo.svg", "docs/images/logo.svg")), ("favicon", ("brand/favicon.svg", "docs/favicon.svg"))):
+    for key, targets in (("logo", ("brand/logo.svg", "docs/images/logo.svg")),
+                         ("favicon", ("brand/favicon.svg", "docs/favicon.svg", f"plugins/{d['slug']}/assets/logo.svg"))):
         for rel in targets:
             if (out / rel).parent.is_dir():
                 (out / rel).write_bytes(assets[key])

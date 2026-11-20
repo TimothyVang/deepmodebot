@@ -18,7 +18,8 @@ def _git(repo, *args, limit=262144, timeout=5):
     env.update(GIT_NO_REPLACE_OBJECTS="1", GIT_OPTIONAL_LOCKS="0", GIT_TERMINAL_PROMPT="0",
                GIT_NO_LAZY_FETCH="1", GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull)
     p = subprocess.Popen(["git", "--no-pager", "-c", "core.fsmonitor=false", *args], cwd=repo,
-                         stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=env)
+                         stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=env,
+                         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     data = bytearray()
     overflow = []
 

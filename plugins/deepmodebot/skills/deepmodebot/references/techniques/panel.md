@@ -6,7 +6,7 @@ A local S fix lands on no branch, so it needs no panel (`references/playbooks/op
 
 1. **Freeze the subject.** The task's acceptance criteria (from its issue or card), the exact head SHA, the diff, and the author's evidence. A new push after this point means a new panel.
    Done when the criteria, the head SHA, the diff, and the author's evidence are written into the verifier brief.
-2. **Spawn three verifiers** in one `task` batch. Use default agents, since they must run things. None of them is the author. Put each on a different model family when one is available; otherwise give each a different angle (behavior, edge cases, security and data). Each brief says:
+2. **Spawn three verifiers** in one `task` batch (or stagger / split across model families when rate limits are tight; keep briefs concise and pass file/diff paths rather than pasting full diffs). Use default agents, since they must run things. None of them is the author. Put each on a different model family when one is available; otherwise give each a different angle (behavior, edge cases, security and data). Each brief says:
    - Be skeptical: the work is not done until you prove it is. Don't trust the author's evidence; reproduce it.
    - At `<SHA>`, run the repo's checks, prove each acceptance criterion on the real surface (the repo's `verify-<app>` skill first), and make one serious attempt to break it (the riskiest path in the diff, bad input, an edge case).
    - Never push, edit the branch, or comment on the PR.

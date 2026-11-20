@@ -1,8 +1,9 @@
-# Delegation efficiency research: models, effort, tokens, limits (omp, Claude Code, Codex)
+# Delegation efficiency research: models, effort, tokens, limits (omp, Claude Code, Codex, Antigravity)
 
-Read when deciding whether to delegate, which model and reasoning effort a delegate gets, how to cut token use, or how subscription limits are metered, in omp, Claude Code, or Codex. Model names and prices move monthly: recheck the vendor page before quoting one.
+Read when deciding whether to delegate, which model and reasoning effort a delegate gets, how to cut token use, or how subscription limits are metered, in omp, Claude Code, Codex, or Google Antigravity. Model names and prices move monthly: recheck the vendor page before quoting one.
 
-Date: 2026-11-11. Versions probed: omp 18.18.9, claude 2.1.322, codex 0.163.0.
+Date: 2026-11-11 (Antigravity docs checked 2026-11-13; CLI help reconciled 2026-11-17 on omp 18.22.2, claude 2.1.326, codex 0.167.2).
+Caveat: generic model/cost tables never override an operator's explicit model preference or no-paid-API rule; `--max-cost` / `--max-budget-usd` are spend caps, not proof of subscription OAuth authentication.
 Tags: `[unverified]` = not confirmed in a primary source this session; `[inference]` = derived, not stated.
 Bundled omp agent frontmatter was read from the embedded definitions inside omp.exe 18.18.9 (cited as "omp 18.18.9 binary").
 
@@ -114,6 +115,14 @@ Bundled omp agent frontmatter was read from the embedded definitions inside omp.
 - `codex exec --json` prints JSONL events; `--output-schema` constrains the final message; `-o` writes the last message to a file (codex 0.163.0 exec --help).
 - No per-run dollar or turn cap flag appears in `codex --help` or `codex exec --help` 0.163.0 [inference from help text].
 
+### Google Antigravity
+- CLI selection: `agy models` lists model slugs; `--model <slug>` or `/model` picks the model, `--effort low|medium|high|xhigh|max` or `/effort` sets reasoning effort, and `--agent <name>` (`agy agents`) selects a custom main agent ([reference](https://antigravity.google/docs/cli/reference), [headless](https://antigravity.google/docs/cli/headless)).
+- Subagents: `.agents/agents/<name>.md`, `~/.gemini/config/agents/`, or plugin `agents/<name>.md` set `model: inherit|flash_lite|flash|pro` (`inherit` default); built-ins are `research`, `browser`, and `self`, spawned via `invoke_subagent` up to 10 nesting levels ([subagents](https://antigravity.google/docs/subagents)).
+- Idle cost: `Idle` subagents (re-awakened with `send_message`, keeping their prior context) and waiting `/swarm` workers consume zero tokens while parked ([subagents](https://antigravity.google/docs/subagents), [swarm](https://antigravity.google/docs/swarm)).
+- Orchestrators: `/boost` runs iterative `Orchestrator` -> `DeepCoder`/`DeepInvestigator` cycles on hard problems (paid plans); `/swarm` coordinates named workers + verifier on a shared board (AI Pro/Ultra); `/run-workflow` scripts staged/parallel Python workflows ([boost](https://antigravity.google/docs/boost), [swarm](https://antigravity.google/docs/swarm), [dynamic-workflows](https://antigravity.google/docs/dynamic-workflows)).
+- MCP token savings: MCP tools lazy-load by default (schemas cached on disk under `<app-data-dir>/mcp/` and invoked via `call_mcp_tool`), avoiding per-turn schema bloat unless `"eager": true` is configured ([mcp](https://antigravity.google/docs/mcp)).
+- Headless telemetry: `agy -p --output-format json` reports `usage`, `num_turns`, and `duration_seconds`, and `--json-schema` constrains structured output ([headless](https://antigravity.google/docs/cli/headless)).
+
 ## 4. Delegation economics (primary sources)
 - Agents use about 4x the tokens of chat; multi-agent systems about 15x; worth it only when task value pays for it ([ma-post](https://www.anthropic.com/engineering/multi-agent-research-system)).
 - Token usage alone explained 80% of BrowseComp performance variance; tool calls and model choice explained most of the rest ([ma-post](https://www.anthropic.com/engineering/multi-agent-research-system)).
@@ -158,6 +167,16 @@ Bundled omp agent frontmatter was read from the embedded definitions inside omp.
 
 ## 6. Decision table
 
+### Pre-task model selection (run before turn 1, loop 1, or worker kickoff)
+1. Classify size, risk, and oracle strength: trivial/search/mechanical (`S`), routine feature with automated tests (`M`), or architecture/security/concurrency/contested debugging (`L`).
+2. Check current headroom before heavy runs (`omp usage`, Claude `/usage`, Codex `/status`, Antigravity `/model`), skip Fast/Ultrafast multipliers (2x-8x quota burn), and pick the cheapest benchmark tier in the table below that passes that task class.
+3. Switch **before** starting and `/clear` between unrelated tasks (never default to flagship `L` when `S`/`M` fits; switch at clean task/subagent boundaries so prompt caches stay warm):
+   - **omp:** `/model`, `--model`, `--smol`, `--prewalk`, `--plan-yolo`, or `task` `model` / `effort`
+   - **Claude Code:** `/model sonnet|haiku|opusplan|opus`, `--model`, `--effort low|medium|high`, `--fallback-model`, or subagent `model`
+   - **Codex:** `-m gpt-6-luna|gpt-6.1-sol|gpt-6-astra`, `-c model_reasoning_effort=...`, `plan_mode_reasoning_effort`
+   - **Antigravity:** `/model` or `--model <slug>`, `--effort low|medium|high`, `invoke_subagent` `Model: "flash_lite" | "flash" | "pro"`, `swarm` `add`/`model`
+4. Pin the chosen `--model` / `--effort` in `loop.py` `harness_args` and subagent kickoffs up front so loops never inherit an unnecessarily expensive session model.
+
 Tiers: S = small (Haiku 5.5, gpt-6-luna, omp `@smol`); M = mid (Sonnet 5.5, gpt-6.1-sol or gpt-6.1-terra, omp `@task`/`@default`); L = large (Opus 5.5 high/xhigh, Fable 5.2, gpt-6-astra, omp `@slow`). Mapping is [inference] from the sources in sections 1-5 unless cited.
 
 | Task type | Tier and effort | omp | Claude Code | Codex | Delegate? | Why |
@@ -188,3 +207,16 @@ When NOT to delegate:
 - Judges: a single LLM call with a rubric and 0.0-1.0 score plus pass/fail was most consistent with human judgment; keep human spot checks ([ma-post](https://www.anthropic.com/engineering/multi-agent-research-system)).
 - Cross-family judging (e.g., Claude work reviewed by a GPT model and vice versa) reduces shared blind spots [inference; no primary source this session states it].
 - Org caps: Claude `availableModels`, `maxEffortLevel`; omp `task.maxEffort`, `task.perCallModelAllow` ([cc-model](https://code.claude.com/docs/en/model-config), omp://task-agent-discovery.md).
+
+## 8. Benchmark-guided selection and model switching (checked 2026-11-18)
+
+Consult cost-per-task LM benchmarks rather than defaulting every turn to the highest-ranked flagship model:
+- **What to check:** **Artificial Analysis** ([artificialanalysis.ai](https://artificialanalysis.ai/)), **Terminal-Bench** ([tbench.ai](https://www.tbench.ai/)), and **SWE-bench** ([swebench.com](https://www.swebench.com/)) report resolution rate alongside **token consumption, latency, and USD/task** across real agent scaffolds.
+- **Why it matters:** On multi-step agent loops, flagship reasoning models often burn multiples more tokens (especially output/thinking tokens) per task, whereas value/mid tiers frequently solve 80-90%+ of bounded tasks at a fraction of the cost and quota. Reserve flagship (`L`) quota for architecture, hard debugging, and final verification; route bounded work to `M`/`S` whenever benchmarks and your repo evals show comparable pass rates.
+
+Five model-switching patterns to save usage and survive rate limits:
+1. **Plan strong, execute cheaper (asymmetric switch):** Design/plan on `L`, then switch execution to `M`/`S` (`omp --prewalk` or `--plan-yolo`, Claude Code `opusplan` or `/model sonnet`, Codex planner-workhorse split, Antigravity `invoke_subagent` `Model: "flash"` or `"flash_lite"`).
+2. **Cheap-first escalation (oracle-backed tasks):** When an automated check exists (unit tests, typecheck, linter, build), run the first pass on `S`/`M` and switch up to `L` only on failure or stall instead of burning `L` quota up front.
+3. **Switch at clean boundaries (cache protection):** Switching models mid-conversation invalidates the exact-prefix prompt cache. Switch at new subagent spawns, after `/clear`, or via dedicated execution roles (`--prewalk`, `opusplan`, subagent `model`), not back-and-forth mid-thread.
+4. **Rotate on model or quota limits:** When hitting a model-specific cap ("Opus limit", "Astra limit") or repeated 429s, switch to a sibling tier or another logged-in model family (Claude `/model` or `--fallback-model`, `omp` `@role` / `task.agentModelOverrides`, Antigravity `swarm` `model` action) instead of stalling or paying overage rates.
+5. **Cross-family judging for quota balance:** Spread `reviewer` and `panel` verifiers across distinct provider families when available to both reduce blind spots and avoid exhausting one subscription's 5-hour/RPM pool.

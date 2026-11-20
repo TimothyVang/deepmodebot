@@ -9,6 +9,6 @@ Show me the bot conversation for $ARGUMENTS. This only reads threads: post nothi
 - With `frames`: run `python <deepmodebot skill dir>/assets/pr-conversation/arena.py <url> --frames` (`--last N` when I give a number, `--repo <owner/repo>` for a repo) and show me its output as it is, inside a fenced `text` code block so the columns stay aligned. It prints one 8-bit frame per turn (the newest 3 by default) and ends with the newest comment id.
 - With `arena`, or an `owner/repo` without `frames`: the 8-bit display runs full screen in a terminal, so give me the command to run in my own terminal window: `python <deepmodebot skill dir>/assets/pr-conversation/arena.py <url>` (or `--repo <owner/repo>`), with the real path filled in. If I ask for it in a browser instead, start it with `--serve --open` as a background service and give me its local URL.
 
-`<deepmodebot skill dir>` is the folder `skill://deepmodebot` resolves to on disk; python needs that file path, not the `skill://` URL. In Claude Code it is `${CLAUDE_PLUGIN_ROOT}/skills/deepmodebot`.
+`<deepmodebot skill dir>` is the folder `skill://deepmodebot` resolves to on disk; python needs that file path, not the `skill://` URL. In Claude Code it is `${CLAUDE_PLUGIN_ROOT}/skills/deepmodebot`; in Antigravity it is `~/.gemini/config/plugins/deepmodebot/skills/deepmodebot` (or `.agents/plugins/deepmodebot/skills/deepmodebot`).
 
 Arguments: $ARGUMENTS

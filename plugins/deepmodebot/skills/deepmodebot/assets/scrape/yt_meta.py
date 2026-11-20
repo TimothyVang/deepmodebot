@@ -3,19 +3,24 @@
 Usage: python yt_meta.py IDS_JSON OUT_JSONL [--workers N]
 
 IDS_JSON is a JSON list of video ids. OUT_JSONL is appended to and resumable: ids already
-present without an "error" field are skipped, so rerun until the error count reaches zero.
-Works while YouTube's player API is bot-walled, because the watch page still ships ytInitialData.
+present without an "error" field are skipped. Fails fast (exit code 3, no retry) on HTTP
+403/429 or bot/login wall so it respects run-wide stop rules. For richer extraction (feeds,
+Data API v3, comments, heatmaps, chapter thumbs, links, Gemini, render), prefer yt_enrich.py.
 """
+import datetime as dt
 import json
 import os
 import re
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+EXIT_BLOCKED = 3
+_STOP = threading.Event()
 
 
 def extract_json(html, var):
@@ -69,25 +74,46 @@ def parse(vid, html):
 
 
 def fetch(vid):
+    if _STOP.is_set():
+        return {"id": vid, "skipped": "run_stopped_after_block"}
     s = requests.Session()
     s.headers.update({"User-Agent": UA, "Accept-Language": "en-US,en;q=0.9"})
     s.cookies.set("SOCS", "CAI", domain=".youtube.com")  # skips the EU consent interstitial
-    err = None
-    for attempt in range(4):
-        try:
-            html = s.get(f"https://www.youtube.com/watch?v={vid}&hl=en", timeout=30).text
-            r = parse(vid, html)
-            time.sleep(1.5)
-            return r
-        except Exception as e:
-            err = repr(e)
-            time.sleep(15 * (attempt + 1))
-    return {"id": vid, "error": err}
+    url = f"https://www.youtube.com/watch?v={vid}&hl=en"
+    try:
+        resp = s.get(url, timeout=30)
+        if resp.status_code in (403, 429):
+            _STOP.set()
+            return {
+                "id": vid,
+                "state": "blocked",
+                "http_status": resp.status_code,
+                "source_url": url,
+                "observed_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+                "error": f"HTTP {resp.status_code} (stopped immediately without retry)",
+            }
+        html = resp.text
+        if "ytInitialData" not in html and ("LOGIN_REQUIRED" in html or "Sign in to confirm" in html):
+            _STOP.set()
+            return {
+                "id": vid,
+                "state": "blocked",
+                "http_status": resp.status_code,
+                "source_url": url,
+                "observed_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+                "error": "bot_or_login_wall (stopped immediately without retry)",
+            }
+        r = parse(vid, html)
+        r["observed_utc"] = dt.datetime.now(dt.timezone.utc).isoformat()
+        time.sleep(1.5)
+        return r
+    except Exception as e:
+        return {"id": vid, "error": repr(e)}
 
 
 def main():
     args = sys.argv[1:]
-    workers = 2
+    workers = 1
     if "--workers" in args:
         i = args.index("--workers")
         workers = int(args[i + 1])
@@ -98,18 +124,31 @@ def main():
     if os.path.exists(out):
         for line in open(out, encoding="utf-8"):
             r = json.loads(line)
-            if not r.get("error"):
+            if not r.get("error") and not r.get("skipped") and r.get("state") != "blocked":
                 done.add(r["id"])
     todo = [i for i in ids if i not in done]
     print(f"{len(done)} done, {len(todo)} to fetch", flush=True)
     errors = 0
+    blocked_rec = None
     with open(out, "a", encoding="utf-8") as f, ThreadPoolExecutor(workers) as ex:
         for n, r in enumerate(ex.map(fetch, todo), 1):
+            if r.get("skipped"):
+                continue
+            if r.get("state") == "blocked":
+                blocked_rec = r
             errors += bool(r.get("error"))
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
             f.flush()
             if n % 100 == 0:
                 print(n, f"errors={errors}", flush=True)
+            if blocked_rec is not None:
+                break
+    if blocked_rec is not None:
+        blocked_path = os.path.join(os.path.dirname(os.path.abspath(out)), "blocked.json")
+        with open(blocked_path, "w", encoding="utf-8") as bf:
+            json.dump(blocked_rec, bf, indent=2, ensure_ascii=False)
+        print(f"blocked id={blocked_rec['id']} status={blocked_rec.get('http_status')} wrote={blocked_path}", flush=True)
+        sys.exit(EXIT_BLOCKED)
     print(f"finished errors={errors}", flush=True)
 
 

@@ -8,8 +8,8 @@
 
 Steps, each skipped when already done:
 1. Tools: git, gh (logged in), openssl, node/npm, acpx (installed with npm when missing).
-2. Agents: any ACP harness on PATH (omp preferred, then Claude Code, Codex, Gemini CLI, Cursor, Copilot,
-   OpenCode), each logged in with its own subscription. No API keys. omp is registered with acpx.
+2. Agents: any ACP harness on PATH (omp preferred, then Claude Code, Codex, Gemini CLI, Antigravity, Cursor,
+   Copilot, OpenCode), each logged in with its own subscription. No API keys. omp and agy are registered with acpx.
 3. A round trip through ACP to the agents the bots will use.
 4. Your private GitHub App (`<brand>-<login>`), created in the browser, then installed on the repos you pick.
 5. ~/.config/<brand>/bot.json with the agents found, and an autostart entry that runs `bot.py watch` at logon.
@@ -56,7 +56,8 @@ def run(cmd: list[str], timeout=120) -> subprocess.CompletedProcess:
     exe = shutil.which(cmd[0]) or cmd[0]
     try:
         return subprocess.run([exe, *cmd[1:]], capture_output=True, text=True, encoding="utf-8",
-                              errors="replace", timeout=timeout)
+                              errors="replace", timeout=timeout,
+                              creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     except (OSError, subprocess.TimeoutExpired) as err:
         return subprocess.CompletedProcess(cmd, 1, "", str(err))
 
@@ -109,12 +110,13 @@ def check_tools(args) -> bool:
 # Harnesses the bots can run on, in preference order: (acpx agent name, executable on PATH).
 # Any other acpx agent works too: name it with --author/--reviewer.
 KNOWN_AGENTS = [("omp", "omp"), ("claude", "claude"), ("codex", "codex"), ("gemini", "gemini"),
-                ("cursor", "cursor-agent"), ("copilot", "copilot"), ("opencode", "opencode")]
+                ("agy", "agy"), ("cursor", "cursor-agent"), ("copilot", "copilot"), ("opencode", "opencode")]
+ACPX_CUSTOM_AGENTS = {"omp": ("omp", ["acp"]), "agy": ("agy", ["acp"])}
 ACPX_CONFIG = Path.home() / ".acpx" / "config.json"
 
 
 def ensure_acpx_agent(name: str, command: str, args: list[str]) -> None:
-    """acpx has no built-in profile for some harnesses (omp); register one without touching other entries."""
+    """acpx has no built-in profile for some harnesses (omp, agy); register one without touching other entries."""
     config = json.loads(ACPX_CONFIG.read_text(encoding="utf-8")) if ACPX_CONFIG.is_file() else {}
     agents = config.setdefault("agents", {})
     if name in agents:
@@ -131,8 +133,9 @@ def detect_agents(args) -> list[str]:
     found = [name for name, exe in KNOWN_AGENTS if shutil.which(exe)]
     for name in found:
         say("ok", f"{name} found")
-    if "omp" in found and not args.check:
-        ensure_acpx_agent("omp", "omp", ["acp"])
+    for name in found:
+        if name in ACPX_CUSTOM_AGENTS and not args.check:
+            ensure_acpx_agent(name, *ACPX_CUSTOM_AGENTS[name])
     return list(dict.fromkeys(wanted + found))
 
 
@@ -224,7 +227,7 @@ def main() -> None:
         sys.exit("Install the missing tools above, then rerun.")
     agents = detect_agents(args)
     if not agents:
-        sys.exit("No agent harness found. Install one (omp, Claude Code, Codex, Gemini CLI, ...) and log in.")
+        sys.exit("No agent harness found. Install one (omp, Claude Code, Codex, Gemini CLI, Antigravity, ...) and log in.")
     needed = len({a for a in (args.author, args.reviewer) if a}) or 1
     agents = acp_round_trip(agents, needed)
     if not agents:

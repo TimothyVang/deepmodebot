@@ -34,6 +34,8 @@ Core discipline: one change, one measurement, keep or revert. Never stack untest
 ## Gates
 - No reproducing case → fix the repro, don't hillclimb.
 - Harness frozen after vetting: no edits mid-run.
+- Held-out rubric check: when using an agent-authored evaluation rubric or scorer, validate it against held-out cases before hillclimbing so the loop cannot overfit ("benchmax") to one tuning example (`https://www.youtube.com/watch?v=6TjFjHPjVH0`, 16:36).
+- Print-mode `/autoresearch` caveat: observed on `omp 18.22.2`, invoking `/autoresearch` in `-p` print mode creates a branch and exits 0 before running a turn; for headless or scripted experiment loops, drive this Hillclimb playbook directly instead of assuming `/autoresearch` executes in print mode.
 - Every iteration ends in a check before the next begins (`references/principles/sequence-verifiable-units.md`).
 - A "might help" tweak is never kept. Correctness and simplicity outrank the number: revert a win that breaks behavior; keep a simplification that holds the number (`references/principles/laziness-protocol.md`).
 - Stop only when the predicate is met, or remaining ideas are marginal and not worth their cost. Never relax the predicate; never quit while cheap untried hypotheses remain. Stuck → surface it, don't spin.

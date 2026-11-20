@@ -56,6 +56,33 @@ elif action in ("revise-plan", "adapt"):
     else:
         with open(path, "a", encoding="utf-8") as handle:
             handle.write("\\nObserved missing output. Next action: create the missing output.\\n")
+elif action == "rate-limit-then-done":
+    marker = "rate_limit_attempts.txt"
+    count = int(open(marker).read()) if os.path.exists(marker) else 0
+    with open(marker, "w") as handle:
+        handle.write(str(count + 1))
+    if count == 0:
+        print("HTTP 429 rate limit exceeded; Retry-After: 0.01", file=sys.stderr)
+        sys.exit(1)
+    open("ok.txt", "w").close()
+elif action == "quota-exhausted":
+    print("Error: weekly limit reached for current plan", file=sys.stderr)
+    sys.exit(1)
+elif action == "escalate-on-strong-model":
+    if "strong-model" in sys.argv:
+        open("ok.txt", "w").close()
+elif action == "quota-then-fallback":
+    if "fallback-model" in sys.argv:
+        open("ok.txt", "w").close()
+    else:
+        print("Error: weekly limit reached for current plan", file=sys.stderr)
+        sys.exit(1)
+elif action == "rate-limit-then-fallback":
+    if "fallback-model" in sys.argv:
+        open("ok.txt", "w").close()
+    else:
+        print("HTTP 429 rate limit exceeded; Retry-After: 0.01", file=sys.stderr)
+        sys.exit(1)
 if action == "fail":
     sys.exit(3)
 """
@@ -107,6 +134,15 @@ class LoopCase(unittest.TestCase):
     def trail_rows(self):
         trail = self.repo / ".scratch" / "goals" / "g" / "trail.tsv"
         return trail.read_text(encoding="utf-8").strip().splitlines()[1:]
+
+    def latest_summary(self):
+        logs = self.repo / ".scratch" / "goals" / "g"
+        latest = logs / "latest-summary.json"
+        data = json.loads(latest.read_text(encoding="utf-8"))
+        run_summary = logs / f"{data['run_id']}-summary.json"
+        self.assertTrue(run_summary.is_file())
+        self.assertEqual(json.loads(run_summary.read_text(encoding="utf-8")), data)
+        return data
 
     def test_stops_with_0_when_the_check_passes(self):
         self.goal()
@@ -337,6 +373,146 @@ class LoopCase(unittest.TestCase):
         run = self.loop("run", "goals/g.md", action="forge-cache")
         self.assertEqual(run.returncode, 2, run.stdout + run.stderr)
         self.assertFalse((self.repo / "tests" / "__pycache__").exists())
+
+    def test_transient_rate_limit_backs_off_and_retries_without_burning_iteration(self):
+        self.goal(max_iterations=1, rate_limit_retries=2, rate_limit_backoff_seconds=0.01)
+        run = self.loop("run", "goals/g.md", action="rate-limit-then-done")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertIn("transient rate limit; backing off", run.stdout)
+        self.assertIn("goal met", run.stdout)
+        rows = self.trail_rows()
+        self.assertEqual(len(rows), 2)
+        self.assertIn("\trate_limited\t", rows[0])
+        self.assertIn("\t0\t", rows[1])
+
+    def test_hard_quota_exhaustion_stops_without_retrying(self):
+        self.goal(max_iterations=3, rate_limit_retries=3, rate_limit_backoff_seconds=0.01)
+        run = self.loop("run", "goals/g.md", action="quota-exhausted")
+        self.assertEqual(run.returncode, 5, run.stdout + run.stderr)
+        self.assertIn("quota exhausted", run.stdout)
+        rows = self.trail_rows()
+        self.assertEqual(len(rows), 1)
+        self.assertIn("\tquota\t", rows[0])
+
+    def test_invalid_rate_limit_settings_are_rejected(self):
+        for field, value in [("cooldown_seconds", "-1"), ("rate_limit_retries", "-1"), ("rate_limit_backoff_seconds", "0")]:
+            with self.subTest(field=field, value=value):
+                self.goal(**{field: value})
+                run = self.loop("check", "goals/g.md")
+                self.assertNotEqual(run.returncode, 0)
+
+    def test_escalate_after_switches_harness_args_and_succeeds(self):
+        self.goal(
+            max_iterations=4,
+            stall_after=2,
+            harness_args="--model cheap-model",
+            escalate_after=2,
+            escalate_harness_args="--model strong-model",
+        )
+        run = self.loop("run", "goals/g.md", action="escalate-on-strong-model")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertIn("escalating to escalate_harness_args", run.stdout)
+        self.assertIn("goal met", run.stdout)
+        self.assertTrue((self.repo / "ok.txt").exists())
+        rows = self.trail_rows()
+        self.assertTrue(any("switch:escalated(--model strong-model)" in row for row in rows))
+        summary = self.latest_summary()
+        self.assertEqual(summary["goal"], "ok.txt exists")
+        self.assertEqual(summary["harness"], "omp")
+        self.assertEqual(summary["iterations_run"], 3)
+        self.assertEqual(summary["exit_code"], 0)
+        self.assertEqual(summary["exit_reason"], "goal_met")
+        self.assertEqual(summary["check_exit"], 0)
+        self.assertEqual(summary["rate_limit_retries_used"], 0)
+        self.assertEqual(summary["trail"], ".scratch/goals/g/trail.tsv")
+        self.assertIsInstance(summary["elapsed_seconds"], (int, float))
+        self.assertEqual(len(summary["active_args_history"]), 2)
+        self.assertEqual(summary["active_args_history"][0]["tier"], "default")
+        self.assertEqual(summary["active_args_history"][0]["args"], "--model cheap-model")
+        self.assertEqual(summary["active_args_history"][1]["tier"], "escalated")
+        self.assertEqual(summary["active_args_history"][1]["args"], "--model strong-model")
+        self.assertEqual(summary["active_args_history"][1]["reason"], "escalate_after")
+        self.assertEqual(summary["active_args_history"][1]["iteration"], 3)
+
+    def test_fallback_harness_args_recovers_from_hard_quota_error(self):
+        self.goal(
+            max_iterations=2,
+            harness_args="--model primary-model",
+            fallback_harness_args="--model fallback-model",
+        )
+        run = self.loop("run", "goals/g.md", action="quota-then-fallback")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertIn("switching to fallback_harness_args", run.stdout)
+        self.assertIn("goal met", run.stdout)
+        self.assertTrue((self.repo / "ok.txt").exists())
+        rows = self.trail_rows()
+        self.assertTrue(any("\tquota\t" in row for row in rows))
+        self.assertTrue(any("switch:fallback(--model fallback-model)" in row for row in rows))
+        summary = self.latest_summary()
+        self.assertEqual(summary["iterations_run"], 1)
+        self.assertEqual(summary["exit_code"], 0)
+        self.assertEqual(summary["exit_reason"], "goal_met")
+        self.assertEqual(len(summary["active_args_history"]), 2)
+        self.assertEqual(summary["active_args_history"][1]["tier"], "fallback")
+        self.assertEqual(summary["active_args_history"][1]["args"], "--model fallback-model")
+        self.assertEqual(summary["active_args_history"][1]["reason"], "quota")
+
+    def test_fallback_harness_args_recovers_from_persistent_rate_limit_and_aborts_if_fallback_fails(self):
+        self.goal(
+            max_iterations=2,
+            rate_limit_retries=1,
+            rate_limit_backoff_seconds=0.01,
+            harness_args="--model primary-model",
+            fallback_harness_args="--model fallback-model",
+        )
+        run = self.loop("run", "goals/g.md", action="rate-limit-then-fallback")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        summary = self.latest_summary()
+        self.assertEqual(summary["rate_limit_retries_used"], 1)
+        self.assertEqual(summary["active_args_history"][1]["tier"], "fallback")
+        self.assertEqual(summary["active_args_history"][1]["reason"], "rate_limit")
+
+        (self.repo / "ok.txt").unlink()
+        run_both_fail = self.loop("run", "goals/g.md", action="quota-exhausted")
+        self.assertEqual(run_both_fail.returncode, 5, run_both_fail.stdout + run_both_fail.stderr)
+        summary_fail = self.latest_summary()
+        self.assertEqual(summary_fail["exit_code"], 5)
+        self.assertEqual(summary_fail["exit_reason"], "quota_exhausted")
+        self.assertEqual(len(summary_fail["active_args_history"]), 2)
+
+    def test_checkpoint_every_pauses_with_exit_6_and_writes_summary(self):
+        self.goal(max_iterations=5, stall_after=9, checkpoint_every=2)
+        run = self.loop("run", "goals/g.md", action="progress")
+        self.assertEqual(run.returncode, 6, run.stdout + run.stderr)
+        self.assertIn("checkpoint reached after 2 iterations", run.stdout)
+        self.assertIn("latest-summary.json", run.stdout)
+        self.assertEqual(len(self.trail_rows()), 2)
+        summary = self.latest_summary()
+        self.assertEqual(summary["iterations_run"], 2)
+        self.assertEqual(summary["exit_code"], 6)
+        self.assertEqual(summary["exit_reason"], "checkpoint")
+        self.assertEqual(summary["check_exit"], 1)
+        self.assertEqual(summary["trail"], ".scratch/goals/g/trail.tsv")
+
+    def test_invalid_escalation_fallback_and_checkpoint_settings_are_rejected(self):
+        cases = [
+            ({"escalate_after": "0", "escalate_harness_args": "--model opus"}, "escalate_after must be a positive integer"),
+            ({"escalate_after": "-2", "escalate_harness_args": "--model opus"}, "escalate_after must be a positive integer"),
+            ({"escalate_after": "two", "escalate_harness_args": "--model opus"}, "escalate_after must be a positive integer"),
+            ({"escalate_after": "2"}, "escalate_after requires escalate_harness_args"),
+            ({"escalate_harness_args": "--model opus"}, "escalate_harness_args requires escalate_after"),
+            ({"fallback_harness_args": ""}, "fallback_harness_args must not be empty"),
+            ({"fallback_harness_args": "--model 'unterminated"}, "invalid shell quoting"),
+            ({"checkpoint_every": "0"}, "checkpoint_every must be a positive integer"),
+            ({"checkpoint_every": "-1"}, "checkpoint_every must be a positive integer"),
+            ({"checkpoint_every": "soon"}, "checkpoint_every must be a positive integer"),
+        ]
+        for fields, expected in cases:
+            with self.subTest(fields=fields):
+                self.goal(**fields)
+                run = self.loop("check", "goals/g.md")
+                self.assertNotEqual(run.returncode, 0)
+                self.assertIn(expected, run.stdout + run.stderr)
 
 
 if __name__ == "__main__":

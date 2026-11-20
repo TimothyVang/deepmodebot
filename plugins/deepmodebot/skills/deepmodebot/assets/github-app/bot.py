@@ -51,10 +51,12 @@ import uuid
 from pathlib import Path
 from urllib.parse import quote
 
+sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import brand  # noqa: E402
 import ghapp  # noqa: E402
 import review_context  # noqa: E402
+import workspace_cleanup  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "pr-agent"))
 import pr_agent_local  # noqa: E402  (its sealed `omp -p`: no tools, no files, no project config)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "loop"))
@@ -786,6 +788,7 @@ def ensure_clone(repo: str) -> Path:
     if not (path / ".git").exists():
         path.parent.mkdir(parents=True, exist_ok=True)
         run(["gh", "repo", "clone", repo, path, "--", "--quiet", "--filter=blob:none"], timeout=1800)
+        workspace_cleanup.claim_clone(WORK, repo)
     git(path, "fetch", "origin", "--prune", "--quiet", timeout=1800)
     return path
 
@@ -844,23 +847,31 @@ def free_branch(clone: Path, branch: str, keep: Path) -> None:
         raise RuntimeError(f"`{branch}` is still checked out at {', '.join(still)}: {'; '.join(errors)}")
 
 
-def worktree_at(clone: Path, path: Path, ref: str, branch: str = None) -> Path:
+def worktree_at(clone: Path, path: Path, ref: str, branch: str = None, item: dict = None) -> Path:
     """Check `ref` out at `path` (the bot's own scratch worktree): on `branch` reset to ref, or detached.
     Another bot worktree holding `branch` is detached first (free_branch)."""
+    existed = os.path.lexists(path)
     if not (path / ".git").exists():
         shutil.rmtree(path, ignore_errors=True)
         git(clone, "worktree", "prune")
         path.parent.mkdir(parents=True, exist_ok=True)
         if branch:
             free_branch(clone, branch, path)
-        git(clone, "worktree", "add", "--force", *(["-B", branch] if branch else ["--detach"]), path, ref)
+        git(clone, "-c", "branch.autoSetupMerge=false", "worktree", "add", "--force",
+            *(["-B", branch] if branch else ["--detach"]), path, ref)
+        if item is not None and not existed:
+            paths = item.setdefault("workspacePaths", [])
+            if path.name not in paths:
+                paths.append(path.name)
+            workspace_cleanup.record_worktree(path, item)
         return path
     run(["git", "merge", "--abort"], cwd=path, check=False)
     git(path, "reset", "--hard", "--quiet")
     git(path, "clean", "-fdq")
     if branch:
         free_branch(clone, branch, path)
-    git(path, "checkout", "--force", "--quiet", *(["-B", branch, ref] if branch else ["--detach", ref]))
+    git(path, "-c", "branch.autoSetupMerge=false", "checkout", "--force", "--quiet",
+        *(["-B", branch, ref] if branch else ["--detach", ref]))
     return path
 
 
@@ -1167,18 +1178,24 @@ class Item:
         prompts = WORK / "prompts"
         prompts.mkdir(parents=True, exist_ok=True)
         prompt_file = prompts / f"{self.tag}-{uuid.uuid4().hex[:8]}.txt"
-        prompt_file.write_text(prompt, encoding="utf-8")
-        base = [acpx, "--cwd", cwd] + (["--model", role["model"]] if role.get("model") else [])
-        if session:
-            run(base + [agent, "sessions", "ensure", "--name", session], timeout=600)
-            self.sessions[session] = base + [agent, "sessions"]
-        cmd = base + [perms, "--non-interactive-permissions", "deny", "--timeout", str(AGENT_TIMEOUT),
-                      "--format", "quiet", agent]
-        cmd += (["prompt", "-s", session] if session else ["exec"]) + ["--file", prompt_file]
-        where = f"{perms}, {'session ' + session if session else 'one-shot'}"
-        self.note(f"PROMPT -> {role_label(role)} ({where})\n\n{prompt}")
-        log(f"{self.key}: {role_label(role)} turn ({where})")
         try:
+            prompt_file.write_text(prompt, encoding="utf-8")
+            base = [acpx, "--cwd", cwd] + (["--model", role["model"]] if role.get("model") else [])
+            if session:
+                prefix = [str(arg) for arg in base + [agent, "sessions"]]
+                if session in self.sessions and self.sessions[session] != prefix:
+                    self.close_sessions((session,))
+                    if session in self.sessions:
+                        raise RuntimeError(f"cannot replace outstanding session {session}")
+                self.sessions[session] = prefix
+                self.bot.save()
+                run(base + [agent, "sessions", "ensure", "--name", session], timeout=600)
+            cmd = base + [perms, "--non-interactive-permissions", "deny", "--timeout", str(AGENT_TIMEOUT),
+                          "--format", "quiet", agent]
+            cmd += (["prompt", "-s", session] if session else ["exec"]) + ["--file", prompt_file]
+            where = f"{perms}, {'session ' + session if session else 'one-shot'}"
+            self.note(f"PROMPT -> {role_label(role)} ({where})\n\n{prompt}")
+            log(f"{self.key}: {role_label(role)} turn ({where})")
             proc = run(cmd, check=False, timeout=AGENT_TIMEOUT + 300)
         finally:
             prompt_file.unlink(missing_ok=True)
@@ -1218,15 +1235,21 @@ class Item:
 
     def close_sessions(self, names) -> None:
         """Close named sessions this item opened (acpx closes per cwd; `sessions prune` would delete them).
-        Only for one-off sessions: discussion sessions keep their context across cycles. Failures are logged."""
+        Completed jobs close every session; failed closures retain the session and its workspace."""
         for name in names:
-            prefix = self.sessions.pop(name, None)
+            prefix = self.sessions.get(name)
             if not prefix:
                 continue
             try:
                 proc = run(prefix + ["close", name], check=False, timeout=120)
                 if proc.returncode:
                     raise RuntimeError(f"exit {proc.returncode}: {(proc.stderr or proc.stdout).strip()[-300:]}")
+                self.sessions.pop(name, None)
+                try:
+                    self.bot.save()
+                except BaseException:
+                    self.sessions[name] = prefix
+                    raise
             except Exception as err:
                 log(f"{self.key}: could not close session {name} ({err})")
 
@@ -1443,6 +1466,8 @@ class PRConversation:
         git(self.clone, "fetch", "origin", "--prune", "--quiet", timeout=1800)
         git(self.clone, "fetch", "origin", "--quiet", f"+refs/pull/{self.n}/head:refs/{B['branchPrefix']}/pr/{self.n}",
             timeout=1800)
+        self.item.setdefault("workspaceRefs", {})[f"refs/{B['branchPrefix']}/pr/{self.n}"] = \
+            f"refs/pull/{self.n}/head"
         for _ in range(6):  # GitHub computes mergeability lazily after a push
             view = self.bot.ident.pr_view(self.repo, self.n,
                                           "headRefOid,mergeStateStatus,mergeable,reviewDecision,state")
@@ -1485,7 +1510,7 @@ class PRConversation:
         span = f"origin/{self.base}...{self.head}"
         stat = git(self.clone, "diff", "--stat", span)
         if self.own:
-            worktree_at(self.clone, self.review_tree, self.head)
+            worktree_at(self.clone, self.review_tree, self.head, item=self.item)
             diff, cut = git(self.clone, "diff", span), "; read the changed files in the working directory"
         else:
             # Sealed reviewers receive only untrusted text, never a contributor checkout or tools.
@@ -1549,7 +1574,7 @@ class PRConversation:
         command = base_config(self.clone, self.base).get("check")
         if not isinstance(command, str) or not command.strip():
             return None
-        tree = worktree_at(self.clone, self.check_tree, sha)
+        tree = worktree_at(self.clone, self.check_tree, sha, item=self.item)
         tmp = tree / ".scratch" / "tmp"
         tmp.mkdir(parents=True, exist_ok=True)
         env = {k: v for k, v in os.environ.items() if k not in goal_loop.API_KEY_VARS and k.upper() != "PATH"}
@@ -1608,7 +1633,7 @@ class PRConversation:
         reach it."""
         self.refresh()
         self.require_own()
-        return worktree_at(self.clone, self.author_tree, self.head, branch=self.branch)
+        return worktree_at(self.clone, self.author_tree, self.head, branch=self.branch, item=self.item)
 
     def ownership(self, head: str) -> bool:
         """is_own_pr freshly from GitHub, and only when GitHub's head is still `head`."""
@@ -1724,7 +1749,7 @@ class PRConversation:
             seats = list(range(len(configured)))
         verifiers = [configured[i] for i in seats]
         for i in seats:
-            worktree_at(self.clone, self.verifier_trees[i], sha)
+            worktree_at(self.clone, self.verifier_trees[i], sha, item=self.item)
         stat = git(self.clone, "diff", "--stat", f"origin/{self.base}...{sha}")
 
         def vote(index: int):
@@ -1783,6 +1808,8 @@ class PRConversation:
         # Fetch now, after any check wait: the base's opt-out and the behind count must not come from a stale ref.
         git(self.clone, "fetch", "origin", "--quiet", f"+refs/heads/{self.base}:refs/remotes/origin/{self.base}",
             f"+refs/pull/{self.n}/head:refs/{B['branchPrefix']}/pr/{self.n}", timeout=1800)
+        self.item.setdefault("workspaceRefs", {})[f"refs/{B['branchPrefix']}/pr/{self.n}"] = \
+            f"refs/pull/{self.n}/head"
         return {"head": head, "panelSha": panel_sha, "mergeable": view["mergeable"],
                 "mergeStateStatus": view["mergeStateStatus"], "reviewDecision": view.get("reviewDecision") or "",
                 "isAdmin": is_admin, "requiredContexts": contexts, "pinnedChecks": pinned, "otherRules": other,
@@ -1913,6 +1940,7 @@ class PRConversation:
         if result is not None:
             command, code, output = result
             if code is None:  # no verdict is not a red trunk: say so, revert nothing
+                self.item["workspaceIncomplete"] = "trunk check timed out"
                 self.it.say("coordinator", "bot.py", merged, f"The trunk check `{command}` at `{merged[:7]}` ran past "
                             f"{REPO_CHECK_MINUTES} minutes. Run it on `{self.base}` by hand.")
                 return "merged"
@@ -1920,10 +1948,11 @@ class PRConversation:
                         f"```text\n{output[-1500:]}\n```")
             return "merged" if code == 0 else self.revert_red(merged, f"`{command}` exited {code}:\n{output}")
         agent = self.cfg["verifiers"][0]
-        tree = worktree_at(self.clone, self.verifier_trees[0], merged)
+        tree = worktree_at(self.clone, self.verifier_trees[0], merged, item=self.item)
         try:
             reply = self.it.ask(agent, trunk_prompt(self, merged), tree, "--approve-all")
         except Exception as err:  # no verdict is not a red trunk: say so, revert nothing
+            self.item["workspaceIncomplete"] = "trunk check could not run"
             self.it.say("coordinator", "bot.py", merged, f"The trunk check at `{merged[:7]}` could not run ({err}). "
                         f"Run the repo's checks on `{self.base}` by hand.")
             return "merged"
@@ -1931,6 +1960,7 @@ class PRConversation:
         data = json_block(reply, "vote") or {}
         vote = str(data.get("vote") or "").upper()
         if vote not in ("PASS", "FAIL"):  # unclear is not red: only an explicit FAIL reverts trunk
+            self.item["workspaceIncomplete"] = "trunk check returned no verdict"
             got = f" (vote `{str(data['vote'])[:40]}`)" if vote else ""
             self.it.say("coordinator", "bot.py", merged, f"The trunk check at `{merged[:7]}` returned no verdict{got}. "
                         f"Run the repo's checks on `{self.base}` by hand.")
@@ -1953,7 +1983,7 @@ class PRConversation:
     def open_revert(self, merged: str, evidence: str) -> str:
         branch = f"{B['branchPrefix']}/revert-pr-{self.n}"
         tree = worktree_at(self.clone, self.author_tree.with_name(f"pr{self.n}-revert"), f"origin/{self.base}",
-                           branch=branch)
+                           branch=branch, item=self.item)
         parents = git(tree, "rev-list", "--parents", "-n", "1", merged).split()
         proc = run(["git", "revert", "--no-edit", *(["-m", "1"] if len(parents) > 2 else []), merged], cwd=tree,
                    check=False)
@@ -1999,7 +2029,7 @@ class IssueConversation:
             log(f"{self.it.key}: not discussed: someone else's issue needs sealed turns, which only omp can run")
             return "not-discussed"
         if not self.sealed:
-            worktree_at(self.clone, self.tree, sha)
+            worktree_at(self.clone, self.tree, sha, item=self.item)
         if self.bot.dry:
             print(f"  [dry-run] author {role_label(self.author)} would propose a plan, reviewer "
                   f"{role_label(self.reviewer)} critique it, "
@@ -2046,7 +2076,7 @@ class IssueConversation:
                             "branch to let the bots implement this issue.")
                 return "blocked"
         tree = worktree_at(self.clone, self.tree.with_name(f"issue{self.n}-impl"),
-                           f"origin/{branch}" if on_remote else f"origin/{self.default}", branch=branch)
+                           f"origin/{branch}" if on_remote else f"origin/{self.default}", branch=branch, item=self.item)
         old = git(tree, "rev-parse", "HEAD")
         reply = self.it.ask(self.author, implement_prompt(self, branch, discussion), tree, "--approve-all",
                             sessions[2])
@@ -2059,7 +2089,7 @@ class IssueConversation:
             return "blocked"
         # Commits made here, not fetched from any remote: the PR's ownership gate trusts them without a signature.
         self.bot.trust(self.repo, git(tree, "rev-list", "HEAD", "--not", "--remotes").split())
-        git(tree, "push", "--quiet", "-u", "origin", f"HEAD:refs/heads/{branch}", timeout=600)
+        git(tree, "push", "--quiet", "origin", f"HEAD:refs/heads/{branch}", timeout=600)
         meta = json_block(reply, "title") or {}
         title = str(meta.get("title") or f"{NAME}: resolve issue #{self.n}").strip()[:200]
         body = (f"{str(meta.get('summary') or '').strip()}\n\nCloses #{self.n}\n\nImplemented by the {NAME} "
@@ -2102,6 +2132,30 @@ class Bot:
         if not self.dry:
             save_state(self.state)
 
+    def cleanup_completed(self, repo: str, apply: bool = True) -> list:
+        if self.dry and apply:
+            return []
+        alias = workspace_cleanup.repository_alias(repo, (key.split("#", 1)[0] for key in self.state["items"]))
+        if alias:
+            return [{"repo": repo, "action": "retain", "reason": f"repository storage aliases {alias}"}]
+        reports = []
+        for key, item in self.state["items"].items():
+            match = re.fullmatch(re.escape(repo) + r"#(pr|issue):([1-9][0-9]*)", key)
+            if not match:
+                continue
+            kind, number = match[1], int(match[2])
+            if apply and workspace_cleanup.completed(kind, item) and item.get("workspaceSessions"):
+                it = Item(self, repo, kind, number)
+                it.sessions = item["workspaceSessions"]
+                it.close_sessions(tuple(it.sessions))
+                item["workspaceCleanupReady"] = not it.sessions
+                self.save()
+            reports.extend({"item": key, **outcome} for outcome in
+                           workspace_cleanup.cleanup_item(WORK, repo, kind, number, item, apply=apply))
+        reports.extend({"repo": repo, **outcome} for outcome in
+                       workspace_cleanup.cleanup_clone(WORK, repo, self.state["items"], apply=apply))
+        return reports
+
     def trusted(self, repo: str) -> set:
         return set(self.state.get("ownCommits", {}).get(repo, []))
 
@@ -2137,6 +2191,12 @@ class Bot:
         except ghapp.RateLimited as err:
             self.read_limited(err)
             return
+        repositories = [*repos, *(key.split("#", 1)[0] for key in self.state["items"])]
+        aliases = {repo: workspace_cleanup.repository_alias(repo, repositories) for repo in repos}
+        for repo, alias in aliases.items():
+            if alias:
+                log(f"{repo}: skipped: workspace storage aliases {alias}")
+        repos = list(dict.fromkeys(repo for repo in repos if not aliases[repo]))
 
         def one(repo: str) -> None:
             BIG.acquire()
@@ -2174,6 +2234,10 @@ class Bot:
             self.save()
 
     def repo_cycle(self, repo: str, since) -> None:
+        alias = workspace_cleanup.repository_alias(repo, (key.split("#", 1)[0] for key in self.state["items"]))
+        if alias:
+            log(f"{repo}: skipped: workspace storage aliases {alias}")
+            return
         want, found, todo = self.args.item, False, []
         mention, owner, ours = self.cfg["mention"], self.ident.owner, self.ident.is_ours
         # Each repo's events count from its own first full poll; for a repo polled since the install (or before
@@ -2236,6 +2300,9 @@ class Bot:
         if want and not found:
             log(f"{repo}#{want}: not an open item (drafts and closed items are skipped)")
         if not todo:
+            if not self.dry:
+                for outcome in self.cleanup_completed(repo):
+                    log(f"{repo}: workspace cleanup {json.dumps(outcome)}")
             return
         clone = ensure_clone(repo)  # only repos with work get cloned
         default = self.ident.read(repo, f"/repos/{repo}")["default_branch"] if self.ident.app else \
@@ -2248,10 +2315,19 @@ class Bot:
             if kind == "pr" and not data.get("merged"):
                 data["commits"], data["writers"] = pr_commits(repo, data["number"]), writers
             self.handle(repo, kind, data, reasons, comments, clone, default)
+        if not self.dry:
+            for outcome in workspace_cleanup.cleanup_clone(WORK, repo, self.state["items"], apply=True):
+                log(f"{repo}: workspace cleanup {json.dumps(outcome)}")
 
     def handle(self, repo, kind, data, reasons, comments, clone, default) -> None:
         it = Item(self, repo, kind, data["number"])
         item = self.state["items"].setdefault(it.key, {"heads": {}})
+        it.sessions = item.setdefault("workspaceSessions", {})
+        if not self.dry:
+            item.pop("workspaceCleanupReady", None)
+            item.pop("workspaceIncomplete", None)
+            item["workspaceActive"] = True
+            self.save()
         comments = with_pending(item.get("pendingComments") or [], comments)
         log(f"{it.key}: {'; '.join(reasons)}")
         conversation = PRConversation(self, it, data, comments, clone, item, default) if kind == "pr" else \
@@ -2290,7 +2366,17 @@ class Bot:
                 item["heads"][head] = status
         elif not retry:
             item["handled"] = True
+        item.pop("workspaceActive", None)
+        if workspace_cleanup.completed(kind, item):
+            try:
+                it.close_sessions(tuple(it.sessions))
+                item["workspaceCleanupReady"] = not it.sessions
+            except Exception as err:
+                log(f"{it.key}: session cleanup failed ({err}); preserving workspaces")
         self.save()
+        if workspace_cleanup.completed(kind, item):
+            for outcome in workspace_cleanup.cleanup_item(WORK, repo, kind, data["number"], item, apply=True):
+                log(f"{it.key}: workspace cleanup {json.dumps(outcome)}")
 
 
 # ---------------------------------------------------------------- process plumbing
@@ -2351,6 +2437,19 @@ def cmd_once(args) -> None:
         return
     with Lock():
         Bot(args).cycle()
+
+
+def cmd_cleanup(args) -> None:
+    """Inspect only recorded completed jobs; default preview never removes a workspace."""
+    with Lock():
+        coordinator = object.__new__(Bot)
+        coordinator.state, coordinator.dry = load_state(), not args.apply
+        repos = {key.split("#", 1)[0] for key in coordinator.state.get("items", {})
+                 if re.fullmatch(r"[^#]+#(?:pr|issue):[1-9][0-9]*", key)}
+        for repo in sorted(repos):
+            if not args.repo or args.repo == repo:
+                for outcome in coordinator.cleanup_completed(repo, apply=args.apply):
+                    print(json.dumps(outcome))
 
 
 def remove_tree(path: Path) -> None:
@@ -2880,6 +2979,10 @@ def main() -> None:
     update = sub.add_parser("update", help="upgrade the omp install now when the repo's main moved")
     update.add_argument("--dry-run", action="store_true", help="print the commits and the commands; change nothing")
     update.set_defaults(func=cmd_update)
+    cleanup = sub.add_parser("cleanup", help="preview disposal of recorded completed workspaces (no agents)")
+    cleanup.add_argument("--repo", help="limit to owner/repo")
+    cleanup.add_argument("--apply", action="store_true", help="remove only workspaces that pass every safety gate")
+    cleanup.set_defaults(func=cmd_cleanup)
     sub.add_parser("status", help="config, state and whether a bot is running").set_defaults(func=cmd_status)
     sub.add_parser("install-autostart", help="start `watch` at logon (Windows: a Task Scheduler task, or a "
                    "Startup-folder launcher when the task is refused)").set_defaults(func=cmd_install_autostart)

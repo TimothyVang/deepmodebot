@@ -7,7 +7,7 @@
 - **PR and issue bots** on your own private GitHub App. Owner-controlled work uses ACP agents through acpx on your machine and subscription login. The bots review your PRs in the thread, fix findings, run a verifier panel, and merge your own PRs behind a gate enforced in code. They also plan and build your issues. Outside-contributor reviews use a separate, tool-free omp process.
 - **A software-factory skill set**: one `/deep` command that routes any task to a playbook, plus the flow from idea to merged code (setup, grill, spec, tickets, implement, review, land) and the techniques around it (TDD, triage, domain model, research, architecture review, prototype, board, factory, retro and more).
 
-The skill runs in omp, Claude Code, Codex, Cursor and other harnesses that load `SKILL.md` skills. Built for the Ai Cyber community; anyone can use and improve it.
+The skill runs in omp, Claude Code, Codex, Google Antigravity, Cursor and other harnesses that load `SKILL.md` skills. Built for the Ai Cyber community; anyone can use and improve it.
 
 **Site:** [timothyvang.github.io/deepmodebot](https://timothyvang.github.io/deepmodebot/) · **Docs:** [how the bots work](plugins/deepmodebot/skills/deepmodebot/references/techniques/github-app.md) · [the flow map](plugins/deepmodebot/skills/deepmodebot/references/flows.md)
 
@@ -21,8 +21,8 @@ A real run, not a mock-up: the bots took [PR #19](https://github.com/TimothyVang
 
 | Piece | What it does |
 |---|---|
-| `/deep <anything>` | One command routes and sizes the task, proves the result on the real app, and reports its decisions. Ordinary local work stays in your starting tree for review. Publishing follows the review and verifier-panel gates. |
-| `deepmodebot` skill | 29 playbooks, 24 principles and 43 techniques, indexed in its `SKILL.md`. Every task is proven on the real artifact and merges only on a verifier panel pass. |
+| `/deep <anything>` | One command routes by intent and vagueness, proves the result on the real app, and reports its decisions. Concrete tasks run directly, draft plans take **grill**, and open architecture or research gaps run a 12-agent **tournament** bracket. Ordinary local work stays in your starting tree for review, while publishing follows the review and verifier-panel gates. |
+| `deepmodebot` skill | 29 playbooks, 24 principles and 45 techniques, routed from a compact (<24 KB, zero-truncation) `SKILL.md` with full lookup tables in `references/catalog.md`. Every task is proven on the real artifact and merges only on a verifier panel pass. |
 | PR and issue bots | Install your own private GitHub App on your repos and a poller on your machine runs the bots: it reviews and lands your own PRs, resolves their merge conflicts, and plans and builds the issues you open. See [GitHub App bots](#github-app-bots). |
 | PR review | `/deepmodebot:review-pr <PR number>` reviews correctness, security, spec and standards, keeps findings backed by code or execution, and posts a comment-only review. No hosted review service is required. Prompts and source context still reach your configured model provider. |
 | Land a PR | `/deepmodebot:land-pr <PR number>` finishes and merges your own PR with no human: a reviewer bot posts findings in the PR thread, the author bot answers each with a fix or a reason, three verifier bots vote on the final head, and on a pass it merges. It never merges over a failing check. You see each turn in the session as it lands, drawn as an 8-bit frame right in the chat (each bot a sprite, each turn a dialog box), or watch the whole conversation play live as an 8-bit battle screen in your terminal; `/deepmodebot:pr-thread <PR or issue URL>` shows any bot conversation later. |
@@ -30,13 +30,14 @@ A real run, not a mock-up: the bots took [PR #19](https://github.com/TimothyVang
 | Verification skills | `create-verification-skill` builds a per-repo `verify-<app>` skill (a control CLI plus a feature map) so agents can drive your app and capture proof. `maintain-verification-skill` keeps it accurate as the app changes. |
 | `project-brief` and `contribute` | A maintainer publishes a newcomer brief, claimable tasks as issues, a roadmap and templates. A contributor's agent finds an unclaimed task that doesn't overlap open PRs, claims it, builds it through deepmodebot, and opens a PR. |
 | Trending catalog | `plugins/deepmodebot/skills/deepmodebot/scripts/trending.py` keeps a digest of new and trending repos that deepmodebot searches before building anything. |
-| Harness references | Cited, dated guides (checked 2026-11-11) for using omp, Claude Code, and Codex, the MCP, ACP, A2A, and WebMCP protocols, and portable AI-native conventions (`AGENTS.md`, Agent Skills, plugin marketplaces). A cross-harness map translates every omp tool and path deepmodebot names into Claude Code and Codex. In `plugins/deepmodebot/skills/agent-harnesses/`. |
-| Contained work | The agent works only inside the project's repo. Scratch and temp files go in `.scratch/`, worktrees in `.worktrees/` (both git-ignored), never system temp or folders outside the repo. With no repo it creates a named one first. A guard enforces this in Claude Code and omp; Codex's sandbox does it natively. |
+| Harness references | Cited, dated guides (checked 2026-11-11) for using omp, Claude Code, Codex, and Google Antigravity, the MCP, ACP, A2A, and WebMCP protocols, and portable AI-native conventions (`AGENTS.md`, Agent Skills, plugin marketplaces). A cross-harness map translates every omp tool and path deepmodebot names into other harnesses. In `plugins/deepmodebot/skills/agent-harnesses/`. |
+| Agent SDK workspace | [Install and use Antigravity, Claude Agent, Codex, and omp SDKs](plugins/deepmodebot/skills/agent-harnesses/references/sdks.md), with pinned optional dependencies and no-model smoke commands. CLI subscription logins and SDK authentication are separate contracts. |
+| Contained work | The agent works only inside the project's repo. Scratch and temp files go in `.scratch/`, worktrees in `.worktrees/` (both git-ignored), never system temp or folders outside the repo. With no repo it creates a named one first. Guards enforce this in Claude Code, omp, and Antigravity; Codex's sandbox does it natively. |
 | Credentials and auth | Cited, free-first guidance (checked 2026-11-11) for sharing API keys and `.env` safely, passwords and usernames, logins and MFA for agents, credential brokers, protecting MCP servers and agent APIs, CI OIDC, secret scanning, and leak response. In `plugins/deepmodebot/skills/secrets-and-auth/`. |
 | Architecture | Cited, decision-ready guidance (checked 2026-11-11) for organizing monorepos, naming the domain (glossary, typed models, LinkML, RDF and SHACL, graph databases, Palantir-style ontology for agent actions), choosing and migrating databases with agents working safely against them, and backend infrastructure and system design (reliability, queues and durable workflows, APIs, OpenTelemetry, deployment, IaC). Each file ends with the default stack for a solo dev or small team. In `plugins/deepmodebot/skills/software-architecture/`. |
-| Self-authoring | deepmodebot writes and revises its own bounded loop prompts from observed failures. `assets/loop/loop.py` supplies the mutable working plan and latest check diagnostics, with exact prompt snapshots and complete check logs; shortened diagnostics link to their full log. The objective, constraints, acceptance check, protected files and finite caps stay fixed; plan-only edits do not prevent a stall stop. Runs use omp, Claude Code or Codex. Interactive sessions can use native `/goal`. |
+| Self-authoring | deepmodebot writes and revises bounded autonomous loops from observed failures. `assets/loop/loop.py` supports pre-task model selection with automatic escalation (`escalate_after`/`escalate_harness_args`), automatic fallback and backoff on quota or rate limits (`fallback_harness_args`, `cooldown_seconds`), incremental sprint checkpoints (`checkpoint_every`, exit 6), and structured JSON telemetry (`latest-summary.json`) alongside fixed checks and finite caps. Runs use omp, Claude Code or Codex. |
 | Language ports | A behavior inventory, protected consumer tests and a representative pilot precede bulk translation. Preserve architecture unless the target runtime boundary requires a change; a port need not delete valid branches or reduce reader load. Parity and completeness are checked separately, including release builds, callbacks and lifecycle semantics. Copilot and Bun's Rust migration accounts inform the workflow without prescribing Rust or one cutover strategy. Parallel work has explicit integration and build owners. |
-| Efficient delegation | When a subagent pays for itself, which model tier and reasoning effort fits each task (search, mechanical edits, features, hard design, review, long runs, summaries) in omp, Claude Code, and Codex, how subscription limits are metered, and how to cut token use. In `plugins/deepmodebot/skills/agent-harnesses/references/delegation-efficiency.md`, checked 2026-11-11. |
+| Efficient delegation | Pre-task model/effort selection, rate-limit and token discipline, when a subagent pays for itself, and how subscription limits are metered across omp, Claude Code, Codex, and Antigravity. In `plugins/deepmodebot/skills/agent-harnesses/references/delegation-efficiency.md`, checked 2026-11-11. |
 
 The agent makes reversible product and design decisions and handles commits, PRs and merges when publication is in scope. Ordinary small or medium local work stays uncommitted in the starting tree, with runtime proof and diff review. Publication requires three skeptical verifiers and at least two evidence-backed passes, or one passing verifier for an eligible small change.
 It still asks before deploys, deleting things it did not create, rewriting shared history, outside messages, spending money, using secrets only you have, or writing outside the project.
@@ -58,29 +59,33 @@ The review holdout contains one bug/control pair. The four exercised journeys do
 
 The main line takes an idea to merged code. Skip the phases a job doesn't need. [The flow map](plugins/deepmodebot/skills/deepmodebot/references/flows.md) has the full table.
 
+Choosing or improving the machinery? The [software-factory GitHub landscape](plugins/deepmodebot/skills/deepmodebot/references/factory-landscape.md) maps 61 projects to dispatch, isolation, review, merge, and recovery patterns. It separates documented mechanisms from runtime proof and flags license and hosted-service limits.
+
 | Phase | Flow | Leaves behind |
 |---|---|---|
 | 0. Set up the repo once | Setup playbook | A tracker (GitHub issues, local files, or another tracker), mapped labels, `GLOSSARY.md`, `docs/adr/`, `CODING_STANDARDS.md`, an `AGENTS.md` section |
 | 1. Sharpen the idea | **grill**, with its With docs mode | A decision table, glossary terms, ADRs |
 | 2. Settle a fork by running it | Prototype playbook | A decision backed by an observation |
-| 3. Write it down | Spec playbook | `docs/specs/<slug>.md` and a spec issue |
-| 4. Cut it up | Tickets playbook | Tickets with their blockers |
-| 5. Build it | Phased build (one integration branch) or Work a queue (one PR per ticket), with **tdd** | Merged code |
+| 3. Write it down | Spec playbook (plus **sme-review** in complex domains) | `docs/specs/<slug>.md` and a spec issue |
+| 4. Cut it up | Tickets playbook | Tracer-bullet tickets grouped into incremental sprints |
+| 5. Build it | Phased build (sprint or build mode) or Work a queue (one PR per ticket), with **tdd** | Merged code |
 | 6. Review and land | **pr-review** (spec and standards lenses), **panel**, **pr-conversation** | A merged PR with evidence |
 
 Around the main line:
 
 - **Triage:** Sorts incoming issues and outside PRs into a category and a state, and posts a brief or the questions that block them.
 - **Wayfinder:** Charts an effort too big for one session and hands its decisions to a spec.
-- **Run a goal:** Drives one goal to a checkable end without you, in one session or as a multi-day program with many PRs and subagents.
+- **Run a goal:** Drives one goal to a checkable end without you, in one session or via `loop.py` with automatic model escalation, quota/rate-limit fallback, incremental sprint checkpoints (`checkpoint_every`), and JSON run telemetry.
 - **Work a queue:** Turns a backlog, a queue of PRs, or labeled issues (through the `factory` CLI) into merged PRs, each after a panel pass.
 - **domain-model:** Keeps `GLOSSARY.md` and ADRs current as names and decisions change.
 - **research:** Writes an answer that later sessions will cite into the repo.
 - **architecture-review:** Finds structural friction across the codebase and settles which refactors to make.
+- **tournament:** Runs a 12-agent bracket across architecture and research lenses with verified receipts and single-insight grafting. It proposes Champion and Runner-Up before code is written.
 - **security-audit:** Audits a PR's security before it merges, run by your own agent.
 - **retro:** Improves the repo's files, checks and docs after a session, so the next agent works faster.
 - **Handoff and Pause safely:** A portable doc for another session, harness or person, or a resume note for later in this repo.
 - **questionnaire:** Writes the questions for the one person who holds a fact nobody else has.
+- **sme-review:** Validates complex-domain customer specs and sprint deliverables with an SME review lens and pauses for a human SME questionnaire when domain rules cannot be proved from the repo.
 - **wizard:** A guided script for steps only a human can do: dashboards, credentials, irreversible clicks.
 - **teach and course:** Explains a change or subsystem, or runs a course on a topic over many sessions.
 - **pre-commit:** Runs the repo's own lint, typecheck and tests at commit time.
@@ -143,6 +148,14 @@ exclude_tmpdir_env_var = true
 exclude_slash_tmp = true
 ```
 
+### Google Antigravity
+
+```bash
+agy plugin install https://github.com/TimothyVang/deepmodebot
+```
+
+Or from a local clone: `agy plugin install ./plugins/deepmodebot`. Then run `/deep <your task>` in any repo. The plugin ships a native `.antigravity-plugin` manifest, a write-containment hook (`antigravity-guard.mjs`), and a compact (<24 KB) `SKILL.md` so Antigravity loads the entire skill without truncation.
+
 ### Manual
 
 Copy every folder in `plugins/deepmodebot/skills/` to `~/.omp/agent/skills/` (or `~/.claude/skills/`, or `~/.agents/skills/` for Codex), and the files in `plugins/deepmodebot/commands/` to your commands folder. Cursor and other harnesses that load `SKILL.md` skills take the same folders in their own skills folder. In Claude Code a manual install arms the guard only when you invoke the `deepmodebot` skill itself.
@@ -162,7 +175,7 @@ For one run only, pass `--hook <path to omp-contain.ts>` instead. To let the age
 
 ## Use it
 
-The examples use the bare `/deep`. With a plugin install, type `/deepmodebot:deep` in omp and Claude Code, or `$deepmodebot:deepmodebot` in Codex.
+The examples use the bare `/deep`. With a plugin install, type `/deepmodebot:deep` in omp and Claude Code, `/deep` in Google Antigravity, or `$deepmodebot:deepmodebot` in Codex.
 
 ```text
 /deep the coupon total is wrong. fix it
@@ -179,7 +192,7 @@ The examples use the bare `/deep`. With a plugin install, type `/deepmodebot:dee
 - Small jobs take the fast path. Big ones get the full playbook, subagents, and a decision log.
 - It decides and acts without asking: commits, pushes, PRs, board cards, and merges after a panel pass. It asks once at the end only for hard stops (deploys, deletions, shared-history rewrites, outside messages, money, secrets), and lists every decision it made so you can reverse any.
 - It reuses the repo's verification tools or runs the real user path directly. A reusable `verify-<app>` skill is useful for repeated work, not a prerequisite for every local change.
-- The direct commands still work: `/deepmodebot:review-pr`, `/deepmodebot:land-pr`, `/deepmodebot:pr-thread`, `/deepmodebot:contribute`, `/deepmodebot:project-brief`.
+- The direct commands still work: `/deepmodebot:tournament`, `/deepmodebot:review-pr`, `/deepmodebot:land-pr`, `/deepmodebot:pr-thread`, `/deepmodebot:contribute`, `/deepmodebot:project-brief`.
 
 ## GitHub App bots
 
@@ -279,7 +292,7 @@ Full rules, including how to do it by hand: [CONTRIBUTING.md](CONTRIBUTING.md). 
 
 **Does it need an API key?** No. Supported agent CLIs use existing subscription logins, and calls count against their usage. This is not offline inference: prompts and source context can reach the configured model provider.
 
-**Which agents and harnesses does it work with?** Owner-controlled bot roles use ACP agents supported by acpx. Outside-contributor reviews currently require omp. The portable skill instructions target omp, Claude Code, Codex, Cursor and other skill-loading harnesses; that is not a claim that every combination has been tested.
+**Which agents and harnesses does it work with?** Owner-controlled bot roles use ACP agents supported by acpx. Outside-contributor reviews currently require omp. The portable skill instructions target omp, Claude Code, Codex, Google Antigravity, Cursor and other skill-loading harnesses; that is not a claim that every combination has been tested.
 
 **Will it merge other people's PRs?** No. Only your own PRs merge: your account opened them from your repo, not a fork, and their commits pass the ownership checks in code. Everyone else's PRs get review comments only.
 

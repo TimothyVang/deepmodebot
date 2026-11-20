@@ -18,7 +18,7 @@ To pick up a task from the board, claim it first (sections 2 to 4 below).
 
 deepmodebot is an agent plugin that restates the goal, plans, proves changes on the real app, and reports with evidence.
 
-Install the plugin in omp, Claude Code, or Codex with the commands in the Install section of [README.md](README.md). Each is two commands: add the `TimothyVang/deepmodebot` marketplace, then install the `deepmodebot` plugin from it.
+Install the plugin in omp, Claude Code, Codex, or Google Antigravity with the commands in the Install section of [README.md](README.md). In omp, Claude Code, and Codex, add the `TimothyVang/deepmodebot` marketplace and install `deepmodebot`; in Antigravity, run `agy plugin install https://github.com/TimothyVang/deepmodebot` (or `agy plugin install ./plugins/deepmodebot` from a clone).
 
 You also need the GitHub CLI, signed in (`gh auth status`), and Python 3.10+.
 
@@ -78,7 +78,7 @@ A skill or playbook change is proven by running an agent with it (see "Testing a
 
 Passing tests alone are not proof. Show the behavior.
 
-For the evaluation CLIs, use [.omp/skills/verify-deepmodebot/SKILL.md](.omp/skills/verify-deepmodebot/SKILL.md) and its feature map. Run its doctor before capturing real agent journeys. Preserve failed attempts and distinguish helper tests from actual model execution.
+For the evaluation CLIs, use [.omp/skills/verify-deepmodebot/SKILL.md](.omp/skills/verify-deepmodebot/SKILL.md) (mirrored at [.agents/skills/verify-deepmodebot/SKILL.md](.agents/skills/verify-deepmodebot/SKILL.md) for Antigravity, Codex, and other `.agents/` harnesses) and its feature map. Run its doctor before capturing real agent journeys. Preserve failed attempts and distinguish helper tests from actual model execution.
 
 ## 6. Open the PR
 
@@ -117,7 +117,7 @@ Everything above works by hand: post the claim comment, run the overlap check, f
 - No line longer than 760 bytes (omp's `read` cuts long lines). In deepmodebot's `SKILL.md`, playbooks and techniques the limit is 600: one instruction per line.
 - Every playbook and technique has a `Done when` completion criterion.
 - The reference skills (`agent-harnesses`, `secrets-and-auth`, `software-architecture`, `cloud-devsecops`, `domain-rules`, `frontend-ui`) carry `metadata.as-of` in their frontmatter: the date their facts were checked. The check notes any over 120 days old; recheck the facts and restamp.
-- Marketplace and plugin manifests, and `plugins/*/hooks/hooks.json`, are valid JSON and point at real folders.
+- Marketplace and plugin manifests (including `.antigravity-plugin/plugin.json`), `plugins/*/hooks/hooks.json`, `plugins/*/hooks.json`, and `plugins/*/mcp_config.json` are valid JSON and point at real folders.
 - No upstream project or author names outside `LICENSE*`, `NOTICE*`, the trending catalog and the attributed `evals/workflows/` comparison inventory. Product-facing copy stays under this project's brand.
 - The README's playbook, principle, and technique counts match the folders, and `docs/llms-full.txt` matches the files it embeds (`python scripts/check.py --fix` rewrites it).
 - In deepmodebot's `SKILL.md`, the rules above `## Routes` fit in 20,000 bytes (about 5,000 tokens), which is what Claude Code keeps of a skill after it compacts a long session. Put lookup tables below that heading and long detail in `references/`.
@@ -141,6 +141,7 @@ A wording change can change what agents do. Before a PR that changes a playbook 
 omp -p --plugin-dir plugins/deepmodebot "/deepmodebot:deep <task that exercises your change>"
 claude -p "/deepmodebot:deep <task>" --plugin-dir plugins/deepmodebot
 codex exec "\$deepmodebot:deepmodebot <task>"   # after `codex plugin marketplace add <this checkout>` and `codex plugin add deepmodebot@deepmodebot`
+agy -p "/deep <task>"                           # after `agy plugin install ./plugins/deepmodebot`
 ```
 
 Report what the agent did before and after in the PR. For bigger changes, follow the Eval playbook (`plugins/deepmodebot/skills/deepmodebot/references/playbooks/eval.md`).

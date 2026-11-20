@@ -313,7 +313,7 @@ def main() -> int:
     model = opts.model or omp_default_model()
     credentials = omp_oauth_credentials(model)
     token = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True,
-                           env=scrubbed_env(github=True)).stdout.strip()
+                           env=scrubbed_env(github=True), creationflags=NO_WINDOW).stdout.strip()
     if not token:
         sys.exit("pr_agent_local: `gh auth token` returned nothing; run `gh auth login`")
 

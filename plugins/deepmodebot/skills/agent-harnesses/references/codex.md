@@ -2,7 +2,7 @@
 
 Read when deepmodebot is running inside OpenAI Codex (CLI `codex`, the IDE extension, Codex in the ChatGPT desktop app, or `codex exec` in CI), or when you must translate deepmodebot's omp instructions (task subagents, todo, ask, `skill://`, `.omp/`, `omp -p`) into Codex equivalents.
 
-Checked 2026-11-11 against codex-cli 0.163.0 (local `--help`), learn.chatgpt.com/docs (Codex docs moved there from developers.openai.com/codex), and github.com/openai/codex. Upstream is already at 0.167.0 per the [changelog](https://learn.chatgpt.com/docs/changelog); re-check `codex --help` if flags differ.
+Checked 2026-11-11 against codex-cli 0.163.0 (local `--help` reconciled against codex-cli 0.167.2 on 2026-11-17), learn.chatgpt.com/docs (Codex docs moved there from developers.openai.com/codex), and github.com/openai/codex. Note in 0.167.2: `--dangerously-bypass-hook-trust` skips persisted hook trust (do not infer containment) and `--add-dir` widens writable roots. Re-check `codex --help` if flags differ.
 
 ## 1. Install, update, auth, models
 

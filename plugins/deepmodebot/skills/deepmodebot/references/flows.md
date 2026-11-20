@@ -8,9 +8,9 @@ Use when: the user asks which flow fits ("what's the process for X", "how should
 |---|---|---|
 | 1. Sharpen the idea | **grill** technique (`references/techniques/grill.md`), With docs mode in a repo with a glossary | Decision table, `GLOSSARY.md` terms, ADRs |
 | 2. Settle a fork by running it | Prototype playbook (`references/playbooks/prototype.md`) | A decision backed by an observation |
-| 3. Write it down | Spec playbook (`references/playbooks/spec.md`) | `docs/specs/<slug>.md` and a `spec` issue |
-| 4. Cut it up | Tickets playbook (`references/playbooks/tickets.md`) | Tracer-bullet tickets with blockers |
-| 5. Build it | Phased build in build mode (`references/playbooks/phased-build.md`) for one integration branch, or Work a queue with the board source (`references/playbooks/work-a-queue.md`) for one PR per ticket | Merged code |
+| 3. Write it down | Spec playbook (`references/playbooks/spec.md`), plus **sme-review** (`references/techniques/sme-review.md`) for complex domains | `docs/specs/<slug>.md`, SME-cleared assumptions, and a `spec` issue |
+| 4. Cut it up | Tickets playbook (`references/playbooks/tickets.md`) | Tracer-bullet tickets grouped into incremental sprints (Sprint 1 = minimum feedback slice) |
+| 5. Build it | Phased build in sprint mode (one sprint PR + feedback gate at a time) or build mode (`references/playbooks/phased-build.md`), or Work a queue (`references/playbooks/work-a-queue.md`) | Merged code per sprint or ticket |
 | 6. Review and land | **pr-review** (`references/techniques/pr-review.md`), Opening a PR, **panel**, **pr-conversation** | A merged PR with evidence |
 
 Skip phases the work doesn't need. One PR of settled work starts at phase 5 with the Feature or Bug fix playbook. A spec that fits one PR skips phase 4.
@@ -19,6 +19,7 @@ Skip phases the work doesn't need. One PR of settled work starts at phase 5 with
 
 | Situation | Flow |
 |---|---|
+| Open architecture or research space, blind spots, or a high-vagueness ambition | **tournament** (`references/techniques/tournament.md`), proposing Champion + Runner-Up before phase 1 or 3 |
 | First use of the planning flows in a repo | Setup (`references/playbooks/setup.md`) |
 | Issues or outside PRs pile up | Triage (`references/playbooks/triage.md`), which feeds phase 5 with `triage:agent-ready` items |
 | A defect | Bug fix (`references/playbooks/bug-fix.md`) |
@@ -35,11 +36,13 @@ Skip phases the work doesn't need. One PR of settled work starts at phase 5 with
 
 ## Between phases
 
-A phase boundary is where the context window gets managed. Mid-phase, keep going or split the rest into subagents. At the boundary, take the first that fits:
-1. **Keep going** in this session when the next phase needs this phase's reasoning first hand (a grill straight into its spec) and there is room left.
-2. **Start fresh** when nothing here matters to what comes next.
-3. **Write it down for later.** Same repo, later session → a resume note with Pause safely (`references/playbooks/pause-safely.md`). Another harness, folder, or person → a portable doc with Handoff (`references/playbooks/handoff.md`).
-4. **Hand it to a subagent** when the next phase runs without steering (a review, a research file).
-5. **Compact** otherwise, telling the summary which phase comes next.
+A phase boundary is where context, model tier, and SME feedback get managed. Mid-phase, keep going or split the rest into subagents. At the boundary, take the first that fits:
+1. **Keep going** in this session when the next phase needs this phase's reasoning first hand (a grill straight into its spec) and room remains.
+2. **Start fresh** (`/clear` or a new session) when prior turns no longer matter; clearing between unrelated tasks cuts per-turn input tokens and preserves rate-limit headroom.
+3. **Switch model tier at clean boundaries** (`skill://agent-harnesses/references/delegation-efficiency.md`): plan or review on flagship `L`, then step down to `M`/`S` for oracle-backed execution or sprint tickets rather than flipping mid-thread and breaking prompt caches.
+4. **Pause for SME feedback** after a complex-domain spec or Sprint 1 demo when **sme-review** (`references/techniques/sme-review.md`) flags unverified P0/P1 domain rules; send a **questionnaire** (`references/techniques/questionnaire.md`) before starting Sprint 2+.
+5. **Write it down for later.** Same repo, later session → Pause safely (`references/playbooks/pause-safely.md`). Another harness, folder, or person → Handoff (`references/playbooks/handoff.md`).
+6. **Hand it to a subagent** when the next phase runs without steering (a review, a research file), pinned to the smallest model tier that fits.
+7. **Compact** otherwise, telling the summary which phase comes next.
 
 Each artifact above (spec, tickets, ADRs, research files) exists so a fresh session can pick up from the file instead of from memory.
