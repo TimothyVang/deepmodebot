@@ -1,15 +1,37 @@
 """Behavioral tests for sealed review source context; repositories live under project scratch."""
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import bot
 import review_context
 
 ROOT = next(p for p in Path(__file__).resolve().parents if (p / ".git").exists())
+
+
+@unittest.skipUnless(os.name == "nt", "Windows console allocation")
+class HiddenGitProcessTest(unittest.TestCase):
+    def test_captured_git_child_has_no_console(self):
+        # Replace only the executable, not process creation: the child reports its real OS console.
+        python = Path(sys.executable)
+        if python.name.lower() == "pythonw.exe":
+            python = python.with_name("python.exe")
+        probe = ("import ctypes; "
+                 "ctypes.windll.kernel32.GetConsoleWindow.restype = ctypes.c_void_p; "
+                 "print(ctypes.windll.kernel32.GetConsoleWindow() or 0)")
+        popen = subprocess.Popen
+
+        def launch_probe(command, **kwargs):
+            self.assertEqual(command[0], "git")
+            return popen([str(python), "-c", probe], **kwargs)
+
+        with patch.object(review_context.subprocess, "Popen", side_effect=launch_probe):
+            self.assertEqual(review_context._git(ROOT, "rev-parse", "--show-toplevel").strip(), b"0")
 
 
 class SourceContextTest(unittest.TestCase):
