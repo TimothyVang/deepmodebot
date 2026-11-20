@@ -11,10 +11,11 @@ Checked 2026-11-11 against: MCP spec `2026-07-28` (latest), ACP v1 stable + v2 D
 | MCP (Model Context Protocol) | agent (client) to tools/data (server) | JSON-RPC 2.0 over stdio or Streamable HTTP | `2026-07-28` ([spec](https://modelcontextprotocol.io/specification/2026-07-28)) | Agentic AI Foundation (AAIF), Linux Foundation ([announcement](https://blog.modelcontextprotocol.io/posts/2025-12-09-mcp-joins-agentic-ai-foundation)) |
 | ACP (Agent Client Protocol) | editor/client to coding agent | JSON-RPC 2.0, agent as stdio subprocess | v1 stable; v2 Draft since 2026-07-20 ([announcement](https://agentclientprotocol.com/announcements/acp-v2-draft.md)) | Zed + JetBrains, interim ([governance](https://agentclientprotocol.com/community/governance.md)) |
 | A2A (Agent2Agent) | agent to independent remote agent | JSON-RPC, gRPC, or HTTP+JSON/REST; SSE streaming | `1.0.0` ([spec](https://a2a-protocol.org/latest/specification)) | Linux Foundation; joined AAIF 2026-08-27 ([site banner](https://a2a-protocol.org/latest/)) |
+| AG-UI (Agent-User Interaction) | agent backend to user-facing frontend app | HTTP SSE / binary event stream | `1.0` ([spec](https://docs.ag-ui.com/spec/1.0), [repo](https://github.com/ag-ui-protocol/ag-ui), MIT) | AG-UI Protocol |
 | WebMCP | web page to browser/in-page agent | in-browser JS API `document.modelContext` | Draft CG Report, not standards track ([spec](https://webmachinelearning.github.io/webmcp)) | W3C Web Machine Learning CG |
 | Agent Communication Protocol (IBM/BeeAI, also "ACP") | agent to agent messaging | REST | archived Aug 2025, merged into A2A ([ACP docs](https://agentclientprotocol.com/get-started/related-protocols.md)) | none; do not adopt |
 
-"ACP" in an agent-to-agent, BeeAI, or IBM context means the dead Agent Communication Protocol, not Agent Client Protocol ([source](https://agentclientprotocol.com/get-started/related-protocols.md)).
+**Protocol boundaries:** MCP connects an agent to tools/data; A2A connects independent agents to each other; ACP connects an editor/client to a coding agent; AG-UI streams agent state/events to a user-facing application UI. AG-UI does **not** supply MCP tool access or A2A agent-to-agent delegation. "ACP" in an agent-to-agent, BeeAI, or IBM context means the dead Agent Communication Protocol, not Agent Client Protocol ([source](https://agentclientprotocol.com/get-started/related-protocols.md)).
 
 ## MCP
 
