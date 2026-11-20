@@ -127,6 +127,39 @@ RULES: tuple[Rule, ...] = (
         message="FastAPI APIRoute Pydantic/DI wrapper adds ~40% CPU overhead on hot routes; consider Starlette Route + orjson.",
         ref="high-scale-server-optimization.md#88",
     ),
+    Rule(
+        rule_id="PERF-CPP-001",
+        severity="medium",
+        exts=(".cpp", ".cc", ".cxx", ".hpp", ".h"),
+        pattern=re.compile(r"\bstd::unordered_map\s*<"),
+        message="std::unordered_map allocates a heap node per entry and chases pointers; prefer flat hash maps or sorted vectors on hot paths.",
+        ref="data-structures-and-cache-optimization.md#11",
+    ),
+    Rule(
+        rule_id="PERF-CPP-002",
+        severity="medium",
+        exts=(".cpp", ".cc", ".cxx"),
+        pattern=re.compile(r"\bstd::endl\b"),
+        message="std::endl forces an unbuffered stream flush every line; use '\\n' in hot logging/output paths.",
+        ref="high-scale-server-optimization.md#135",
+    ),
+    Rule(
+        rule_id="PERF-GO-002",
+        severity="medium",
+        exts=(".go",),
+        pattern=re.compile(r"\bdb\.(?:Query|Exec|QueryRow)Context\("),
+        message="database/sql *Context() spawns a watcher goroutine per query (4-30% CPU); evaluate pgx/batching on hot paths.",
+        ref="high-scale-server-optimization.md#85",
+    ),
+    Rule(
+        rule_id="PERF-NET-002",
+        severity="medium",
+        exts=(".cs", ".fs"),
+        pattern=re.compile(r"Host=[^;]+;.*Database=", re.IGNORECASE),
+        message="Npgsql connection string without NoResetOnClose=true incurs extra RESET ALL round trips per checkout.",
+        ref="high-scale-server-optimization.md#45",
+        anti_pattern=re.compile(r"NoResetOnClose\s*=\s*true", re.IGNORECASE),
+    ),
 )
 
 

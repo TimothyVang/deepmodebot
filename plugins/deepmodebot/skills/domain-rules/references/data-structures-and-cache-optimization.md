@@ -38,3 +38,11 @@ Distilled from `arjaythedev`'s `$12 Server` (1 vCPU / 2 GB RAM, 244 entries), `M
 23. **Traverse B-tree cursors directly when SQLVM/ORM overhead dominates read-heavy hot paths.** Keeping positioned cursors across read passes and decoding local varint/big-endian payloads off pinned page-cache pointers avoids bytecode VM and `Mem` allocations.
 24. **Replace `pcache1` `xTruncate` O(N) scans via `SQLITE_CONFIG_PCACHE2`.** Track `max_key` / park split-swap pages at key `0` so B-tree splits do not trigger full hash-table scans on every commit.
 25. **Use LIFO-with-aging on overloaded request queues.** Serve newest requests first to stay inside TCP's 40 ms delayed-ACK window, while reserving a slice (e.g., 50% at 8 s, 100% at 16 s) for aged items to prevent starvation.
+
+## 5. Game Engine, Sim & Real-Time Frame-Budget Layouts
+
+26. **Use Structure-of-Arrays (SoA) over Array-of-Structures (AoS) for hot tick loops.** Storing positions, velocities, and flags in contiguous per-field arrays lets ECS/sim loops stream sequential cache lines and SIMD-vectorize without loading cold fields.
+27. **Pre-reserve contiguous arrays and replace `std::unordered_map` on hot paths.** Node-based maps allocate per entry and chase pointers; use flat open-addressed hash maps, dense ID-indexed arrays, or `Reserve()`d vectors.
+28. **Use frame-scratch bump allocators reset every tick.** Transient per-frame/per-step scratch data should advance a pointer in a pre-allocated arena and reset in O(1) at frame end instead of calling `malloc`/`new`.
+29. **Never flush or heap-allocate inside simulation/render tick loops.** Avoid `std::endl`, string formatting, or dynamic container growth inside 60-120 Hz tick paths; emit diagnostics to lock-free SPSC ring buffers.
+30. **Separate sim-thread and render-thread state via double-buffered snapshots or SPSC queues.** Eliminates mutex contention on frame boundaries and keeps frame times deterministic.

@@ -13,15 +13,26 @@ class PerfAuditTests(unittest.TestCase):
             (root / "db.py").write_text("pool = asyncpg.create_pool(statement_cache_size=0)\n", encoding="utf-8")
             (root / "gz.cs").write_text("using var gz = new GZipStream(ms, CompressionLevel.Fastest);\n", encoding="utf-8")
             (root / "sqlite.sql").write_text("PRAGMA mmap_size = 268435456;\nLIMIT $1;\n", encoding="utf-8")
+            (root / "sim.cpp").write_text("std::unordered_map<int, int> m;\nstd::cout << 1 << std::endl;\n", encoding="utf-8")
+            (root / "pg.cs").write_text('var cs = "Host=localhost;Database=app;";\n', encoding="utf-8")
 
             findings = []
-            for name in ("srv.go", "db.py", "gz.cs", "sqlite.sql"):
+            for name in ("srv.go", "db.py", "gz.cs", "sqlite.sql", "sim.cpp", "pg.cs"):
                 findings.extend(scan_file(root / name, root))
 
             ids = {f.rule_id for f in findings}
             self.assertEqual(
                 ids,
-                {"PERF-GO-001", "PERF-PY-001", "PERF-NET-001", "PERF-SQLITE-001", "PERF-SQL-001"},
+                {
+                    "PERF-GO-001",
+                    "PERF-PY-001",
+                    "PERF-NET-001",
+                    "PERF-SQLITE-001",
+                    "PERF-SQL-001",
+                    "PERF-CPP-001",
+                    "PERF-CPP-002",
+                    "PERF-NET-002",
+                },
             )
             self.assertEqual(main(["--path", str(root), "--fail-on-high"]), 1)
 

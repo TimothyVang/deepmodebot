@@ -3,7 +3,7 @@
 Use when: something is slow or heavy and needs a one-off fix tied to a measurement. For sustained improvement against a metric use `references/playbooks/hillclimb.md`. You own the measurement story: plan, review, verify the numbers. Measure; don't read source instead of measuring.
 
 ## Steps
-1. Capture a baseline trace on the matching surface via the repo's `verify-<app>` skill (in `.omp/skills/`, `.claude/skills/`, or `.agents/skills/`); if none, use omp `eval` `browser`, Playwright/CDP, or bash. Vet it, and every later number, with the **benchmark-checklist** technique (`references/techniques/benchmark-checklist.md`).
+1. Capture a baseline trace on the matching surface via the repo's `verify-<app>` skill (in `.omp/skills/`, `.claude/skills/`, or `.agents/skills/`); if none, use `python -B "<this skill>/assets/perf-audit/bench_harness.py"` (`http` or `cmd`), omp `eval` `browser`, Playwright/CDP, or bash. Vet it, and every later number, with the **benchmark-checklist** technique (`references/techniques/benchmark-checklist.md`).
    Done when a saved baseline artifact passes every benchmark-checklist item.
 2. Ground hypotheses with the **how** technique (`references/techniques/how.md`). For server/DB/runtime or data-structure bottlenecks, run `python -B "<this skill>/assets/perf-audit/perf_audit.py"` and check `domain-rules/references/high-scale-server-optimization.md` and `domain-rules/references/data-structures-and-cache-optimization.md`. Try the performance mantras in order, cheapest first; stop at the first that meets the target:
    1. Don't do it (stop work whose result nothing uses).
