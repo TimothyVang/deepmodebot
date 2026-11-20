@@ -13,7 +13,7 @@ Done when the workload and limits are recorded before execution, observed effect
    Done when the limiter is named with a profile artifact and a source location.
 2. **Was it tuned?** Both sides as production runs them: release builds, prod flags/env, batching, pools, cache warmth, same versions and data. A setting-shaped limiter (commit per row, debug build, missing index) = untuned: tune and remeasure, or pick no winner. Narrowing the claim to "as shipped" doesn't fix this for adoption choices.
    Done when both sides' settings are listed and match production.
-3. **Did it break limits?** Arithmetic vs disk/network bandwidth and cores; time saved vs time the changed piece took (removing 10% caps speedup ≈11%). Past a limit = measured a cache, no-op, or bug.
+3. **Did it break limits?** Arithmetic vs disk/network bandwidth and cores; time saved vs time the changed piece took (removing 10% caps speedup ≈11%). Past a limit = measured a cache, no-op, or bug. For network APIs, verify `Accept-Encoding: gzip`, `RLIMIT_NOFILE`, idle-connection memory, and dial-time subtraction (see `domain-rules/references/high-scale-server-optimization.md`).
    Done when the arithmetic is written and the result sits inside every limit.
 4. **Did it error?** Count failures and non-success; check outputs are correct, not just present. Add an error count if missing. Done when the run prints an error count of zero and a correctness check passes.
 5. **Does it reproduce?** ≥5 runs per side, alternating A,B,A,B. Report median and range. Gap < spread = no measurable difference; close calls → rank-sum test or harness stats.
