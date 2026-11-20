@@ -18,10 +18,27 @@ function cell(text) {
   return String(text ?? "").replace(/\r?\n/g, " ").replace(/\|/g, "\\|").slice(0, 300);
 }
 
+function code(text) {
+  return cell(text).replace(/`/g, "'");
+}
+
+function parseBoolArg(raw) {
+  const lowered = String(raw ?? "").trim().toLowerCase();
+  if (lowered === "true" || lowered === "1" || lowered === "yes") return true;
+  if (lowered === "false" || lowered === "0" || lowered === "no") return false;
+  return null;
+}
+
+function severityRank(record) {
+  const raw = String(record && record.severity && record.severity.overall_severity || "").trim().toLowerCase();
+  // Fail closed on missing or unrecognized severity so malformed findings cannot slip past the gate.
+  return raw in RANK ? RANK[raw] : RANK.critical;
+}
+
 function where(record) {
   const steps = Array.isArray(record.trace) ? record.trace : [];
-  const sink = steps.find((s) => s.kind === "sink") || steps[steps.length - 1];
-  return sink ? `\`${sink.file}:${sink.line}\`` : "";
+  const sink = steps.find((s) => s && s.kind === "sink") || steps[steps.length - 1];
+  return sink ? `\`${code(sink.file)}:${code(sink.line)}\`` : "";
 }
 
 function main() {
@@ -35,7 +52,11 @@ function main() {
     console.error(`fail-at must be one of ${Object.keys(RANK).join(", ")}`);
     return 2;
   }
-  const blockOnUnvalidated = blockArg === "true";
+  const blockOnUnvalidated = parseBoolArg(blockArg);
+  if (blockOnUnvalidated === null) {
+    console.error("block-on-unvalidated must be true or false");
+    return 2;
+  }
   const lines = [MARKER, "## Security audit"];
   const findingsPath = path.join(outDir, "findings.json");
 
@@ -47,18 +68,32 @@ function main() {
   }
   const check = spawnSync(process.execPath, [path.join(skillDir, "validate-findings.cjs"), findingsPath], {
     encoding: "utf8",
+    timeout: 60_000,
     windowsHide: true,
   });
-  if (check.status !== 0) {
-    lines.push("", "**Blocked:** `findings.json` failed validation.", "", "```", (check.stdout + check.stderr).trim().slice(0, 3000), "```");
+  if (check.error || check.status !== 0) {
+    const out = `${check.stdout || ""}${check.stderr || ""}${check.error ? `\n${check.error.message}` : ""}`.trim().slice(0, 3000);
+    lines.push("", "**Blocked:** `findings.json` failed validation.", "", "```", out, "```");
     console.log(lines.join("\n"));
     return 1;
   }
 
-  const records = JSON.parse(fs.readFileSync(findingsPath, "utf8"));
+  let records;
+  try {
+    records = JSON.parse(fs.readFileSync(findingsPath, "utf8"));
+  } catch (err) {
+    lines.push("", `**Blocked:** could not parse \`findings.json\` (${cell(err && err.message)}).`);
+    console.log(lines.join("\n"));
+    return 1;
+  }
+  if (!Array.isArray(records)) {
+    lines.push("", "**Blocked:** `findings.json` must be a JSON array.");
+    console.log(lines.join("\n"));
+    return 1;
+  }
   const confirmed = records
-    .filter((r) => r.verdict === "confirmed")
-    .sort((a, b) => RANK[b.severity.overall_severity] - RANK[a.severity.overall_severity]);
+    .filter((r) => r && r.verdict === "confirmed")
+    .sort((a, b) => severityRank(b) - severityRank(a));
   const accepted = new Map();
   if (acceptedFile && fs.existsSync(acceptedFile)) {
     for (const raw of fs.readFileSync(acceptedFile, "utf8").split(/\r?\n/)) {
@@ -67,16 +102,17 @@ function main() {
     }
   }
   const open = (r) => !accepted.has(r.fingerprint);
-  const leads = records.filter((r) => r.verdict === "needs_validation");
-  const rejected = records.filter((r) => r.verdict === "rejected");
-  const blocking = confirmed.filter((r) => open(r) && RANK[r.severity.overall_severity] >= RANK[failAt]);
+  const leads = records.filter((r) => r && r.verdict === "needs_validation");
+  const rejected = records.filter((r) => r && r.verdict === "rejected");
+  const blocking = confirmed.filter((r) => open(r) && severityRank(r) >= RANK[failAt]);
   const blockingLeads = blockOnUnvalidated ? leads.filter(open) : [];
 
   let status = {};
   const metaPath = path.join(outDir, "run-metadata.json");
   if (fs.existsSync(metaPath)) {
     try {
-      status = JSON.parse(fs.readFileSync(metaPath, "utf8"));
+      const parsed = JSON.parse(fs.readFileSync(metaPath, "utf8"));
+      status = parsed && typeof parsed === "object" ? parsed : {};
     } catch {
       status = {};
     }
@@ -91,25 +127,26 @@ function main() {
     `${confirmed.length} confirmed (${blocking.length} at or above ${failAt}), ${leads.length} need validation, ${rejected.length} rejected.`,
   );
   if (incomplete) {
-    lines.push(`The audit did not finish: run status \`${status.run_status || "missing"}\`${status.incomplete_reason ? ` (${status.incomplete_reason})` : ""}. Rerun it, with a larger AUDIT_AGENTS or AUDIT_BUDGET_USD if it ran out.`);
+    lines.push(`The audit did not finish: run status \`${code(status.run_status || "missing")}\`${status.incomplete_reason ? ` (${cell(status.incomplete_reason)})` : ""}. Rerun it, with a larger AUDIT_AGENTS or AUDIT_BUDGET_USD if it ran out.`);
   }
   if (confirmed.length) {
     lines.push("", "| Severity | Finding | Where | Fix |", "|---|---|---|---|");
     for (const r of confirmed) {
-      lines.push(`| ${r.severity.overall_severity} | ${cell(r.title)} | ${where(r)} | ${cell(r.remediation && r.remediation.strategy)} |`);
+      const sev = code(r.severity && r.severity.overall_severity || "unknown");
+      lines.push(`| ${sev} | ${cell(r.title)} | ${where(r)} | ${cell(r.remediation && r.remediation.strategy)} |`);
     }
   }
   if (leads.length) {
     lines.push("", `Needs validation (no severity until someone confirms or rejects it)${blockOnUnvalidated ? "; each one blocks until it is fixed or accepted" : ""}:`, "");
     for (const r of leads) {
       const blocker = Array.isArray(r.blockers) && r.blockers.length ? ` Blocked on: ${cell(typeof r.blockers[0] === "string" ? r.blockers[0] : JSON.stringify(r.blockers[0]))}` : "";
-      lines.push(`- ${cell(r.title)} ${where(r)} (\`${r.fingerprint}\`).${blocker}`);
+      lines.push(`- ${cell(r.title)} ${where(r)} (\`${code(r.fingerprint)}\`).${blocker}`);
     }
   }
-  const acceptedHere = records.filter((r) => accepted.has(r.fingerprint));
+  const acceptedHere = records.filter((r) => r && accepted.has(r.fingerprint));
   if (acceptedHere.length) {
     lines.push("", "Accepted by a reviewer (not blocking):", "");
-    for (const r of acceptedHere) lines.push(`- ${cell(r.title)} (\`${r.fingerprint}\`): ${cell(accepted.get(r.fingerprint))}`);
+    for (const r of acceptedHere) lines.push(`- ${cell(r.title)} (\`${code(r.fingerprint)}\`): ${cell(accepted.get(r.fingerprint))}`);
   }
   console.log(lines.join("\n"));
   return blocked ? 1 : 0;

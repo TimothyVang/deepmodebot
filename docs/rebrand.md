@@ -84,7 +84,12 @@ Open `docs/index.html` in the built copy to see your site.
    gh repo create acme-co/acme-review --public --source . --push
    ```
 
-2. Your users install it the same way, under your names. In omp: `omp plugin marketplace add acme-co/acme-review` then `omp plugin install acme-review@acme-review`. In Claude Code: `/plugin marketplace add acme-co/acme-review` and `/plugin install acme-review@acme-review`. In Codex: `codex plugin marketplace add acme-co/acme-review` and `codex plugin add acme-review@acme-review`. Then `/acme-review:acme <task>` runs it.
+2. Your users install it the same way, under your names:
+   - omp: `omp plugin marketplace add acme-co/acme-review` then `omp plugin install acme-review@acme-review`.
+   - Claude Code: `/plugin marketplace add acme-co/acme-review` and `/plugin install acme-review@acme-review`.
+   - Codex: `codex plugin marketplace add acme-co/acme-review` and `codex plugin add acme-review@acme-review`.
+   - Google Antigravity: `git clone https://github.com/acme-co/acme-review` then `agy plugin install ./acme-review/plugins/acme-review` (or `./plugins/acme-review` from an existing clone).
+   Then `/acme-review:acme <task>` (or `/acme <task>` in Antigravity, `$acme-review:acme-review <task>` in Codex) runs it.
 3. Serve `docs/` at your `homepage`. On GitHub Pages: Settings, Pages, deploy from the `main` branch and the `/docs` folder. For a custom domain, add a `docs/CNAME` file.
 
 To pick up upstream changes later, pull them into your clone of the upstream repo, rebuild into the same `--out`, review the diff, and push.

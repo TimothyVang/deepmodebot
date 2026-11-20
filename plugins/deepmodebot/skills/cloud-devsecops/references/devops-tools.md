@@ -156,8 +156,8 @@ terraform destroy            # reverse-order teardown; avoids orphaned NAT gatew
 | [Floci](https://github.com/floci-io/floci) ([site](https://floci.io/aws/)) | Local AWS on `localhost:4566`, web dashboard; creator also mentions GCP/Azure | "Outstanding" | LocalStack |
 
 ```bash
-floci start
-eval $(floci env)   # fake credentials + endpoint for the AWS CLI/SDKs
+floci aws start
+eval "$(floci aws env -o text)"   # fake credentials + endpoint for the AWS CLI/SDKs
 ```
 
 ```hcl
@@ -201,7 +201,7 @@ Deploy the commit hash CI verified: linear rebased history makes that true.
 dotenvx encrypt                       # encrypts .env, writes .env.keys
 echo ".env.keys" >> .gitignore && echo ".env.keys" >> .dockerignore
 dotenvx run -- node server.js         # decrypts at runtime
-gitleaks detect                       # scan history; --no-git for plain dirs
+gitleaks git                          # scan git history; `gitleaks dir .` for plain dirs (`detect` is deprecated)
 trivy image myapp:1.2.3               # CVEs in image; trivy fs . for lockfiles
 ```
 
@@ -256,7 +256,7 @@ Rewritten history can still hold secrets in dangling objects; rotate leaked keys
 | Pi (pi.dev) | Minimal model-agnostic terminal agent | Creator's daily driver (runs without approvals by default: sandbox it) | OpenCode, Cursor |
 | OpenCode | OSS agent, plan/build modes | Highly praised | Cursor |
 | Goose | MCP-first Rust agent | Good, no model lock-in | Closed agents |
-| Gemini CLI | Gemini agent | Fine for frontend, weak for DevOps | — |
+| Gemini CLI | Gemini agent (note: Google transitioned AI Pro, Ultra, and free users to Antigravity CLI `agy` on 2026-06-18; see `skill://agent-harnesses/references/antigravity.md`) | Fine for frontend, weak for DevOps (creator's view) | — |
 | OpenSpec / Babysitter | Spec workflow / quality gates | Recommended against vibe coding | Unstructured loops |
 
 ## Default picks for agents

@@ -36,7 +36,7 @@ Rules:
 - One row per term per bounded context. If two contexts use the same word differently, it gets two rows [inference from Fowler above].
 - Casing is mechanical (PascalCase type, snake_case table, kebab or plural path, past-tense event) and the root word never changes. A rename changes every column in one PR, and an ADR records the reason [inference].
 - Enforce it cheaply: a CI `rg` check for banned synonyms listed in the glossary (for example `rg -n -w -i "client" src/billing`) [inference].
-- The repo's `domain-modeling` skill covers writing GLOSSARY.md and ADRs. This file covers how they feed schemas and agents.
+- deepmodebot's `domain-model` technique (`skill://deepmodebot/references/techniques/domain-model.md`) covers writing `GLOSSARY.md` and ADRs. This file covers how they feed schemas and agents.
 
 ### Tools
 
@@ -123,7 +123,8 @@ Map the pattern onto your own stack [inference]:
 ### Typed domain model = the agent's ontology
 
 - The tool contract is JSON Schema. Claude tools take an `input_schema`, and `strict: true` guarantees calls match it ([Claude tool use](https://docs.claude.com/en/docs/agents-and-tools/tool-use/overview)). Strict mode takes a subset: objects need `additionalProperties: false`, and `minimum`, `maximum`, `minLength`, `maxLength` are rejected with HTTP 400 ([Claude JSON Schema limitations](https://platform.claude.com/docs/en/build-with-claude/structured-outputs#json-schema-limitations)). OpenAI Structured Outputs follows a supplied JSON Schema but supports only **a subset** of the language ([OpenAI structured outputs](https://platform.openai.com/docs/guides/structured-outputs)).
-- Generate that schema from the domain type; never hand-write it. Use Pydantic `BaseModel.model_json_schema()` ([Pydantic JSON Schema](https://docs.pydantic.dev/latest/concepts/json_schema/); v2.14.3, 2026-11-05, MIT) or Zod 4 `z.toJSONSchema()` ([Zod JSON Schema](https://zod.dev/json-schema); v4.6.7, 2026-10-12, MIT). For a strict Claude tool, pass the model through the Python SDK's `transform_schema()` (anthropic 2.8.0, 2026-11-10, Apache-2.0), which strips unsupported constraints into field descriptions and adds `additionalProperties: false` ([SDK transformation](https://platform.claude.com/docs/en/build-with-claude/structured-outputs#how-sdk-transformation-works)). Apply the same rewrite to a Zod schema before setting `strict: true` [inference].
+- Generate that schema from the domain type; never hand-write it. Use Pydantic `BaseModel.model_json_schema()` ([Pydantic JSON Schema](https://docs.pydantic.dev/latest/concepts/json_schema/); v2.14.3, 2026-11-05, MIT) or Zod 4 `z.toJSONSchema()` ([Zod JSON Schema](https://zod.dev/json-schema); v4.6.7, 2026-10-12, MIT).
+- For a strict Claude tool, pass the model through the Python SDK's `transform_schema()` (anthropic 2.8.0, 2026-11-10, Apache-2.0), which moves unsupported constraints into field descriptions and adds `additionalProperties: false` ([SDK transformation](https://platform.claude.com/docs/en/build-with-claude/structured-outputs#how-sdk-transformation-works)). Apply the same rewrite to a Zod schema before setting `strict: true` [inference].
 - Put glossary definitions into field `description`s. They are the only ontology text the model sees at call time [inference].
 - Parse model output back through the same type at the boundary (parse, don't validate), as in deepmodebot's type-system-discipline principle. That parse is also where constraints the provider stripped from the wire schema get enforced.
 

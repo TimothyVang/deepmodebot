@@ -12,7 +12,7 @@ Full report: https://github.com/TimothyVang/cloud-devsecops/blob/main/research/g
 - Data Access audit logs are OFF by default except BigQuery ([audit logs](https://docs.cloud.google.com/logging/docs/audit)).
 - SCC Enterprise is deprecated (shutdown 2027-05-21); threat detection needs **Premium** ([tiers](https://docs.cloud.google.com/security-command-center/docs/service-tiers)).
 - New basic roles `roles/admin|writer|reader` exist next to `roles/owner|editor|viewer`; both are too broad for prod ([roles](https://docs.cloud.google.com/iam/docs/roles-overview)).
-- Google ships agent skills: `npx skills add google/skills --skill google-cloud-waf-security` ([google/skills](https://github.com/google/skills)).
+- Google ships agent skills: `npx skills add google/skills --skill google-cloud-waf-security` (installs into the project by default; never pass `-g` without user approval under deepmodebot's outside-root write hard stop) ([google/skills](https://github.com/google/skills)).
 
 ## Hierarchy and foundations
 
@@ -186,8 +186,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - uses: actions/checkout@v4            # pin to full SHA
-      - uses: google-github-actions/auth@v3  # pin to full SHA
+      - uses: actions/checkout@<commit-sha>            # pin to full 40-char SHA (v4)
+      - uses: google-github-actions/auth@<commit-sha>  # pin to full 40-char SHA (v3)
         with:
           project_id: prj-p-app
           workload_identity_provider: projects/123456789/locations/global/workloadIdentityPools/github/providers/my-org

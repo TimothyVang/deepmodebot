@@ -2,22 +2,23 @@
 
 <!-- Template from the deep-stack skill. Copy to the repo root as AGENTS.md,
      then replace "Checks in this repo" with this repo's commands.
-     `skill://deep-stack/` and `skill://deepmodebot/` paths are files inside
-     those globally installed skills. -->
+     `skill://deep-stack/` and `skill://deepmodebot/` resolve natively in omp;
+     in Claude Code, Codex, and Antigravity, read them from the installed plugin/skill dir. -->
 
 Use only the parts a task needs.
 
-- Reviews, explanations, and investigations that change nothing need no branch, commit, or PR. If one turns into edits, isolate the edits first.
-- Code changes get isolation, checks, and evidence of the changed behavior. Show the failure before fixing it.
-- Small doc edits get an isolated branch and a link or content check. They need no runtime evidence and no PR review.
+- Reviews, explanations, and investigations that change nothing need no branch, commit, or PR. If one turns into edits, follow the delivery rule below.
+- Local S/M edits (no remote or local-review ask) stay uncommitted in the starting working tree; use a worktree only for concurrent writers, dirty unrelated work, or PR publication (`skill://deepmodebot` `SKILL.md`).
+- Code changes get checks and evidence of the changed behavior. Show the failure before fixing it.
+- Small doc PRs still get a link/content check, at least self-review against `pr-review`, and the mandatory 3-reviewer, 2-of-3 panel before landing on default/shared branches (no runtime evidence needed when behavior is unchanged).
 - Publish a PR only when the task asks for one or for a finished repository change.
 
 ## Steps
 
-1. **Isolate.** Follow `skill://deep-stack/references/isolate.md` before editing. Branch from `origin/main`, or keep the worktree already assigned to this task. Never build on `main`.
+1. **Isolate.** Follow `skill://deep-stack/references/isolate.md` before PR/publication work or concurrent edits. Branch from `origin/main`, or keep the worktree already assigned to this task. Never build on `main`.
 2. **Build.** Follow the project's existing architecture. With no convention, use `skill://deep-stack/references/structure.md` for shared operations.
 3. **Prove.** Run the checks below. For changed runtime behavior follow `skill://deep-stack/references/prove.md`: capture before and after. For docs, check the changed links and runnable examples.
-4. **Ship.** Open the PR with evidence that fits the change: screenshot pairs for UI, output pairs for CLI. For code or executable workflow changes, run the pr-review technique (`skill://deepmodebot/references/techniques/pr-review.md`). Stop when no P0/P1 finding is open and each P2 is fixed or dismissed with a reason. Stop after 3 rounds or on oscillation, and report its `review:` line with the open findings. Post the review as a PR comment; never approve or request changes. Present the PR URL.
+4. **Ship.** Open the PR with evidence that fits the change: screenshot pairs for UI, output pairs for CLI. Run the pr-review technique (`skill://deepmodebot/references/techniques/pr-review.md`) on every PR landing on default/shared branches (doc-only PRs still run at least self-review). Stop when no P0/P1 finding is open and each P2 is fixed or dismissed with a reason. Stop after 3 rounds or on oscillation, and report its `review:` line with the open findings. Post the review as a PR comment; never approve or request changes. Present the PR URL.
 
 ## Writing for people
 

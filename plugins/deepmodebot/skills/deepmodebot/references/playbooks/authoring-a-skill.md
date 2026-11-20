@@ -17,12 +17,12 @@ Use when: creating or modifying a skill (`SKILL.md` plus references). You own th
    - One owner per trigger: search every installed skill's description and the router's rows for the new trigger words, and narrow the ones that lose.
    - Keep `SKILL.md`, `--help`, and error text in exact lockstep with shipped CLI flags—agents obey stale flags literally (`https://www.youtube.com/watch?v=rS36lYuvXQ8`, 06:33). Never ship remote-fetched runtime prompts, silent self-reinstall persistence, or unreviewed hooks (`https://www.youtube.com/watch?v=_7P580m4kPY`, 08:49).
    - Done when the edit is saved and the trigger search shows no other skill or router row claiming the new trigger words.
-4. Validate: `python <deepmodebot skill dir>/scripts/check_skill.py <skill dir>` prints `ok` (frontmatter has `name` and `description`; every referenced file exists; every `skill://` link names an installed skill).
+4. Validate: `python -B "<deepmodebot skill dir>/scripts/check_skill.py" <skill dir>` (`py -3 -B` on Windows) prints `ok`. It verifies frontmatter `name` and `description`, `references/` and `scripts/` links (`.md/.py/.sh/.json/.txt`), and `skill://<name>/<file>` paths for installed skills; missing external `skill://` targets print as notes (when `omp` is installed) and do not fail exit 0, and `assets/` paths must be spot-checked separately.
 5. Structural skill (routing, gates, scripts) → write test cases; subjective skill → skip. A routing change is tested with fresh read-only `scout` agents given only the request: one per new route, plus one near-miss that must not match. Each answers with the skill, playbook, and the table row that decided it.
    - For CLI-wrapping skills, audit real session transcripts for repeated `| head`/`| tail`/`| grep`/`| python` workarounds (each recurring pipe is a missing slice, `--limit`, compact, or batch flag) and turn real calls into replay tests measuring correct answers and turn count, not just token reduction (`https://www.youtube.com/watch?v=rS36lYuvXQ8`, 02:59–09:19).
    Done when every route scout names the intended row and the near-miss scout does not, or the skill is recorded as subjective.
 6. Repeatedly-hit workflow not captured anywhere → propose a new skill. Done when each such workflow is listed in the report as a proposal, or the report says there were none.
-7. Run **Opening a PR** (`references/playbooks/opening-a-pr.md`). Done when that playbook's own end state is reached.
+7. Deliver per SKILL.md's delivery-target rule: for local review or a repo with no remote, leave verified S/M edits uncommitted in the working tree and report proof; for publication, run **Opening a PR** (`references/playbooks/opening-a-pr.md`). Done when the requested delivery target holds.
 
 ## Gates
 

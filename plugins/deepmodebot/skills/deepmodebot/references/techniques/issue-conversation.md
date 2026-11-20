@@ -4,7 +4,7 @@
 
 The plan, its critique and the build happen as a conversation of bots on the issue, so anyone can read why the work took its shape. The bots, sessions, identity and signature lines are those of the **pr-conversation** technique (`references/techniques/pr-conversation.md`).
 An author agent and a reviewer agent (any ACP agents, omp by default, each with an optional model from `bot.json`) talk over ACP through `acpx`, and the coordinator mirrors each turn to the issue under the deepmodebot GitHub App, or the user's `gh` with no app.
-Every model call runs on the subscription each harness is logged in with, never an API key.
+Every model call runs on the subscription each harness is logged in with, never an API key (scrub `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `OPENAI_API_KEY`, `CODEX_API_KEY`, `GEMINI_API_KEY`, and cloud overrides in session runs; `bot.py` scrubs API-key env vars on child ACP calls).
 
 ## Triggers
 
@@ -41,8 +41,8 @@ Every model call runs on the subscription each harness is logged in with, never 
 
 ## Show the user
 
-As in **pr-conversation**'s Show the user: relay each new turn as 8-bit frames with `python <deepmodebot skill dir>/assets/pr-conversation/arena.py <issue-url> --frames --since <id>` inside a fenced `text` code block (its last line names the id for next time).
-Or relay it as text with `show_thread.py <issue-url> --since <id>`, and offer the live terminal display, `python <deepmodebot skill dir>/assets/pr-conversation/arena.py <issue-url>`.
+As in **pr-conversation**'s Show the user: relay each new turn as 8-bit frames with `python -B "<deepmodebot skill dir>/assets/pr-conversation/arena.py" <issue-url> --frames --since <id>` (`py -3 -B` on Windows) inside a fenced `text` code block (its last line names the id for next time).
+Or relay it as text with `python -B "<deepmodebot skill dir>/assets/pr-conversation/show_thread.py" <issue-url> --since <id>`, and offer the live terminal display, `python -B "<deepmodebot skill dir>/assets/pr-conversation/arena.py" <issue-url>`.
 All three read issue threads the same way as PR threads; `<deepmodebot skill dir>` is this skill's folder on disk, not the checkout.
 
 ## Output

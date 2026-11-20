@@ -26,7 +26,7 @@ An item with two state roles is a conflict: fix it to the one the evidence suppo
    - **Already built:** search the code for the behavior by its glossary name and by what it does. Found → close as `triage:wontfix` with where it lives. Report where you looked either way.
    - **Declined before:** read `docs/deepmodebot/declined/*.md`. A match by concept → link it; the earlier decision stands unless new evidence changes it.
    Done when each of the three checks has a result with where you looked.
-4. **Verify the claim.** Bug → reproduce it from the reporter's steps in a fresh `mktemp -d -p "$ROOT/.scratch/tmp"` folder or a detached worktree under `.worktrees/` (SKILL.md Contain the work), never in tracked files. PR → check its head out in a detached worktree under `.worktrees/` and run the tests and commands its claim rests on. Record the result: confirmed (with the code path), not reproduced (with what you ran), or missing detail.
+4. **Verify the claim.** Bug → reproduce it from the reporter's steps in a fresh folder under `<root>/.scratch/tmp/triage-<item>-<id>` (create with `mkdir -p` / `New-Item -ItemType Directory`; avoid GNU-only `mktemp -p`, which fails on macOS and Windows) or a detached worktree under `.worktrees/` (SKILL.md Contain the work), never in tracked files. PR → check its head out in a detached worktree under `.worktrees/` and run the tests and commands its claim rests on. Record the result: confirmed (with the code path), not reproduced (with what you ran), or missing detail.
    Done when the result is one of the three, with its evidence.
 5. **Shape it.** Underspecified but answerable from code, docs, or judgment → the **grill** technique (`references/techniques/grill.md`) in its With docs mode, so settled terms reach `GLOSSARY.md` and lasting decisions reach `docs/adr/`. Only a fact the reporter alone holds (their version, their data, their steps) makes it `triage:needs-info`.
    Done when every open question is answered in the item, or listed as a fact only the reporter holds.
@@ -36,8 +36,8 @@ An item with two state roles is a conflict: fix it to the one the evidence suppo
    - `triage:needs-info` → what is established, then numbered questions the reporter can answer in one reply. Never "please add more detail".
    - `triage:wontfix` → the reason, then close as not planned. An enhancement declined on its merits also gets `docs/deepmodebot/declined/<concept>.md` (format below), linked from the comment, or the new item is added to the existing file's request list. A bug that isn't one gets a short explanation of the actual behavior. Already built or duplicate gets no declined file.
    Done when the artifact is posted and the item has exactly one category role and one state role.
-7. **Commit the docs.** Declined records and glossary or ADR changes from this session ship as one `docs(triage): <summary>` change through Opening a PR (`references/playbooks/opening-a-pr.md`).
-   Done when the PR is open, or no docs changed this session.
+7. **Deliver the docs.** Declined records and glossary or ADR changes from this session follow SKILL.md's delivery-target rule: for local review or a repo with no remote, leave them uncommitted in the working tree; for publication, ship as one `docs(triage): <summary>` change through Opening a PR (`references/playbooks/opening-a-pr.md`).
+   Done when the requested delivery target holds (PR open or local edits ready), or no docs changed this session.
 8. **Report** a table: item, category, state, one-line reason, and what was verified.
 
 Every triage comment starts with these two lines:

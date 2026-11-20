@@ -18,13 +18,15 @@ To pick up a task from the board, claim it first (sections 2 to 4 below).
 
 deepmodebot is an agent plugin that restates the goal, plans, proves changes on the real app, and reports with evidence.
 
-Install the plugin in omp, Claude Code, or Codex with the commands in the Install section of [README.md](README.md). Each is two commands: add the `TimothyVang/deepmodebot` marketplace, then install the `deepmodebot` plugin from it.
+Install the plugin in omp, Claude Code, Codex, or Google Antigravity with the commands in the Install section of [README.md](README.md).
+omp, Claude Code, and Codex add the `TimothyVang/deepmodebot` marketplace then install `deepmodebot`.
+Antigravity installs from a clone (`git clone https://github.com/TimothyVang/deepmodebot`, then `agy plugin install ./deepmodebot/plugins/deepmodebot`, or `./plugins/deepmodebot` inside an existing clone).
 
-You also need the GitHub CLI, signed in (`gh auth status`), and Python 3.10+.
+You also need the GitHub CLI (`gh auth status`), Python 3.10+ for core scripts and `scripts/check.py` (Python 3.12+ for `.omp/skills/verify-deepmodebot/control.py doctor` and the evaluation CLIs), and Node.js 18+ for the Antigravity hook/MCP scripts (`plugins/deepmodebot/scripts/*.mjs`).
 
 ## 2. Run `/deepmodebot:contribute`
 
-In your clone of `TimothyVang/deepmodebot`:
+In your clone of `TimothyVang/deepmodebot` (or bare `/contribute` in Google Antigravity, `$deepmodebot:contribute` in Codex):
 
 ```text
 /deepmodebot:contribute
@@ -70,15 +72,19 @@ After claiming, pass `--exclude-issue <your issue>` so your own claim isn't repo
 Follow [docs/PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md) for setup, conventions, and constraints. Before calling a change done, run the checks and prove the change on the real thing:
 
 ```bash
-python scripts/check.py                    # must print OK
-python plugins/deepmodebot/skills/deepmodebot/assets/github-app/test_bot.py   # for bot changes
+python scripts/check.py                                                     # must print OK
+python plugins/deepmodebot/skills/deepmodebot/assets/github-app/test_bot.py # for bot changes
+agy plugin validate plugins/deepmodebot --json                              # 0 errors, 0 truncation warnings
 ```
+
+In `agy plugin validate plugins/deepmodebot --json`, 3 cross-harness layout warnings are expected (`commands`, `hooks/hooks.json`, and `.antigravity-plugin/skills` exist for Claude Code/omp/Codex compatibility and cause `--strict` to exit 1); any error or `>24 KB` truncation warning is a real failure.
 
 A skill or playbook change is proven by running an agent with it (see "Testing a behavior change" below). A bot change is proven by a test in `test_bot.py` plus a `bot.py once --repo <owner/repo> --dry-run` preview. A platform task (macOS, Linux, a harness) is proven by the commands and output from that platform.
 
 Passing tests alone are not proof. Show the behavior.
 
-For the evaluation CLIs, use [.omp/skills/verify-deepmodebot/SKILL.md](.omp/skills/verify-deepmodebot/SKILL.md) (mirrored at [.agents/skills/verify-deepmodebot/SKILL.md](.agents/skills/verify-deepmodebot/SKILL.md) for Antigravity, Codex, and other `.agents/` harnesses) and its feature map. Run its doctor before capturing real agent journeys. Preserve failed attempts and distinguish helper tests from actual model execution.
+For the evaluation CLIs (requires Python 3.12+), use [.omp/skills/verify-deepmodebot/SKILL.md](.omp/skills/verify-deepmodebot/SKILL.md) (mirrored at [.agents/skills/verify-deepmodebot/SKILL.md](.agents/skills/verify-deepmodebot/SKILL.md) for Antigravity, Codex, and other `.agents/` harnesses) and its feature map. Run its doctor before capturing real agent journeys. Preserve failed attempts and distinguish helper tests from actual model execution.
+Note: `verify-deepmodebot` currently covers the evaluation CLIs and pre-0.9.0 surfaces; 0.9.0 additions (`sme-review`, `workspace-map`, `loop.py` sprint/fallback gates, native Antigravity plugin) rely on `scripts/check.py` unit tests and `agy plugin validate` until dedicated live verification entries are added.
 
 ## 6. Open the PR
 
@@ -117,15 +123,15 @@ Everything above works by hand: post the claim comment, run the overlap check, f
 - No line longer than 760 bytes (omp's `read` cuts long lines). In deepmodebot's `SKILL.md`, playbooks and techniques the limit is 600: one instruction per line.
 - Every playbook and technique has a `Done when` completion criterion.
 - The reference skills (`agent-harnesses`, `secrets-and-auth`, `software-architecture`, `cloud-devsecops`, `domain-rules`, `frontend-ui`) carry `metadata.as-of` in their frontmatter: the date their facts were checked. The check notes any over 120 days old; recheck the facts and restamp.
-- Marketplace and plugin manifests, and `plugins/*/hooks/hooks.json`, are valid JSON and point at real folders.
+- Marketplace and plugin manifests (`.claude-plugin/plugin.json`, `.antigravity-plugin/plugin.json`, `hooks/hooks.json`, `hooks.json`, `mcp_config.json`, `agents/*/agent.md`) are valid JSON/frontmatter, carry matching versions, and point at real folders. When `agy` is on `PATH`, `scripts/check.py` also runs `agy plugin validate` and fails on errors or truncation warnings (allowing the 3 cross-harness layout warnings).
 - No upstream branding outside `LICENSE*`, `NOTICE*`, the trending catalog, the attributed `evals/workflows/` inventory and the exact cited-reference data exceptions in `scripts/check.py`. Those exceptions preserve real source identities, not product-facing branding.
-- The README's playbook, principle, and technique counts match the folders, and `docs/llms-full.txt` matches the files it embeds (`python scripts/check.py --fix` rewrites it).
-- In deepmodebot's `SKILL.md`, the rules above `## Routes` fit in 20,000 bytes (about 5,000 tokens), which is what Claude Code keeps of a skill after it compacts a long session. Put lookup tables below that heading and long detail in `references/`.
-- Every Python file parses, and every `test_*.py` folder passes (`assets/contain`, `assets/loop`, `assets/github-app`, `assets/git-guardrails`, `assets/pr-conversation`, `scripts`). The tests need `git` and `bash`; the omp hook cases also need `bun` and are skipped without it. The check takes about two minutes.
+- The README's playbook, principle, and technique counts match the folders, `references/catalog.md` covers every playbook, principle, and technique, `commands/*.md` stays in parity with `plugins/deepmodebot/scripts/antigravity-guard.mjs`, and `docs/llms-full.txt` matches the files it embeds (`python scripts/check.py --fix` rewrites it).
+- In deepmodebot's `SKILL.md`, the body stays under 24,000 bytes (zero Antigravity truncation) and the rules above `## Routes` fit in 20,000 bytes (what Claude Code keeps after compaction). Put full lookup tables in `references/catalog.md` and long detail in `references/`.
+- Every Python file parses, `plugins/deepmodebot/scripts/*.mjs` passes `node --check`, and all 13 `test_*.py` folders pass in parallel (`assets/agents-md`, `assets/contain`, `assets/e2e`, `assets/git-guardrails`, `assets/github-app`, `assets/loop`, `assets/pr-conversation`, `assets/tournament`, `assets/workspace-map`, `evals/outcome`, `evals/review`, `evals/workflows`, `scripts`). The tests need `git`, `bash`, and `node` (omp hook cases also need `bun` and skip without it). Expect a few minutes on Linux/macOS and ~15-20 minutes on Windows (the 200+ git-fixture tests in `assets/github-app` dominate).
 
 This repo's `.deepmodebot.json` names `python scripts/check.py` as its `check`, so the GitHub App bot runs it on every own PR before the panel, at the head it merges, and on trunk after the merge.
 
-`evals/` holds routing, delivery, review-quality and workflow-coverage suites (`evals/README.md`). Rerun the affected suite after a behavior change and commit a report with its limits. Preserve the underlying raw artifacts.
+`evals/` holds routing, delivery, review-quality and workflow-coverage suites (`evals/README.md`). Rerun the affected suite after a behavior change and commit a report with its limits. Preserve the underlying raw artifacts. Note: post-overhaul routing evals for the compacted `<24 KB` `SKILL.md` and 33-case `evals/routing/cases.json` have not yet been re-run; committed 2026-11-12/2026-11-15 reports predate the 0.9.0 layout.
 
 ## Keep it rebrandable
 
@@ -141,6 +147,7 @@ A wording change can change what agents do. Before a PR that changes a playbook 
 omp -p --plugin-dir plugins/deepmodebot "/deepmodebot:deep <task that exercises your change>"
 claude -p "/deepmodebot:deep <task>" --plugin-dir plugins/deepmodebot
 codex exec "\$deepmodebot:deepmodebot <task>"   # after `codex plugin marketplace add <this checkout>` and `codex plugin add deepmodebot@deepmodebot`
+agy -p "/deep <task>"                           # after `agy plugin install ./plugins/deepmodebot` and `agy plugin validate plugins/deepmodebot --json`
 ```
 
 Report what the agent did before and after in the PR. For bigger changes, follow the Eval playbook (`plugins/deepmodebot/skills/deepmodebot/references/playbooks/eval.md`).
@@ -149,4 +156,4 @@ Report what the agent did before and after in the PR. For bigger changes, follow
 
 - Short declarative sentences. One rule per line.
 - Prefer a lint, test, or script over more prose (see the `encode-lessons-in-structure` principle).
-- Git and forge actions follow the Autonomy section of `plugins/deepmodebot/skills/deepmodebot/SKILL.md`: agents commit, push, open PRs, and merge on a panel pass, and stop only at its hard stops. A skill that needs a new hard stop adds it there, not in its own text.
+- Git and forge actions follow the Autonomy section of `plugins/deepmodebot/skills/deepmodebot/SKILL.md`: local S/M edits stay uncommitted for review; when publication is in scope, agents commit, push, open PRs, and merge on a panel pass, stopping only at its hard stops. A skill that needs a new hard stop adds it there, not in its own text.

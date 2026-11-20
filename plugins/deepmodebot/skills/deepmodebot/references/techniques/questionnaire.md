@@ -1,6 +1,8 @@
 # questionnaire
 
-**Use when:** a decision depends on knowledge that only a specific other person holds (a client, a domain expert, another team, an ops owner), and neither the repo, the docs, nor the user can supply it. Also "write questions for X", "what should I ask the client", "make a questionnaire". Facts you can look up and calls you can make yourself never become questions (SKILL.md Autonomy). The output is a file the user sends or works through in a meeting; sending it is theirs (a message outside the repo).
+**Use when:** a decision depends on knowledge that only a specific other person holds (a client, a domain expert / SME, another team, an ops owner), and neither the repo, the docs, nor the user can supply it.
+Also "write questions for X", "what should I ask the client", "make a questionnaire", or when **sme-review** (`references/techniques/sme-review.md`) pauses a complex-domain spec or sprint boundary for human SME validation.
+Facts you can look up and calls you can make yourself never become questions (SKILL.md Autonomy). The output is a file the user sends or works through in a meeting; sending it is theirs (a message outside the repo).
 
 **Ask the user only about the send**, which they can always answer: who receives it and what must come back. The questions in the document aim at the gap between what that person knows and what the user needs.
 

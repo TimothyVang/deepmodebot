@@ -17,7 +17,7 @@
   - Drop a label when the value's format already says what it is.
   - Group headings are small, bold and soft.
   - An app page title is about the size of its key values, not a marketing `h1`.
-  - For boop-agent: the answer is primary, the tool name secondary, trace metadata tertiary.
+  - For agent consoles: the answer is primary, the tool name secondary, trace metadata tertiary.
 - **Action hierarchy:**
   - One solid primary per view; secondary is outline or soft fill; tertiary is a text link.
   - Repeated row actions get the soft treatment.
@@ -36,7 +36,7 @@
   - `text-box: trim-both cap alphabetic` for optically centered badges and buttons, as progressive enhancement.
   - If you use Inter: self-hosted 4.x, extra tracking below 14 px.
 - **Layout by container, not viewport** [youtube/_njUxg5UfR0]:
-  - `@media` only for page chrome. Components use `container-type: inline-size` + `@container`; boop-agent's panes are user-resized.
+  - `@media` only for page chrome. Components use `container-type: inline-size` + `@container`; agent-console and IDE panes are user-resized.
   - Content-aware variants use scoped `:has()` (never `:root:has()`).
   - Logical properties for RTL.
   - `cqw` + `clamp()` for in-between sizes.

@@ -2,7 +2,7 @@
 
 # {{PROJECT_NAME}}: project brief
 
-Start here if you're new to this repo, human or agent. It says what the project is, how it's built, how to run and prove a change, what not to do, and where help is wanted. `/deepmodebot:contribute` reads this file first.
+Start here if you're new to this repo, human or agent. It says what the project is, how it's built, how to run and prove a change, what not to do, and where help is wanted. `/deepmodebot:contribute` (`/contribute` in Antigravity, `$deepmodebot:contribute` in Codex) reads this file first.
 
 Last refreshed: {{YYYY-MM-DD}} against commit `{{SHORT_SHA}}`.
 
@@ -68,7 +68,7 @@ Test and check (run these before every PR; there is no CI):
 
 Prove a change on the real app:
 
-<!-- If the repo has .omp/skills/verify-<app>/ (or .claude/skills/verify-<app>/), name it and its main commands. Otherwise give the manual steps that show a feature working. -->
+<!-- If the repo has .omp/skills/verify-<app>/, .claude/skills/verify-<app>/, or .agents/skills/verify-<app>/, name it and its main commands. Otherwise give the manual steps that show a feature working. -->
 
 {{VERIFY_PATH}}
 
@@ -95,4 +95,4 @@ Prove a change on the real app:
 
 ## How to contribute
 
-Install the deepmodebot plugin and run `/deepmodebot:contribute` in a clone of this repo. Your agent reads this brief, picks an unclaimed task that doesn't overlap open PRs or other claims, claims it after you say yes, and builds and proves it before opening a PR. Full rules, including how to do it without an agent: [CONTRIBUTING.md](../CONTRIBUTING.md).
+Install the deepmodebot plugin and run `/deepmodebot:contribute` (`/contribute` in Antigravity, `$deepmodebot:contribute` in Codex) in a clone of this repo. Your agent reads this brief, picks an unclaimed task that doesn't overlap open PRs or other claims, claims it after you say yes, and builds and proves it before opening a PR. Full rules, including how to do it without an agent: [CONTRIBUTING.md](../CONTRIBUTING.md).

@@ -206,6 +206,34 @@
       "route": "writing-for-agents",
       "size": "M",
       "note": "Instruction-file generation; agent config keeps it out of size S."
+    },
+    {
+      "id": "sme-review-complex-spec",
+      "request": "Run an SME review on our healthcare billing customer spec in docs/specs/claims.md before we lock tickets or start a goal loop.",
+      "route": "sme-review",
+      "size": "none",
+      "note": "Complex-domain SME review and gate check before downstream execution."
+    },
+    {
+      "id": "sprint-phased-build",
+      "request": "Build spec #14 in incremental sprints: land Sprint 1 with live proof and pause at the SME checkpoint while leaving Sprint 2 queued.",
+      "route": "phased-build",
+      "size": "L",
+      "note": "Multi-sprint spec execution in phased-build Sprint mode."
+    },
+    {
+      "id": "goal-review-milestones",
+      "request": "Turn this vague goal into measurable milestones and run goal-review with three agents before launching the loop.",
+      "route": "goal-review",
+      "size": "none",
+      "note": "Goal milestone planning and independent three-reviewer review before loop launch."
+    },
+    {
+      "id": "workspace-map-orient",
+      "request": "Map this workspace, list Orca worktrees and open PRs, and find symbol evaluate_manifest fast.",
+      "route": "workspace-map",
+      "size": "none",
+      "note": "Read-only workspace, worktree, PR, and FTS5 symbol index lookup."
     }
   ]
 }

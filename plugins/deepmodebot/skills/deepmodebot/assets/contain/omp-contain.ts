@@ -47,7 +47,9 @@ function real(p: string): string {
 
 function inside(p: string, root: string): boolean {
 	const rel = path.relative(root, p);
-	return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+	if (rel === "") return true;
+	if (rel === ".." || rel.startsWith(".." + path.sep)) return false;
+	return !path.isAbsolute(rel);
 }
 
 // The worktree holding cwd first, then the main checkout.

@@ -248,9 +248,14 @@ class NativeBoundaryCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             review.strict_json('{"value":NaN}')
 
-    def test_unauthorized_model_and_invalid_caps_are_rejected_without_launch(self):
-        with self.assertRaises(ValueError):
-            review.NativeOMP("openai-codex/another-model", 1, 1)
+    def test_configurable_model_and_invalid_models_or_caps_are_validated_without_launch(self):
+        # Any well-formed provider/model-id selector is accepted; malformed ones are rejected.
+        for good_model in (review.MODEL, "anthropic/claude-sonnet-4-5", "openai-codex/gpt-5.4"):
+            runner = review.NativeOMP(good_model, 1, 1)
+            self.assertEqual(runner.model, good_model)
+        for bad_model in ("", "no-provider", "/missing-provider", "provider/", "--flag/model", "a b/c"):
+            with self.subTest(bad_model=bad_model), self.assertRaises(ValueError):
+                review.NativeOMP(bad_model, 1, 1)
         for minutes, cost in ((0, 1), (float("nan"), 1), (1, float("inf")), (31, 1), (1, 0)):
             with self.subTest(minutes=minutes, cost=cost), self.assertRaises(ValueError):
                 review.NativeOMP(review.MODEL, minutes, cost)

@@ -1,20 +1,27 @@
 {
   "name": "deepmodebot",
-  "version": "0.8.3",
-  "description": "Rigorous agent engineering mode for omp, Claude Code, and Codex: /deep routes any task to a playbook, applies named principles, keeps every write inside the project, proves behavior on the real app, and runs the deepmodebot PR review loop.",
+  "version": "0.9.0",
+  "description": "Rigorous agent engineering mode for omp, Claude Code, Codex, and Google Antigravity: /deep routes tasks to playbooks, enforces Full-Scope Completion, SME-in-the-loop incremental sprints, model/rate-limit resilience, root containment, real-app proof, and verifier-gated PR review.",
   "author": {
-    "name": "Timothy Vang"
+    "name": "Timothy Vang",
+    "url": "https://github.com/TimothyVang"
   },
+  "homepage": "https://timothyvang.github.io/deepmodebot/",
+  "repository": "https://github.com/TimothyVang/deepmodebot",
   "license": "MIT",
   "keywords": [
     "deepmodebot",
     "rigor",
     "agent-playbooks",
+    "full-scope-completion",
+    "sme-review",
+    "incremental-sprints",
     "verification",
     "code-review",
     "playbooks",
     "omp",
     "claude-code",
-    "codex"
+    "codex",
+    "antigravity"
   ]
 }

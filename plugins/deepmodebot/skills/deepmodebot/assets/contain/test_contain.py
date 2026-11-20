@@ -10,6 +10,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -132,6 +133,32 @@ class ClaudeGuard(GuardCase):
         finally:
             config.unlink()
 
+    def test_string_extra_write_roots_does_not_open_filesystem_root(self):
+        config = self.proj / ".deepmodebot.json"
+        for bad in ("/tmp/out", r"C:\out", str(self.outside)):
+            config.write_text(json.dumps({"extraWriteRoots": bad}), encoding="utf-8")
+            try:
+                self.assertEqual(self.run_guard("Write", self.outside / "escaped.txt"), "deny")
+            finally:
+                config.unlink()
+
+    def test_non_dict_stdin_and_subdirectory_in_marks_do_not_crash(self):
+        for raw in ("null", "[]", "123", '"hello"'):
+            proc = subprocess.run([sys.executable, str(GUARD)], input=raw, capture_output=True, text=True)
+            self.assertEqual((proc.returncode, proc.stdout), (0, ""))
+        data = self.tmp / "plugin-data-subdir"
+        marks = data / "active-sessions"
+        (marks / "unexpected-dir").mkdir(parents=True)
+        old_ts = time.time() - 31 * 24 * 3600
+        os.utime(marks / "unexpected-dir", (old_ts, old_ts))
+        proc = subprocess.run(
+            [sys.executable, str(GUARD), "activate", str(data)],
+            input=json.dumps({"prompt": "/deepmodebot:deep x", "session_id": "s-dir"}),
+            capture_output=True, text=True,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertTrue((marks / "s-dir").is_file())
+
     def test_claude_plan_files_pass_but_settings_do_not(self):
         self.assertEqual(self.run_guard("Write", self.claude_dir / "plans" / "p.md"), "allow")
         self.assertEqual(self.run_guard("Write", self.claude_dir / "settings.json"), "deny")
@@ -240,6 +267,9 @@ class OmpHook(GuardCase):
             (("ast_edit", {"path": str(out / "x.ts")}, proj), "deny"),
             (("write", {"path": str(self.tmp / "proj-evil" / "x")}, proj), "deny"),
             (("write", {"path": "../x.txt"}, proj), "deny"),
+            (("write", {"path": ".."}, proj), "deny"),
+            (("write", {"path": "..env"}, proj), "allow"),
+            (("write", {"path": "...nextauth.ts"}, proj), "allow"),
             (("edit", {"path": "a.txt", "paths": ["a.txt", str(out / "x")]}, proj), "deny"),
             (("write", {"path": "local://notes.md"}, proj), "allow"),
             (("write", {"path": "skill://deepmodebot/SKILL.md"}, proj), "deny"),

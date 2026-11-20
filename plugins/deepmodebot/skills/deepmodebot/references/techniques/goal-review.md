@@ -10,10 +10,10 @@ Use when an autoresearch or autonomous-loop request needs measurable goals befor
 4. Read `receipt.json`, including minority reports. Resolve `needs_context` questions with the user, or gather requested factual evidence yourself. Then start a new planning run in a fresh directory with the updated inputs. Never append to an old review session.
 5. An `approved_draft` is ready for operator inspection, not execution. After inspection, independently validate the goal with `loop.py run --dry-run`. Actual execution needs the existing run-a-goal authorization and protected deterministic check. The subsequent authorized `loop.py run` is the execution handoff: implement within the fixed contract rather than repeating planning approval.
 
-From the project root, with the plugin present at the repository path:
+From the project root (use `py -3 -B` on Windows):
 
 ```bash
-python plugins/deepmodebot/skills/deepmodebot/assets/loop/plan.py \
+python -B "<this skill>/assets/loop/plan.py" \
   --request-file .scratch/goal-input/request.txt \
   --context .scratch/goal-input/evidence.txt \
   --contract .scratch/goal-input/contract.json \
@@ -30,7 +30,7 @@ python plugins/deepmodebot/skills/deepmodebot/assets/loop/plan.py \
 Only after a successful draft and operator inspection:
 
 ```bash
-python plugins/deepmodebot/skills/deepmodebot/assets/loop/loop.py \
+python -B "<this skill>/assets/loop/loop.py" \
   run .scratch/goal-plan-001/goal.md --dry-run
 ```
 
@@ -54,7 +54,7 @@ All fields below except `stall_after` are required. Unknown keys are rejected. N
 ```
 
 This example assumes the selected project root contains `acceptance.py` and the implementation `worker.py`.
-The [pilot oracle](../../../../../../docs/evidence/ecosystem-pilot-2026-11-13/goals/acceptance.py) and [baseline worker](../../../../../../docs/evidence/ecosystem-pilot-2026-11-13/goals/worker-before.py) provide a runnable eight-case fixture when copied into a new disposable directory, with the worker named `worker.py`.
+The pilot oracle (`docs/evidence/ecosystem-pilot-2026-11-13/goals/acceptance.py` in the deepmodebot source repo) and baseline worker (`worker-before.py` in the same folder) provide a runnable eight-case fixture when copied into a new disposable directory, with the worker named `worker.py`.
 Never run an implementation goal against the immutable evidence archive itself.
 
 Protected entries are project-relative literal paths, not globs. Existing entries must exist. `absent:path` must not exist, including through a symlink. Paths resolving outside the root are rejected. Use the string `"none"` only when the operator's check reads nothing the implementation agent can edit. An empty array is not a substitute.
@@ -73,7 +73,8 @@ Reviewer lenses are fixed:
 
 Each votes `approve`, `revise`, or `needs_context`, with concrete reasons and both candidate and contract hashes. All three valid responses are required. Two matching votes form the majority; a three-way split, invalid response, unavailable reviewer, or stale candidate hash fails closed. The denominator never shrinks. Minority votes remain in the receipt, including minority questions or evidence requests.
 
-An `approve` majority produces a draft only when deterministic candidate schema, immutable-contract, path and compiler checks also pass. A candidate already marked `needs_context` cannot be approved over its unresolved gaps. A `needs_context` majority stops for context. A `revise` majority permits the next bounded round. A three-way split stops without a revision. Every revision starts three new reviews and invalidates all earlier votes.
+An `approve` majority produces a draft only when deterministic candidate schema, immutable-contract, path and compiler checks also pass, and no reviewer returns a non-empty `evidence_requests` array (any single minority reviewer with non-empty `evidence_requests` forces `needs_context`, exit `2`; a minority vote carrying only `questions` does not override).
+A candidate already marked `needs_context` cannot be approved over its unresolved gaps. A `needs_context` majority stops for context. A `revise` majority permits the next bounded round. A three-way split stops without a revision. Every revision starts three new reviews and invalidates all earlier votes.
 
 `--max-rounds 2` means at most two complete rounds, not two revisions after an initial round: at most eight model calls. The CLI accepts 1 through 10 rounds. There are no hidden transport retries or nested repair loops. Every call has an explicit walltime, including credential-configuration probes and startup, and an omp `--max-cost` request-admission cap.
 **In-flight model requests can finish above that spend threshold**; it is not a guaranteed billing ceiling. The process-tree watchdog terminates owned descendants on timeout, using the existing loop runner's Windows Job Object/POSIX process-group helper.
@@ -123,8 +124,8 @@ Each round retains author/reviewer prompts and raw responses, candidate hashes, 
 | 0 | `approved_draft` | Two-of-three approve and deterministic validation passed; no execution occurred |
 | 2 | `needs_context` | Resolve user preferences or gather host evidence before a new run |
 | 3 | `no_consensus` | Three-way split or bounded revision rounds exhausted |
-| 4 | `invalid` | Invalid/missing input contract, schema, paths, immutable hash, or reviewer vote |
-| 5 | `unavailable` | ACP/model unavailable, timeout, denied tool attempt, or incomplete reviewer set |
+| 4 | `invalid` | Invalid/missing input contract, candidate schema, paths, or immutable hash |
+| 5 | `unavailable` | ACP/model unavailable, timeout, denied tool attempt, incomplete reviewer set, or invalid/unparseable reviewer vote or lens mismatch |
 
 Argparse also exits 2 for malformed/missing CLI arguments, before a receipt exists. Inspect the receipt rather than interpreting exit 2 alone as a successful context request.
 
@@ -142,8 +143,8 @@ Protocol/config references, consulted 2026-11-13:
 Behavior tests stub only remote responses. Run them separately from live ACP proof:
 
 ```bash
-python -m unittest discover \
-  -s plugins/deepmodebot/skills/deepmodebot/assets/loop -p test_plan.py
+python -B -m unittest discover \
+  -s "<this skill>/assets/loop" -p test_plan.py
 ```
 
 Live proof should cover a clear measurable request, a vague request needing a material preference, and evidence containing an attempted instruction to change the contract or call a tool. Check the receipt and transcripts, preserved contract hash, absent execution, independent review inputs, and flat `loop.py run --dry-run` output. A green unit suite does not establish that the installed ACP adapter honors its configured isolation or budgets.

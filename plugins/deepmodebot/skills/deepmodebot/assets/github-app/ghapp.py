@@ -15,6 +15,7 @@ Model calls never go through the app. It is only the bots' GitHub identity. JWTs
 """
 import argparse
 import base64
+import calendar
 import html
 import email.utils
 import http.server
@@ -36,6 +37,7 @@ from brand import BRAND, CONFIG_DIR
 CONFIG_PATH = CONFIG_DIR / "github-app.json"
 TOKEN_CACHE = CONFIG_DIR / "token-cache.json"
 API = "https://api.github.com"
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 PERMISSIONS = {
     "contents": "write",
@@ -58,15 +60,63 @@ def load_config() -> dict:
     return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
 
 
+def find_openssl() -> str | None:
+    found = shutil.which("openssl")
+    if found:
+        return found
+    if os.name == "nt":
+        for candidate in (
+            r"C:\Program Files\Git\usr\bin\openssl.exe",
+            r"C:\Program Files (x86)\Git\usr\bin\openssl.exe",
+        ):
+            if os.path.isfile(candidate):
+                return candidate
+    return None
+
+
+def write_private_atomic(path: Path, text: str) -> None:
+    """Write secret/token content atomically with 0600 permissions before writing bytes."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.{secrets.token_hex(6)}.tmp")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    fd = os.open(tmp, flags, 0o600)
+    try:
+        try:
+            os.chmod(tmp, 0o600)
+        except OSError:
+            pass
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+            fh.flush()
+            try:
+                os.fsync(fh.fileno())
+            except OSError:
+                pass
+        for attempt in range(20):
+            try:
+                os.replace(tmp, path)
+                return
+            except PermissionError:
+                if attempt == 19:
+                    raise
+                time.sleep(0.05)
+    finally:
+        if tmp.exists():
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+
+
 def app_jwt(config: dict) -> str:
     now = int(time.time())
     header = b64url(json.dumps({"alg": "RS256", "typ": "JWT"}).encode())
     payload = b64url(json.dumps({"iat": now - 60, "exp": now + 540, "iss": str(config["client_id"])}).encode())
     signing_input = f"{header}.{payload}".encode()
-    openssl = shutil.which("openssl") or r"C:\Program Files\Git\usr\bin\openssl.exe"
+    openssl = find_openssl() or "openssl"
     proc = subprocess.run([openssl, "dgst", "-sha256", "-sign", config["private_key_path"]],
-                          input=signing_input, capture_output=True, check=True,
-                          creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                          input=signing_input, capture_output=True, check=True, timeout=30,
+                          creationflags=NO_WINDOW)
     return f"{header}.{payload}.{b64url(proc.stdout)}"
 
 
@@ -148,19 +198,28 @@ def installation_for(config: dict, repo: str) -> int:
     return request("GET", f"/repos/{repo}/installation", app_jwt(config))["id"]
 
 
+def parse_expires_at(expires_at: str) -> float:
+    """Parse GitHub's UTC ISO-8601 timestamp into Unix epoch seconds without local DST skew."""
+    return float(calendar.timegm(time.strptime(expires_at, "%Y-%m-%dT%H:%M:%SZ")))
+
+
 def installation_token(config: dict, installation_id: int) -> str:
-    cache = json.loads(TOKEN_CACHE.read_text(encoding="utf-8")) if TOKEN_CACHE.is_file() else {}
+    cache = {}
+    if TOKEN_CACHE.is_file():
+        try:
+            loaded = json.loads(TOKEN_CACHE.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                cache = loaded
+        except (OSError, ValueError):
+            cache = {}
     hit = cache.get(str(installation_id))
-    if hit and hit["expires"] - time.time() > 600:
-        return hit["token"]
+    if isinstance(hit, dict) and isinstance(hit.get("expires"), (int, float)) and isinstance(hit.get("token"), str):
+        if hit["expires"] - time.time() > 600:
+            return hit["token"]
     reply = request("POST", f"/app/installations/{installation_id}/access_tokens", app_jwt(config), {})
-    expires = time.mktime(time.strptime(reply["expires_at"], "%Y-%m-%dT%H:%M:%SZ")) - time.timezone
+    expires = parse_expires_at(reply["expires_at"])
     cache[str(installation_id)] = {"token": reply["token"], "expires": expires}
-    TOKEN_CACHE.write_text(json.dumps(cache), encoding="utf-8")
-    try:
-        os.chmod(TOKEN_CACHE, 0o600)
-    except OSError:
-        pass
+    write_private_atomic(TOKEN_CACHE, json.dumps(cache))
     return reply["token"]
 
 
@@ -189,7 +248,7 @@ def setup(args) -> None:
     if CONFIG_PATH.is_file() and not args.force:
         sys.exit(f"{CONFIG_PATH} exists (app {load_config()['slug']}); pass --force to create another app")
     login = subprocess.run(["gh", "api", "user", "-q", ".login"], capture_output=True, text=True,
-                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout.strip()
+                           encoding="utf-8", errors="replace", timeout=30, creationflags=NO_WINDOW).stdout.strip()
     name = args.name or f"{BRAND['name']}-{login.lower()}"[:34]
     state = secrets.token_urlsafe(16)
     done = threading.Event()
@@ -218,7 +277,7 @@ def setup(args) -> None:
                     "default_events": [],
                     "hook_attributes": {"url": "https://example.com/polls-instead", "active": False},
                 }
-                target = (f"https://github.com/organizations/{args.org}/settings/apps/new" if args.org
+                target = (f"https://github.com/organizations/{html.escape(args.org, quote=True)}/settings/apps/new" if args.org
                           else "https://github.com/settings/apps/new") + f"?state={state}"
                 self.reply(f"""<!doctype html><title>{html.escape(BRAND['name'])} app</title>
 <form id=f action="{target}" method=post>
@@ -232,15 +291,19 @@ def setup(args) -> None:
                 if query.get("state", [""])[0] != state:
                     self.reply("state mismatch", 400)
                     return
+                code = query.get("code", [""])[0]
+                if not code:
+                    self.reply("missing code", 400)
+                    return
                 try:
-                    result.update(request("POST", f"/app-manifests/{query['code'][0]}/conversions"))
+                    result.update(request("POST", f"/app-manifests/{code}/conversions"))
                 except RuntimeError as err:
                     self.reply(html.escape(str(err)), 500)
                     result["error"] = str(err)
                     done.set()
                     return
-                self.reply(f"<p>Created. Now install it: <a href='{result['html_url']}/installations/new'>"
-                           f"{result['html_url']}/installations/new</a></p>")
+                safe_url = html.escape(f"{result['html_url']}/installations/new", quote=True)
+                self.reply(f"<p>Created. Now install it: <a href='{safe_url}'>{safe_url}</a></p>")
                 done.set()
                 return
             self.reply("not found", 404)
@@ -258,11 +321,7 @@ def setup(args) -> None:
     if "error" in result:
         sys.exit(result["error"])
     key_path = CONFIG_DIR / f"{result['slug']}.private-key.pem"
-    key_path.write_text(result["pem"], encoding="utf-8")
-    try:
-        os.chmod(key_path, 0o600)
-    except OSError:
-        pass
+    write_private_atomic(key_path, result["pem"])
     # `owner` is the human running the bots (PR and issue authors are people); the app may belong to an org.
     config = {"app_id": result["id"], "client_id": result["client_id"], "slug": result["slug"],
               "html_url": result["html_url"], "owner": login, "app_owner": result["owner"]["login"],

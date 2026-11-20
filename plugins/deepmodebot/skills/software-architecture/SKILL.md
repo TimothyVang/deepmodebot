@@ -16,7 +16,7 @@ Read before designing or changing a project's shape: repo layout and workspace t
 | `references/databases.md` | Choosing a database or extension, hosted free tiers and branching, schema and migrations in the repo, ORMs, zero-downtime migrations, tenancy and RLS, IDs, backups, and letting agents near a database safely |
 | `references/backend-infrastructure.md` | Monolith or services, reliability (timeouts, retries, idempotency, SLOs, health checks), queues and durable workflows, caching, API style and errors, OpenTelemetry, deployment and IaC, capacity and cost |
 
-These files build on `skill://domain-rules/references/backend-system-design.md` (API naming, indexing, cache and queue basics) and deepmodebot's `model-the-domain` principle (`skill://deepmodebot/references/principles/model-the-domain.md`). Where they disagree, these primary-source files win: for example, retries follow the AWS Builders' Library token-bucket advice rather than a circuit breaker on every call. Cloud security and pipelines stay in `skill://cloud-devsecops`; secrets and auth in `skill://secrets-and-auth`.
+These files build on `skill://domain-rules/references/backend-system-design.md` and `skill://deepmodebot/references/principles/model-the-domain.md`; where they disagree, these primary-source files win. For opinionated SvelteKit/Convex/Cloudflare web-app defaults, see `skill://deep-stack`; this skill holds primary-source defaults for relational monoliths, Postgres 18, and single-package vs monorepo decisions. Cloud security lives in `skill://cloud-devsecops`; secrets and auth in `skill://secrets-and-auth`.
 
 ## Rules for the agent
 

@@ -6,17 +6,17 @@
 
 - **An identity.** A private GitHub App the user creates on their own account. Bot comments show as `<slug>[bot]`, so the thread reads as bots, not as the user. The app never runs a model.
 - **A poller, not a service.** `bot.py` runs on the user's machine and polls the installed repos every `interval` seconds. There are no webhooks and no server.
-- **Any ACP agent, no API keys.** The models run in agent CLIs that `acpx` reaches over ACP: omp by default, or Claude Code, Codex, Gemini CLI, Cursor, Copilot, OpenCode and others. Each harness uses its own subscription login (Claude.ai, ChatGPT and the like). Each role in `bot.json` picks an agent and an optional model, so omp alone can seat an author on a Claude model and a reviewer on a GPT model for cross-family review. Every call draws on subscription usage.
+- **Any ACP agent, no API keys.** The models run in agent CLIs that `acpx` reaches over ACP: omp by default, or Claude Code, Codex, Gemini CLI, Cursor, Copilot, OpenCode and others. Each harness uses its own subscription login (Claude.ai, ChatGPT and the like); `bot.py` and `install.py` scrub API-key env vars (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `OPENAI_API_KEY`, `CODEX_API_KEY`) on child ACP turns so calls draw on subscription usage. Each role in `bot.json` picks an agent and an optional model for cross-family review.
 - **The user's hands for writes.** Pushes, PR creation and merges use the user's own `gh` and git credentials. The app token reads the installed repos' PRs, issues and comments and posts the bots' replies.
 - **The conversations.** Each cycle runs the **pr-conversation** (`references/techniques/pr-conversation.md`) and **issue-conversation** (`references/techniques/issue-conversation.md`) techniques. On the user's own PRs that ends in a merge.
 
 ## Setup
 
-Run once per machine, from this skill's folder:
+Run once per machine, from this skill's folder (use `python3 -B` on Linux/macOS, `py -3 -B` on Windows):
 
 ```bash
-py -3 assets/github-app/install.py            # interactive; asks before each change
-py -3 assets/github-app/install.py --check    # report what is missing, change nothing
+python3 -B assets/github-app/install.py            # Windows: py -3 -B ... (interactive; asks before each change)
+python3 -B assets/github-app/install.py --check    # Windows: py -3 -B ... (report what is missing, change nothing)
 ```
 
 `install.py` walks five steps and skips any already done:
@@ -29,19 +29,21 @@ py -3 assets/github-app/install.py --check    # report what is missing, change n
 
 `--yes` accepts every default, `--no-autostart` skips step 5's autostart, and `--brand <name>` renames the bots (below).
 
-**Manual path.** `py -3 assets/github-app/ghapp.py setup` creates the app on its own: a browser page opens; click "Create GitHub App". The app id and private key stay in `~/.config/deepmodebot/`, outside every repo. Pass `--org <org>` to create it under an organization. Install it at the `install` URL it prints, then `py -3 assets/github-app/ghapp.py whoami` lists the bot login and its installations.
+**Manual path.** `python3 -B assets/github-app/ghapp.py setup` (`py -3 -B` on Windows) creates the app on its own: a browser page opens; click "Create GitHub App". The app id and private key stay in `~/.config/deepmodebot/`, outside every repo. Pass `--org <org>` to create it under an organization. Install it at the `install` URL it prints, then `python3 -B assets/github-app/ghapp.py whoami` lists the bot login and its installations.
 
 The app asks for contents, pull requests and issues (write), and checks, statuses, actions and metadata (read).
 
 ## Run
 
+Use `python3 -B` on Linux/macOS or `py -3 -B` on Windows:
+
 ```bash
-py -3 assets/github-app/bot.py once --repo <owner/repo> --dry-run   # preview one cycle, post nothing
-py -3 assets/github-app/bot.py once --repo <owner>/<name> --item pr:<n>   # one item now; --item needs --repo
-py -3 assets/github-app/bot.py watch                                # poll every interval
-py -3 assets/github-app/bot.py install-autostart                    # optional: start watch at logon
-py -3 assets/github-app/bot.py update --dry-run                     # show what an update would run
-py -3 assets/github-app/bot.py status
+python3 -B assets/github-app/bot.py once --repo <owner/repo> --dry-run   # preview one cycle, post nothing
+python3 -B assets/github-app/bot.py once --repo <owner>/<name> --item pr:<n>   # one item now; --item needs --repo
+python3 -B assets/github-app/bot.py watch                                # poll every interval
+python3 -B assets/github-app/bot.py install-autostart                    # optional: start watch at logon
+python3 -B assets/github-app/bot.py update --dry-run                     # show what an update would run
+python3 -B assets/github-app/bot.py status
 ```
 
 - `install-autostart` is optional. It registers `deepmodebot-bot` with Task Scheduler (Windows), launchd (macOS), or a systemd user unit or crontab `@reboot` entry (Linux); `uninstall-autostart` removes it.
@@ -132,7 +134,7 @@ A repo names its own gate in its base-branch `.deepmodebot.json`: `{"check": "np
 - The author and the verifiers run (both with `--approve-all`) only after the current head re-passes the ownership gate, so a push from another account mid-conversation sends the PR to a human.
 - Every PR uses exactly three independent verifier contexts and detached worktrees at the same head. All three must return valid votes with evidence; at least two PASS votes are required. Missing, malformed or unavailable responses block the panel, even when two others pass. `verifiers` configuration must contain exactly three roles. There is no size-based one-reviewer exception.
 - A cached panel is reusable only when `current_panel` sees `panelPolicy: "three-independent-v1"`, the same nonempty head SHA, and three valid votes with at least two PASS votes. Legacy light-panel or unmarked cache entries trigger a fresh three-reviewer panel rather than authorizing a merge.
-- No one but the owner steers a write-enabled agent: on the owner's PRs other people's comments neither trigger a turn nor reach a prompt, and an issue build plans and implements in new agent sessions that see only the owner's comments, never an earlier discussion's context.
+- No one but the owner triggers or replies to a write-enabled agent: on the owner's PRs other people's comments neither trigger a turn nor reach a prompt, and an issue build plans and implements in new agent sessions that see only the owner's comments (never other commenters' replies or earlier discussion context). When a non-owner opened the issue and the owner comments `@deepmodebot implement`, the original issue title and body still enter the build prompt wrapped inside `<untrusted-issue>` delimiters as untrusted input.
 - Implementing an issue reuses an existing `deepmodebot/issue-<n>` branch only when every commit on it is one the bots made; otherwise the bots stop and say so.
 - The bot never blocks itself on its own worktrees. Once an issue's PR is open, the bot closes that build's one-off agent sessions and detaches the implementation worktree from `deepmodebot/issue-<n>`. A later checkout of a branch that another worktree under `~/.cache/deepmodebot/bot/worktrees/` holds detaches that holder first; its files and uncommitted changes stay. A holder anywhere else, such as a user's own worktree, is never touched: the item errors and names it.
 - Contributors' and forks' PRs get review comments only, from a sealed reviewer: one model call with no tools, no files and no project config (`omp -p --no-tools` from an empty folder, the call the **pr-agent** technique uses).
@@ -155,4 +157,4 @@ For a stop or opt-out request, done when `bot.py status` or the repo's base-bran
 
 Rename the bots with `install.py --brand <name>`. It writes `assets/github-app/brand.local.json`, and `brand.py` derives the app name, comment signature, mention, branch prefix, repo config file, config and cache directories, and autostart task from it.
 
-That renames only the bots. To ship the whole product under your own brand (name, logo, colors, commands, skills, the GitHub App, the docs site, the README, images and SEO), run the brand kit from the deepmodebot repo's root: `py -3 ./scripts/whitelabel.py --brand <file> --out <dir>`. The guide is `docs/rebrand.md` in the repo.
+That renames only the bots. To ship the whole product under your own brand (name, logo, colors, commands, skills, the GitHub App, the docs site, the README, images and SEO), run the brand kit from the deepmodebot repo's root: `python3 -B ./scripts/whitelabel.py --brand <file> --out <dir>` (`py -3 -B` on Windows). The guide is `docs/rebrand.md` in the repo.

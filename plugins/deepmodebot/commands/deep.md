@@ -3,14 +3,9 @@ description: "One command for fixing, building, reviewing, planning and shipping
 argument-hint: "<anything: a task, a PR number, 'what can I work on', 'start a new app that ...', 'drive the board', 'grill me on ...'>"
 ---
 
-Read `skill://deepmodebot` and follow its **Route** section first: look around, route by intent and vagueness, size concrete work, then do it. Execute concrete tasks directly, grill draft plans, and run **tournament** to surface architecture and research gaps when direction is open. Don't ask me which skill, playbook, or approach to use, and answer anything you can observe by running it. In Claude Code, `skill://<name>/<path>` means `<path>` in that skill's folder: `${CLAUDE_PLUGIN_ROOT}/skills/<name>/` for a plugin install, `~/.claude/skills/<name>/` for a manual one.
+Read `skill://deepmodebot` and follow **Route** first; settle observable questions by running them. Let `<deepmodebot skill>` be the disk directory `skill://deepmodebot` resolves to (in Claude Code: `${CLAUDE_PLUGIN_ROOT}/skills/deepmodebot` for a plugin install, `${CLAUDE_PROJECT_DIR:-.}/.claude/skills/deepmodebot` project-local, or `~/.claude/skills/deepmodebot` user-level).
 
-Keep every write inside the project root, per deepmodebot's **Contain the work** section: scratch and temp files in `.scratch/`, worktrees in `.worktrees/`, never system temp or folders outside the repo. No repo yet → create a named one first.
-
-Read the matched playbook for a medium or large task; small tasks use the fast path. Follow its local-delivery or publication path and read only references that change the work. With no remote or an explicit request for local review, ordinary small and medium work stays uncommitted in the starting tree. Prove it through the real app or CLI and review the diff. Risky work keeps the full checks. "Open a PR, I'll review it" is publication and needs the panel.
-
-Reuse an existing project verification skill when present. Otherwise exercise the real app or CLI directly and retain its output. Create a reusable verification skill only when I ask for one or repeated journeys justify it, not as a prerequisite for an ordinary local task. Do not replace runtime proof with unit tests alone.
-
-Decide and act without asking within the requested delivery target. Publication includes commits, pushes, PRs and merges on an exact-head panel pass. Local delivery does not silently become publication. Ask once at the end only for deepmodebot's hard stops, or at tournament's discovery-only or explicitly requested proposal gate. An original build request continues with Champion after the proposal. Claiming an issue in someone else's project still needs permission before starting.
+- **Orient automatically:** In git repos, run `python -B "<deepmodebot skill>/assets/workspace-map/workspace_map.py" overview --fast --offline --no-orca` (`py -3 -B` on Windows), then `query`/`workspaces`/`prs` before wide scans; on strictly read-only routes (`investigation`, local `pr-review`, `pr-thread`), skip `overview` when no `.scratch/workspace-map.db` exists.
+- **Scope, tier & proof:** Pick the smallest tier/effort before turn 1, track 100% scope in one manifest on M/L/multi-item work (Size S inline), keep writes in root (`.scratch/`, `.worktrees/`), leave ordinary local S/M edits uncommitted with real-artifact proof, and use Opening a PR + the 3-reviewer panel to publish.
 
 Request: $ARGUMENTS

@@ -667,6 +667,25 @@ class LocalUpdatesTest(unittest.TestCase):
         self.assertFalse(config.exists())
         self.assertEqual(self.disk(), before)
 
+    def test_linked_ignores_onedrive_reparse_point_and_detects_dangling_junction(self):
+        target = self.root / "cloud" / "repo"
+        target.mkdir(parents=True)
+        cloud_stat = mock.Mock(st_file_attributes=0x400 | 0x00400000, st_reparse_tag=0x9000101A)
+        junction_stat = mock.Mock(st_file_attributes=0x400, st_reparse_tag=updates.IO_REPARSE_TAG_MOUNT_POINT)
+        normal_stat = mock.Mock(st_file_attributes=0x10, st_reparse_tag=0)
+
+        with mock.patch.object(updates.os, "name", "nt"), \
+                mock.patch.object(updates.os.path, "isjunction", return_value=False, create=True), \
+                mock.patch.object(updates.os, "lstat", side_effect=lambda p: cloud_stat if Path(p) == target.parent else normal_stat):
+            self.assertFalse(updates.linked(target))
+
+        dangling = self.root / "dangling-junction"
+        with mock.patch.object(updates.os, "name", "nt"), \
+                mock.patch.object(updates.os.path, "isjunction", return_value=False, create=True), \
+                mock.patch.object(updates.os, "lstat", side_effect=lambda p: junction_stat if Path(p) == dangling else normal_stat):
+            self.assertFalse(dangling.exists())
+            self.assertTrue(updates.linked(dangling))
+
 
 if __name__ == "__main__":
     unittest.main()

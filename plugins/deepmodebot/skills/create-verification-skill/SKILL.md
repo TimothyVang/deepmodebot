@@ -1,6 +1,6 @@
 ---
 name: create-verification-skill
-description: "Generate a project-local verification skill (.omp/skills/verify-<app>/) that drives the app the way a user does and captures proof: control CLI, launch/doctor/drive/evidence/cleanup, and a feature map. Any language or platform. Use for /skill:create-verification-skill, \"make a verify skill for this repo\", or when a repo has no scripted way to prove UI/CLI/service behavior."
+description: "Generate a project-local verification skill (.omp/skills/verify-<app>/, .claude/skills/verify-<app>/, or .agents/skills/verify-<app>/) that drives the app the way a user does and captures proof: control CLI, launch/doctor/drive/evidence/cleanup, and a feature map. Any language or platform. Use for create-verification-skill, \"make a verify skill for this repo\", or when a repo has no scripted way to prove UI/CLI/service behavior."
 disable-model-invocation: true
 ---
 
@@ -8,11 +8,11 @@ disable-model-invocation: true
 
 Every serious project needs a scripted way to drive the real app and prove behavior: launch it, exercise a feature the way a user would, and capture evidence. This skill generates that as a project-local omp skill at `<repo>/.omp/skills/verify-<app>/`, which omp discovers automatically for every session in the repo. Write the output for the next agent, not for a human: it will be read cold, mid-task, by an agent that has never seen the app.
 
-Outside omp, write the same skill to the folder your harness discovers and substitute that path for `.omp/skills/` below: Claude Code reads `.claude/skills/verify-<app>/`, and Codex and most other agents read `.agents/skills/verify-<app>/` (`skill://agent-harnesses` has the map). Codex's sandbox makes `.agents/` read-only, so creating it there needs the user's approval.
+Outside omp, write the same skill to the folder your harness discovers and substitute that path for `.omp/skills/` below: Claude Code reads `.claude/skills/verify-<app>/`; Google Antigravity (`agy`/App/IDE; `.gemini/skills/` in workspace is ignored), Codex, and most other agents read `.agents/skills/verify-<app>/` (`skill://agent-harnesses`). Codex's sandbox makes `.agents/` read-only, so creating it there needs user approval.
 
 ## 1. Interview the repo, not the user
 
-Answer these from the codebase. Ask the user (via `ask`) only what you cannot observe:
+Answer these from the codebase. Ask the user (`ask` in omp, `AskUserQuestion` in Claude Code, `ask_question` in Antigravity, `request_user_input` or a direct question in Codex) only what you cannot observe:
 
 - **Surface:** what does a user actually touch? Web UI, CLI/TUI, desktop app, API, mobile app, library? A repo can have several; pick the primary one and note the rest.
 - **Run:** how does the app start locally? Prefer the repo's own documented dev command (package scripts, Makefile, README quickstart). Note ports, env vars, seed data, auth.
@@ -58,7 +58,7 @@ Write `.omp/skills/verify-<app>/SKILL.md`. Frontmatter is required: omp skips pr
   - Mocks only where a production boundary already isolates the external system.
   - When the safe path is a dry-run or test mode, verify what it actually skips by observing (files, network, git refs) rather than trusting its name.
 - **Cleanup:** tear down what the run started. Never kill by process name; kill what you started. Cleanup removes instances and scratch state, never evidence: proof artifacts survive in a location the skill names.
-- **Helpers:** every script the skill ships is executable and its invocation is shown in the skill body. Reference files with paths relative to the skill directory (or `skill://verify-<app>/...`).
+- **Helpers:** document the exact invocation for every helper script in the skill body (`chmod +x` on Unix; invoke via its runtime like `node`, `python -B` / `py -3 -B`, or `pwsh` so it works on Windows without POSIX execute bits). Reference files relative to the skill directory (`skill://verify-<app>/...` resolves in omp only).
 
 ## 4. Seed the feature map
 
@@ -73,8 +73,7 @@ If the seed data lacks a precondition a journey needs, the journey reports a fai
 omp loads `AGENTS.md` into main sessions only; task subagents do not receive it but do receive `.omp/RULES.md`. So:
 
 - Add a short `## Verification` section to the repo's existing context file (root `AGENTS.md`, or `.omp/AGENTS.md` if the repo uses that). Create root `AGENTS.md` only if the repo has none. Use the template below, filled in. Do not paste the skill's contents into it.
-- Add one line to `.omp/RULES.md` (create it if absent; append if present) so subagents verify too:
-  `Prove behavior changes with skill://verify-<app> before reporting done; include the evidence paths.`
+- In omp repos, also add one line to `.omp/RULES.md` (omp-only; create if absent, append if present) so omp subagents verify too: `Prove behavior changes with skill://verify-<app> before reporting done; include the evidence paths.` (Claude Code, Codex, and Antigravity ignore `.omp/RULES.md` and `skill://`, so root `AGENTS.md` carries the portable path.)
 
 AGENTS.md template:
 
@@ -83,8 +82,8 @@ AGENTS.md template:
 
 Every behavior change must be proven on the running app before it's done. Passing tests are not proof.
 
-- Use the `verify-<app>` skill (`.omp/skills/verify-<app>/SKILL.md`). Read it before launching, driving, or debugging the app.
-- Find the feature in `.omp/skills/verify-<app>/features/README.md` and follow its "Driving it" recipe.
+- Use the `verify-<app>` skill (`.agents/skills/verify-<app>/SKILL.md`, `.claude/skills/verify-<app>/SKILL.md`, or `.omp/skills/verify-<app>/SKILL.md`). Read it before launching, driving, or debugging the app.
+- Find the feature in `<verify-skill-dir>/features/README.md` and follow its "Driving it" recipe.
 - Run `<doctor command>` first, and again whenever anything looks off. Never drive an instance you didn't launch.
 - Report evidence: commands run, screenshots/snapshots, observed end state. "Fixed" without artifacts is not done.
 - Adding or changing a user-facing feature? Update its feature-map file in the same change.
@@ -99,4 +98,4 @@ If you proved it in a stand-in for the real target (a container instead of a fre
 
 ## 7. Hand off
 
-Report: files created, the proof run (commands, evidence paths), anything unverified. Point the user at `/skill:maintain-verification-skill` to keep the map honest as the app changes. Suggest a cadence only if asked.
+Report: files created, the proof run (commands, evidence paths), anything unverified. Point the user at `maintain-verification-skill` (`/skill:maintain-verification-skill`, `/maintain-verification-skill`, or `$deepmodebot:maintain-verification-skill`) to keep the map honest as the app changes. Suggest a cadence only if asked.

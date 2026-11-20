@@ -7,6 +7,7 @@ import subprocess
 import threading
 
 OID = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})\Z")
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 SAFE_PATH = re.compile(r"[A-Za-z0-9_+.-]+(?:/[A-Za-z0-9_+.-]+)*\Z")
 SENSITIVE = re.compile(r"secret|credential|password|passwd|token|private|(?:^|[._-])(?:config|settings|auth|key)(?:[._-]|$)", re.I)
 EXTENSIONS = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".go", ".rs", ".java", ".c", ".h", ".cpp", ".hpp", ".cs", ".rb"}
@@ -19,7 +20,7 @@ def _git(repo, *args, limit=262144, timeout=5):
                GIT_NO_LAZY_FETCH="1", GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull)
     p = subprocess.Popen(["git", "--no-pager", "-c", "core.fsmonitor=false", *args], cwd=repo,
                          stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=env,
-                         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                         creationflags=NO_WINDOW)
     data = bytearray()
     overflow = []
 

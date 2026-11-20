@@ -2063,6 +2063,98 @@ class WindowsAutostartTest(unittest.TestCase):
             self.assertIn("RuntimeError: stub boom", text)
 
 
+class AuditCodeFixesTest(unittest.TestCase):
+    def test_item_ask_strips_api_key_vars_from_acp_child_env(self):
+        dirty_env = {
+            **os.environ,
+            "ANTHROPIC_API_KEY": "sk-ant-leak",
+            "ANTHROPIC_AUTH_TOKEN": "tok-ant-leak",
+            "OPENAI_API_KEY": "sk-openai-leak",
+            "CODEX_API_KEY": "sk-codex-leak",
+            "GEMINI_API_KEY": "gem-leak",
+            "CLAUDE_CODE_USE_VERTEX": "1",
+        }
+        captured = []
+
+        def fake_run(cmd, **kw):
+            captured.append(kw.get("env"))
+            return subprocess.CompletedProcess(cmd, 0, "ok reply", "")
+
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, dirty_env, clear=True), \
+                mock.patch.object(bot, "WORK", Path(tmp)), \
+                mock.patch.object(bot, "LOGS", Path(tmp) / "logs"), \
+                mock.patch.object(bot.shutil, "which", return_value="acpx"), \
+                mock.patch.object(bot, "known_agents", return_value={"omp"}), \
+                mock.patch.object(bot, "run", side_effect=fake_run):
+            it = bot.Item(mock.Mock(), "o/r", "pr", 7)
+            it.ask({"agent": "omp"}, "review", Path(tmp), "--approve-reads", session="s1")
+
+        self.assertEqual(len(captured), 2)
+        for env in captured:
+            self.assertIsInstance(env, dict)
+            for forbidden in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "OPENAI_API_KEY",
+                              "CODEX_API_KEY", "GEMINI_API_KEY", "CLAUDE_CODE_USE_VERTEX"):
+                self.assertNotIn(forbidden, env)
+
+    def test_ghapp_installation_token_uses_utc_without_dst_skew_and_recovers_corrupt_cache(self):
+        ghapp = bot.ghapp
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = Path(tmp) / "token-cache.json"
+            cache.write_text("{corrupt-json", encoding="utf-8")
+            future_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() + 3600))
+            calls = []
+
+            def fake_request(method, path, token, body=None):
+                calls.append((method, path))
+                return {"token": "ghs_test_token", "expires_at": future_utc}
+
+            with mock.patch.object(ghapp, "TOKEN_CACHE", cache), \
+                    mock.patch.object(ghapp, "app_jwt", return_value="jwt"), \
+                    mock.patch.object(ghapp, "request", side_effect=fake_request):
+                tok1 = ghapp.installation_token({"client_id": "1"}, 42)
+                tok2 = ghapp.installation_token({"client_id": "1"}, 42)
+            self.assertEqual(tok1, "ghs_test_token")
+            self.assertEqual(tok2, "ghs_test_token")
+            self.assertEqual(len(calls), 1, "token cache should hit on second call regardless of DST")
+            # Direct UTC epoch check for a known summer DST date: 2026-07-15T12:00:00Z == 1784116800.
+            self.assertEqual(ghapp.parse_expires_at("2026-07-15T12:00:00Z"), 1784116800.0)
+
+    def test_install_acp_round_trip_strips_api_keys_and_respects_config_dir(self):
+        import install
+        dirty_env = {
+            **os.environ,
+            "ANTHROPIC_API_KEY": "sk-ant-leak",
+            "OPENAI_API_KEY": "sk-openai-leak",
+            "CODEX_API_KEY": "sk-codex-leak",
+        }
+        seen_envs = []
+
+        def fake_run(cmd, timeout=120, env=None):
+            seen_envs.append(env)
+            return subprocess.CompletedProcess(cmd, 0, "acp-ready-7\n", "")
+
+        with mock.patch.dict(os.environ, dirty_env, clear=True), \
+                mock.patch.object(install, "run", side_effect=fake_run):
+            working = install.acp_round_trip(["omp"], 1)
+        self.assertEqual(working, ["omp"])
+        self.assertEqual(len(seen_envs), 1)
+        self.assertNotIn("ANTHROPIC_API_KEY", seen_envs[0])
+        self.assertNotIn("OPENAI_API_KEY", seen_envs[0])
+        self.assertNotIn("CODEX_API_KEY", seen_envs[0])
+
+    def test_load_bot_config_rejects_bool_parallel_repos(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg_path = Path(tmp) / "bot.json"
+            cfg_path.write_text(json.dumps({
+                "author": "omp",
+                "reviewer": "omp",
+                "verifiers": ["omp", "omp", "omp"],
+                "parallelRepos": True,
+            }), encoding="utf-8")
+            with mock.patch.object(bot, "BOT_CONFIG", cfg_path), self.assertRaises(SystemExit):
+                bot.load_bot_config(write=False)
+
+
 class InstallAcpTest(unittest.TestCase):
     def test_agy_is_detected_and_registered_for_acp_without_disturbing_existing_agents(self):
         import install

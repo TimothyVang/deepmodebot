@@ -15,7 +15,7 @@ Rigor goes into picking the right design cheaply. Propose variations the user di
    - Done when each direction runs from that folder and `git status` shows no production file changed.
 4. Comparing alternatives → put variants behind one labeled switcher (buttons or keypress) (`references/principles/exhaust-the-design-space.md`). Done when every variant is reachable from the switcher in one running build.
 5. Verify on the matching surface.
-   - Visual → screenshot each variant via the repo's `verify-<app>` skill (`.omp/skills/verify-<app>/`); if none, omp `eval` `browser` or bash and drive the interaction.
+   - Visual → screenshot each variant via the repo's `verify-<app>` skill (in `.omp/skills/`, `.claude/skills/`, or `.agents/skills/`); if none, use omp `eval` `browser`, Playwright/CDP, or bash and drive the interaction.
    - Behavioral → log the timing, print output, or watch the render. Observation is the test.
    - Done when every variant has a saved screenshot or captured output.
 6. Pick the winner by the evidence, log the choice and the tradeoffs, and hand it to Feature (or the **architect** technique (`references/techniques/architect.md`) for the shape).

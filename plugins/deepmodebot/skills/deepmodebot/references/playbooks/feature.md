@@ -30,13 +30,14 @@ Escalate real design or safety uncertainty; do not turn hypothetical extreme inp
 4. Pick the data shape before any logic is written (`references/principles/model-the-domain.md`): state machine over scattered booleans, table/registry over branching, typed model over repeated shape assumptions.
    Done when the chosen data shape is named in the plan before the first code edit.
 5. Delegate code-writing to a default `task` agent with a specific scope: file paths, the named data shape and its organizing structure, success criteria, exclusive file ownership.
+   - Select model tier and effort before spawning (`skill://agent-harnesses/references/delegation-efficiency.md`): small tier for `scout` searches/summaries, mid (`medium`) for oracle-backed implementation slices, flagship `L` only for hard design, security, and final review.
    - Implementation admits several valid shapes (error handling, abstraction layer, test structure) → delegate via the **arena** technique (`references/techniques/arena.md`) instead.
    - Size L: delegation is mandatory, no skip-with-reason, and laziness does not override it (the gain is review separation, not lines saved). A subagent that cannot spawn owns the diff directly with the same review separation. Size M: implement directly, then the pr-review self-review supplies the separation.
    - No "standing by" reply that waits on a nested agent.
    - Comments per the **no-comments** technique (`references/techniques/no-comments.md`). Surgical edits; re-ground upstream-derived files against the source.
    - Port shared-primitive improvements to every consumer and verify each.
    - Done when every delegated scope reports done against its success criteria and every consumer of a changed shared primitive is verified.
-6. Verify on the matching surface (project `verify-<app>` skill first; else omp `eval` `browser` or bash). "Inconclusive" or wrong-surface is not a pass; flag it.
+6. Verify on the matching surface (project `verify-<app>` skill in `.omp/skills/`, `.claude/skills/`, or `.agents/skills/` first; else omp `eval` `browser`, Playwright/CDP, or bash). "Inconclusive" or wrong-surface is not a pass; flag it.
    Done when captured output on that surface shows the new behavior.
 7. Sequence into small, ordered, verifiable units (`references/principles/sequence-verifiable-units.md`): build, verify, then the next. Stack follow-ups.
    Done when each unit has its own passing verification before the next unit starts.

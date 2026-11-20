@@ -163,6 +163,67 @@ class AutoRouterTests(unittest.TestCase):
                     self.assertEqual(verdict["intent"], intent)
                     self.assertEqual(verdict["checkpoint_before_code"], checkpoint)
 
+    def test_routes_all_extended_playbooks_and_specialist_techniques(self):
+        cases = [
+            ("Run an SME review on our medical claims customer spec", "sme-review"),
+            ("Check the sme_gate before Sprint 2", "sme-review"),
+            ("Turn this vague goal into measurable milestones with goal-review", "goal-review"),
+            ("Review my goal with three agents before running the loop", "goal-review"),
+            ("Run the routing eval suite against our updated skill", "eval"),
+            ("Compare this skill against baseline before promotion", "eval"),
+            ("Hillclimb the parser throughput metric until it hits 50k/s", "hillclimb"),
+            ("Optimize the pass rate in a loop using autoresearch", "hillclimb"),
+            ("Record a visual E2E video of the invoice flow", "visual-e2e"),
+            ("Export editable design evidence to Penpot", "open-design-evidence"),
+            ("Explain native sibling messaging and agent-collaboration handoffs", "agent-collaboration"),
+            ("Which tool should we use here? Check tool-routing", "tool-routing"),
+            ("Build a quick prototype to settle the fork between SQLite and DuckDB", "prototype"),
+            ("Open a PR for this branch with our proof", "opening-a-pr"),
+            ("Ship this PR and verify trunk after merge", "shipping"),
+            ("Pause safely and save a resume note before I step away", "pause-safely"),
+            ("Pick up this handoff and continue from the resume note", "session-pickup"),
+            ("Clean up stale git worktrees under .worktrees", "worktree-cleanup"),
+            ("index / map workspace", "workspace-map"),
+            ("index workspace", "workspace-map"),
+            ("list Orca worktrees / open PRs", "workspace-map"),
+            ("list Orca worktrees and open PRs", "workspace-map"),
+            ("find symbol fast", "workspace-map"),
+            ("search symbols for evaluate_manifest", "workspace-map"),
+            ("Reach visual-parity with pixel-diff zero against the Figma mockup", "visual-parity"),
+            ("Run a reference-rebuild to rebuild our UI to match Linear", "reference-rebuild"),
+            ("Run runtime-forensics to diagnose why this live worker is wedged", "runtime-forensics"),
+            ("Inspect this heap dump and CPU profile with trace-forensics", "trace-forensics"),
+            ("Build spec #14 in incremental sprints", "phased-build"),
+            ("auto-update local deepmodebot copies", "github-app"),
+        ]
+        for prompt, expected in cases:
+            with self.subTest(prompt=prompt, expected=expected):
+                verdict = tournament.classify_prompt(prompt)
+                self.assertEqual(
+                    verdict["mode"],
+                    expected,
+                    f"prompt {prompt!r} routed to {verdict['mode']} ({verdict['reason']}), expected {expected}",
+                )
+
+    def test_ordinary_engineering_prompts_do_not_misroute_to_false_positive_playbooks(self):
+        non_matches = [
+            ("Why do these queries contribute to high p99?", {}, "contribute"),
+            ("Fix bug in UserFactory", {"has_factory": True}, "work-a-queue"),
+            ("Fix crash when inline styles have quotes", {}, "refactoring"),
+            ("Add a triage status column to the issues table", {}, "triage"),
+            ("Add a retro arcade game page with score table", {}, "retro"),
+            ("Add a tournament system for chess with an API endpoint and standings table", {}, "tournament"),
+            ("Fix parser loop until OOM crash", {}, "run-a-goal"),
+        ]
+        for prompt, kwargs, forbidden in non_matches:
+            with self.subTest(prompt=prompt, forbidden=forbidden):
+                verdict = tournament.classify_prompt(prompt, **kwargs)
+                self.assertNotEqual(
+                    verdict["mode"],
+                    forbidden,
+                    f"prompt {prompt!r} falsely routed to {forbidden} ({verdict['reason']})",
+                )
+
 
 class TournamentBracketTests(unittest.TestCase):
     def setUp(self):

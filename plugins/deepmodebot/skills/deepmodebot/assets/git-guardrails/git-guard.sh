@@ -8,6 +8,72 @@ set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 patterns="$here/git-guard-patterns.txt"
 
+extract_json_field() {
+  # Parse the first JSON string value for a given key without jq or printf %b (avoids \c truncation and greedy .*).
+  awk -v key="$1" '
+    BEGIN { RS = "\0"; ORS = "" }
+    {
+      s = $0
+      pat = "\"" key "\"[ \t\r\n]*:[ \t\r\n]*\""
+      if (!match(s, pat)) exit 1
+      rest = substr(s, RSTART + RLENGTH)
+      n = length(rest)
+      out = ""
+      i = 1
+      while (i <= n) {
+        c = substr(rest, i, 1)
+        if (c == "\"") {
+          print out
+          exit 0
+        }
+        if (c == "\\" && i < n) {
+          i++
+          e = substr(rest, i, 1)
+          if (e == "n") out = out "\n"
+          else if (e == "r") out = out "\r"
+          else if (e == "t") out = out "\t"
+          else if (e == "\"" || e == "\\" || e == "/") out = out e
+          else out = out "\\" e
+        } else {
+          out = out c
+        }
+        i++
+      }
+      exit 1
+    }
+  '
+}
+
+resolve_cmd_dir() {
+  local base="$1" line="$2" dir="$1" target=""
+  # Follow simple `cd <dir> &&` or `cd <dir>;` before git, and `git -C <dir>`.
+  if [[ "$line" =~ (^|[[:space:]\;\&\|\(])cd[[:space:]]+(\"?[^\";\&\|\)]+\"?|\x27[^\x27;\&\|\)]+\x27)[[:space:]]*(\&\&|\;) ]]; then
+    target="${BASH_REMATCH[2]}"
+    target="${target#\"}"; target="${target%\"}"
+    target="${target#\'}"; target="${target%\'}"
+    if [[ -n "$target" && "$target" != "-" ]]; then
+      if [[ "$target" == /* || "$target" =~ ^[A-Za-z]:[\\/] ]]; then
+        dir="$target"
+      else
+        dir="$dir/$target"
+      fi
+    fi
+  fi
+  if [[ "$line" =~ git[[:space:]].*-C[[:space:]]+(\"[^\"]+\"|\x27[^\x27]+\x27|[^[:space:]\;\&\|]+) ]]; then
+    target="${BASH_REMATCH[1]}"
+    target="${target#\"}"; target="${target%\"}"
+    target="${target#\'}"; target="${target%\'}"
+    if [[ -n "$target" ]]; then
+      if [[ "$target" == /* || "$target" =~ ^[A-Za-z]:[\\/] ]]; then
+        dir="$target"
+      else
+        dir="$dir/$target"
+      fi
+    fi
+  fi
+  printf '%s' "$dir"
+}
+
 work_dir="$PWD"
 if [[ "${1:-}" == --check ]]; then
   command_text="${2:-}"
@@ -17,10 +83,8 @@ else
     command_text="$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)" || command_text="$input"
     hook_cwd="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null)" || hook_cwd=""
   else
-    # No jq: pull the strings out with sed and undo JSON escapes; fall back to the raw JSON.
-    command_text="$(printf '%s' "$input" | sed -nE 's/.*"command"[[:space:]]*:[[:space:]]*"(([^"\\]|\\.)*)".*/\1/p' | sed 's/\\"/"/g')"
-    command_text="$(printf '%b' "${command_text:-$input}")"
-    hook_cwd="$(printf '%s' "$input" | sed -nE 's/.*"cwd"[[:space:]]*:[[:space:]]*"(([^"\\]|\\.)*)".*/\1/p' | sed 's/\\\\/\\/g')"
+    command_text="$(printf '%s' "$input" | extract_json_field command 2>/dev/null)" || command_text="$input"
+    hook_cwd="$(printf '%s' "$input" | extract_json_field cwd 2>/dev/null)" || hook_cwd=""
   fi
   work_dir="${hook_cwd:-$PWD}"
 fi
@@ -30,7 +94,9 @@ if [[ ! -r "$patterns" ]]; then
   exit 2
 fi
 [[ -n "$command_text" ]] || exit 0
-command_text="${command_text//$'\\\n'/ }"  # a backslash-newline continues the command on the next line
+command_text="${command_text//$'\r'/}"         # normalize CRLF so \\\r\n continuations join cleanly
+command_text="${command_text//$'\\\n'/ }"      # a backslash-newline continues the command on the next line
+command_text="${command_text//$'\t'/ }"        # normalize tabs so portable space patterns match
 
 block() {
   {
@@ -41,21 +107,26 @@ block() {
   exit 2
 }
 
-active="$(grep -vE '^[[:space:]]*(#|@|$)' "$patterns")"
+clean_patterns="$(tr -d '\r' < "$patterns")"
+active="$(printf '%s\n' "$clean_patterns" | grep -vE '^[[:space:]]*(#|@|$)' || true)"
 if [[ -n "$active" ]]; then
-  hit="$(printf '%s\n' "$command_text" | grep -Eo -f <(printf '%s\n' "$active") | head -n 1)"
+  hit="$(printf '%s\n' "$command_text" | grep -Eo -f <(printf '%s\n' "$active") | head -n 1 || true)"
   [[ -z "$hit" ]] || block "$hit"
 fi
 
-branch_rules="$(grep -E '^@branch ' "$patterns")"
+branch_rules="$(printf '%s\n' "$clean_patterns" | grep -E '^@branch ' || true)"
 if [[ -n "$branch_rules" ]]; then
-  branch="$(git -C "$work_dir" symbolic-ref --short -q HEAD 2>/dev/null)"
-  if [[ -n "$branch" ]]; then
+  while IFS= read -r cmd_line; do
+    [[ -n "$cmd_line" ]] || continue
     while read -r _ branch_regex command_regex; do
-      [[ "$branch" =~ ^($branch_regex)$ ]] || continue
-      hit="$(printf '%s\n' "$command_text" | grep -Eo -e "$command_regex" | head -n 1)"
-      [[ -z "$hit" ]] || block "$hit (on $branch)"
+      hit="$(printf '%s\n' "$cmd_line" | grep -Eo -e "$command_regex" | head -n 1 || true)"
+      [[ -n "$hit" ]] || continue
+      eff_dir="$(resolve_cmd_dir "$work_dir" "$cmd_line")"
+      branch="$(git -C "$eff_dir" symbolic-ref --short -q HEAD 2>/dev/null || true)"
+      if [[ -n "$branch" && "$branch" =~ ^($branch_regex)$ ]]; then
+        block "$hit (on $branch)"
+      fi
     done <<< "$branch_rules"
-  fi
+  done <<< "$command_text"
 fi
 exit 0

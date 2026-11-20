@@ -62,7 +62,7 @@ Scope: anything rendered to MP4 (launch films, explainers, social clips, docs vi
    - Real UI only (captured at 2× or rendered from real components and tokens). Establish → isolate the action at 1.6–2× → return the result.
    - The cursor is 4–7% of the frame, and its click fires the next beat.
    - The first frame is the thumbnail (never black or a lone logo). The end card sits in the last 5–10%, with the CTA held 1.5–3 s.
-   - Results-based films outperformed effects-heavy ones by about 10×. [github/motion-graphics/heygen-com-hyperframes; github/motion-graphics/Vincentwei1021-video-shotcraft]
+   - Creator reports favor results-based films over effects-heavy ones (claimed ~10× [unverified: no public benchmark or denominator]). [github/motion-graphics/heygen-com-hyperframes; github/motion-graphics/Vincentwei1021-video-shotcraft]
 10. **Type floors, measured on the rendered frame:**
     - Captions ≥ 56 px effective at 1080; secondary text ≥ 28–32 px; headline ≥ 84 px at 1080 wide.
     - ≤ 6 words a line, one line at a time; check at 360–480 px width.
@@ -74,7 +74,7 @@ Scope: anything rendered to MP4 (launch films, explainers, social clips, docs vi
     - **No numeric film scores** (Lukas's 7–8+ score loop is the dissent): a score finds nothing to fix.
     - The model can't watch in real time, so a human watches the final cut. [github/motion-graphics/heygen-com-hyperframes; youtube/747ZnEtsRbg 18:42]
 12. **Stack:**
-    - **Remotion** for us (React/TS, reuses our components and tokens; its license is free for companies of up to 3 people, otherwise a company license).
+    - **Remotion** for React/TS codebases (reuses existing components and tokens; its license is free for companies of up to 3 people, otherwise a company license).
     - **HyperFrames** (Apache-2.0) as the permissive alternative.
     - **Three.js / R3F** for 3D, Rapier baked per frame for physics, postprocessing sparingly.
     - **librosa** for beats; Blender MCP for photoreal hero objects.
@@ -102,7 +102,7 @@ Scope: anything rendered to MP4 (launch films, explainers, social clips, docs vi
     - **Camera and text instructions are requests, not guarantees.** Video models have zoomed in when asked to zoom out and burned in subtitles unless told "Don't put in subtitles". Constrain with start and end frames, and check direction and text on every clip.
 19. **Critique adds a fresh checker:** a separate agent checks overlaps, text size, spelling, the face zone, icons and dead stretches. Both creators score 1–10 and fix anything below 8. Keep §5a.11's timestamped notes as the record; a score may serve only as the stop condition. Expect many rounds (one showcased film took 163 calls and about 7 h).
 20. **Models and knobs:**
-    - Opus 5.5 on high is the default. Fable 5.2 only for planning, frame-by-frame reference analysis or multi-hour 3D builds (about 2× the price, about 5× slower). Max effort scored lower at about 3× the cost.
+    - Opus 5.5 on high is a practical default. Reserve Fable 5.2 for planning, frame-by-frame reference analysis, or multi-hour 3D builds (single-creator report: ~2× price, ~5× slower, and max effort scoring lower at ~3× cost [unverified: workload-specific, re-test on your own renders]).
     - Tier models by task: the top model only for the motion-graphics and beat pass, where the hard part is choosing what to emphasize; cheaper tiers for setup, cuts, subtitles and images.
     - Expose tweakable values (blur, opacity, timing) as editor or Remotion props instead of re-prompting.
     - Once a look works, save it as a skill that asks for URL, duration and format, and update it after each revision round.

@@ -81,6 +81,7 @@ class TokenOrder(unittest.TestCase):
         # would be rewritten to the slug, which is not a skill's name.
         self.assertEqual(self.rb.text(f"---\nname: {SRC['mainSkillName']}\n---\n"), "---\nname: zeta\n---\n")
         self.assertEqual(self.rb.text(f"---\nname: {SRC['stackSkillName']}\n---\n"), "---\nname: zeta-stack\n---\n")
+        self.assertEqual(self.rb.text(f"---\nname: {SRC['commandName']}\n---\n"), "---\nname: z\n---\n")
 
 
 class PathRenames(unittest.TestCase):
@@ -92,6 +93,11 @@ class PathRenames(unittest.TestCase):
         self.assertEqual(self.rb.path("plugins/deepmodebot/skills/deep-stack/SKILL.md"), "plugins/zeta-review/skills/zeta-stack/SKILL.md")
         self.assertEqual(self.rb.path("plugins/deepmodebot/commands/deep.md"), "plugins/zeta-review/commands/z.md")
         self.assertEqual(self.rb.path("plugins/deepmodebot/commands/deep-dive.md"), "plugins/zeta-review/commands/deep-dive.md")
+        self.assertEqual(self.rb.path("plugins/deepmodebot/.antigravity-plugin/skills/deep/SKILL.md"),
+                         "plugins/zeta-review/.antigravity-plugin/skills/z/SKILL.md")
+        self.assertEqual(self.rb.path("plugins/deepmodebot/.antigravity-plugin/skills/review-pr/SKILL.md"),
+                         "plugins/zeta-review/.antigravity-plugin/skills/review-pr/SKILL.md")
+        self.assertEqual(self.rb.path(".agents/skills/verify-deepmodebot/SKILL.md"), ".agents/skills/verify-zeta-review/SKILL.md")
         self.assertEqual(self.rb.path("docs/images/how-it-works.svg"), "docs/images/how-it-works.svg")
 
 
@@ -264,6 +270,43 @@ class Build(unittest.TestCase):
         built = json.loads((self.out / "plugins/zeta-review/skills/zeta/assets/github-app/brand.json").read_text(encoding="utf-8"))
         self.assertEqual((built["name"], built["description"], built["homepage"]),
                          ("zeta-review", "Zeta Review bots.", "https://zeta.example/"))
+
+    def test_antigravity_manifest_command_skill_and_logo_are_rebranded(self):
+        manifest = self.src / "plugins/deepmodebot/.antigravity-plugin/plugin.json"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text(json.dumps({
+            "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+            "name": "deepmodebot", "displayName": "deepmodebot", "version": "0.8.3",
+            "description": "deepmodebot (/deep)", "logo": "assets/logo.svg",
+            "skills": ["./.antigravity-plugin/skills"],
+            "suggestedPrompts": ["/deep fix this bug", "/review-pr 42"],
+            "author": {"name": "Timothy Vang", "url": "https://github.com/TimothyVang"},
+            "homepage": "https://timothyvang.github.io/deepmodebot/",
+            "repository": "https://github.com/TimothyVang/deepmodebot",
+            "keywords": ["deepmodebot", "antigravity"],
+        }), encoding="utf-8")
+        cmd_skill = self.src / "plugins/deepmodebot/.antigravity-plugin/skills/deep/SKILL.md"
+        cmd_skill.parent.mkdir(parents=True)
+        cmd_skill.write_text("---\nname: deep\ndescription: Run /deep with skill://deepmodebot.\n---\n# /deep\n", encoding="utf-8")
+        logo = self.src / "plugins/deepmodebot/assets/logo.svg"
+        logo.parent.mkdir(parents=True)
+        logo.write_text("<svg>old</svg>\n", encoding="utf-8")
+        self.assertEqual(self.build(), [])
+        built = json.loads((self.out / "plugins/zeta-review/.antigravity-plugin/plugin.json").read_text(encoding="utf-8"))
+        self.assertEqual(built["name"], "zeta-review")
+        self.assertEqual(built["displayName"], "Zeta Review")
+        self.assertEqual(built["description"], "Zeta Review bots.")
+        self.assertEqual(built["homepage"], "https://zeta.example/")
+        self.assertEqual(built["repository"], "https://github.com/zeta-co/zeta-review")
+        self.assertEqual(built["author"], {"name": "Zeta Inc.", "url": "https://zeta.example"})
+        self.assertEqual(built["suggestedPrompts"], ["/z fix this bug", "/review-pr 42"])
+        self.assertEqual(built["keywords"], ["zeta-review", "antigravity"])
+        skill_out = self.out / "plugins/zeta-review/.antigravity-plugin/skills/z/SKILL.md"
+        self.assertTrue(skill_out.is_file())
+        self.assertFalse((self.out / "plugins/zeta-review/.antigravity-plugin/skills/deep").exists())
+        self.assertIn("name: z\ndescription: Run /z with skill://zeta.\n", skill_out.read_text(encoding="utf-8"))
+        self.assertEqual((self.out / "plugins/zeta-review/assets/logo.svg").read_bytes(),
+                         (self.out / "brand/favicon.svg").read_bytes())
 
 
 class Limits(unittest.TestCase):

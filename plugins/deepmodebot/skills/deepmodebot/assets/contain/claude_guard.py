@@ -58,8 +58,14 @@ def allowed_roots(roots):
     for root in roots:
         try:
             with open(os.path.join(root, ".deepmodebot.json"), encoding="utf-8") as handle:
-                extra = json.load(handle).get("extraWriteRoots") or []
-            allowed += [p if os.path.isabs(os.path.expanduser(p)) else os.path.join(root, p) for p in extra if isinstance(p, str)]
+                cfg = json.load(handle)
+            extra = cfg.get("extraWriteRoots") if isinstance(cfg, dict) else None
+            if isinstance(extra, list):
+                allowed += [
+                    p if os.path.isabs(os.path.expanduser(p)) else os.path.join(root, p)
+                    for p in extra
+                    if isinstance(p, str) and p.strip()
+                ]
         except (OSError, ValueError, AttributeError):
             pass
     return [real(r) for r in allowed]
@@ -82,22 +88,33 @@ def main():
     except ValueError:
         print("deepmodebot contain guard: unreadable hook input; not blocking", file=sys.stderr)
         return 0
+    if not isinstance(event, dict):
+        return 0
     mark = session_mark(sys.argv[2] if len(sys.argv) > 2 else "", event)
     if mode == "activate":
         if mark and re.match(r"\s*/deepmodebot:", str(event.get("prompt") or "")):
             folder = os.path.dirname(mark)
             os.makedirs(folder, exist_ok=True)
-            for name in os.listdir(folder):
+            try:
+                entries = os.listdir(folder)
+            except OSError:
+                entries = []
+            for name in entries:
                 stale = os.path.join(folder, name)
-                if time.time() - os.path.getmtime(stale) > MARK_MAX_AGE_SECONDS:
-                    os.remove(stale)
+                try:
+                    if os.path.isfile(stale) and time.time() - os.path.getmtime(stale) > MARK_MAX_AGE_SECONDS:
+                        os.remove(stale)
+                except OSError:
+                    pass
             open(mark, "w").close()
         return 0
     if mode == "if-active" and not (mark and os.path.exists(mark)):
         return 0
     if event.get("tool_name") not in ("Write", "Edit", "NotebookEdit"):
         return 0
-    tool_input = event.get("tool_input") or {}
+    tool_input = event.get("tool_input")
+    if not isinstance(tool_input, dict):
+        return 0
     target = tool_input.get("file_path") or tool_input.get("notebook_path")
     if not isinstance(target, str) or not target:
         return 0

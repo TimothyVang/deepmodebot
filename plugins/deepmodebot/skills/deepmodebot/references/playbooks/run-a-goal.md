@@ -22,14 +22,18 @@ Headless engines this playbook may use:
 One task, one session, one completion predicate.
 
 1. State the exit condition as a checkable predicate before the first iteration (tests green, repro fixed, all N PRs merged, pixel-diff zero). Write down the command or check that evaluates it.
-   Audit the repo's inner loop first (`python <deepmodebot skill>/assets/loop/loop.py audit .` or `references/techniques/inner-loop.md`) so the predicate pairs fast static checks with behavioral proof and cannot pass via inline suppressions, swallowed errors, or weakened configs.
-   Done when the predicate, its inner-loop checks, and its command are written down and one run shows the current state.
+   Audit the repo's inner loop first (`python -B "<deepmodebot skill>/assets/loop/loop.py" audit .` or `references/techniques/inner-loop.md`) so the predicate pairs fast static checks with behavioral proof and cannot pass via inline suppressions, swallowed errors, or weakened configs.
+   If the goal enters a complex domain or depends on an unverified customer spec, run **sme-review** (`references/techniques/sme-review.md`) before looping; send a **questionnaire** (`references/techniques/questionnaire.md`) for unresolved P0/P1 domain questions instead of optimizing against a flawed spec.
+   For multi-slice or "all / every" goals, keep total scope in one `manifest` JSON (`python -B "<deepmodebot skill>/assets/loop/loop.py" manifest <file> [--sprint N]`, `py -3 -B` on Windows), classify every candidate in `inventory` (`included`, `duplicate`, `non_target`, `blocked`; any `pending` item fails the gate), and set `sme_gate: "required"` until SME-cleared.
+   Done when the predicate, its inner-loop checks, and its command are written down, one run shows the current state, and any complex-domain spec is SME-cleared.
 2. Start a decision trail per the **show-me-your-work** technique (`references/techniques/show-me-your-work.md`).
    Done when the trail file exists and its absolute path is printed.
 3. Pick the wake mechanism:
-   - An event to watch (CI, a merge, a ref advancing) → a background `bash` job that blocks on it (`gh pr checks <pr> --watch`, `gh run watch <id>`, `timeout: 0`); its result auto-delivers. Add a long time-based heartbeat as fallback (background `sleep` with `timeout: 0`, or `sleep 3300` with `timeout: 3600`).
-   - No event → a fixed-interval heartbeat (background `bash` `sleep`) sized to when the result is worth re-checking. Set `timeout: 0` (or `sleep 3300` with `timeout: 3600`), because the default 300s deadline kills longer sleeps.
-   - Unattended across sessions, from a script or CI, or in another harness → write a goal file and run `python <deepmodebot skill>/assets/loop/loop.py run <goal.md>`. It runs headless omp, Claude Code, or Codex until the check passes, and it is capped, stall-stopped, and tamper-checked.
+   - An event to watch (CI, a merge, a ref advancing) → a background shell job that blocks on it (`gh pr checks <pr> --watch`, `gh run watch <id>`, with `timeout: 0` in omp or background command/task in other harnesses); its result auto-delivers. Add a time-based heartbeat fallback via the harness's scheduler (Antigravity `schedule`, Claude Code `/loop`) or a background sleep (`sleep 3300` on POSIX, `Start-Sleep -Seconds 3300` in PowerShell).
+   - No event → a fixed-interval heartbeat using the harness's scheduler (Antigravity `schedule`, Claude Code `/loop`) or a background sleep (`bash` `sleep` with `timeout: 0` / `timeout: 3600` in omp; PowerShell `Start-Sleep` on Windows), sized to when the result is worth re-checking.
+   - Unattended across sessions, from a script or CI, or in another harness → select the smallest benchmark-proven model tier (`skill://agent-harnesses/references/delegation-efficiency.md`) and pin it in `harness_args` before iteration 1.
+     Add optional `escalate_after` + `escalate_harness_args` to promote to a stronger model after repeated failures, `fallback_harness_args` to switch to configured fallback args on quota or persistent 429s (cross-family in `omp`; sibling model in `claude`/`codex`), and `checkpoint_every` as an iteration cadence checkpoint (exit 6 after N failed iterations; passing Sprint 1 with deferred slices exits `0` with `scope_complete: false`).
+     Run `python -B "<deepmodebot skill>/assets/loop/loop.py" run <goal.md> [--sprint N]` (`loop.py run` targets `omp|claude|codex`; `manifest`/`audit`/`check`/`status` are harness-agnostic) with `max_cost_usd`, `cooldown_seconds`, and `rate_limit_retries`. Use `loop.py status <goal.md> [--json]` to inspect sprint progress, deferred slices, SME gates, and the exact resume command from `latest-summary.json`.
    - Interactive in one session → the harness's native `/goal` with the predicate's command named in it. Details: `references/playbooks/self-authoring.md`.
    - Done when the wake job, `loop.py` run, or `/goal` is armed and its id or command is in the trail.
 4. Each iteration: make the smallest change the evidence justifies, run fast static checks first, and evaluate the predicate without adding inline suppressions or symptom guards.
@@ -37,7 +41,9 @@ One task, one session, one completion predicate.
 5. Advanced → keep it and commit it. Didn't help → discard it. "Might help" belt-and-suspenders gets reverted, not left to ride.
    Done when the iteration's change is either committed or reverted, and `git status --porcelain` shows nothing left from it.
 6. Sequence the work into verifiable units, verifying each before the next instead of batching checks at the end (`references/principles/sequence-verifiable-units.md`).
-   Done when every unit kept so far had its check pass before the next unit started.
+   For multi-capability or customer-facing goals, keep 100% of total scope in one manifest with per-slice `sprint` numbers and run Sprint 1 via `active_sprint: 1` or `--sprint 1` (`python -B "<deepmodebot skill>/assets/loop/loop.py" check|run|manifest --sprint N`, `py -3 -B` on Windows) so Sprint 2+ stay explicitly `deferred` (never dropped or falsely marked done).
+   Use `sme_gate: "required"` on the manifest or later-sprint slices (`manifest` exits `1`; `check` prints status and exits `0`; `run` pauses with exit `6` before launching the harness) or `checkpoint_every` (iteration cadence pause, exit `6`) so `latest-summary.json` records scope telemetry until **sme-review** (`references/techniques/sme-review.md`) clears the gate (`sme_gate: "cleared"`).
+   Done when every unit kept so far had its check pass before the next unit started, and any Sprint 1 feedback gate is cleared before Sprint 2+ begins.
 7. Own mid-run discoveries that support the goal: broken skills, related bugs, flaky verifiers, review noise, tooling failures, orphaned follow-ups, fixable drift. Fix them yourself, out-of-band fixes kept separate from the main change (on their own branch and PR). Return to the predicate after each side fix.
    Done when each discovery has its own branch and PR, and the next iteration is back on the predicate.
 8. Checkpoint every iteration in the trail: one row for what changed and whether the predicate moved.
@@ -52,7 +58,7 @@ You run the program, never the code. Decide which agent does each piece, then ch
 Work two tracks at once: the tactical one (land the next unit) and the strategic one (change the environment so the unit after it goes better).
 
 1. Keep program state in one tracker file a cold-start coordinator can find: units, owners, agent ids, PRs, heads, verdicts, follow-ups.
-   - The file is `$(git rev-parse --git-common-dir)/omp-resume/<program>-notes.md`, or a repo-ignored notes file. Never `local://`, which is per-session. Print its absolute path.
+   - The file is `$(git rev-parse --git-common-dir)/omp-resume/<program>-notes.md`, or `<root>/.scratch/<program>-notes.md` when the harness cannot write `.git` (such as Codex's sandbox, per `references/contain.md`). Never a session-only store (`local://`). Print its absolute path.
    - Spawn workers only with `task`. No hand-rolled polling loops. Workers talk to each other directly as coworkers (the **coworkers** technique, `references/techniques/coworkers.md`); you don't relay between them.
    - Keep durable knowledge in a **wiki** beside the tracker (`.../omp-resume/<program>-wiki/`), or in the shared wiki the repo or user already keeps, following its conventions. `index.md` lists every page with a one-line summary by category.
    - Each other page covers one thing (a decision, a recurring problem, a subsystem, a user preference) and links its neighbors. Pages cite sources (issues, PRs, commits, worker reports) and never copy them.
@@ -68,15 +74,16 @@ Work two tracks at once: the tactical one (land the next unit) and the strategic
    - A relative remote URL resolves against the directory the push runs in; push from the main checkout.
    - Give each owner its own dev-server port and database.
    - Done when the tracker lists each owner's worktree path, port, and database, and no two owners share one.
-4. Give each independent task a fresh worker whose kickoff carries everything it needs, including each upstream report it depends on, pasted in full, and the team roster: every coworker's agent id, role, and files owned.
-   Done when every kickoff holds its upstream reports and the roster.
-5. Write every kickoff with: goal, the evidence that proves done (a command and its expected output, a `verify-<app>` check, or an artifact), allowed and forbidden paths, and the hard stops (SKILL.md Autonomy). Can't name the evidence → the unit isn't scoped yet.
-   Done when every kickoff names its proof, its allowed and forbidden paths, and the hard stops.
+4. Give each independent task a fresh worker whose kickoff carries everything it needs: file/report paths and brief summaries for upstream reports it depends on (pass paths instead of pasting large dumps, per `references/principles/guard-the-context-window.md`), plus the team roster (every coworker's agent id, role, and files owned).
+   Done when every kickoff names its upstream report paths and the roster.
+5. Write every kickoff with: goal, selected model tier and effort (`skill://agent-harnesses/references/delegation-efficiency.md`, never defaulting routine slices to flagship `L`), the evidence that proves done (a command and its expected output, a `verify-<app>` check, or an artifact), allowed and forbidden paths, and the hard stops (SKILL.md Autonomy). Can't name the evidence → the unit isn't scoped yet.
+   Done when every kickoff names its model tier, its proof, its allowed and forbidden paths, and the hard stops.
 6. Start with one unit. Take it through kickoff, owner, verifier, and landing before fanning out, so a kickoff flaw costs one agent, not fifty. On near-identical cheap units, the first unit is that test.
-   Done when the first unit has landed or been dropped with a reason, and each kickoff flaw it exposed is fixed in the kickoff you reuse.
-7. Fan out: about ten workers in flight per coordinator; start the next as each finishes instead of waiting on a batch. Add a sub-coordinator only when one area has many parallel workers; it owns that area's kickoffs and sends you one rollup, never raw reports. Max three levels: you, sub-coordinators, workers.
-   Done when about ten workers are in flight, or every remaining unit is running or done.
-8. When new work needs a worker's checkout, uncommitted changes, or running process, message that worker (`write agent://<id>`, which also revives it) or spawn a fresh worker pointed at its worktree/branch. There is no fork. Never message a worker just to check on it.
+   For customer-facing or complex-domain programs, group units into **incremental sprints**: land Sprint 1 (smallest end-to-end slice), run **sme-review** (`references/techniques/sme-review.md`), and get human SME or customer feedback via **questionnaire** (`references/techniques/questionnaire.md`) before fanning out Sprint 2+.
+   Done when the first unit (or Sprint 1 feedback slice) has landed or been dropped with a reason, and each kickoff flaw or domain gap it exposed is fixed before fanning out.
+7. Fan out within quota and rate limits: default **3-5** concurrent workers on a single subscription, scaling up toward ten only when split across accounts/model families or higher-tier quotas. Start the next as each finishes instead of bursting cold spawns. Pass file/report paths rather than pasting large context (`references/principles/guard-the-context-window.md`). Add a sub-coordinator only when one area has many parallel workers; max three levels: you, sub-coordinators, workers.
+   Done when concurrent workers fit the active rate/quota budget and every remaining unit is running or done.
+8. When new work needs a worker's checkout, uncommitted changes, or running process, message that worker (`write agent://<id>` in omp, `SendMessage` in Claude Code, `send_message` in Antigravity) or spawn a fresh worker pointed at its worktree/branch. Never message a worker just to check on it.
    Done when the tracker shows the new work under the worker holding that state, or under a fresh worker on its worktree.
 9. Give every PR a **panel** (`references/techniques/panel.md`): exactly three verifiers who did not author it, default `task` agents that can prove real behavior, using different authorized model families when available. All three valid responses are required; at least two must pass.
    The owner merges only on a panel pass at the current head. That pass includes a pr-review round in PR mode on the current head with no P0/P1 open and every P2 fixed or dismissed with a reason; the review is evidence, never a substitute for the panel's live proof.
@@ -88,14 +95,14 @@ Work two tracks at once: the tactical one (land the next unit) and the strategic
     Done when every out-of-scope change is out of its PR or parked as a follow-up in the tracker.
 12. Check live PR state before reporting it: `gh pr view <pr>` and `gh pr checks <pr>`, not a worker's last report. Account for every spawned worker as done, replaced, or absorbed.
     Done when every PR you report matches a `gh pr view` and `gh pr checks` run just before the report, and every spawned worker is marked done, replaced, or absorbed.
-13. Stop or replace a worker that stalls or loops, judged by pushes and PR activity, not status text. Retry by cause: smaller scope after a context limit, same kickoff after a dropped connection, a different model after a tool error. After two retries, drop the unit and replan around it.
+13. Stop or replace a worker that stalls or loops, judged by pushes and PR activity, not status text. Distinguish rate-limit/quota failures from bugs: on 429 or quota exhaustion, throttle concurrency, back off, or rotate model family (`skill://agent-harnesses/references/delegation-efficiency.md`) instead of respawning into the same limit. Otherwise retry by cause: smaller scope after a context limit, same kickoff after a dropped connection, a different model after a tool error. After two retries, drop the unit and replan around it.
     A stopped worker that returns late: check its result against the PR's current state and hand unique findings to a fresh worker.
     Done when no running worker has gone an hour, or the interval you set for it, without a push or PR activity, and no unit has had a third retry.
 14. Strategic track. Before each new unit, ask what change to the environment would make it and later units go right by default, and hand that to a worker as its own unit.
     Candidates: tighter inner-loop checks (`references/techniques/inner-loop.md`), narrower interfaces, a lint rule, type, or test (**correct**), a pre-commit hook (`references/techniques/pre-commit.md`), a git guard (`references/techniques/git-guardrails.md`), a `CODING_STANDARDS.md` rule the reviewer enforces, or data the agents lack (dev-server logs teed to a file, a test database, browser access).
     No workarounds. A deviation from the repo's conventions gets fixed before more feature work lands on top of it.
     Done when each new unit has an environment change dispatched as its own unit, or a tracker note that none applies.
-15. Run the **retro** technique (`references/techniques/retro.md`) on about one in five finished workers, the ones that failed, stalled, or needed a retry first, reading the worker's `history://<id>` transcript. Decide which candidates to pursue yourself and dispatch them as units; file the rest.
+15. Run the **retro** technique (`references/techniques/retro.md`) on about one in five finished workers, the ones that failed, stalled, or needed a retry first, reading the worker's transcript (`history://<id>` in omp, or the harness's saved transcript / `.scratch/` run logs elsewhere). Decide which candidates to pursue yourself and dispatch them as units; file the rest.
     Done when the tracker lists each sampled retro and marks each candidate it produced dispatched or filed.
 16. A chunk too big for one PR goes through the Spec playbook (`references/playbooks/spec.md`), then Tickets (`references/playbooks/tickets.md`), then Phased build in build mode (`references/playbooks/phased-build.md`), with this playbook still owning the workers.
     Done when the chunk has a spec, tickets, and an integration branch with an owner in the tracker.
@@ -108,7 +115,8 @@ Work two tracks at once: the tactical one (land the next unit) and the strategic
 Both scales:
 - Stop only when the completion predicate is met (session scale step 1; at program scale, the goal's acceptance criteria), or on a genuine dead end (surface it rather than spin).
 - Never relax the predicate to declare victory.
-- Don't park reversible work for the human or use `ask`. Decide product and design calls yourself and log them (SKILL.md Autonomy). Surface only irreversible actions outside the grant, what only the user can supply, or a real dead end.
+- Pace concurrency and token burn: set cost/iteration caps, pick tiers from benchmarks (`skill://agent-harnesses/references/delegation-efficiency.md`), switch to cheaper execution models at clean boundaries, pass paths instead of inline dumps, reuse warm workers, and on 429/quota limits back off or rotate model family rather than tight-looping retries.
+- Don't park reversible work for the human or use `ask`. Decide product and design calls yourself and log them (SKILL.md Autonomy). Surface only irreversible actions outside the grant, what only the user can supply, unverified complex-domain customer specs (**sme-review** + **questionnaire**), sprint feedback checkpoints, or a real dead end.
 - Push and open PRs as the work needs. Merges need a panel pass and go through `references/playbooks/shipping.md`.
 
 Program scale also:
@@ -120,7 +128,7 @@ Program scale also:
 
 Session scale:
 - The exit condition and the check that evaluates it.
-- Iterations run (trail link), what landed, what was discarded and why.
+- Iterations run (trail link and `latest-summary.json`, including `scope` sprint/inventory/SME telemetry when a manifest is configured), what landed, what was discarded and why.
 - Side fixes made and where they live.
 - Final predicate state, shown by running the check.
 

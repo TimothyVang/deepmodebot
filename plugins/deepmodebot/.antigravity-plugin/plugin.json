@@ -1,0 +1,35 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "deepmodebot",
+  "displayName": "deepmodebot",
+  "version": "0.9.0",
+  "description": "Rigorous agent engineering mode (/deep) for Google Antigravity, omp, Claude Code, and Codex: routes tasks to playbooks, enforces Full-Scope Completion, SME-in-the-loop incremental sprints, model/rate-limit resilience, root containment, real-app proof, and verifier-gated PR review.",
+  "logo": "assets/logo.svg",
+  "skills": [
+    "./.antigravity-plugin/skills"
+  ],
+  "suggestedPrompts": [
+    "/deep grill me on this plan, then write the spec and cut tickets",
+    "/deep fix this bug and prove it on the running app",
+    "/review-pr 42"
+  ],
+  "author": {
+    "name": "Timothy Vang",
+    "url": "https://github.com/TimothyVang"
+  },
+  "homepage": "https://timothyvang.github.io/deepmodebot/",
+  "repository": "https://github.com/TimothyVang/deepmodebot",
+  "license": "MIT",
+  "keywords": [
+    "deepmodebot",
+    "rigor",
+    "agent-playbooks",
+    "full-scope-completion",
+    "sme-review",
+    "incremental-sprints",
+    "verification",
+    "code-review",
+    "playbooks",
+    "antigravity"
+  ]
+}

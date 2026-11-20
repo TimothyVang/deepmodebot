@@ -29,6 +29,10 @@ Tags: `[unverified]` = not confirmed in a primary source this session; `[inferen
 - `/presets` saves and runs prompts or slash commands in the CLI ([slash-commands](https://learn.chatgpt.com/docs/cli/slash-commands.md)); storage format [unverified].
 - Agent-authorable, repo-shareable path in Codex is therefore a skill in `.agents/skills/` [inference from deprecation note].
 
+### Google Antigravity
+- No separate `commands/` folder (Claude `commands/*.md` files are ignored). Every skill in `.agents/skills/<name>/SKILL.md` or `~/.gemini/config/skills/` registers `/<name>` directly in chat ([skills](https://antigravity.google/docs/skills), [build-plugins](https://antigravity.google/docs/build-plugins)).
+- Reload: skills and rules re-read before each turn; run `/skills reload` in interactive `agy` to refresh slash-command completions ([skills](https://antigravity.google/docs/skills)).
+
 ## 2. Skills
 
 ### Common standard (agentskills.io)
@@ -69,12 +73,13 @@ Tags: `[unverified]` = not confirmed in a primary source this session; `[inferen
 - Same-name skills are not merged; both appear ([build-skills](https://learn.chatgpt.com/docs/build-skills.md)).
 
 ### Google Antigravity
-- Paths: workspace `.agents/skills/<name>/SKILL.md` walking cwd up to repo root; personal `~/.gemini/config/skills/<name>/SKILL.md` (shared by App, CLI `agy`, IDE); plugin `<plugin>/skills/<name>/SKILL.md` ([skills](https://antigravity.google/docs/skills), [discovery](https://antigravity.google/docs/customization-discovery)).
-- Antigravity ignores Claude `commands/*.md` and `.gemini/skills/`; every discovered skill registers `/<name>` directly (`/skills reload` refreshes completions in interactive `agy`). CLI-only `~/.gemini/skills/` and `~/.gemini/antigravity-cli/skills/` outrank workspace skills in `agy` while staying invisible in App ([discovery](https://antigravity.google/docs/customization-discovery)).
-- Validate plugins and bundled skills with `agy plugin validate --strict <dir>` ([build-plugins](https://antigravity.google/docs/build-plugins)).
+- Paths: workspace `.agents/skills/<name>/SKILL.md` walking cwd up to repo root (`.gemini/skills/` in workspace is ignored); personal `~/.gemini/config/skills/<name>/SKILL.md` (shared by App, CLI `agy`, IDE); plugin `<plugin>/skills/<name>/SKILL.md` ([skills](https://antigravity.google/docs/skills), [discovery](https://antigravity.google/docs/customization-discovery)).
+- Antigravity ignores Claude `commands/*.md`; every discovered skill registers `/<name>` directly (`/skills reload` refreshes completions in interactive `agy`). CLI-only `~/.gemini/skills/` and `~/.gemini/antigravity-cli/skills/` outrank workspace skills in `agy` while staying invisible in App ([discovery](https://antigravity.google/docs/customization-discovery)).
+- Frontmatter parses `name` and `description` only; unknown keys (including `disable-model-invocation: true`) are silently ignored ([skills](https://antigravity.google/docs/skills)).
+- Validate plugins, manifests, and bundled skills with `agy plugin validate [--strict] <dir>` ([build-plugins](https://antigravity.google/docs/build-plugins)).
 
 ### Cross-harness portable recipe [inference]
-- One `<name>/SKILL.md` with only spec fields loads in all three if placed in each harness's dir; omp additionally reads `.claude/skills` and `.agents`-style dirs, so `.claude/skills/<name>/` + `.agents/skills/<name>/` (or symlink; Claude and Codex both follow symlinks per their docs) covers all three.
+- One `<name>/SKILL.md` with only spec fields loads in all four harnesses if placed in `.agents/skills/<name>/` (omp, Codex, Antigravity) and mirrored to `.claude/skills/<name>/` (Claude Code; copy on Windows instead of symlinking).
 
 ## 3. Goals (native)
 
@@ -103,6 +108,10 @@ Tags: `[unverified]` = not confirmed in a primary source this session; `[inferen
 - Budget config key name for goals: [unverified].
 - Structured one-shot: `codex exec --output-schema <FILE>` (JSON Schema for final message), `--json` JSONL events, `-o/--output-last-message <FILE>` (codex 0.163.0 exec --help).
 
+### Google Antigravity
+- Interactive `/goal` runs a thorough, long-running task until the objective is met; `/schedule` creates a one-shot timer or recurring cron schedule ([overview](https://antigravity.google/docs/overview)).
+- Structured headless one-shot: `agy -p "<prompt>" --output-format json --json-schema '<schema-or-file>' --print-timeout 15m` ([headless](https://antigravity.google/docs/cli/headless)).
+
 ## 4. Loops
 
 ### omp
@@ -130,9 +139,9 @@ Tags: `[unverified]` = not confirmed in a primary source this session; `[inferen
 - No `--max-turns`/USD cap flag in `codex --help` 0.163.0; goal budget is the documented cap [inference].
 
 ### Google Antigravity
-- Interactive `/goal` runs long-horizon tasks to completion; `/schedule` (`schedule` tool) runs one-shot timers or 5-field cron schedules ([overview](https://antigravity.google/docs/overview)).
-- Headless loop building blocks: `agy -p "<prompt>" --output-format json --json-schema '<schema>' --print-timeout 15m`, resumed across iterations with `-c` or `--conversation <id>`, or driven over `agy --input-format stream-json --output-format stream-json` ([headless](https://antigravity.google/docs/cli/headless)).
-- `Stop` hook in `.agents/hooks.json`, `~/.gemini/config/hooks.json`, or plugin `hooks.json`: exit `0` with `{"decision": "continue", "reason": "..."}` resumes the agent; check stdin `continuationActive` so the hook does not loop forever ([hooks](https://antigravity.google/docs/hooks)). Non-zero exit codes fail open ([hooks](https://antigravity.google/docs/hooks)).
+- Interactive `/goal` runs long-horizon tasks to completion; `/schedule` (`schedule` tool) runs one-shot timers or 5-field cron schedules ([overview](https://antigravity.google/docs/overview)); `/run-workflow` executes Python-orchestrated agent loops (`parallel`, `pipeline`, `phase`) ([dynamic-workflows](https://antigravity.google/docs/dynamic-workflows)).
+- Headless loops: `agy -p "<prompt>" --output-format json --json-schema '<schema>' --print-timeout 15m` (`0s` = unlimited), resumed across iterations with `-c` or `--conversation <id>`, or multi-turn `agy --input-format stream-json --output-format stream-json` ([headless](https://antigravity.google/docs/cli/headless)).
+- `Stop` hook in `.agents/hooks.json`, `~/.gemini/config/hooks.json`, or plugin `hooks.json` receives `continuationActive`, `executionNum`, `terminationReason`, and `fullyIdle`, and returns exit `0` with `{"decision": "continue", "reason": "..."}` to resume; check stdin `continuationActive` first to prevent infinite loops (non-zero fails open) ([hooks](https://antigravity.google/docs/hooks)).
 
 ## 5. Skill authoring best practice (Anthropic)
 Source: [best-practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices).
@@ -153,10 +162,10 @@ Source: [best-practices](https://platform.claude.com/docs/en/agents-and-tools/ag
 - Actionable rule set [inference from above]: fixed metric + fixed evaluator the agent cannot edit; one mutable artifact; keep/revert per run on a branch; append-only log; hard cap (iterations, time, USD); promote to user-level only after eval beats baseline.
 
 ## 7. Safety facts
-- Writes outside the project: omp `manage_skill` (`~/.omp/agent/managed-skills/`), `omp skill install -g`, user commands `~/.omp/agent/commands/`; Claude `~/.claude/skills/`, `~/.claude/loop.md`, plugin cache `~/.claude/plugins/cache/...`; Codex `~/.codex/prompts/`, `$HOME/.agents/skills`, `~/.codex/config.toml`, `~/.codex/hooks.json` (sources above).
-- Restart/reload needed: omp commands (no watcher; `/reload-plugins` or new session); Claude new top-level skills dir (`/reload-skills`), plugin parts (`/reload-plugins`), `--add-dir` commands/agents (restart); Codex prompts (restart), skills config (restart), skills auto-detected else restart (sources above).
+- Writes outside the project: omp `manage_skill` (`~/.omp/agent/managed-skills/`), `omp skill install -g`, user commands `~/.omp/agent/commands/`; Claude `~/.claude/skills/`, `~/.claude/loop.md`, plugin cache `~/.claude/plugins/cache/...`; Codex `~/.codex/prompts/`, `$HOME/.agents/skills`, `~/.codex/config.toml`, `~/.codex/hooks.json`; Antigravity `~/.gemini/config/`, `~/.gemini/antigravity*/`, `~/.gemini/skills/`, `${PLUGIN_DATA}` (sources above).
+- Restart/reload needed: omp commands (no watcher; `/reload-plugins` or new session); Claude new top-level skills dir (`/reload-skills`), plugin parts (`/reload-plugins`), `--add-dir` commands/agents (restart); Codex prompts (restart), skills config (restart), skills auto-detected else restart; Antigravity skills/rules reload each turn (`/skills reload` refreshes completions) (sources above).
 - Trust gates: Claude `/goal` and project hooks need workspace trust; `-p` shows no trust prompt ([goal](https://code.claude.com/docs/en/goal), [security](https://code.claude.com/docs/en/security)). Codex non-managed hooks need review and are trusted by hash; changed hooks skipped until re-trusted; project hooks load only when `.codex/` layer trusted; `--dangerously-bypass-hook-trust` skips ([hooks](https://learn.chatgpt.com/docs/hooks.md), codex --help). omp hook trust model [unverified].
 - Documented attack: repo-committed Claude Code project files (hooks, MCP settings) enabled RCE and API token exfiltration, CVE-2025-59536 and CVE-2026-21852 ([Check Point](https://research.checkpoint.com/2026/rce-and-api-token-exfiltration-through-claude-code-project-files-cve-2025-59536/)).
 - Self-modification risk [inference]: an agent writing hooks, settings, or skills with `allowed-tools`/`!` shell injection can escalate its own permissions or persist across sessions; never let an agent author hooks/settings unattended; keep self-authored files in project scope, reviewed via git diff before promotion.
 - omp `omp skill install -y` installs script-shipping skills without asking; publish scans for credentials unless `--allow-secrets` (omp skill --help).
-- Loop runaway guards: omp `--max-cost`/`--max-time`, no-tool-activity stop; Claude 8-block cap, `stop_hook_active`, 7-day cron expiry, goal no-progress stop, `--max-budget-usd`; Codex no-tool-call suppression and budget-limited state; ralph-loop `--max-iterations` (sources above).
+- Loop runaway guards: omp `--max-cost`/`--max-time`, no-tool-activity stop; Claude 8-block cap, `stop_hook_active`, 7-day cron expiry, goal no-progress stop, `--max-budget-usd`; Codex no-tool-call suppression and budget-limited state; Antigravity `Stop` `continuationActive` check and `--print-timeout`; ralph-loop `--max-iterations` (sources above).

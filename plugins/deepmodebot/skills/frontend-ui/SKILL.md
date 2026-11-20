@@ -7,7 +7,7 @@ metadata:
 
 # Frontend UI/UX rules (bundled)
 
-Exported from the private repo `TimothyVang/frontend` at `7c57c43` by its `scripts/export_deep_mode.py`. Edit there and re-export; don't edit here. These files are complete on their own.
+Distilled from the optional private reference repo `TimothyVang/frontend` (`7c57c43`). The bundled playbook and pattern files under `references/` stand on their own for general UI/UX work; optional deep-dive paths prefixed `TimothyVang/frontend:` below exist only when you have access to that private repo.
 
 Paths written `TimothyVang/frontend:<path>` and bracketed citations like `[youtube/...]` point at that repo's evidence (transcripts, clips, screenshots, vendored skills). If `gh` can read it, shallow-clone it into the project's self-ignored scratch folder (`gh repo clone TimothyVang/frontend .scratch/refs/frontend -- --depth 1`, about 300 MB) and never commit from it: deepmodebot keeps every write inside the project root, and `.scratch/` holds a `.gitignore` of `*`. Otherwise skip the evidence; the rules below stand alone.
 
@@ -37,7 +37,7 @@ Paths written `TimothyVang/frontend:<path>` and bracketed citations like `[youtu
 
 ## Playbook intro
 
-The rules for building UI in this repo, distilled from `reference/`. Each rule cites its source. `TimothyVang/frontend:AGENTS.md` holds the short, always-loaded version; this file holds the detail.
+General UI/UX rules distilled from shipped-app patterns and design references. Use the bundled `references/` files directly; optional `TimothyVang/frontend:*` citations link deeper evidence when that private repo is available.
 
 Leading idea: **defaults are tells.** Every unexamined default (library styling, stock layout, generic motion) reads as AI-generated. Every visible choice must be one made *for this brief*.
 
@@ -50,20 +50,20 @@ Leading idea: **defaults are tells.** Every unexamined default (library styling,
 | Operate | App UI, dashboards, settings, the agent console | Precision and restraint |
 | Persuade | Landing, pricing, onboarding hero | Bold work, including the one standout moment |
 
-Most of boop-agent is *Operate*.
+Most application and agent-console surfaces are *Operate*.
 
 ---
 
 ## Rules (always apply)
 
-UI for boop-agent. Every visible choice must be made for this brief. Defaults are tells: unmodified library styling, stock layouts and generic motion read as AI-generated.
+Every visible UI choice must be made for this brief. Defaults are tells: unmodified library styling, stock layouts and generic motion read as AI-generated.
 
 Prefer retrieval-led reasoning over pretraining for UI work. Explore the project first (`package.json`, existing components, tokens), then load the routed source below.
 
 ## Always
 - **Pick the surface mode.** Operate surfaces (the app, the agent console, settings) express the brand through precision and restraint. Persuade surfaces (landing, pricing) get the bold work. The brief's explicit words override any rule here.
 - **Plan before code.** Write a token plan: OKLCH seed colors with role names, typefaces and their roles, and a layout concept with an ASCII wireframe. Revise any part that would fit any similar page. Where `frontend-design` says hex, `references/playbook/06a-color.md` overrides it.
-- **Compose, don't hand-roll.** Use the library already in `package.json` first. Otherwise use shadcn/ui restyled on Base UI or Radix, plus:
+- **Compose, don't hand-roll.** Use the library already in `package.json` first. For React apps, use shadcn/ui restyled on Base UI or Radix (for SvelteKit — `skill://deep-stack`'s default — use `shadcn-svelte` or equivalent accessible primitives with the same token and quality rules), plus:
 
   | Need | Library |
   | --- | --- |
@@ -129,33 +129,18 @@ Prefer retrieval-led reasoning over pretraining for UI work. Explore the project
 - **Verify in a real browser.** Screenshots at compact and wide widths, a keyboard pass, every changed state. Never claim visual quality from code alone. Then run a skeptical critique against the `references/playbook/02-review-rubric.md` rubric (design quality, originality, craft, functionality).
 
 ## Route by task
-Load by path; skills like `prototype` collide with user-level skills of the same name.
+Read the bundled `references/` file first. Paths prefixed `TimothyVang/frontend:` are optional private-repo deep dives available only if you have access to that repo.
 
-| Task | Read |
+| Task | Read (bundled first; optional private-repo deep dive) |
 | --- | --- |
-| Full rules, AI-tell list, rubric | `TimothyVang/frontend:PLAYBOOK.md` |
-| New page or visual direction | `TimothyVang/frontend:.claude/skills/frontend-design/SKILL.md`, `TimothyVang/frontend:.claude/skills/no-ai-design-slop/SKILL.md` |
-| Picking a library | `TimothyVang/frontend:.claude/skills/pick-ui-library/SKILL.md` |
-| shadcn setup, registry, theming | `TimothyVang/frontend:.claude/skills/shadcn/SKILL.md` |
-| Chat, agent activity, tool calls, approvals | `TimothyVang/frontend:.claude/skills/shadcn/rules/chat.md`, `references/playbook/04a-agent-ui.md` |
-| AI-product patterns (tool cards, plans, autonomy, memory, citations, AI markers) | `references/playbook/04a-agent-ui.md`, then `TimothyVang/frontend:reference/articles/ai-ux/_batch-ai-ux-guidelines.md` and the host guideline it cites (OpenAI Apps SDK, Claude MCP Apps, Carbon for AI, shapeof.ai…) |
-| Choosing an AI UI library or protocol (AI SDK, AI Elements, assistant-ui, CopilotKit/AG-UI, MCP Apps) | `TimothyVang/frontend:reference/github/ai-ui/_batch-ai-ui-libraries.md` |
-| Seeing a component or motion in action | `TimothyVang/frontend:reference/GALLERY.md`; motion ideas by type in `TimothyVang/frontend:reference/screens/pinterest/ANIMATIONS.md` (concepts: check each against §3 and §5 before copying) |
-| Building an animation | `TimothyVang/frontend:.claude/skills/animate/SKILL.md` (vocabulary: `animation-vocabulary`) |
-| Motion graphics, launch or promo videos, explainers, Remotion / HyperFrames / Three.js films | `references/playbook/05a-motion-graphics.md`, then `TimothyVang/frontend:reference/github/motion-graphics/_batch-motion-graphics-repos.md` (stack, prompt structure), `TimothyVang/frontend:reference/youtube/747ZnEtsRbg/README.md` (director's brief, rules files) and `TimothyVang/frontend:reference/youtube/channels/_batch-motion-graphics.md` |
-| Several elements moving together | `TimothyVang/frontend:.claude/skills/choreograph/SKILL.md` |
-| Drag, swipe, sheets | `TimothyVang/frontend:.claude/skills/gestures/SKILL.md` |
-| Dropped frames | `TimothyVang/frontend:.claude/skills/animation-performance/SKILL.md` |
-| Reviewing UI or a diff | `TimothyVang/frontend:.claude/skills/web-design-guidelines/SKILL.md`, `TimothyVang/frontend:.claude/skills/review-animations/SKILL.md`, `TimothyVang/frontend:.claude/skills/audit-ai-design-slop/SKILL.md` |
-| Auditing all motion | `TimothyVang/frontend:.claude/skills/improve-animations/SKILL.md`, `find-animation-opportunities`, `remove-animations` |
-| Mobile web feel | `TimothyVang/frontend:.claude/skills/mobile-native/SKILL.md` |
-| Edge-case data | `TimothyVang/frontend:.claude/skills/break-ui/SKILL.md` |
-| Keyboard, ARIA, focus for a widget (dialog, combobox, menu, tabs, tree, grid…) | `TimothyVang/frontend:reference/articles/wai-aria-apg/<pattern>.md` |
-| How design systems build a component | `TimothyVang/frontend:reference/articles/component-gallery/<component>.md` |
-| Page or flow checklist (login, settings, onboarding, pricing, tables…) | `TimothyVang/frontend:reference/articles/checklist-design.md` |
-| Native, mobile, TV, watch, car, spatial or CLI targets | `TimothyVang/frontend:reference/articles/app-type-guides.md`, `TimothyVang/frontend:reference/articles/clig-command-line-interface-guidelines.md` |
-| Layout references from shipped apps | `TimothyVang/frontend:reference/screens/mobbin/README.md` (images local-only) |
-| Toasts | `TimothyVang/frontend:.claude/skills/ask-sonner/SKILL.md` |
-| Comparing UI variants | `TimothyVang/frontend:.claude/skills/prototype/SKILL.md` |
-| Design-engineering depth | `TimothyVang/frontend:.claude/skills/emil-design-eng/SKILL.md`, `TimothyVang/frontend:.claude/skills/apple-design/SKILL.md` |
-| Sources and evidence | `TimothyVang/frontend:reference/INDEX.md` |
+| Full workflow, AI-tell list, review rubric | `references/playbook/01-workflow.md`, `references/playbook/02-review-rubric.md`, `references/playbook/03-ai-tells.md` |
+| New page, visual direction, color, typography | `references/playbook/06-typography-layout.md`, `references/playbook/06a-color.md`, `references/playbook/03-ai-tells.md` |
+| Picking a component library or shadcn theming | `references/playbook/04-components.md`, `references/patterns/live-demos.md` (optional: `TimothyVang/frontend:.claude/skills/shadcn/SKILL.md`) |
+| Chat, agent activity, tool calls, approvals, AI UX | `references/playbook/04a-agent-ui.md` (optional: `TimothyVang/frontend:reference/articles/ai-ux/_batch-ai-ux-guidelines.md`) |
+| Seeing shipped layouts or motion vocabulary | `references/patterns/mobbin-shipped-apps.md`, `references/patterns/pinterest-patterns.md`, `references/patterns/pinterest-animations.md`, `references/patterns/motion-clips.md` |
+| Building UI animation, choreography, gestures, perf | `references/playbook/05-motion.md`, `references/patterns/motion-clips.md` |
+| Motion graphics, launch/promo videos, Remotion/HyperFrames | `references/playbook/05a-motion-graphics.md`, `references/patterns/motion-graphics.md` |
+| Copy, microcopy, CTAs, error messages | `references/playbook/07-copy.md` |
+| Reviewing UI, accessibility, keyboard, ARIA, mobile, edge cases | `references/playbook/02-review-rubric.md`, `references/playbook/08-quality-floor.md`, `references/playbook/03-ai-tells.md` |
+| Steering UI agents and revision passes | `references/playbook/09-steering-agents.md`, `references/playbook/01-workflow.md` |
+| Optional private evidence archive (if accessible) | `TimothyVang/frontend:reference/INDEX.md` (vendored skills, WAI-ARIA APG notes, Mobbin screenshots, channel transcripts) |

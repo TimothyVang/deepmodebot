@@ -9,9 +9,10 @@ Keep **recorded workflow** and **prospective design** separate. A diagram of rec
 2. Choose a NEW output directory outside the bundle. From the repository root:
 
    ```bash
-   python plugins/deepmodebot/skills/deepmodebot/assets/e2e/design.py \
+   python -B "<this skill>/assets/e2e/design.py" \
      --bundle .scratch/evidence/journey --out .scratch/evidence/journey-design
    ```
+   (Use `py -3 -B` on Windows.)
 
 3. Open `journey-design/index.html`. It indexes every recorded step, its full observations, screenshot and textual snapshot, recorded video, and sampled frames.
    `workflow.svg` has editable step groups, text, rectangles and paths, plus local evidence links. Each step PNG is embedded in the SVG as a thumbnail, not loaded from an external thumbnail file. `workflow.mmd` is editable Mermaid source.
@@ -21,14 +22,14 @@ Keep **recorded workflow** and **prospective design** separate. A diagram of rec
    The SVG previews abbreviate long fields; the HTML index retains their full text. Embedded thumbnails travel with the SVG, but its evidence links still need the exported folder. SVG hyperlinks and Mermaid click links may be discarded or disabled by importers.
 5. If the input capture failed, report a failed recording with an editable diagnostic index. A successful export does not turn failed or incomplete evidence into acceptance.
 
-The [2026-11-13 invoice pilot](../../../../../../docs/evidence/ecosystem-pilot-2026-11-13/README.md) rendered the generated SVG in a browser with six editable step groups and six embedded PNG images. Its text and rectangles are diagram primitives; the screenshot pixels remain raster.
+The 2026-11-13 invoice pilot (`docs/evidence/ecosystem-pilot-2026-11-13/README.md` in the deepmodebot source repo) rendered the generated SVG in a browser with six editable step groups and six embedded PNG images. Its text and rectangles are diagram primitives; the screenshot pixels remain raster.
 A separate isolated Penpot 2.18 run imported that SVG, edited a native rectangle from width 984 to 1000, and exported both `.penpot` and SVG. The archive retains the edited geometry. Text remained raw SVG, not native rich text; screenshots remain raster.
-The [native evidence and provenance](../../../../../../docs/evidence/ecosystem-pilot-2026-11-13/penpot/provenance.json) retain screenshots and a supplementary edit video. Raw exported SVG depends on local-server media; a clearly labeled derivative embeds the unchanged archive images and was rendered in a browser. No native-file re-import or interaction prototype is claimed.
+The native evidence and provenance (`docs/evidence/ecosystem-pilot-2026-11-13/penpot/provenance.json` in the deepmodebot source repo) retain screenshots and a supplementary edit video. Raw exported SVG depends on local-server media; a clearly labeled derivative embeds the unchanged archive images and was rendered in a browser. No native-file re-import or interaction prototype is claimed.
 
 ## Use a real design tool
 
 Choose Penpot for boards, components, and interaction prototypes. Choose Excalidraw for sketch-like workflows, or draw.io for editable diagram nodes and connectors.
-The [dated research and isolated local launch recipe](../../../../../../docs/research/open-design-tools.md) covers exact license scope, import limits, and prerequisites.
+The dated research and isolated local launch recipe (`docs/research/open-design-tools.md` in the deepmodebot source repo) covers exact license scope, import limits, and prerequisites.
 
 - Penpot: insert the SVG into a new file's canvas using the image tool or drag-and-drop. This is different from importing a native `.penpot` file at the dashboard.
   Inspect the imported layer tree and edit one text or shape in a duplicate. Export that selection back to SVG and retain the result beside screenshots of the actual import and edit.

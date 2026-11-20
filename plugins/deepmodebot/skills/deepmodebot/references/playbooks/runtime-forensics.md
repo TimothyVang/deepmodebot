@@ -3,7 +3,7 @@
 Use when: a live process misbehaves (spinning CPU, leak, visual glitch) and you need a cited diagnosis, not a fix. You own the diagnosis: instrument the live process, don't theorize from source. (Existing capture only → `references/playbooks/trace-forensics.md`.)
 
 ## Steps
-1. Capture the live signal on the matching surface via the repo's `verify-<app>` skill (`.omp/skills/verify-<app>/`); if none, omp `eval` `browser` or bash: CPU profile for spinning, heap snapshot for a leak, CDP trace for a visual glitch.
+1. Capture the live signal on the matching surface via the repo's `verify-<app>` skill (in `.omp/skills/`, `.claude/skills/`, or `.agents/skills/`); if none, use omp `eval` `browser`, Playwright/CDP, or bash: CPU profile for spinning, heap snapshot for a leak, CDP trace for a visual glitch.
    Done when the artifact file exists at a recorded path.
 2. Reduce the artifact to the smoking gun: hot-path function, retainer chain from leaked object to GC root, or loop firing without input.
    Parse large artifacts in a `task` subagent (`references/principles/guard-the-context-window.md`); keep only the reduced finding in the main thread.

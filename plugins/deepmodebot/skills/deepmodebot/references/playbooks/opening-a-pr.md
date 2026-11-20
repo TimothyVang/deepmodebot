@@ -33,8 +33,8 @@ Steps:
 4. Review your own diff yourself against the **pr-review** checklist (`references/techniques/pr-review.md`), which is its four lenses and its smell baseline. Spawn no subagents and do not run PR-Agent. Done when every finding is fixed or dismissed with a reason and you have the pr-review line for the committed head.
 5. Open the PR as in Steps 6 to 11 below. Done when `gh pr view <n> --json isDraft,url` shows `false` and the URL.
 6. Land it through **pr-conversation** (`references/techniques/pr-conversation.md`) with the **panel** (`references/techniques/panel.md`). When the deepmodebot bot watches the repo, it runs steps 6 to 8; do not run a second conversation.
-   All three valid independent votes are required; at least two must PASS with evidence at the exact head.
-   Done when that panel passes, required checks are green, and the base-branch repo check exits 0 at that head, or the repo sets none.
+   All three valid independent votes are required; at least two must PASS with evidence at the exact head. Run **security-audit** (`references/techniques/security-audit.md`, blocking = P0) on the merge head when the repo opted in or the diff touches auth, permissions, parsing, or secrets.
+   Done when that panel passes, required checks and any required security-audit are green, and the base-branch repo check exits 0 at that head, or the repo sets none.
 7. Merge with `gh pr merge <n> --match-head-commit <sha>`. Done when `gh pr view <n> --json state` prints `MERGED`.
 8. Run the trunk check on the merge commit (pr-conversation step 8). Done when the repo check passes there, or a verifier passes it when no check is set, or a revert PR is open.
 
@@ -73,10 +73,10 @@ The S lane skips step 5's implementation-review subagents and step 12 (PR-Agent)
 12. Run the **pr-agent** technique (`references/techniques/pr-agent.md`) on the PR: describe, review, improve, with each finding triaged. Repeat it after each later push. It needs `omp`; on a machine without it, skip this step, say so in the report, and let pr-conversation's review in step 13 carry it.
     The S lane skips this step.
     Done when describe, review, and improve ran on the current head and every finding has a triage outcome, or the report says why it was skipped.
-13. Hand the PR to the **pr-conversation** technique (`references/techniques/pr-conversation.md`), which reviews, fixes, verifies, and lands it with no ask. When the deepmodebot bot (`references/techniques/github-app.md`) watches the repo, it picks the PR up on its next poll; don't run a second conversation in the session.
+13. Hand the PR to the **pr-conversation** technique (`references/techniques/pr-conversation.md`), which reviews, fixes, verifies, and lands it with no ask. Run **security-audit** (`references/techniques/security-audit.md`, blocking = P0) on the merge head when the repo opted in or the diff touches auth, permissions, parsing, or secrets. When the deepmodebot bot (`references/techniques/github-app.md`) watches the repo, it picks the PR up on its next poll; don't run a second conversation in the session.
     A stack is the exception: finish it, then land it through `references/playbooks/shipping.md`. The bot merges only into the default branch or a protected branch, so a stack's children wait on their own until they target the trunk.
-    To keep it from merging the stack's root, or any PR, before you are ready, add the `hold` label (`gh label create hold --force`, then `gh pr edit <n> --add-label hold`) and remove it when the PR may land.
-    Done when the PR has a pr-conversation line, or the bot's kickoff comment is on it, or it carries `hold` while its stack waits for Shipping.
+    To keep it from merging the stack's root, or any PR, before you are ready, add the `hold` label (create `hold` once if missing via `gh label create hold --description "Do not auto-merge"`, never `--force`, then `gh pr edit <n> --add-label hold`) and remove it when the PR may land.
+    Done when the PR has a pr-conversation line, or the bot has started working it, or it carries `hold` while its stack waits for Shipping.
 14. Post the URL and keep building; report the pr-review line from step 5 for the pushed head. Done when the report holds every PR URL and its pr-review line for the pushed head.
 
 ## Gates

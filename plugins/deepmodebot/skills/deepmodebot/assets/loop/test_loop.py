@@ -158,6 +158,39 @@ elif action == "weaken-package-lint":
     data = json.load(open("package.json", encoding="utf-8"))
     data["scripts"]["lint"] = "true"
     json.dump(data, open("package.json", "w", encoding="utf-8"))
+elif action == "rate-limit-then-done":
+    marker = "rate_limit_attempts.txt"
+    count = int(open(marker).read()) if os.path.exists(marker) else 0
+    with open(marker, "w") as handle:
+        handle.write(str(count + 1))
+    if count == 0:
+        print("HTTP 429 rate limit exceeded; Retry-After: 0.01", file=sys.stderr)
+        sys.exit(1)
+    open("ok.txt", "w").close()
+elif action == "quota-exhausted":
+    print("Error: weekly limit reached for current plan", file=sys.stderr)
+    sys.exit(1)
+elif action == "escalate-on-strong-model":
+    if "strong-model" in sys.argv:
+        open("ok.txt", "w").close()
+elif action == "quota-then-fallback":
+    if "fallback-model" in sys.argv:
+        open("ok.txt", "w").close()
+    else:
+        print("Error: weekly limit reached for current plan", file=sys.stderr)
+        sys.exit(1)
+elif action == "rate-limit-then-fallback":
+    if "fallback-model" in sys.argv:
+        open("ok.txt", "w").close()
+    else:
+        print("HTTP 429 rate limit exceeded; Retry-After: 0.01", file=sys.stderr)
+        sys.exit(1)
+elif action == "sprint1-done":
+    open("s1.txt", "w").close()
+    open("ok.txt", "w").close()
+elif action == "sprint2-done":
+    open("s2.txt", "w").close()
+    open("ok.txt", "w").close()
 if action == "fail":
     sys.exit(3)
 """
@@ -210,6 +243,15 @@ class LoopCase(unittest.TestCase):
         trail = self.repo / ".scratch" / "goals" / "g" / "trail.tsv"
         return trail.read_text(encoding="utf-8").strip().splitlines()[1:]
 
+    def latest_summary(self):
+        logs = self.repo / ".scratch" / "goals" / "g"
+        latest = logs / "latest-summary.json"
+        data = json.loads(latest.read_text(encoding="utf-8"))
+        run_summary = logs / f"{data['run_id']}-summary.json"
+        self.assertTrue(run_summary.is_file())
+        self.assertEqual(json.loads(run_summary.read_text(encoding="utf-8")), data)
+        return data
+
     def test_stops_with_0_when_the_check_passes(self):
         self.goal()
         run = self.loop("run", "goals/g.md", action="done")
@@ -223,6 +265,33 @@ class LoopCase(unittest.TestCase):
         run = self.loop("run", "goals/g.md", action="fail")
         self.assertEqual(run.returncode, 0)
         self.assertIn("already passes", run.stdout)
+        summary = self.latest_summary()
+        self.assertEqual(summary["exit_code"], 0)
+        self.assertEqual(summary["exit_reason"], "already_passed")
+        self.assertEqual(summary["iterations_run"], 0)
+
+    def test_already_passing_sprint_run_writes_latest_summary_with_scope(self):
+        manifest = {
+            "product": "Already Passing Sprint",
+            "slices": [
+                {"id": "s1", "title": "Core", "sprint": 1, "check": "test -f s1.txt"},
+                {"id": "s2", "title": "Later", "sprint": 2, "check": "test -f s2.txt"},
+            ],
+        }
+        (self.repo / "goals" / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        (self.repo / "s1.txt").write_text("", encoding="utf-8")
+        (self.repo / "ok.txt").write_text("", encoding="utf-8")
+        self.goal(manifest="goals/manifest.json", active_sprint=1)
+        run = self.loop("run", "goals/g.md", action="fail")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertIn("sprint 1 check already passes", run.stdout)
+        summary = self.latest_summary()
+        self.assertEqual(summary["exit_code"], 0)
+        self.assertEqual(summary["exit_reason"], "sprint_already_passed")
+        self.assertEqual(summary["iterations_run"], 0)
+        self.assertEqual(summary["scope"]["active_sprint"], 1)
+        self.assertEqual(summary["scope"]["passed_slices"], 1)
+        self.assertEqual(summary["scope"]["deferred_slices"], ["s2"])
 
     def test_iteration_cap_exits_2(self):
         self.goal(max_iterations=2, stall_after=9)
@@ -705,6 +774,508 @@ class LoopCase(unittest.TestCase):
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
         self.assertNotIn("slop_guard", run.stdout)
 
+    def test_transient_rate_limit_backs_off_and_retries_without_burning_iteration(self):
+        self.goal(max_iterations=1, rate_limit_retries=2, rate_limit_backoff_seconds=0.01)
+        run = self.loop("run", "goals/g.md", action="rate-limit-then-done")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertIn("transient rate limit; backing off", run.stdout)
+        self.assertIn("goal met", run.stdout)
+        rows = self.trail_rows()
+        self.assertEqual(len(rows), 2)
+        self.assertIn("\trate_limited\t", rows[0])
+        self.assertIn("\t0\t", rows[1])
+        summary = self.latest_summary()
+        self.assertEqual(summary["rate_limit_retries_used"], 1)
+        self.assertEqual(summary["exit_code"], 0)
+
+    def test_hard_quota_exhaustion_stops_without_retrying(self):
+        self.goal(max_iterations=3, rate_limit_retries=3, rate_limit_backoff_seconds=0.01)
+        run = self.loop("run", "goals/g.md", action="quota-exhausted")
+        self.assertEqual(run.returncode, 5, run.stdout + run.stderr)
+        self.assertIn("quota exhausted", run.stdout)
+        rows = self.trail_rows()
+        self.assertEqual(len(rows), 1)
+        self.assertIn("\tquota\t", rows[0])
+        summary = self.latest_summary()
+        self.assertEqual(summary["exit_code"], 5)
+        self.assertEqual(summary["exit_reason"], "quota_exhausted")
+
+    def test_invalid_rate_limit_settings_are_rejected(self):
+        for field, value in [("cooldown_seconds", "-1"), ("rate_limit_retries", "-1"), ("rate_limit_backoff_seconds", "0")]:
+            with self.subTest(field=field, value=value):
+                self.goal(**{field: value})
+                run = self.loop("check", "goals/g.md")
+                self.assertNotEqual(run.returncode, 0)
+
+    def test_escalate_after_switches_harness_args_and_succeeds(self):
+        self.goal(
+            max_iterations=4,
+            stall_after=2,
+            harness_args="--model cheap-model",
+            escalate_after=2,
+            escalate_harness_args="--model strong-model",
+        )
+        run = self.loop("run", "goals/g.md", action="escalate-on-strong-model")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertIn("escalating to escalate_harness_args", run.stdout)
+        self.assertIn("goal met", run.stdout)
+        self.assertTrue((self.repo / "ok.txt").exists())
+        rows = self.trail_rows()
+        self.assertTrue(any("switch:escalated(--model strong-model)" in row for row in rows))
+        summary = self.latest_summary()
+        self.assertEqual(summary["goal"], "ok.txt exists")
+        self.assertEqual(summary["harness"], "omp")
+        self.assertEqual(summary["iterations_run"], 3)
+        self.assertEqual(summary["exit_code"], 0)
+        self.assertEqual(summary["exit_reason"], "goal_met")
+        self.assertEqual(summary["check_exit"], 0)
+        self.assertEqual(summary["rate_limit_retries_used"], 0)
+        self.assertEqual(summary["trail"], ".scratch/goals/g/trail.tsv")
+        self.assertIsInstance(summary["elapsed_seconds"], (int, float))
+        self.assertEqual(len(summary["active_args_history"]), 2)
+        self.assertEqual(summary["active_args_history"][0]["tier"], "default")
+        self.assertEqual(summary["active_args_history"][0]["args"], "--model cheap-model")
+        self.assertEqual(summary["active_args_history"][1]["tier"], "escalated")
+        self.assertEqual(summary["active_args_history"][1]["args"], "--model strong-model")
+        self.assertEqual(summary["active_args_history"][1]["reason"], "escalate_after")
+        self.assertEqual(summary["active_args_history"][1]["iteration"], 3)
+
+    def test_fallback_harness_args_recovers_from_hard_quota_error(self):
+        self.goal(
+            max_iterations=2,
+            harness_args="--model primary-model",
+            fallback_harness_args="--model fallback-model",
+        )
+        run = self.loop("run", "goals/g.md", action="quota-then-fallback")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertIn("switching to fallback_harness_args", run.stdout)
+        self.assertIn("goal met", run.stdout)
+        self.assertTrue((self.repo / "ok.txt").exists())
+        rows = self.trail_rows()
+        self.assertTrue(any("\tquota\t" in row for row in rows))
+        self.assertTrue(any("switch:fallback(--model fallback-model)" in row for row in rows))
+        summary = self.latest_summary()
+        self.assertEqual(summary["iterations_run"], 1)
+        self.assertEqual(summary["exit_code"], 0)
+        self.assertEqual(summary["exit_reason"], "goal_met")
+        self.assertEqual(len(summary["active_args_history"]), 2)
+        self.assertEqual(summary["active_args_history"][1]["tier"], "fallback")
+        self.assertEqual(summary["active_args_history"][1]["args"], "--model fallback-model")
+        self.assertEqual(summary["active_args_history"][1]["reason"], "quota")
+
+    def test_fallback_harness_args_recovers_from_persistent_rate_limit_and_aborts_if_fallback_fails(self):
+        self.goal(
+            max_iterations=2,
+            rate_limit_retries=1,
+            rate_limit_backoff_seconds=0.01,
+            harness_args="--model primary-model",
+            fallback_harness_args="--model fallback-model",
+        )
+        run = self.loop("run", "goals/g.md", action="rate-limit-then-fallback")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        summary = self.latest_summary()
+        self.assertEqual(summary["rate_limit_retries_used"], 1)
+        self.assertEqual(summary["active_args_history"][1]["tier"], "fallback")
+        self.assertEqual(summary["active_args_history"][1]["reason"], "rate_limit")
+
+        (self.repo / "ok.txt").unlink()
+        run_both_fail = self.loop("run", "goals/g.md", action="quota-exhausted")
+        self.assertEqual(run_both_fail.returncode, 5, run_both_fail.stdout + run_both_fail.stderr)
+        summary_fail = self.latest_summary()
+        self.assertEqual(summary_fail["exit_code"], 5)
+        self.assertEqual(summary_fail["exit_reason"], "quota_exhausted")
+        self.assertEqual(len(summary_fail["active_args_history"]), 2)
+
+    def test_checkpoint_every_pauses_with_exit_6_and_writes_summary(self):
+        self.goal(max_iterations=5, stall_after=9, checkpoint_every=2)
+        run = self.loop("run", "goals/g.md", action="progress")
+        self.assertEqual(run.returncode, 6, run.stdout + run.stderr)
+        self.assertIn("checkpoint reached after 2 iterations", run.stdout)
+        self.assertIn("latest-summary.json", run.stdout)
+        self.assertEqual(len(self.trail_rows()), 2)
+        summary = self.latest_summary()
+        self.assertEqual(summary["iterations_run"], 2)
+        self.assertEqual(summary["exit_code"], 6)
+        self.assertEqual(summary["exit_reason"], "checkpoint")
+        self.assertEqual(summary["check_exit"], 1)
+        self.assertEqual(summary["trail"], ".scratch/goals/g/trail.tsv")
+
+    def test_invalid_escalation_fallback_and_checkpoint_settings_are_rejected(self):
+        cases = [
+            ({"escalate_after": "0", "escalate_harness_args": "--model opus"}, "escalate_after must be a positive integer"),
+            ({"escalate_after": "-2", "escalate_harness_args": "--model opus"}, "escalate_after must be a positive integer"),
+            ({"escalate_after": "two", "escalate_harness_args": "--model opus"}, "escalate_after must be a positive integer"),
+            ({"escalate_after": "2"}, "escalate_after requires escalate_harness_args"),
+            ({"escalate_harness_args": "--model opus"}, "escalate_harness_args requires escalate_after"),
+            ({"fallback_harness_args": ""}, "fallback_harness_args must not be empty"),
+            ({"fallback_harness_args": "--model 'unterminated"}, "invalid shell quoting"),
+            ({"checkpoint_every": "0"}, "checkpoint_every must be a positive integer"),
+            ({"checkpoint_every": "-1"}, "checkpoint_every must be a positive integer"),
+            ({"checkpoint_every": "soon"}, "checkpoint_every must be a positive integer"),
+            ({"active_sprint": "0"}, "active_sprint must be a positive integer"),
+            ({"active_sprint": "-1"}, "active_sprint must be a positive integer"),
+            ({"active_sprint": "one"}, "active_sprint must be a positive integer"),
+        ]
+        for fields, expected in cases:
+            with self.subTest(fields=fields):
+                self.goal(**fields)
+                run = self.loop("check", "goals/g.md")
+                self.assertNotEqual(run.returncode, 0)
+                self.assertIn(expected, run.stdout + run.stderr)
+
+    def test_sprint_scoped_manifest_defers_later_sprints_and_catches_earlier_regressions(self):
+        manifest = {
+            "product": "Two-sprint app",
+            "slices": [
+                {"id": "slice-1", "title": "Core flow", "sprint": 1, "check": "test -f s1.txt"},
+                {"id": "slice-2", "title": "Admin export", "sprint": 2, "check": "test -f s2.txt"},
+            ],
+            "inventory": [
+                {"id": "inv-1", "status": "included", "slice": "slice-1"},
+                {"id": "inv-2", "status": "included", "slice": "slice-2"},
+            ],
+        }
+        (self.repo / "goals" / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+        # Sprint 1 runs and passes while explicitly reporting Sprint 2 deferred (total scope incomplete).
+        self.goal(manifest="goals/manifest.json", active_sprint=1, max_iterations=2)
+        run_s1 = self.loop("run", "goals/g.md", action="sprint1-done")
+        self.assertEqual(run_s1.returncode, 0, run_s1.stdout + run_s1.stderr)
+        self.assertIn("total scope incomplete", run_s1.stdout)
+        self.assertIn("slice-2", run_s1.stdout)
+        summary_s1 = self.latest_summary()
+        self.assertEqual(summary_s1["exit_code"], 0)
+        scope_s1 = summary_s1["scope"]
+        self.assertEqual(scope_s1["active_sprint"], 1)
+        self.assertEqual(scope_s1["deferred_slices"], ["slice-2"])
+        self.assertEqual(scope_s1["total_slices"], 2)
+        self.assertFalse(scope_s1["scope_complete"])
+        self.assertFalse(scope_s1["sme_gate_blocked"])
+        self.assertEqual(scope_s1["inventory_counts"]["included"], 2)
+
+        cli_s1 = self.loop("manifest", "goals/manifest.json", "--sprint", "1", "--json")
+        self.assertEqual(cli_s1.returncode, 0, cli_s1.stdout + cli_s1.stderr)
+        s1_json = json.loads(cli_s1.stdout)
+        self.assertEqual((s1_json["passed"], s1_json["total"], s1_json["total_slices"]), (1, 1, 2))
+        self.assertEqual(s1_json["active_sprint"], 1)
+        self.assertEqual(s1_json["deferred_slices"], ["slice-2"])
+        self.assertTrue(s1_json["ready"])
+        self.assertFalse(s1_json["scope_complete"])
+
+        # Regressing Sprint 1 while targeting Sprint 2 must fail even when Sprint 2 passes.
+        (self.repo / "s1.txt").unlink()
+        (self.repo / "s2.txt").write_text("", encoding="utf-8")
+        cli_reg = self.loop("manifest", "goals/manifest.json", "--sprint", "2", "--json")
+        self.assertEqual(cli_reg.returncode, 1, cli_reg.stdout + cli_reg.stderr)
+        reg_json = json.loads(cli_reg.stdout)
+        self.assertEqual((reg_json["passed"], reg_json["total"], reg_json["deferred_slices"]), (1, 2, []))
+        self.assertFalse(reg_json["ready"])
+        self.assertFalse(reg_json["scope_complete"])
+
+        # Restoring Sprint 1 makes Sprint 2 (and total scope) complete.
+        (self.repo / "s1.txt").write_text("", encoding="utf-8")
+        (self.repo / "ok.txt").unlink()
+        self.goal(manifest="goals/manifest.json", active_sprint=2, max_iterations=2)
+        run_s2 = self.loop("run", "goals/g.md", action="sprint2-done")
+        self.assertEqual(run_s2.returncode, 0, run_s2.stdout + run_s2.stderr)
+        self.assertIn("goal met", run_s2.stdout)
+        self.assertNotIn("total scope incomplete", run_s2.stdout)
+        summary_s2 = self.latest_summary()
+        self.assertTrue(summary_s2["scope"]["scope_complete"])
+        self.assertEqual(summary_s2["scope"]["deferred_slices"], [])
+        self.assertEqual(summary_s2["scope"]["active_sprint"], 2)
+
+        bad_sprint = self.loop("manifest", "goals/manifest.json", "--sprint", "0")
+        self.assertNotEqual(bad_sprint.returncode, 0)
+        self.assertIn("--sprint must be a positive integer", bad_sprint.stdout + bad_sprint.stderr)
+
+    def test_manifest_inventory_schema_validation_and_pending_gate(self):
+        base_slices = [{"id": "s1", "title": "Slice 1", "check": "test -f s1.txt"}]
+        invalid_cases = [
+            ({"product": "p", "slices": [{**base_slices[0], "sprint": 0}]}, "'sprint' must be a positive integer"),
+            ({"product": "p", "slices": [{**base_slices[0], "sprint": True}]}, "'sprint' must be a positive integer"),
+            ({"product": "p", "slices": base_slices, "inventory": "bad"}, "'inventory' must be a list"),
+            ({"product": "p", "slices": base_slices, "inventory": [{"id": "a", "status": "bogus"}]}, "'status' must be one of"),
+            ({"product": "p", "slices": base_slices, "inventory": [
+                {"id": "a", "status": "pending"}, {"id": "a", "status": "pending"}
+            ]}, "duplicate inventory id"),
+            ({"product": "p", "slices": base_slices, "inventory": [
+                {"id": "d1", "status": "duplicate"}
+            ]}, "requires a non-empty 'representative'"),
+            ({"product": "p", "slices": base_slices, "inventory": [
+                {"id": "d1", "status": "duplicate", "representative": "d1"}
+            ]}, "cannot reference itself"),
+            ({"product": "p", "slices": base_slices, "inventory": [
+                {"id": "d1", "status": "duplicate", "representative": "missing"}
+            ]}, "must match an inventory or slice id"),
+            ({"product": "p", "slices": base_slices, "inventory": [
+                {"id": "n1", "status": "non_target"}
+            ]}, "requires a non-empty 'reason'"),
+            ({"product": "p", "slices": base_slices, "inventory": [
+                {"id": "b1", "status": "blocked", "evidence": "403 log"}
+            ]}, "requires a non-empty 'unblock'"),
+            ({"product": "p", "slices": base_slices, "inventory": [
+                {"id": "b1", "status": "blocked", "unblock": "grant token"}
+            ]}, "requires a non-empty 'evidence'"),
+            ({"product": "p", "slices": base_slices, "inventory": [
+                {"id": "i1", "status": "included", "slice": "no-such-slice"}
+            ]}, "must match a slice id"),
+        ]
+        mpath = self.repo / "goals" / "manifest.json"
+        for payload, expected in invalid_cases:
+            with self.subTest(expected=expected):
+                mpath.write_text(json.dumps(payload), encoding="utf-8")
+                res = self.loop("manifest", "goals/manifest.json", "--dry-run")
+                self.assertNotEqual(res.returncode, 0)
+                self.assertIn(expected, res.stdout + res.stderr)
+
+        # Valid schema with an unclassified pending item fails the manifest gate even when slices pass.
+        (self.repo / "s1.txt").write_text("", encoding="utf-8")
+        (self.repo / "ok.txt").write_text("", encoding="utf-8")
+        pending_manifest = {
+            "product": "Inventory app",
+            "slices": base_slices,
+            "inventory": [
+                {"id": "item-1", "status": "included", "slice": "s1"},
+                {"id": "item-2", "status": "pending"},
+            ],
+        }
+        mpath.write_text(json.dumps(pending_manifest, indent=2), encoding="utf-8")
+        dry = self.loop("manifest", "goals/manifest.json", "--dry-run", "--json")
+        self.assertEqual(dry.returncode, 0, dry.stdout + dry.stderr)
+        self.assertEqual(json.loads(dry.stdout)["inventory_counts"]["pending"], 1)
+
+        blocked_pending = self.loop("manifest", "goals/manifest.json", "--json")
+        self.assertEqual(blocked_pending.returncode, 1, blocked_pending.stdout + blocked_pending.stderr)
+        p_json = json.loads(blocked_pending.stdout)
+        self.assertFalse(p_json["ready"])
+        self.assertEqual(p_json["pending_inventory"], ["item-2"])
+        self.assertEqual(p_json["inventory_counts"], {
+            "included": 1, "duplicate": 0, "non_target": 0, "blocked": 0, "pending": 1,
+        })
+
+        # Classifying all items passes the gate and reports exact inventory counts.
+        classified_manifest = {
+            "product": "Inventory app",
+            "slices": base_slices,
+            "inventory": [
+                {"id": "item-1", "status": "included", "slice": "s1"},
+                {"id": "item-2", "status": "duplicate", "representative": "item-1"},
+                {"id": "item-3", "status": "non_target", "reason": "legacy archive excluded by spec"},
+                {"id": "item-4", "status": "blocked", "evidence": "401 from partner API", "unblock": "provision key", "attempts": 2},
+            ],
+        }
+        mpath.write_text(json.dumps(classified_manifest, indent=2), encoding="utf-8")
+        ok_res = self.loop("manifest", "goals/manifest.json", "--json")
+        self.assertEqual(ok_res.returncode, 0, ok_res.stdout + ok_res.stderr)
+        ok_json = json.loads(ok_res.stdout)
+        self.assertTrue(ok_json["ready"])
+        self.assertTrue(ok_json["scope_complete"])
+        self.assertEqual(ok_json["inventory_counts"], {
+            "included": 1, "duplicate": 1, "non_target": 1, "blocked": 1, "pending": 0,
+        })
+
+    def test_sme_gate_blocks_manifest_check_and_run_until_cleared(self):
+        (self.repo / "s1.txt").write_text("", encoding="utf-8")
+        (self.repo / "s2.txt").write_text("", encoding="utf-8")
+        (self.repo / "ok.txt").write_text("", encoding="utf-8")
+        mpath = self.repo / "goals" / "manifest.json"
+
+        # Invalid sme_gate rejected.
+        mpath.write_text(json.dumps({
+            "product": "Complex domain",
+            "sme_gate": "maybe",
+            "slices": [{"id": "s1", "title": "Core", "check": "test -f s1.txt"}],
+        }), encoding="utf-8")
+        bad = self.loop("manifest", "goals/manifest.json", "--dry-run")
+        self.assertNotEqual(bad.returncode, 0)
+        self.assertIn("'sme_gate' must be one of", bad.stdout + bad.stderr)
+
+        # Manifest-level sme_gate: required blocks manifest, check, and run (without invoking harness).
+        manifest = {
+            "product": "Complex domain",
+            "sme_gate": "required",
+            "slices": [
+                {"id": "s1", "title": "Sprint 1", "sprint": 1, "check": "test -f s1.txt"},
+                {"id": "s2", "title": "Sprint 2", "sprint": 2, "sme_gate": "required", "check": "test -f s2.txt"},
+            ],
+        }
+        mpath.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        m_blocked = self.loop("manifest", "goals/manifest.json", "--json")
+        self.assertEqual(m_blocked.returncode, 1)
+        m_data = json.loads(m_blocked.stdout)
+        self.assertTrue(m_data["sme_gate_blocked"])
+        self.assertFalse(m_data["ready"])
+        self.assertIn("manifest", m_data["sme_gate_blockers"])
+
+        self.goal(manifest="goals/manifest.json", max_iterations=2)
+        chk_blocked = self.loop("check", "goals/g.md")
+        self.assertEqual(chk_blocked.returncode, 0)
+        self.assertIn("check exit 1 (sme_gate)", chk_blocked.stdout)
+        self.assertIn("SME gate required before advancing", chk_blocked.stdout)
+
+        record = self.tmp / "sme_harness.json"
+        run_blocked = self.loop("run", "goals/g.md", action="done", FAKE_RECORD=str(record))
+        self.assertEqual(run_blocked.returncode, 6, run_blocked.stdout + run_blocked.stderr)
+        self.assertIn("SME gate required before advancing", run_blocked.stdout)
+        self.assertFalse(record.exists())
+        summary = self.latest_summary()
+        self.assertEqual(summary["exit_code"], 6)
+        self.assertEqual(summary["exit_reason"], "sme_gate_required")
+        self.assertTrue(summary["scope"]["sme_gate_blocked"])
+
+        # Clearing manifest sme_gate lets Sprint 1 pass while Sprint 2's slice sme_gate still blocks Sprint 2.
+        manifest["sme_gate"] = "cleared"
+        mpath.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        s1_ok = self.loop("manifest", "goals/manifest.json", "--sprint", "1", "--json")
+        self.assertEqual(s1_ok.returncode, 0, s1_ok.stdout + s1_ok.stderr)
+        self.assertFalse(json.loads(s1_ok.stdout)["sme_gate_blocked"])
+
+        s2_blocked = self.loop("manifest", "goals/manifest.json", "--sprint", "2", "--json")
+        self.assertEqual(s2_blocked.returncode, 1)
+        self.assertEqual(json.loads(s2_blocked.stdout)["sme_gate_blockers"], ["slice:s2"])
+
+        # Clearing Sprint 2's sme_gate unblocks both manifest and check.
+        manifest["slices"][1]["sme_gate"] = "cleared"
+        mpath.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        s2_ok = self.loop("manifest", "goals/manifest.json", "--sprint", "2", "--json")
+        self.assertEqual(s2_ok.returncode, 0, s2_ok.stdout + s2_ok.stderr)
+        self.assertTrue(json.loads(s2_ok.stdout)["scope_complete"])
+
+        chk_ok = self.loop("check", "goals/g.md")
+        self.assertEqual(chk_ok.returncode, 0)
+        self.assertIn("check exit 0 (pass) (already done)", chk_ok.stdout)
+
+    def test_status_reports_not_started_checkpoint_sprint_and_sme_resume_commands(self):
+        manifest = {
+            "product": "Status demo",
+            "slices": [
+                {"id": "slice-1", "title": "Core", "sprint": 1, "check": "test -f s1.txt"},
+                {"id": "slice-2", "title": "Admin", "sprint": 2, "sme_gate": "required", "check": "test -f s2.txt"},
+            ],
+            "inventory": [
+                {"id": "i1", "status": "included", "slice": "slice-1"},
+                {"id": "i2", "status": "included", "slice": "slice-2"},
+            ],
+        }
+        (self.repo / "goals" / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        self.goal(manifest="goals/manifest.json", active_sprint=1, max_iterations=4, stall_after=9, checkpoint_every=1)
+
+        expected_launcher = "py -3 -B" if os.name == "nt" else "python -B"
+        expected_script = f'"{LOOP}"' if any(ch.isspace() for ch in str(LOOP)) else str(LOOP)
+        expected_s1_cmd = f"{expected_launcher} {expected_script} run goals/g.md --sprint 1"
+        expected_s2_cmd = f"{expected_launcher} {expected_script} run goals/g.md --sprint 2"
+
+        pre_json_run = self.loop("status", "goals/g.md", "--json")
+        self.assertEqual(pre_json_run.returncode, 0, pre_json_run.stdout + pre_json_run.stderr)
+        pre = json.loads(pre_json_run.stdout)
+        self.assertEqual(pre["status"], "not_started")
+        self.assertEqual(pre["iterations_run"], 0)
+        self.assertIsNone(pre["last_exit_code"])
+        self.assertEqual(pre["scope"]["active_sprint"], 1)
+        self.assertEqual(pre["scope"]["deferred_slices"], ["slice-2"])
+        self.assertEqual(pre["scope"]["inventory_counts"]["included"], 2)
+        self.assertEqual(pre["resume_command"], expected_s1_cmd)
+
+        pre_text = self.loop("status", "goals/g.md")
+        self.assertEqual(pre_text.returncode, 0)
+        self.assertIn("goal status (not_started)", pre_text.stdout)
+        self.assertIn(f"resume: {expected_s1_cmd}", pre_text.stdout)
+
+        chkpt = self.loop("run", "goals/g.md", action="progress")
+        self.assertEqual(chkpt.returncode, 6, chkpt.stdout + chkpt.stderr)
+        post_chkpt = json.loads(self.loop("status", "goals/g.md", "--json").stdout)
+        self.assertEqual(post_chkpt["status"], "checkpoint")
+        self.assertEqual(post_chkpt["last_exit_code"], 6)
+        self.assertEqual(post_chkpt["last_exit_reason"], "checkpoint")
+        self.assertEqual(post_chkpt["iterations_run"], 1)
+        self.assertIsNotNone(post_chkpt["last_trail"])
+        self.assertEqual(post_chkpt["resume_command"], expected_s1_cmd)
+
+        s1 = self.loop("run", "goals/g.md", action="sprint1-done")
+        self.assertEqual(s1.returncode, 0, s1.stdout + s1.stderr)
+        post_s1 = json.loads(self.loop("status", "goals/g.md", "--json").stdout)
+        self.assertEqual(post_s1["status"], "sprint_complete")
+        self.assertEqual(post_s1["last_exit_code"], 0)
+        self.assertEqual(post_s1["scope"]["next_sprint"], 2)
+        self.assertEqual(post_s1["resume_command"], expected_s2_cmd)
+
+        s2_sme = json.loads(self.loop("status", "goals/g.md", "--sprint", "2", "--json").stdout)
+        self.assertTrue(s2_sme["scope"]["sme_gate_blocked"])
+        self.assertIn("SME gate required before advancing", s2_sme["resume_note"])
+
+    def test_sprint_cli_override_on_check_and_run_without_editing_frontmatter(self):
+        manifest = {
+            "product": "CLI sprint override",
+            "slices": [
+                {"id": "slice-1", "title": "Core", "sprint": 1, "check": "test -f s1.txt"},
+                {"id": "slice-2", "title": "Extra", "sprint": 2, "check": "test -f s2.txt"},
+            ],
+        }
+        (self.repo / "goals" / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        (self.repo / "s1.txt").write_text("", encoding="utf-8")
+        (self.repo / "ok.txt").write_text("", encoding="utf-8")
+        self.goal(manifest="goals/manifest.json", active_sprint=1, max_iterations=2)
+        original_goal = (self.repo / "goals" / "g.md").read_text(encoding="utf-8")
+
+        chk_s1 = self.loop("check", "goals/g.md")
+        self.assertEqual(chk_s1.returncode, 0)
+        self.assertIn("check exit 0 (pass) (already done)", chk_s1.stdout)
+
+        chk_s2 = self.loop("check", "goals/g.md", "--sprint", "2")
+        self.assertEqual(chk_s2.returncode, 0)
+        self.assertIn("active_sprint=2 (CLI override)", chk_s2.stdout)
+        self.assertIn("check exit 1 (manifest)", chk_s2.stdout)
+
+        run_s2 = self.loop("run", "goals/g.md", "--sprint", "2", action="sprint2-done")
+        self.assertEqual(run_s2.returncode, 0, run_s2.stdout + run_s2.stderr)
+        self.assertIn("using CLI --sprint 2 override", run_s2.stdout)
+        self.assertIn("goal met", run_s2.stdout)
+        self.assertEqual((self.repo / "goals" / "g.md").read_text(encoding="utf-8"), original_goal)
+        summary = self.latest_summary()
+        self.assertEqual(summary["scope"]["active_sprint"], 2)
+        self.assertEqual(summary["scope"]["active_sprint_source"], "cli")
+        self.assertTrue(summary["scope"]["scope_complete"])
+        self.assertEqual(summary["scope"]["deferred_slices"], [])
+
+        # Passing --sprint on a goal without a manifest fails cleanly.
+        self.goal(manifest=None)
+        no_manifest = self.loop("check", "goals/g.md", "--sprint", "1")
+        self.assertNotEqual(no_manifest.returncode, 0)
+        self.assertIn("--sprint requires a manifest", no_manifest.stdout + no_manifest.stderr)
+
+    def test_audit_write_goal_auto_detects_single_valid_manifest_and_skips_ambiguous_or_invalid(self):
+        specs = self.repo / "docs" / "specs"
+        specs.mkdir(parents=True)
+        valid_manifest = {"product": "Demo", "slices": [{"id": "s1", "title": "Core", "check": "true"}]}
+        (specs / "app-manifest.json").write_text(json.dumps(valid_manifest), encoding="utf-8")
+        # Invalid manifest should be ignored rather than crashing audit.
+        (specs / "broken-manifest.json").write_text("{not json", encoding="utf-8")
+
+        single = self.loop("audit", "--json", "--write-goal", "goals/auto.md")
+        self.assertEqual(single.returncode, 0, single.stdout + single.stderr)
+        report = json.loads(single.stdout)
+        self.assertEqual(report["guardrails"]["manifests"], ["docs/specs/app-manifest.json"])
+        self.assertEqual(report["recommended"]["manifest"], "docs/specs/app-manifest.json")
+        scaffold = (self.repo / "goals" / "auto.md").read_text(encoding="utf-8")
+        self.assertIn("manifest: docs/specs/app-manifest.json", scaffold)
+        self.assertIn("docs/specs/app-manifest.json", [line for line in scaffold.splitlines() if line.startswith("protect:")][0])
+
+        # Adding a second valid manifest makes selection ambiguous, so audit lists both without guessing.
+        scratch_goals = self.repo / ".scratch" / "goals"
+        scratch_goals.mkdir(parents=True)
+        (scratch_goals / "other-manifest.json").write_text(json.dumps(valid_manifest), encoding="utf-8")
+        multi = self.loop("audit", "--json", "--write-goal", "goals/auto2.md")
+        self.assertEqual(multi.returncode, 0, multi.stdout + multi.stderr)
+        multi_report = json.loads(multi.stdout)
+        self.assertEqual(
+            multi_report["guardrails"]["manifests"],
+            ["docs/specs/app-manifest.json", ".scratch/goals/other-manifest.json"],
+        )
+        self.assertNotIn("manifest", multi_report["recommended"])
+        scaffold2 = (self.repo / "goals" / "auto2.md").read_text(encoding="utf-8")
+        self.assertNotIn("\nmanifest:", scaffold2)
+
 
 class ScanTextSlopCase(unittest.TestCase):
     def scan(self, name, text):
@@ -757,6 +1328,99 @@ class ScanTextSlopCase(unittest.TestCase):
     def test_block_comment_continuation_lines_are_scanned(self):
         text = "/**\n * Loads the view.\n * TODO wire the cache\n * eslint-disable no-console\n */\nexport const a = 1;\n"
         self.assertEqual(self.scan("ui.ts", text), [(3, "stub-placeholder"), (4, "suppression-comment")])
+
+    def test_inline_block_comment_rust_stub_multi_comment_and_js_regex_slop(self):
+        self.assertEqual(self.scan("lib.rs", "/* ok */ todo!();\n"), [(1, "stub-placeholder")])
+        self.assertEqual(
+            self.scan("multi.ts", "/* a */ const x = 1; /* b\n * TODO finish\n */\n"),
+            [(2, "stub-placeholder")],
+        )
+        self.assertEqual(
+            self.scan("re.js", "const re = /https?:\\/\\//; try { go(); } catch (e) {}\n"),
+            [(1, "swallowed-exception")],
+        )
+
+    def test_nested_pyproject_and_package_json_and_root_tool_sections_protected(self):
+        sys.path.insert(0, str(LOOP.parent))
+        self.addCleanup(sys.path.remove, str(LOOP.parent))
+        import loop
+        with tempfile.TemporaryDirectory(prefix="loop-guard-") as tmp:
+            root = Path(tmp)
+            (root / "package.json").write_text(
+                json.dumps({"name": "root", "eslintConfig": {"rules": {"no-console": "error"}}}),
+                encoding="utf-8",
+            )
+            (root / "subpkg").mkdir()
+            (root / "subpkg" / "pyproject.toml").write_text('[tool.ruff]\nselect = ["E"]\n', encoding="utf-8")
+            (root / "packages" / "app").mkdir(parents=True)
+            (root / "packages" / "app" / "package.json").write_text(
+                json.dumps({"name": "app", "scripts": {"lint": "eslint ."}}),
+                encoding="utf-8",
+            )
+            before = loop.guardrail_state(str(root), set())
+            self.assertIn("package.json scripts", before)
+            self.assertIn("subpkg/pyproject.toml [tool.*]", before)
+            self.assertIn("packages/app/package.json [guardrails]", before)
+
+            # Weakening root eslintConfig, nested pyproject.toml, or nested package.json scripts must change state.
+            (root / "package.json").write_text(
+                json.dumps({"name": "root", "eslintConfig": {"rules": {}}}),
+                encoding="utf-8",
+            )
+            self.assertNotEqual(before, loop.guardrail_state(str(root), set()))
+
+            (root / "subpkg" / "pyproject.toml").write_text("[tool.ruff]\nselect = []\n", encoding="utf-8")
+            after_sub = loop.guardrail_state(str(root), set())
+            self.assertNotEqual(before["subpkg/pyproject.toml [tool.*]"], after_sub["subpkg/pyproject.toml [tool.*]"])
+
+            (root / "packages" / "app" / "package.json").write_text(
+                json.dumps({"name": "app", "scripts": {"lint": "true"}}),
+                encoding="utf-8",
+            )
+            after_pkg = loop.guardrail_state(str(root), set())
+            self.assertNotEqual(
+                before["packages/app/package.json [guardrails]"],
+                after_pkg["packages/app/package.json [guardrails]"],
+            )
+
+            # _rel_inside_root allows `..env` inside root and rejects `../outside`.
+            self.assertEqual(loop._rel_inside_root(str(root / "..env"), str(root)), "..env")
+            self.assertIsNone(loop._rel_inside_root(str(root.parent / "outside.txt"), str(root)))
+
+    def test_corrupted_goal_frontmatter_exits_4_and_writes_summary(self):
+        with tempfile.TemporaryDirectory(prefix="loop-corrupt-") as tmp:
+            root = Path(tmp)
+            subprocess.run(["git", "init", "-q", "-b", "main", str(root)], check=True, capture_output=True)
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            (root / "check.sh").write_text("#!/bin/sh\ntest -f ok.txt\n", encoding="utf-8")
+            (root / "goals").mkdir()
+            goal = root / "goals" / "g.md"
+            goal.write_text(
+                "---\ngoal: test corrupt\ncheck: test -f ok.txt\nprotect: check.sh\nmax_iterations: 2\nmax_cost_usd: 1\n---\nPlan.\n",
+                encoding="utf-8",
+            )
+            corrupt_script = bin_dir / "corrupt_omp.py"
+            corrupt_script.write_text(
+                'import sys; sys.stdin.read(); open("goals/g.md", "w", encoding="utf-8").write("no frontmatter\\n")\n',
+                encoding="utf-8",
+            )
+            if os.name == "nt":
+                (bin_dir / "omp.cmd").write_text(f'@"{sys.executable}" "{corrupt_script}" %*\r\n', encoding="utf-8")
+            else:
+                omp = bin_dir / "omp"
+                omp.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{corrupt_script}" "$@"\n', encoding="utf-8")
+                omp.chmod(0o755)
+            env = {**os.environ, "PATH": str(bin_dir) + os.pathsep + os.environ.get("PATH", "")}
+            proc = subprocess.run(
+                [sys.executable, "-B", str(LOOP), "run", "goals/g.md", "--harness", "omp"],
+                cwd=str(root), capture_output=True, text=True, env=env,
+            )
+            self.assertEqual(proc.returncode, 4, proc.stdout + proc.stderr)
+            summary = json.loads((root / ".scratch" / "goals" / "g" / "latest-summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(summary["exit_code"], 4)
+            self.assertEqual(summary["exit_reason"], "tampered_frontmatter")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,9 +8,9 @@
 3. Runs: a run is one conversation incl. later turns. When adding to a log with rows, first row is phase `start`, naming the `ts` range of rows this run didn't write and identifying this run (session/agent id). Re-entering later, read the last rows first. `start` is used for nothing else.
    Done when a log with earlier rows has this run's `start` row first.
 4. Append-only: a wrong call gets a superseding row; never edit or delete. Prefer evidence from committed scripts (encode-lessons-in-structure).
-5. Before handing back, audit this run's rows against this run's transcript only (`history://`; never other projects): each row maps to a real decision/action, evidence resolves and shows the claim, unlogged forks/pivots are added. Correct with superseding rows, never edits.
+5. Before handing back, audit this run's rows against this run's transcript only (`history://` in omp, or this session's saved transcript/run log in Antigravity, Claude Code, or Codex; never other projects): each row maps to a real decision/action, evidence resolves and shows the claim, unlogged forks/pivots are added. Correct with superseding rows, never edits.
    Done when every fork and pivot in the transcript has a row and every row's evidence resolves.
-6. Spawn a default `task` agent (not `reviewer`: it must read the transcript via `history://`) on a different model family than yours, when one is available (self-review is no substitute), to read trail + transcript and flag: weak/absent evidence, skipped or unproven verification, risky choices (premature, scope creep, symptom-papering), gaps a casual skim misses.
+6. Spawn a default `task` agent (not `reviewer`: it must read the transcript via `history://` in omp or the saved transcript/digest elsewhere) on a different model family than yours, when one is available (self-review is no substitute), to read trail + transcript and flag: weak/absent evidence, skipped or unproven verification, risky choices (premature, scope creep, symptom-papering), gaps a casual skim misses.
    Done when the reviewer's flags, or "No flags", are in hand.
 7. Commit the log only when the work needs an auditable trail.
 

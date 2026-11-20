@@ -51,7 +51,7 @@ How to plan, run, verify, and review agent work. Distilled from 2026 talks dated
 
 ### Harness and model choice
 - Match the agent to the task: a fast, assumption-making model for interactive feature work; a slower, question-asking model for large refactors run unattended. Each catches the other's mistakes (2026-02-25).
-- Effort: medium for simple work, highest for hard reasoning. Fast mode when speed matters, standard to save tokens (2026-08-14).
+- Effort: medium for routine work, high/xhigh for hard reasoning. Skip Fast/Ultrafast modes (2x–8x quota burn per deepmodebot `SKILL.md` and `skill://agent-harnesses/references/delegation-efficiency.md`); right-size model tier and effort before turn 1.
 - Install computer use plus only the plugins in your real workflow (GitHub, Vercel, Convex, Linear) (2026-08-14).
 - Dictate prompts by voice. Spoken prompts carry more detail (2026-05-22).
 - A meta-harness that switches agents mid-thread with context handoff pays off once you have more than one subscription or machine (2026-10-21).
@@ -75,7 +75,7 @@ deepmodebot reviews with its pr-review technique (`skill://deepmodebot/reference
 - Review stacked PRs in order and merge each when clean.
 - Check for failing CI and an incomplete description alongside open comments (2026-02-25).
 - Tune the reviewer to be strict. Small issues are cheap to fix early (2026-01-29).
-- After a clean review, the human checks the before and after proof and the description, then merges (2026-09-01).
+- Under deepmodebot, own PRs land autonomously via `pr-conversation` once checks and the 3-reviewer, 2-of-3 panel pass; human review and merge apply on external repos or when requested (reconciled with deepmodebot `SKILL.md`).
 - AI review keeps catching bugs a human missed, such as race conditions and config-loading errors (2026-01-20, 2026-06-09).
 - When code feels too complex after a feature, run a simplify pass and tidy shared operations with `structure.md`.
 
@@ -109,6 +109,6 @@ This skill's `SKILL.md` runs the full loop:
 2. **Build:** entry points own product rules, services own reusable operations (`structure.md`).
 3. **Prove:** checks plus runtime evidence, before and after (`prove.md`).
 4. **Ship:** a PR with the proof, reviewed by deepmodebot's pr-review technique until clean.
-5. **Human:** check the proof and description, then merge on a deepmodebot panel pass.
+5. **Land:** own PRs merge autonomously via `pr-conversation` once checks and the 3-reviewer, 2-of-3 deepmodebot panel pass (human review/merge on external repos or when requested).
 
 Run many tasks in parallel, each in its own worktree. A rebuild run through this loop can take a fraction of the time of the first build (2026-09-01). To adopt it, copy `AGENTS.template.md`, try it on a sample project, and adjust it to how your team works.

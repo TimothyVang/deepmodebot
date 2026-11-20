@@ -7,302 +7,192 @@ hooks:
     - matcher: "Write|Edit|NotebookEdit"
       hooks:
         - type: command
-          command: 'for f in "${CLAUDE_PLUGIN_ROOT:-/nonexistent}/skills/deepmodebot/assets/contain/claude-guard.sh" "$HOME/.claude/skills/deepmodebot/assets/contain/claude-guard.sh"; do if [ -f "$f" ]; then exec "${BASH:-bash}" "$f" enforce; fi; done; exit 0'
+          command: 'for f in "${CLAUDE_PLUGIN_ROOT:-/nonexistent}/skills/deepmodebot/assets/contain/claude-guard.sh" "${CLAUDE_PROJECT_DIR:-.}/.claude/skills/deepmodebot/assets/contain/claude-guard.sh" "$HOME/.claude/skills/deepmodebot/assets/contain/claude-guard.sh"; do if [ -f "$f" ]; then exec "${BASH:-bash}" "$f" enforce; fi; done; exit 0'
 ---
 
 # Deepmodebot
 
-Paths below are relative to this skill (`skill://deepmodebot/...`).
+Paths are relative to this skill (`skill://deepmodebot/...` in omp; elsewhere resolve on disk).
 
-**Any harness.** Runs in omp (preferred), Claude Code, Codex, Cursor, or any skills harness. Translate omp tool names to your harness.
-`task` (`agent: "scout"`, `reviewer`) → Claude Code `Agent`, equivalent subagents, or `acpx <agent> exec` when none exist. `todo` → `TodoWrite` or plan; `ask` → `AskUserQuestion` or one reply question. `skill://deepmodebot/<path>` → this skill; `.omp/skills/` → harness skills (`.claude/skills/` in Claude Code). Full cited, dated tool/path mappings: `skill://agent-harnesses`.
+**Cross-harness.** Guides/guards ship for omp, Claude Code, Codex, Antigravity (Cursor and others follow rules without shipped guards). Map omp names: `task` → subagents (or `acpx <agent> exec`); `todo` → tasks; `ask` → one question; `.omp/skills/` → `.claude/skills/` or `.agents/skills/`.
+Tool limits: `loop.py run` targets `omp|claude|codex`; `pr-agent` needs `omp`; `security-audit` needs `claude` on POSIX. Details: `skill://agent-harnesses`.
+
+## Full-scope completion
+
+Applies to M/L and multi-item routes (Size S tracks its single item inline, no Scope Manifest or continuation loop). Slicing sequences verification; it never shrinks scope.
+
+1. **Total Scope vs. Active Sprint.** Keep 100% of deliverables/inventory in ONE Scope Manifest (`docs/specs/<slug>-manifest.json` or `.scratch/goals/<slug>-manifest.json`, `loop.py manifest`, mirrored in `todo`). Only the user removes scope; promises join it; an unqualified yes accepts offered options except hard stops. Rough ideas include real essentials (persistence, validation, error/empty states, wired entrypoints); complex/unclear domains clear via **sme-review** (`sme_gate`) before Sprint 2+.
+2. **Machine-checked inventory.** For "all/every/full set", classify candidates in `"inventory"` as `included`, `duplicate` (`representative`), `non_target` (`reason`), or `blocked` (`evidence` + `unblock`). Any `pending` item fails `loop.py manifest`; batch without shrinking.
+3. **Resolve reversible ambiguity.** Pick a scope-preserving structure from evidence, state assumptions, isolate uncertain groups. Ask only when evidence cannot settle a material choice, an `sme_gate` is required, or a safety/permission boundary applies. Finish independent work first.
+4. **Close against evidence.** Reconcile manifest, inventory, deliverables, and tasks before replying. Single-run builds drive `1/N` to `N/N`. Sprint mode (`active_sprint: 1` / `sme_gate: "required"`) lands Sprint 1 with proof and pauses ONLY at the sprint/SME checkpoint, reporting Sprint 2..N as remaining (`scope_complete: false`). Blockers name item, failure, attempts, and unblock path.
+5. **Zero-loss resume.** Arm one continuation mechanism (`references/playbooks/run-a-goal.md`) and record its ID/state. On quota/cost cap, `checkpoint_every` / `sme_gate` (`loop.py run` exit `6`), or passing Sprint 1 with deferred slices (`exit 0`, `scope_complete: false`), manifest + `latest-summary.json` is the resume ledger. A pause is never completion.
 
 ## Route (do this first)
 
-`/deep <anything>` routes the request to a playbook and size. Choose both and proceed without asking which mode to use.
+`/deep <anything>` routes and sizes without asking which mode to use.
 
-**1. Look around (seconds, read-only).** Find the root with `git rev-parse --show-toplevel` and inspect `git remote`. Check for `docs/PROJECT_BRIEF.md`, `STACK.md`, and a verify skill (`.omp/skills/verify-*`, `.claude/skills/verify-*`, or `.agents/skills/verify-*`). Only a GitHub delivery needs `gh repo view --json nameWithOwner,viewerPermission,isEmpty` and `gh api user -q .login`. Note the harness. Outside a repo or in an empty one, follow Contain the work.
-**Process conflicts:** before work, run the Setup playbook's Process conflicts procedure (`references/playbooks/setup.md`); it owns precedence, exceptions, owner decisions, and the two confirmations before rewriting rule files. In a repo the user cannot push to, its maintainers' process stands.
+**1. Orient.** In git repos, use Antigravity's hook-injected offline git-only **workspace-map** overview if present; else run `python -B "<this skill>/assets/workspace-map/workspace_map.py" overview --fast --offline --no-orca` (`py -3 -B` on Windows; writes `<main-checkout>/.scratch/workspace-map.db`).
+Skip `overview` on strictly read-only routes (`investigation`, local `pr-review`, `pr-thread`) when no DB exists. Run `query <term>` before broad greps and `workspaces`/`prs` (`--global --all-repos` cross-repo); never ask the user to run map commands.
+Check `git remote`, `docs/PROJECT_BRIEF.md`, `STACK.md`, and verify skills (`.omp`/`.claude`/`.agents/skills/verify-*`). GitHub delivery checks `gh repo view --json nameWithOwner,viewerPermission,isEmpty` and `gh api user -q .login`. Outside/empty repo: Contain the work. Process conflicts: Setup (`references/playbooks/setup.md`, two owner yeses before rewriting rule files).
 
-**2. Route by intent and vagueness.** Match the Routes table below (first match wins). When a prompt is ambiguous, pipe it to `python <this skill>/assets/tournament/tournament.py route --stdin --json <<'EOF'`. Concrete tasks run directly, draft plans take **grill**, and open architecture or research gaps plus vague ambitions take **tournament** (`references/techniques/tournament.md`).
+**2. Route by intent & vagueness.** Match `## Routes` (first match wins, aligned with `tournament.py route`). When ambiguous, pipe to `python -B "<this skill>/assets/tournament/tournament.py" route --stdin --json` (`--empty-dir` in empty/new dirs, `--has-factory` if `factory.json` exists). Concrete tasks run directly; draft plans → **grill**; open gaps/vague ambitions → **tournament** (`references/techniques/tournament.md`).
 
-**3. Size it**, then follow that size's rules. Re-size if it grows.
+**3. Size it** (re-size if scope grows).
 
 | Size | Looks like | How to run it |
 |---|---|---|
-| **S** | At most 30 changed lines in at most 2 files, no auth, secrets, permissions, trust-boundary parsing, migrations, CI, or agent config | Restate, fix, add a behavior-sensitive regression when needed, and prove the real artifact. A **local S fix** (no remote, or user review) stays uncommitted: no push or merge. Publication takes the S lane (`references/playbooks/opening-a-pr.md`) and the same three-reviewer, two-of-three panel as every PR. No extra planning agents or decision log. |
-| **M** | A few files, one feature or bug with a cause to find | The matched playbook, implemented directly when one owner suffices. Local delivery follows the local-edit rule below; publication takes Opening a PR. |
-| **L** | Cross-cutting, new module, many files, risky, or long-running | The full playbook with subagents, architect where shapes differ, and a show-me-your-work trail. |
+| **S** | <= 30 changed lines in <= 2 files; no auth, secrets, permissions, trust-boundary parsing, migrations, CI, or agent config | One-line restate, fix, regression if behavioral, prove real artifact. **Local S** stays uncommitted. Publication: S lane (`references/playbooks/opening-a-pr.md`) + 3-reviewer, 2-of-3 panel. |
+| **M** | Few files, one feature or bug with a cause to find | Matched playbook; inline if one owner suffices. Local: uncommitted edit; publish: Opening a PR. |
+| **L** | Cross-cutting, new module, many files, risky, or long-running | Full playbook with subagents, **architect** if shapes differ, **show-me-your-work** trail. |
 
-**Choose the delivery target separately from size.** No remote, or a request for local review, means a **local edit**: for S or M, leave verified changes uncommitted in the starting tree, review the diff, exercise the real behavior, and stop with result and proof (no PR, default-branch commit, or push). A publish request is not local delivery.
-Use an isolated worktree only when concurrent writers or unrelated dirty work require it, returning the verified patch safely. A local M edit skips shipping panels, new verification frameworks, and design contests, and reads only the procedure and references its risk needs. Auth, permissions, migrations, security boundaries, and L work keep full checks.
+**Delivery != size.** No remote, local-review ask, or ordinary local S/M edit (no PR/commit/ship ask) → **local edit**: leave verified S/M uncommitted, review diff, prove real behavior, stop (no default-branch commit/PR/push). Explicit PR/ship/land/queue asks publish via Opening a PR + 3-reviewer panel.
+Worktree only for concurrent writers or dirty unrelated work. Local M skips shipping panels, new verify frameworks, design contests; auth/permissions/migrations/security/L keep full checks. Discovery = size `none` (no panel); business cases use `references/techniques/research.md`.
 
-Discovery work (review, investigation, questions, or tournament discovery) has no size or panel. Business-data opportunities and stalled attempts at one also use the opportunity probe (`references/techniques/research.md`). Tournament's build handoff: Autonomy.
+**4. Cadence, tier & SME.** Before turn 1 or kickoff, pick the smallest benchmark-proven tier and `<= medium` effort for S/search/mechanical/oracle-backed M (`skill://agent-harnesses/references/delegation-efficiency.md`); reserve `L` for planning, hard debug, security, final review; skip Fast/Ultrafast. Complex/unclear domains → **sme-review** (+ **questionnaire** for unverified P0/P1 rules) before specs, loops, or Sprint 2+. Split multi-PR/customer specs into sprints.
 
-**4. Act, then report.** Follow Autonomy's publishing gates and hard stops. Report the result and proof.
+**5. Act, then report.** Follow Autonomy's gates and hard stops. Report result and proof.
 
 ## Reasoning gates
 
-For M/L, including research and business deliverables, use proportional evidence-linked gates; no new agent, PR or document is required. S uses the goal and real-artifact check.
+Apply proportionally on M/L; S uses goal + real-artifact check directly.
 
-1. **Before committing to a plan:** name the intended user, decision or deliverable, acceptance evidence, and authoritative sources. Inspect the source material and existing outputs first; separate observed facts from assumptions; check whether the work is already done or superseded. Resolve material contradictions first; mark conclusions unknown where evidence is unavailable.
-2. **At phase boundaries, before consequential actions, and before delivery:** compare the output with the original goal and current evidence. Check for missing entities, stale facts, unsupported conclusions, and work that no longer serves the goal. Name what changed and the next smallest action; replan when the premise fails. Activity, PRs, and generated pages are not proof of progress.
-3. **When progress stalls** (two attempts without better acceptance evidence, repeated rewrites, contradictory findings, or time far past the expected effort): pause, inspect the actual artifacts and sources, find the bottleneck, test the premise, then try a different bounded approach or report the blocker. Reset only when evidence improves or a distinct approach is tried. No universal time limit; never abandon the user's scope.
+1. **Before planning:** name user, deliverable, acceptance evidence, sources. Inspect sources first; separate facts from assumptions, check if done/superseded, resolve contradictions, mark gaps unknown.
+2. **At phase boundaries & delivery:** check output against goal/evidence for missing items, stale facts, unsupported claims, or drift; replan if premise fails.
+3. **When stalled:** after two attempts without better evidence, repeated rewrites, or contradictions, pause. Inspect real artifacts, test premise, pivot or report blocker. Never drop scope.
 
-For an open-ended business use case, define one representative workflow and an intended user's observable success before scaling; it is a proof point, never a reason to narrow the full scope. Business-data opportunities use the opportunity probe (Route); other business or research decisions comparing evidence or options use the decision-brief procedure in `references/techniques/research.md`, in chat or a file. Label unproven market, revenue, or exit claims as estimates.
+Business cases: prove one workflow on observable user success before scaling (`references/techniques/research.md`); label unproven market/revenue/exit claims as estimates.
 
 ## Contain the work
 
-Every task has one project root. Keep every created/changed file inside it: code, scratch/temp files, logs, downloads, reference clones, prototypes, worktrees, evidence and delegate output.
+One project root per task; every write stays inside it (code, scratch, temp, logs, clones, worktrees, evidence, delegates). Details: `references/contain.md`.
 
-- **Find the root first.** In a repo, the root is the worktree you're in (`git rev-parse --show-toplevel`). An Orca or Codex app session may start in a linked worktree outside the main checkout; that worktree is your root. Name the root's absolute path in your restate.
-- **No repo? Make a named one.** Outside a repo, in a folder that isn't a project, or for a new project that isn't the current repo, create `<parent>/<kebab-case-name-from-the-goal>/` and run `git init -b main` in it (choosing `<parent>` and the name: `references/contain.md`); never nest a repo in a repo or reuse an existing folder. Creating that folder is the one write allowed outside a root; from then on, work only inside it and report its path.
-- **Scratch goes in `<root>/.scratch/`, worktrees in the main checkout's `.worktrees/<branch>/`.** The main checkout is the root unless your session started in a linked worktree; then its `.worktrees/` is the one folder outside your root you may write. Each holds a `.gitignore` of `*`, so neither shows in `git status` or a commit and no `.git/` write is needed. Setup snippet: `references/contain.md`.
-- **Never system temp.** No `/tmp`, `$TMPDIR`, `%TEMP%`, home-folder files, or sibling folders; a harness scratchpad outside the repo (Claude Code's) counts as system temp. Use `mktemp -p "$ROOT/.scratch/tmp"` (`-d` for a folder) or Python `tempfile.mkdtemp(dir=...)`, and set `TMPDIR`, `TMP`, and `TEMP` to `$ROOT/.scratch/tmp` in the same shell call before commands that make temp files.
-- **Install into the root.** Dependencies go in the project (`node_modules`, `.venv`, a local tool folder). Global installs (`npm i -g`, `pip install --user`, `cargo install`, `uv tool install`) and user-config edits (`~/.gitconfig`, shell profiles, harness settings) are hard stops.
-- **Reads are free; writes are fenced.** Reading skills, docs, harness config, or a checkout the user names is fine. Outside writes are allowed only for the new repo's folder, state tools manage themselves (omp `local://` and `artifact://`, package and browser caches, Claude Code plan and memory files), and paths the user named, listed in `<root>/.deepmodebot.json` `"extraWriteRoots"`. Any other outside write is a hard stop.
-- **deepmodebot's own outside writes** (its helper scripts' transient run folders, and the installed GitHub App bot's `~/.config/deepmodebot/` and `~/.cache/deepmodebot/`) are the only others; details in `references/contain.md`.
-- **Durable notes stay in the repo.** Resume notes, trails, and anything later sessions need go under `.scratch/` (or the git common dir: `references/contain.md`), never only in a session store.
-- **Delegates inherit the fence.** Every brief names the absolute root and fences them inside it, worktrees in `.worktrees/` (Subagents).
-- **Guards back the rule; none covers shell commands.** The rule still binds `bash`. A denial means move the file into the root; never route around the guard. Per-harness guards: `references/contain.md`.
-- **Before reporting done,** `git status --porcelain` lists only intended changes, `.scratch/tmp/` is emptied, and evidence the report links sits inside the root: `.scratch/evidence/`, or the folder the repo's verify skill names.
+- **Root.** `git rev-parse --show-toplevel` (including worktrees); name absolute path in restate. Outside/new project: create `<parent>/<kebab-case-name>/` (never nest repos) + `git init -b main`; if a write guard pins this session to an existing repo, reopen in the new root (`references/contain.md`).
+- **Scratch & worktrees.** Temp in `<root>/.scratch/tmp/`; worktrees in main checkout's `.worktrees/<branch>/` (`.gitignore` `*`). Run Python with `-B` or `PYTHONDONTWRITEBYTECODE=1`.
+- **No system temp/global installs.** Never write `/tmp`, `$TMPDIR`, `%TEMP%`, home files, or sibling dirs; scope `TMPDIR`/`TMP`/`TEMP` to `$ROOT/.scratch/tmp`. Install deps locally; global installs and user-config edits are hard stops.
+- **Reads free; writes fenced.** Outside writes allowed only for: new repo folder; tool-managed state (`local://`/`artifact://`, Antigravity `brain/`/artifacts, package/browser caches, Claude plan/memory); `.deepmodebot.json` `"extraWriteRoots"`; deepmodebot's own outside writes (`references/contain.md`). All else is a hard stop.
+- **Notes, delegates & guards.** Durable notes go in `.scratch/` or git common dir. Delegate briefs name absolute root and own subdir/worktree. Guards back file-edit tools (none covers shell commands; this rule still binds shell commands); on denial move inside root, never bypass.
+- **Cleanup.** Delete only this session's disposables and empty `.scratch/tmp/` without disturbing originals, other sessions, active jobs, or unpushed work; `git status --porcelain` shows only intended changes and evidence stays in `.scratch/evidence/` or verify dir.
 
 ## Non-negotiables
 
-**S** requires only the one-line restate, Scope ledger, real-artifact proof and (if landing) S lane; otherwise apply a rule only when it changes the fix.
+For **S**, only one-line restate, single-item scope check, real-artifact proof, and (if landing) S lane apply.
 
-- **Restate first.** Your first message states, in your own words, the user's goal, the problem, and, if shipping a change, the smallest change to meet it. Don't wait for confirmation. If evidence rules out the requested change, show it and stop. Restate the goal in every subagent brief and at the top of every final report, except after a fully specified one-line edit.
-- **Scope ledger.** The restatement numbers every requested item ("all the logs", a list, "the rest" mean every member), and the todo list mirrors it. On a rough idea, add implied product essentials to the ledger; never narrow to a toy demo. An unqualified yes accepts all offered options in order, except hard stops. Anything you promise joins the ledger; only the user removes an item. Done means every item is done or blocked.
-- **Name your principles, in plain words.** For size M and L, add one short "Why I chose this" line naming each principle that changed a decision and the choice it changed, phrased plainly ("I fixed the stock comparison at check time, not in the caller"). Cite only principles whose file you read this session in `references/principles/`. Skip it for size S.
-- **Prove it on the real artifact.** Run the real app, CLI, or service path and capture evidence. Reuse an existing verify skill and its matching feature map. Without one, drive the actual surface directly. Create a reusable verify skill only when requested or repeated work justifies it, never for a one-off fix. Passing tests alone is not proof.
-- **Decide; don't ask.** About to `ask` "which approach" or "what should this do"? Settle it yourself, by kind: a fact → look it up; an observable fork (behavior, timing, layout, output, perf, whether an eval separates) → let the Prototype playbook decide; a product, design, or preference call → make it (Autonomy). In a read-only Investigation, answer from evidence instead of a sketch.
-- **Secrets, logins, tokens, or auth in play** (API keys, `.env`, passwords, logins, MFA, OAuth or MCP auth, CI credentials, a suspected leak) → read `skill://secrets-and-auth` first, then the file it routes to. Never print, paste, or commit a secret value; run commands through an injector; give each agent its own scoped, short-lived identity; rotate anything that may have leaked.
-- **Name the data shape before any code**, and choose its organizing structure per `references/principles/model-the-domain.md`. Name it with the project's glossary terms; a new domain, data model, database, repo layout, or service boundary also reads `skill://software-architecture`.
-- **Long, autonomous, or step-away work** → a **show-me-your-work** decision trail.
-- **Any PR** → the **pr-review** technique (`references/techniques/pr-review.md`).
-  - Before opening one, self-review the branch in local mode; fix, dismiss, or escalate each finding. `/deepmodebot:review-pr <N>` reviews incoming PRs on your own agents, no outside service, never replacing live proof.
-  - Once the PR exists, run the **pr-agent** technique (`references/techniques/pr-agent.md`) on it, and the repo's own checks locally.
-- **Deepmodebot is the gate layer**: no GitHub Actions and no hosted review service. When the repo opted into the security gate or the change touches auth, permissions, input parsing, or secrets, run **security-audit** (`references/techniques/security-audit.md`) on the head that will merge; its blocking findings are P0 review findings.
-- **More triggers:** Technique triggers, below.
+- **Restate first.** State goal, problem, and smallest change without waiting for confirmation (stop if premise fails).
+- **Scope ledger.** Track 100% of the request per Full-scope completion (M/L/multi-item use a Scope Manifest; Size S tracks its single item inline).
+- **Name principles.** On M/L, add a "Why I chose this" line naming each read principle (`references/principles/`) that changed a decision.
+- **Prove on the real artifact.** Run the real app/CLI/service and capture evidence. Reuse an existing verify skill; else drive directly; create one only when requested or justified by repeated runs. Tests alone are not proof.
+- **Decide; don't ask.** Fact → look up. Observable fork → Prototype. Product/design/preference → decide (Autonomy). Investigation answers read-only from evidence.
+- **Secrets, logins, tokens, auth** → read `skill://secrets-and-auth` first. Never print, paste, or commit secrets; use scoped short-lived identities; rotate leaks.
+- **Name data shape first** (`references/principles/model-the-domain.md`); new domains/DBs/layouts/boundaries also read `skill://software-architecture`.
+- **Comments.** Only non-obvious *why* or external constraints; no phase-narrating comments.
+- **Long/step-away work** → decision trail via **show-me-your-work** (`references/techniques/show-me-your-work.md`).
+- **PR & gate layer.** Self-review (**pr-review**) before opening; run **pr-agent** + local checks once open; land own PRs via **pr-conversation**; incoming PRs use `/deepmodebot:review-pr <PR>`. No CI/hosted bots. Run **security-audit** on merge head when opted in or touching auth, permissions, parsing, or secrets (blocking = P0).
 
 ## Autonomy
 
-- **Your own PRs land on their own.** Once every review finding is fixed or dismissed, linked issues are answered, the panel passes, and required checks are green, **pr-conversation** merges the user's own PR, no separate ask.
-- **Landing means a panel pass.** Nothing lands on the default branch or a branch others build on until the **panel** technique (`references/techniques/panel.md`) passes at that exact head: three skeptical verifiers, at least two agreeing with evidence you checked. A verified, uncommitted local S/M edit is complete without landing.
-  - Every publication needs all three valid independent responses and at least two passes. Local S/M edits need no shipping panel; real-behavior proof and diff review remain required.
-  - Push your own PR branch so the panel can check it. Your own green runs are evidence the panel reproduces, never a substitute.
-  - Then push to the shared branch, or merge with `gh pr merge --match-head-commit <sha>`, run the checks on the new trunk, and open a revert PR if it went red.
-- **Decisions are yours.** Make every product, design, scope, and preference call yourself. Pick the reversible, smallest option that fits the codebase and the user's stated goal.
-  - Log each one as a show-me-your-work trail row (choice, why, evidence, how to reverse), and list them in the final reply under "Decisions I made" so the user can override any.
-  - Where a playbook, technique, or sibling skill says to ask before deciding, committing, pushing, opening PRs, or merging in the user's own repo, this rule wins. **Tournament** pauses at its Champion plus Runner-Up gate for discovery-only requests or an explicit choose-first instruction; an original build request continues with Champion within its existing permissions. Someone else's repo keeps its asks.
-- **Hard stops** still need the user's yes, batched into one question at the end: force-push or history rewrite on a shared or default branch; deleting branches, data, or resources you didn't create; deploys, releases, and package publishing; messages outside the repo (email, chat, other people's repos); bypassing a forge protection (required reviews or checks, admin merge); spending money or creating accounts; anything needing a credential or secret only the user has; writes outside the project root (Contain the work). A request that already asks for one of these is its yes.
-  - Rewriting a repo's rule files to replace its process needs two separate up-front yeses from the repo's owner (Setup playbook, Process conflicts); a request for it counts as neither.
-- **Standing yes for your own PRs.** `"autonomousMerge": true` in `~/.config/deepmodebot/bot.json` (the default) or a base-branch `.deepmodebot.json` lets **pr-conversation** admin-merge your own PRs past a required review, never past a failing check; a base-branch `false` overrides both.
-- **Your subscription, not an API.** Every model call uses a logged-in subscription: session and subagents (or headless `omp -p`, `claude -p`, `codex exec`) plus `acpx` bots (omp by default), each on its own subscription login. Never set up an API key or wait on a hosted review bot. Unset `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, and `CODEX_API_KEY` in child environments so `claude -p` and `codex exec` don't switch to API billing.
-- **Run to the finish line.** A green run, a beaten benchmark or a clean commit is a waypoint: tick it in the todo list and start the next ledger item in the same turn. Slicing never shrinks scope or stops at slice 1. The final reply reports each item of the request as done or blocked; a blocked item names its hard stop and the exact ask, or shows its three failed panels or dead end. A pause or handoff the user asks for is not a final reply.
-- **No is an acceptable answer.** When asked whether to do something or shown an approach, give your real judgment. Push back or say "this doesn't earn its place" when true.
+- **Own PRs land on their own** when publishing/landing a PR (via **pr-conversation**) once findings resolve, linked issues are answered, panel passes, and required checks are green.
+- **Exact-head panel pass.** Nothing lands on default/shared branches until **panel** (`references/techniques/panel.md`) passes at that head: 3 independent verifiers, >=2 passes (including S lane). Merge via `gh pr merge --match-head-commit <sha>`, verify trunk, revert if red. Verified local S/M edits stay uncommitted.
+- **Decisions are yours.** Pick the smallest reversible codebase-consistent option for product/design/scope/preference calls; log trail rows and list under "Decisions I made". **Tournament** pauses at Champion + Runner-Up for discovery-only or choose-first asks; build asks continue with Champion within permissions. Others' repos keep their asks.
+- **Hard stops** (batch into one question at end unless asked): force-push/history rewrite on shared/default branch; deleting others' branches/data/resources; deploys/releases/publishing; external messages; bypassing forge protections; spending money/accounts; user-only credentials; outside-root writes; rewriting repo rule files (two owner yeses).
+- **Admin merge on own PRs.** Only on explicit land/merge ask or `"autonomousMerge": true` (`~/.config/deepmodebot/bot.json` or base-branch `.deepmodebot.json`; `false` stops and asks): `--admin` may bypass only a required review after an exact-head panel pass, never a failing/cancelled check or non-review rules (signed commits, linear history, CODEOWNERS, unresolved threads).
+- **Subscription, not API.** Logged-in subscriptions only (session, subagents, headless CLIs, `acpx`). Never set up API keys; unset `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `OPENAI_API_KEY`, `CODEX_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_API_KEY`, and `CLAUDE_CODE_USE_{BEDROCK,VERTEX,FOUNDRY}` in child envs.
+- **Finish line & candor.** Tick waypoints and start the next item in the same turn; never stop at slice 1 on single-run builds, and report deferred sprints as remaining scope. Say "no" when warranted.
 
 ## Subagents
 
-- You run the playbook; delegates do bounded steps, never the playbook itself.
-- Use your harness's subagent tool (omp `task`, Claude Code `Agent`, Codex `spawn_agent`, which spawns only when told). Read-only research: omp `agent: "scout"`, Claude Code `Explore`, Codex `explorer`. Anything that edits, runs the app, or reads transcripts: the default agent. omp `reviewer` only reviews diffs. Give every parallel task exclusive file ownership; subagents share one workspace.
-- Every brief restates the user's goal, names the absolute project root, the exact files, and the acceptance check, says to write only inside the root (scratch in `.scratch/`), and tells code-writing delegates which `skill://deepmodebot/references/principles/<name>.md` files apply. omp subagents do not receive AGENTS.md, so put anything they must follow in the brief.
-- Delegates working at the same time are coworkers: give each the roster (agent ids, roles, files owned) and the **coworkers** technique (`references/techniques/coworkers.md`) so they ask, hand off, and push back directly instead of through you. Panel verifiers vote before they talk.
-- **Delegate only when it pays.** A child re-pays the system prompt and cold cache (~15x a chat). Delegate wide searches, log/transcript digests, fresh-eyes review, and independent slices. Keep one-file tasks, coupled work, and hard reasoning in the main session. Message a finished child rather than spawn anew.
-- **Match model and effort to the task.** Small tier for search and mechanical edits; mid tier at medium effort for routine features; the strongest model at high effort for hard design, debugging, and review. Judges and second opinions use another model family when available. Cap unattended runs (omp `--max-cost`, Claude Code `--max-budget-usd`); per-harness settings: `skill://agent-harnesses/references/delegation-efficiency.md`.
-- Review every delegate's diff and write your own summary; never pass its report through.
-- Fresh delegates by default; consolidate the original brief, later directives and prior report. Reuse a running child only when its state is needed.
+- You run the playbook; delegates own exclusive files. Roles: read-only → `scout`/`Explore`/`explorer`; diff review → `reviewer` (omp/Antigravity) or read-only general subagent with `pr-review` prompt (Claude Code/Codex); edits/runs → default agent.
+- Briefs state goal, absolute root, exact files, acceptance check, root-only writes, and applicable `references/principles/<name>.md` (omp omits `AGENTS.md`). Parallel delegates are **coworkers** (`references/techniques/coworkers.md`); panel verifiers vote before talking.
+- **Delegate only when it pays.** Multi-agent runs cost ~15x chat + cold cache. Delegate wide searches, log digests, fresh-eyes review, independent slices; keep 1-file/coupled/hard reasoning inline. Batch 3-5 spawns, pass paths, reuse warm children.
+- **Rate-limit & tier discipline.** Pin tiers per Route 4 (`delegation-efficiency.md`): small for search/mechanical, mid (`medium`) for oracle-backed slices, `L` (`high`) for design/debug/security/final review, cross-family for judges. Check quota (`omp usage`/`/usage`/`/status`), `/clear` between tasks, switch models at clean boundaries, cap unattended runs, back off or rotate family on 429s.
+- Inspect every delegate's diff and write your own summary. Fresh delegates by default; reuse only for live state.
 
 ## Routes
 
-Step 2 of Route. First match wins.
+Step 2 of Route (first match wins). Techniques: `references/techniques/<name>.md`; playbooks: `references/playbooks/<file>.md`. Full catalog (30 playbooks, 52 techniques, 24 principles): `references/catalog.md`.
 
-| The request or repo looks like | Route |
+| Request or repo looks like | Route |
 |---|---|
-| "review" a PR, or a PR number or URL with nothing else asked | **pr-review** in PR mode (`references/techniques/pr-review.md`) |
-| "review since <ref>", "review my branch against the spec / coding standards" | **pr-review** in local mode (`references/techniques/pr-review.md`) |
-| "land / finish / merge this PR on your own", "bots talk it out in the PR", "no human approval", or your own PR once it is open | **pr-conversation** technique (`references/techniques/pr-conversation.md`) |
-| "have the bots plan / discuss / implement this issue", "@deepmodebot implement" | **issue-conversation** technique (`references/techniques/issue-conversation.md`) |
-| "install deepmodebot on my repos", "run the bots on their own", "auto-update local Deepmode copies", "AI review on my own subscription", or start, stop, or opt a repo out of the bots | **github-app** technique (`references/techniques/github-app.md`) |
-| "check on / babysit / get green" a PR | Babysit playbook |
-| "help on / contribute to / what can I work on" a project, or a repo the user can't push to that has a brief | `skill://contribute` |
-| "set up / publish this project for contributors", "make issues for helpers" | `skill://project-brief` |
-| "run the factory / work the issue queue / turn issues into PRs / set up a software factory" | Work a queue playbook, factory source |
-| "drive the board / work the backlog / run this project autonomously / keep going on the roadmap" | Work a queue playbook, board source |
-| "autopilot this queue", "full autopilot", "autopilot, don't merge", "stack them, don't ship", "build the stack, I'll land it" | Work a queue playbook, PR source (`stack-only` when told not to merge) |
-| "set up deepmodebot here", "configure the tracker / labels", "add a glossary and ADRs", or the first time a repo writes a spec, tickets, or triage (Setup then resumes the requested playbook; a spec that already exists means setup is done) | Setup playbook |
-| "triage the issues", "what needs my attention", "is #42 ready for an agent", "move #42 to agent-ready" | Triage playbook |
-| "write the spec", "turn this into a spec", "spec it up" | Spec playbook |
-| "break this into tickets", "split the spec into issues", "make tickets for this" | Tickets playbook |
-| "implement the spec", "build spec #N", "build all the tickets on one branch" | Phased build playbook, build mode |
-| "turn this vague goal into measurable milestones", "review my goal with three agents", "grill the goal before looping" | **goal-review** technique (`references/techniques/goal-review.md`), then Self-authoring for the bounded artifact |
-| "grill with docs", "record the decisions", or "grill me" in a repo with `GLOSSARY.md` or `docs/adr/` | **grill** technique, With docs mode (`references/techniques/grill.md`) |
-| "grill me / grill this plan / stress-test this idea", or a user-supplied draft plan to stress-test | **grill** technique (`references/techniques/grill.md`) |
-| "tournament", "arena debate", "architecture gaps", "research gaps", "blind spots", "what are we missing", "propose the best system / architecture / research ideas" | **tournament** technique (`references/techniques/tournament.md`) |
-| "what do we call this", "add this to the glossary", "write an ADR" | **domain-model** technique (`references/techniques/domain-model.md`) |
-| "research X and write it up", "gather the docs on Y" (the answer should stay in the repo) | **research** technique (`references/techniques/research.md`) |
-| "which flow fits", "what's the process for X", "explain the deepmodebot workflow" | `references/flows.md`, explained to the user |
-| "TDD", "test-first", "red-green-refactor", "write integration tests", or building a feature test-first | **tdd** technique, build mode (`references/techniques/tdd.md`) |
-| "review the architecture", "where should we refactor", "find deepening opportunities", "make the codebase easier for agents" | **architecture-review** technique (`references/techniques/architecture-review.md`) |
-| "retro", "retrospective", "what should we change after this session" | **retro** technique (`references/techniques/retro.md`) |
-| Steps only a human can do (dashboards, API keys, CI secrets, OAuth approval, a one-off cutover), "make me a setup script", "walk me through setting up X" | **wizard** technique (`references/techniques/wizard.md`) |
-| Learning a topic over several sessions: "teach me X over the next month", "make me a course", "continue my course" | **course** technique (`references/techniques/course.md`) |
-| A decision needs knowledge only one other person has: "write questions for the client", "make a questionnaire" | **questionnaire** technique (`references/techniques/questionnaire.md`) |
-| "wait, what?", "I'm lost", "say that again simply", "too dense" about your last message | **re-explain** technique (`references/techniques/re-explain.md`) |
-| "hand this off", "write a handoff", "continue in a new session", "start a background agent on the rest" | Handoff playbook |
-| "choose / route tools or skills", "design an automatic tool router" | **tool-routing** technique (`references/techniques/tool-routing.md`) |
-| "let agents talk to each other", "coordinate siblings", "route an ACP message" | **agent-collaboration** technique (`references/techniques/agent-collaboration.md`) |
-| "record / replay the full E2E workflow", "three agents review the video", "visual acceptance evidence" | **visual-e2e** technique (`references/techniques/visual-e2e.md`) |
-| "Penpot", "open-source Figma alternative", "editable workflow diagrams linked to recordings" | **open-design-evidence** technique (`references/techniques/open-design-evidence.md`) |
-| "write / improve your own prompt, skill, goal, or loop", "make yourself able to X", a workflow done the same way twice | Self-authoring playbook |
-| Writing or editing a skill | Authoring a skill playbook (its first step reads the **writing-for-agents** technique) |
-| Writing, editing, generating, or overwriting `AGENTS.md`, `CLAUDE.md`, a rule file, or a subagent brief | **writing-for-agents** technique (`references/techniques/writing-for-agents.md`); generate or refresh with `assets/agents-md/agents_md.py` |
-| "block dangerous git commands", "add git safety hooks", "stop the agent from force-pushing" | **git-guardrails** technique (`references/techniques/git-guardrails.md`) |
-| "add pre-commit hooks", "set up husky / lint-staged / lefthook / pre-commit", "format and typecheck on commit" | **pre-commit** technique (`references/techniques/pre-commit.md`) |
-| "tighten / audit / harden the inner loop", "stop AI code slop", "make checks block agent slop before goal loops" | **inner-loop** technique (`references/techniques/inner-loop.md`) |
-| "be my chief of staff", "own this goal long-term", "keep pushing this goal forward across sessions" | Run a goal playbook, program scale |
-| "loop until X", "keep going until green", "going to bed, finish it" | Run a goal playbook, session scale |
-| "scrape / pull / archive" a page, video, channel, or playlist, or "get his diagram" | **scrape** technique (`references/techniques/scrape.md`) |
-| An effort too big for one session with a foggy route: "wayfinder", "chart the way to X", "plan this migration before anyone builds it" | Wayfinder playbook |
-| "port / rewrite / migrate this code to another language", preserving behavior | Refactoring playbook, Language ports section (`references/playbooks/refactoring.md`) |
-| "security-audit PRs / audit every PR / add a security gate", or a security audit of a change | **security-audit** technique (`references/techniques/security-audit.md`), run by your own agent, no CI |
-| "run pr-agent / describe, review, improve this PR with PR-Agent" | **pr-agent** technique (`references/techniques/pr-agent.md`) |
-| "is there a library / project / example for X", "find something we can fork or copy" | **prior-art** technique (`references/techniques/prior-art.md`) |
-| "what stack", "pick a stack for <app>" (stack choice only, no build asked) | `skill://deep-stack` (`references/any-app-stack.md`, after **prior-art**) |
-| "finish / build the full project end to end", "don't stop at a slice or MVP", "turn this rough idea into a complete working product" | End-to-end playbook (`references/playbooks/end-to-end.md`) |
-| A new app with named behaviors, an empty repo with a concrete goal, "start / build me <app> that ..." | **prior-art** first (newest repos to copy or learn from), then `skill://deep-stack` `references/any-app-stack.md`, then the End-to-end playbook (`references/playbooks/end-to-end.md`) across every slice until the whole app works end to end |
-| Open or vague high-level ambition ("rethink / re-architect X", "make <system> way smarter / better", "upgrade our AI stack", "what should we build next", or an underspecified goal with no concrete behavior or file anchor) | **tournament** technique (`references/techniques/tournament.md`) |
-| Anything else | The Playbooks table below |
-
-## Running without the human
-
-Pick the row that matches what the user has or wants.
-
-| The user has or wants | Use |
-|---|---|
-| One goal driven to a checkable end in this session | Run a goal, session scale (`references/playbooks/run-a-goal.md`) |
-| A goal run headless or overnight, no session open | `assets/loop/loop.py`, per the Self-authoring playbook (`references/playbooks/self-authoring.md`) |
-| A multi-day program | Run a goal, program scale |
-| A backlog, or a goal split into many PRs | Work a queue, board source (`references/playbooks/work-a-queue.md`) |
-| A queue of independent PRs | Work a queue, PR source, in `merge` or `stack-only` mode |
-| Labeled issues in a repo with `factory.json` | Work a queue, factory source |
-| PRs and issues handled with no session open | The GitHub App bot (`references/techniques/github-app.md`) |
-| A spec's tickets landed as one PR | Phased build, build mode (`references/playbooks/phased-build.md`) |
-
-## Comments
-
-Keep a code comment only for a non-obvious *why* the code can't show, or a constraint forced by something outside the codebase. No phase-narrating comments in scripts or tests; the assertion message documents the step. Applies to delegates' diffs too.
-
-## Technique triggers
-
-These apply when a rule would change the work; skip them for size **S**.
-
-- **Before building anything new** (a feature, tool, integration, or project) → **prior-art** (`references/techniques/prior-art.md`): start from the trending catalog (`python scripts/trending.py find <terms>`, which keeps a fresh copy in `.scratch/trending/`) so newer projects can beat the idea you already know, then search GitHub, the package registries, and official docs for code to depend on, copy, fork, or clone, and check its license first.
-- **A new or changed module or public interface with two or more viable shapes** → the **architect** technique before implementing. A small edit that merely crosses a function boundary doesn't need it.
-- **Nontrivial change, architecture decision, or "are we sure?"** → the **how** technique. Motivation questions → **why**.
-- **Parallel fan-out** → **swarm** for coverage matrices, races, fuzzing a change, partitions. **arena** for design or code bakeoffs with base selection and grafting.
-- **Contested design only** → **interrogate**, keeping only findings a run proves. Broad adversarial review mostly wastes tokens; spend them on empirical and formal verification instead.
-- **Open system direction, architecture or research blind spots, or high-vagueness goal** → **tournament** (`references/techniques/tournament.md`) before locking in one shape.
-- **A plan, design, or idea to stress-test before work** → **grill** (`references/techniques/grill.md`); you answer its questions unless the user asks to answer live.
-- **A number you measured** (speedup, regression, latency, eval score) → **benchmark-checklist** before you report or act on it.
-- **Prose** (reply, docs, PR body, commit message) → **unslop**; docs and PR/commit text also → **technical-writing**.
-- **Before review** → **no-comments** on your diff. For a diff under ~20 lines, apply its keep-list yourself instead of spawning.
-- **Repeated correction** (yours or the user's) → **correct**. Fix it at the highest rung that works: architecture or data structures, then a lint rule or test, then a skill or rule, and human review last. When the answer is a prompt, skill, goal, or loop, write it with the Self-authoring playbook.
-- **Before unattended goal loops or queue fan-out, or when agents ship code slop** (inline suppressions, swallowed errors, weak checks) → **inner-loop** (`references/techniques/inner-loop.md`); audit fast static checks, anti-slop guards, and protected configs before scaling iterations.
-- **Self-prompting loops.** When repeated failures need a revised method or a task has a repeatable work queue, use Self-authoring (`references/playbooks/self-authoring.md`). Author the next bounded iteration from observed diagnostics; keep the objective, permissions, oracle and caps fixed. This is execution within the approved task, not permission to start unrelated or perpetual automation.
-- **Words or lasting decisions change** → **domain-model** (`references/techniques/domain-model.md`): terms into `GLOSSARY.md`, hard-to-reverse decisions into `docs/adr/`.
-- **Reading that should outlive the chat** → **research** (`references/techniques/research.md`): a cited file in `docs/research/`.
-- **Any flow that reads or writes issues** uses the **tracker** technique (`references/techniques/tracker.md`) for the commands and label roles.
-- **PR-status requests** ("check on PR X", "get it green") → Babysit playbook. **Land a green stack** → Shipping playbook. Green is not safe.
-- **Fuzzy request?** → **in-your-own-words** before work. Prompt worth deepening before sending → **sharpen**.
-- **Learning a subsystem or a change** → **teach**. **Course over several sessions** → **course**. **Last message didn't land** → **re-explain**. **Resuming a topic from past sessions** → **recall**. **"What could this break?"** → **blast-radius**. **User says "reflect"** → **reflect**. **Session retrospective** → **retro**.
-
-Each technique is one file, `references/techniques/<name>.md`. Read only the ones you apply. Technique and playbook names mean deepmodebot's files, not same-named global skills (`skill://tdd`, `skill://prototype`, `skill://teach`, `skill://wizard`, `skill://retro`, `skill://handoff`).
-
-## Principles
-
-One file per principle in `references/principles/<name>.md`. Read the file before you apply or cite it.
-
-- **Core.** laziness-protocol (bias to deletion, smallest change). foundational-thinking (types, data structures, and shared state before logic). redesign-from-first-principles (integrate a new requirement as if it were there from day one). attack-the-premise (two fixes sharing a premise failed the same gate, so test the premise). subtract-before-you-add.
-  minimize-reader-load (count layers and hidden state; collapse one-caller wrappers). outcome-oriented-execution (converge on the target architecture, no throwaway compatibility). experience-first. exhaust-the-design-space (2-3 prototypes for novel decisions). build-the-lever (build the codemod, script, or checker instead of working by hand; the tool is what a reviewer reruns).
-- **Architecture.** model-the-domain. boundary-discipline (guards at boundaries, trust internal types, pure core). type-system-discipline (illegal states unrepresentable, brand primitives, parse at boundaries). make-operations-idempotent. migrate-callers-then-delete-legacy-apis. separate-before-serializing-shared-state.
-- **Verification.** prove-it-works. fix-root-causes (a guard is a fix only when the state it handles is legitimate). sequence-verifiable-units. test-behavior-not-implementation. explain-the-number.
-- **Delegation.** guard-the-context-window. never-block-on-the-human (proceed on reversible work, present results, let the human correct).
-- **Meta.** encode-lessons-in-structure (a repeated instruction becomes a lint, check, or script).
+| "review" a PR, or PR number/URL alone | **pr-review** (PR mode) |
+| "review since <ref>", branch vs spec/standards | **pr-review** (local mode) |
+| "land / finish / merge this PR on your own", own PR | **pr-conversation** |
+| "bots plan / discuss / implement issue", "@deepmodebot implement" | **issue-conversation** |
+| "install deepmodebot on my repos", "run the bots on their own", subscription bots | **github-app** |
+| "check on / babysit / get green" a PR | `babysit` |
+| "help on / contribute to / what can I work on", read-only repo w/ brief | `skill://contribute` |
+| "set up / publish for contributors", issues for helpers | `skill://project-brief` |
+| "run the factory", issue queue via `factory.json` | `work-a-queue` (factory) |
+| "drive the board / backlog", autonomous roadmap | `work-a-queue` (board) |
+| "autopilot this queue", "stack them, don't merge" | `work-a-queue` (PR; `stack-only`) |
+| "set up deepmodebot", tracker/glossary/ADRs, first spec/tickets/triage | `setup` (then resume) |
+| "triage issues", "is #N ready for an agent" | `triage` |
+| Complex domain/customer spec/"SME in the loop" (**sme-review**); "questionnaire" (**questionnaire**) | Named technique |
+| "vague goal into measurable milestones", "review my goal with 3 agents" | **goal-review** → `self-authoring` |
+| "grill me / this plan / stress-test", draft plan (`GLOSSARY.md`/`docs/adr/` → With docs) | **grill** |
+| "write / turn into a spec", "spec it up" | `spec` |
+| "break into tickets", "split spec into issues" | `tickets` |
+| "implement / build spec #N", "ship in sprints" | `phased-build` (sprint/build) |
+| Writing/editing a skill (`SKILL.md`) | `authoring-a-skill` (**writing-for-agents** first) |
+| Writing/editing `AGENTS.md`, `CLAUDE.md`, rule file, brief | **writing-for-agents** (`assets/agents-md/agents_md.py`) |
+| "write/improve prompt, skill, goal, or loop", repeated workflow | `self-authoring` |
+| "what do we call this"/glossary/ADR (**domain-model**); "research X" (**research**); "which flow" (`references/flows.md`); "TDD" (**tdd**) | Named target |
+| "hand this off", "continue in a new session", background handoff | `handoff` |
+| "chief of staff", "own this goal long-term", across sessions | `run-a-goal` (program) |
+| "loop until X", "keep going until green", "going to bed, finish it" | `run-a-goal` (session) |
+| Multi-session foggy route: "wayfinder", "plan migration" | `wayfinder` |
+| "port / rewrite / migrate" to another language | `refactoring` (Language ports) |
+| "security-audit PRs", security gate or audit | **security-audit** (own agent, no CI) |
+| "run pr-agent" on a PR | **pr-agent** |
+| "is there a library/project/example for X", fork/copy | **prior-art** |
+| "tighten/audit/harden inner loop", "stop AI code slop" | **inner-loop** |
+| "index/map workspace", "list Orca worktrees/open PRs", "find symbol fast" | **workspace-map** |
+| "what stack", "pick a stack for <app>" (stack choice only) | `skill://deep-stack` (`references/any-app-stack.md`, after **prior-art**) |
+| "finish / build full project end to end", "don't stop at a slice/MVP" | `end-to-end` |
+| Specialist: `tool-routing`, `agent-collaboration`, `visual-e2e`, `open-design-evidence`, `git-guardrails`, `pre-commit`, `scrape`, `architecture-review`, `wizard`, `course`, `re-explain`, `retro` | Named technique |
+| "tournament", "arena debate", "architecture/research gaps", "blind spots", "propose best system" | **tournament** |
+| Open/vague ambition ("rethink X", "make smarter", "build me an AI app" w/o behaviors) | **tournament** |
+| New app with concrete behaviors ("build me <app> that ...") | **prior-art** → `skill://deep-stack` → `end-to-end` |
+| Anything else | `## Playbooks` below |
 
 ## Playbooks
 
-If you have `todo`, open a list whose first items are the matched playbook's steps, one item per step as `<n>. <short imperative>`, before any task-specific items. A step you skip is dropped, with the reason stated in your reply. Full steps are in `references/playbooks/<file>.md`. The Routes table picks the playbook. When a request fits two, the earlier Routes row wins and the other runs after it only if the request still needs it.
+List matched steps (`<n>. <short imperative>`) in `todo`; note skips. Full 30-playbook table: `references/catalog.md`.
 
-| Playbook | File | Use for |
-|---|---|---|
-| Investigation | `investigation` | Read-only question: how does X work, why was Y built this way, are we sure, X or Y? |
-| Bug fix | `bug-fix` | A reported defect to reproduce, root-cause, and fix with runtime evidence. |
-| Perf issue | `perf-issue` | A measured slowness to trace and improve against a baseline. |
-| Hillclimb | `hillclimb` | Sustained improvement of one metric against a target, before/after per hypothesis, one kept change per accepted win. |
-| Runtime forensics | `runtime-forensics` | Diagnose a live symptom (leak, idle CPU, glitch) from instrumentation. Deliverable is a diagnosis. |
-| Trace forensics | `trace-forensics` | Diagnose a captured artifact (cpuprofile, trace, heap snapshot). Deliverable is a diagnosis. |
-| Feature | `feature` | New or changed behavior, built from a named data shape. |
-| End-to-end | `end-to-end` | Deliver a whole app, tool, or broad idea across all slices via a protected scope manifest until the finished product works end to end. |
-| Refactoring | `refactoring` | Behavior-preserving change to structure (rename, extract, inline, dedupe, move). |
-| Prototype | `prototype` | Throwaway sketch to decide a design, or settle an empirical fork by observing it. |
-| Visual parity | `visual-parity` | Pixel-exact UI equivalence between two implementations or styling systems. |
-| Reference rebuild | `reference-rebuild` | Redesign or rebuild a product UI to the standard of a named app: study the real reference, design on a canvas first, build from it, prove in the running app. |
-| Authoring a skill | `authoring-a-skill` | Writing or editing a SKILL.md. |
-| Self-authoring | `self-authoring` | Write and prove a reusable prompt, skill, goal, or loop; run goals headless with `assets/loop/loop.py`; promote project-local first. |
-| Eval | `eval` | Test how a skill, prompt, or structure change affects agent behavior, blinded, before promoting it. |
-| Phased build | `phased-build` | Work that spans phases or PRs. Plan mode writes a checklist of verifiable units. Build mode builds a spec's tickets onto one integration branch and lands it as one reviewed PR. |
-| Wayfinder | `wayfinder` | An effort too big for one session with a foggy route: chart a map of decision tickets and resolve them until the way is clear. |
-| Babysit | `babysit` | Drive a PR or stack to merge-ready: conflicts, review threads, CI. |
-| Shipping | `shipping` | Verify a green stack, then land the contiguous verified run bottom-up, each PR on a panel pass. |
-| Run a goal | `run-a-goal` | Drive one goal to a checkable end without the human. Session scale runs to a completion predicate. Program scale is a multi-day program with one coordinator, many PRs, and many delegates. |
-| Work a queue | `work-a-queue` | Turn a queue of work items into merged PRs, each on a panel pass. Sources are a goal split into board tasks, a queue of independent PRs (`merge` or `stack-only`), or labeled issues run through the `factory` CLI. |
-| Setup | `setup` | One-time repo setup: tracker kind and labels (`docs/deepmodebot/tracker.md`), `GLOSSARY.md`, `docs/adr/`, `CODING_STANDARDS.md`, a pointer in AGENTS.md. |
-| Spec | `spec` | Turn a settled conversation into `docs/specs/<slug>.md` plus a `spec` issue. No interview. |
-| Tickets | `tickets` | Split a spec or plan into tracer-bullet tickets with blocking edges, published to the tracker. |
-| Triage | `triage` | Move incoming issues and outside PRs through triage states: verify, shape, brief, label, or decline. |
-| Session pickup | `session-pickup` | Resume or take over a prior agent's in-flight work. |
-| Pause safely | `pause-safely` | Suspend in-flight work so it can be resumed later. |
-| Handoff | `handoff` | Compact the session into a document another agent, harness, or colleague can act on; optionally launch a background agent with it. |
-| Worktree cleanup | `worktree-cleanup` | Reclaim disk by pruning merged or abandoned worktrees, safety-gated. |
-| Opening a PR | `opening-a-pr` | Run at the end of any playbook that ships code. |
+- **Diagnose:** `investigation`, `bug-fix`, `perf-issue`, `hillclimb`, `runtime-forensics`, `trace-forensics`.
+- **Build:** `feature`, `end-to-end`, `refactoring`, `prototype`, `visual-parity`, `reference-rebuild`.
+- **Meta:** `authoring-a-skill`, `self-authoring`, `eval`.
+- **Plan & ship:** `setup`, `spec`, `tickets`, `triage`, `phased-build`, `wayfinder`, `babysit`, `shipping`, `opening-a-pr`.
+- **Autonomous & continuity:** `run-a-goal`, `work-a-queue`, `session-pickup`, `pause-safely`, `handoff`, `worktree-cleanup`. Bespoke large effort → **figure-it-out**.
 
-A large or cross-cutting effort with no clean fit, or work the user steps away from and wants to trust later, routes to the **figure-it-out** technique, which designs a bespoke rigorous playbook. A standing multi-day program routes to Run a goal at program scale instead.
+## Technique triggers
+
+M/L when a rule changes work; skip for S. All 52 techniques: `references/catalog.md`. Names = deepmodebot's files.
+
+- **New build** → **prior-art** (`scripts/trending.py`). **2+ shapes** → **architect**. **Open gaps/vague** → **tournament**. **Draft plan** → **grill**.
+- **Complex domain** → **sme-review** + **questionnaire**. **Loops/slop** → **inner-loop**. **Orient/Orca/PRs/tokens** → **workspace-map** + `guard-the-context-window` + `delegation-efficiency.md`.
+- **Numbers** → **benchmark-checklist**. **Prose** → **unslop** + **technical-writing**. **Pre-review** → **no-comments**. **Repeated fix** → **correct** + `self-authoring`.
+- **Terms/ADRs** → **domain-model**. **Research** → **research**. **Issues** → **tracker**. **Fan-out** → **swarm** / **arena**. **Contested design** → **interrogate**.
+
+## Principles
+
+Read `references/principles/<name>.md` before citing; definitions in `references/catalog.md`.
+
+- **Core:** `laziness-protocol`, `foundational-thinking`, `redesign-from-first-principles`, `attack-the-premise`, `subtract-before-you-add`, `minimize-reader-load`, `outcome-oriented-execution`, `experience-first`, `exhaust-the-design-space`, `build-the-lever`.
+- **Architecture:** `model-the-domain`, `boundary-discipline`, `type-system-discipline`, `make-operations-idempotent`, `migrate-callers-then-delete-legacy-apis`, `separate-before-serializing-shared-state`.
+- **Verification:** `prove-it-works`, `fix-root-causes`, `sequence-verifiable-units`, `test-behavior-not-implementation`, `explain-the-number`.
+- **Delegation & Meta:** `guard-the-context-window`, `never-block-on-the-human`, `encode-lessons-in-structure`.
 
 ## Reference library
 
-Read the entry file before designing, building, or reviewing in that area, then only the file it routes to. `references/README.md` holds the full routing for every row.
-
-| The task touches | Read first |
-|---|---|
-| UI code of any kind: components, motion, color, accessibility, chat or agent UI | `skill://frontend-ui` |
-| Stack choice, an agent-driven UI design workflow, recording UI proof without a verify skill | `skill://deep-stack` |
-| Using, configuring, or scripting omp, Claude Code, or Codex; MCP, ACP, skills, plugins, hooks; which model and effort to delegate to | `skill://agent-harnesses` |
-| LangChain, LangGraph, Deep Agents, LangSmith, agent middleware, checkpointing or framework tool routing | `skill://agent-harnesses/references/langchain-ecosystem.md` |
-| "best AI SDK", SDK selection for typed Python, streaming TypeScript, agent runtimes or harness embedding | `skill://agent-harnesses/references/ai-sdk-selection.md` |
-| Secrets, `.env`, passwords, logins, MFA, OAuth, agent authentication, a suspected leak | `skill://secrets-and-auth` |
-| Repo layout, domain vocabulary and data model, database, backend infrastructure | `skill://software-architecture` |
-| Agents and LLMs, AWS networking, backend code, a language's traps, DevOps, debugging practice | `skill://domain-rules` |
-| Docker, Compose, container images/runtimes, Kubernetes, Helm/Kustomize, cloud accounts, IAM, pipelines, IaC or local cloud emulators | `skill://cloud-devsecops` |
-| Picking browser automation, sandboxes, harnesses, or orchestrators | `references/README.md` |
-
-## Habits worth keeping
-
-- Restate-in-your-own-words is the most useful single prompt. Use it on any thread, report, or fuzzy ask before acting.
-- Prototypes beat abstract plans. Abstract plans give the illusion of progress; reviewing them adversarially invents risks that never happen.
-- Your codebase is the memory. Every nit an agent repeats should become a constraint (type, lint, test, structure), or agents will keep copying it.
-- Artifacts beat explanations. Show the failing and passing test, the before/after screenshot or transcript, the trace.
-- Every stage can stop the line. "Not a bug", "can't reproduce", and "too risky" are valid outcomes that keep bad work from flowing downstream.
+Read entry skill first; full index: `references/README.md`:
+- UI/motion/color/a11y/chat → `skill://frontend-ui`; stack/UI design/proof → `skill://deep-stack`
+- Harnesses (omp/Claude/Codex/Antigravity), MCP/ACP, tiers → `skill://agent-harnesses` (`langchain-ecosystem.md`, `ai-sdk-selection.md`)
+- Secrets/logins/MFA/OAuth/auth → `skill://secrets-and-auth`; repo/domain/DB/backend → `skill://software-architecture`
+- Agents/LLMs/AWS/backend/languages/DevOps/debug → `skill://domain-rules`
+- Docker/K8s/cloud/IAM/policy/pipelines/IaC/emulators → `skill://cloud-devsecops`
 
 ## Writing the reply
 
-Write it clean as you draft; a cleanup pass does not fix these.
-
-- Short declarative sentences, one thought each.
-- No long-dash characters. No colon as a mid-sentence connector (a colon before a list is fine).
-- Terse is not an excuse to drop content. Keep every section the playbook's reply names.
-- Frame impact for the consumer (who uses it, what changes for them) and the maintainer (what the next owner inherits) before implementation detail.
-- Never fabricate a link, citation, or output. Link only what you produced or read this session.
-- Every claim carries its evidence or its label in the same sentence: measured, inferred, or guess. Never hand the user a check you could run.
-- **No machinery in the reply.** Never mention skills, playbooks, routes, sizes, verify-skill bookkeeping, pre-authorizations, which models or subagents ran or were unavailable, or status codes like `review: ready ...`. The user wants the result, the proof, the risks, and what's blocked. Mention machinery only when it changes what they should trust (for example, "I couldn't run the app, so this is unverified").
-
+- Short declarative sentences, one thought each; no long dashes or mid-sentence colons (colons before lists ok).
+- Keep required playbook sections; lead with consumer/maintainer impact before detail.
+- Never fabricate links/citations/outputs; link only what you produced/read; label claims (measured, inferred, guess); never hand off checks you can run.
+- **No machinery.** Omit skills, playbooks, routes, sizes, verify bookkeeping, pre-authorizations, models/subagents, internal codes unless required by a playbook section or "Why I chose this". Report result, proof, risks, blockers; mention machinery only when it affects trust.

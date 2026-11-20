@@ -14,10 +14,15 @@ data="${2:-}"
 
 for py in ${DEEPMODEBOT_GUARD_PYTHONS:-python3 python}; do
   if "$py" -c 'import sys; sys.exit(sys.version_info < (3, 8))' >/dev/null 2>&1; then
-    if [ "$mode" = enforce ]; then exec "$py" "$here/claude_guard.py"; fi
-    exec "$py" "$here/claude_guard.py" "$mode" "$data"
+    if [ "$mode" = enforce ]; then exec "$py" -B "$here/claude_guard.py"; fi
+    exec "$py" -B "$here/claude_guard.py" "$mode" "$data"
   fi
 done
+if [ -z "${DEEPMODEBOT_GUARD_PYTHONS:-}" ] && command -v py >/dev/null 2>&1 &&
+    py -3 -c 'import sys; sys.exit(sys.version_info < (3, 8))' >/dev/null 2>&1; then
+  if [ "$mode" = enforce ]; then exec py -3 -B "$here/claude_guard.py"; fi
+  exec py -3 -B "$here/claude_guard.py" "$mode" "$data"
+fi
 
 # No Python. Keep the session mark working in plain shell, so the plugin hook still knows when to deny.
 input="$(cat)"

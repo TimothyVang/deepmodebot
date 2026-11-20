@@ -13,17 +13,18 @@ All deepmodebot rules apply (`skill://deepmodebot`). Three matter most here:
 - **Restate the goal first** with the **in-your-own-words** technique (`skill://deepmodebot/references/techniques/in-your-own-words.md`).
 - **Prove it on the real app** and put the evidence in the PR.
 
-Shell notes: all work stays inside the project's clone (deepmodebot's "Contain the work" section). Scratch files go in its git-excluded `.scratch/` (`f=$(mktemp -p .scratch)` from the clone's root), never `/tmp`, system temp, or your home folder. Use `python` (or `python3` where `python` is missing). Below, `R` is `owner/name` and `N` is the issue number.
+Shell notes: all work stays inside the project's clone (deepmodebot's "Contain the work" section). Scratch files go in its git-excluded `.scratch/` (`f=$(mktemp -p .scratch)` in bash; `New-Item -ItemType Directory -Force .scratch | Out-Null; $f = ".scratch/claim.md"` in PowerShell), never `/tmp`, system temp, or your home folder. Run Python with `-B` (`python3 -B` or `py -3 -B` on Windows). Below, `R` is `owner/name` and `N` is the issue number.
 
 ## Overlap tool
 
-Use the repo's copy when it exists, else the plugin's copy (omp: `skill://project-brief/assets/pr-overlap.py`; Claude Code: `<this skill's base directory>/../project-brief/assets/pr-overlap.py`):
+Use `scripts/pr-overlap.py` when the repo ships it, else the plugin's copy (omp: `skill://project-brief/assets/pr-overlap.py`; Claude Code: `<this skill dir>/../project-brief/assets/pr-overlap.py`; Antigravity: `~/.gemini/config/plugins/deepmodebot/skills/project-brief/assets/pr-overlap.py`; Codex: sibling `project-brief/assets/pr-overlap.py` from the skill list):
 
 ```bash
-OVERLAP=scripts/pr-overlap.py; [ -f "$OVERLAP" ] || OVERLAP="skill://project-brief/assets/pr-overlap.py"
-python "$OVERLAP" claims --repo R --json
-python "$OVERLAP" check --repo R --files a,b,dir/ --exclude-issue N
+# Set OVERLAP to scripts/pr-overlap.py if present, else the plugin path for your harness above
+python -B "$OVERLAP" claims --repo R --json
+python -B "$OVERLAP" check --repo R --files a,b,dir/ --exclude-issue N
 ```
+(On Windows PowerShell, use `py -3 -B $OVERLAP ...`.)
 
 `check` exit codes: `0` no overlap, `3` overlap (read the table), `2` usage or `gh` error (fix it; an error is not a pass). Paths are repo-relative with forward slashes; a trailing `/` means a whole directory. Say which copy you used. Every `check` you run after claiming must pass `--exclude-issue N` (and `--exclude-pr <your PR>` once your PR exists), otherwise your own claim is reported as overlap.
 
@@ -40,7 +41,7 @@ Expires: <YYYY-MM-DD, 7 days after posting>
 ```
 
 - `<login>`: `gh api user -q .login`.
-- `Expires`: `python -c "import datetime as d;print(d.datetime.now(d.timezone.utc).date()+d.timedelta(days=7))"` (UTC).
+- `Expires`: `python -B -c "import datetime as d;print(d.datetime.now(d.timezone.utc).date()+d.timedelta(days=7))"` (UTC; `py -3 -B` on Windows).
 - Your newest claim comment is your claim: it replaces your earlier ones and never changes anyone else's. To renew or change `Files`, post a new claim comment; don't edit the old one.
 - To release, post a comment from the same account that contains `<!-- deepmodebot:unclaim -->`:
 
@@ -57,7 +58,7 @@ Released by @<login>: <one-line reason>
    - `viewerPermission` is not `WRITE`, `MAINTAIN`, or `ADMIN` → you can't push branches here. Tell the human you need a fork, and on their yes run `gh repo fork R --remote` (the fork becomes `origin`, the project becomes `upstream`). From then on "main" means `upstream`'s default branch.
    - Below, "main" means the default branch from `defaultBranchRef`, whatever its name.
 
-2. **Read the project.** From the repo root, read whichever exist: `docs/PROJECT_BRIEF.md`, `STACK.md`, `CONTRIBUTING.md`, `AGENTS.md` (or `CLAUDE.md`), `ROADMAP.md`, `.github/PULL_REQUEST_TEMPLATE.md`, and the verify skill (`.omp/skills/verify-*/SKILL.md`, or the path the brief names).
+2. **Read the project.** From the repo root, read whichever exist: `docs/PROJECT_BRIEF.md`, `STACK.md`, `CONTRIBUTING.md`, `AGENTS.md` (or `CLAUDE.md`), `ROADMAP.md`, `.github/PULL_REQUEST_TEMPLATE.md`, and the verify skill (`.omp/skills/verify-*/SKILL.md`, `.claude/skills/verify-*/SKILL.md`, `.agents/skills/verify-*/SKILL.md` for Antigravity/Codex, or the path the brief names).
    - No `docs/PROJECT_BRIEF.md` → tell the human the maintainer hasn't run `project-brief`, so there is no curated brief or claim board yet. Learn the project with the **how** technique (`skill://deepmodebot/references/techniques/how.md`) instead, and still use the overlap tool's plugin copy for PRs and claims.
    - No verify skill → note it; you'll prove changes by hand in step 7 (deepmodebot's **Prove it on the real artifact** rule covers the options).
 
@@ -71,7 +72,7 @@ Released by @<login>: <one-line reason>
 4. **List candidate issues.**
    ```bash
    gh issue list --repo R --state open --label "help wanted" --limit 200 --json number,title,labels,assignees,url,body
-   python "$OVERLAP" claims --repo R --json
+   python -B "$OVERLAP" claims --repo R --json
    ```
    - Drop every issue the `claims` output lists. It covers claim comments and assignees, with one entry per holder, and leaves out an assignee whose own claim comment expired or was released.
    - Task issues from the maintainer's template use body headings `### Goal`, `### Why`, `### Area / files`, `### Done when`, `### Skills needed`, and `### Size` (`S`, `M`, or `L`). Read them when present; free-form issues get your own estimate.
@@ -82,7 +83,7 @@ Released by @<login>: <one-line reason>
 5. **Plan and check for overlap.** For the chosen issue:
    - Read the issue and its comments in full: `gh issue view N --repo R --comments`.
    - Restate the goal (in-your-own-words), then draft a short plan that names every file or directory you expect to touch. Seed the list from the issue's `### Area / files` when present, then correct it from the code; `### Done when` is your acceptance check.
-   - Run the overlap check with those paths: `python "$OVERLAP" check --repo R --files <paths>`. Don't pass `--exclude-issue N` here: you haven't claimed yet, so any claim on N is someone else's and must show up.
+   - Run the overlap check with those paths: `python -B "$OVERLAP" check --repo R --files <paths>`. Don't pass `--exclude-issue N` here: you haven't claimed yet, so any claim on N is someone else's and must show up.
    - Check work the tool can't see: `git fetch --all --prune`, then `git branch -r --list "*N*"` and branches named after the same area, and `git log origin/main --since=30.days --oneline -- <paths>` (use `upstream/main` on a fork) for recent changes to the same area.
    - Overlap found (exit `3`, a matching branch, or a fresh commit that already does part of it) → never silently duplicate. Show the human what overlaps and offer three paths:
      - **Pick another issue** (back to step 4).
@@ -91,8 +92,8 @@ Released by @<login>: <one-line reason>
    - No overlap (exit `0`) → say so, with the command you ran.
 
 6. **Claim it.** Show the human the exact claim comment (format above, with the real login, plan, files, and date). On their yes:
-   - Right before posting, run `python "$OVERLAP" claims --repo R --json`. Issue N is in that output under another login → stop, tell the human, and go back to step 4 or coordinate as in step 5.
-   - Write the body to a `mktemp -p .scratch` file and post it: `gh issue comment N --repo R --body-file "$f"`.
+   - Right before posting, run `python -B "$OVERLAP" claims --repo R --json`. Issue N is in that output under another login → stop, tell the human, and go back to step 4 or coordinate as in step 5.
+   - Write the body to a file inside `.scratch/` (`mktemp -p .scratch` in bash; `.scratch/claim.md` in PowerShell) and post it: `gh issue comment N --repo R --body-file "$f"`.
    - Self-assign if the repo permits: `gh issue edit N --repo R --add-assignee @me`. A permission error is fine; the claim comment is the record.
    - Right after posting, run `gh issue view N --repo R --comments` and confirm no other author posted a claim comment after your step-4 read. One did → post the unclaim comment (format above) for yourself, tell the human, and pick other work (step 4) or coordinate with them (step 5).
 
@@ -105,8 +106,8 @@ Released by @<login>: <one-line reason>
 
 8. **Before the PR.**
    - Rebase on the latest main: `git fetch origin && git rebase origin/main` (`upstream/main` on a fork). Re-run the tests and the real-app proof if the rebase pulled in changes near your files.
-   - List the real changed files: `git diff --name-only origin/main...HEAD | paste -sd, -`.
-   - Re-run the check with those files: `python "$OVERLAP" check --repo R --files <changed files> --exclude-issue N`.
+   - List the real changed files: `git diff --name-only origin/main...HEAD | paste -sd, -` (PowerShell: `(git diff --name-only origin/main...HEAD) -join ','`).
+   - Re-run the check with those files: `python -B "$OVERLAP" check --repo R --files <changed files> --exclude-issue N`.
    - New overlap since step 5 → report it to the human with the table and coordinate as in step 5 before opening anything.
    - Changed files grew past the claim → post an updated claim (on a yes) so others see the real footprint.
    - Self-review: run deepmodebot's pr-review technique in local mode (`skill://deepmodebot/references/techniques/pr-review.md`) on your branch diff; fix or dismiss (with a reason) each finding, ask the human on judgment calls, and keep its `review:` result line.
@@ -115,7 +116,7 @@ Released by @<login>: <one-line reason>
    - Push the branch (to your fork when you forked; `gh pr create` then targets the project).
    - The body fills the repo's `.github/PULL_REQUEST_TEMPLATE.md` when one exists; otherwise use the playbook's headings.
    - The body must include `Closes #N`, the verification evidence from step 7, the overlap result from step 8 (the command and "no overlap", or what overlaps and how you coordinated), and a note that a self-review ran with its `review:` result line.
-   - If the repo has `scripts/pr-overlap.py`, run `python scripts/pr-overlap.py comment --repo OWNER/REPO --pr <N>` once the PR exists, so the overlap comment is on it; act on what it reports. There is no CI bot doing this.
+   - If the repo has `scripts/pr-overlap.py`, run `python -B scripts/pr-overlap.py comment --repo OWNER/REPO --pr <N>` once the PR exists, so the overlap comment is on it; act on what it reports. There is no CI bot doing this.
    - Post the PR URL to the human.
 
 10. **Close the loop.**

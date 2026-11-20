@@ -1,5 +1,5 @@
 name: Task
-description: A claimable unit of work. Contributors pick these up with /deepmodebot:contribute.
+description: A claimable unit of work. Contributors pick these up with /deepmodebot:contribute (/contribute in Antigravity, $deepmodebot:contribute in Codex).
 title: "[Task]: "
 labels: ["help wanted"]
 body:
@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         One task = one branch = one PR. Keep it small enough to finish in a week; split anything bigger.
-        To work on it, post a claim comment (see CONTRIBUTING.md) or run `/deepmodebot:contribute`.
+        To work on it, post a claim comment (see CONTRIBUTING.md) or run `/deepmodebot:contribute` (`/contribute` in Antigravity, `$deepmodebot:contribute` in Codex).
   - type: textarea
     id: goal
     attributes:

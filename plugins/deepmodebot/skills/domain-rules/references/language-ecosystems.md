@@ -12,7 +12,7 @@ Read when choosing a language or runtime, setting up a project's build, test, or
 | Go | AOT single static binary, no host runtime needed | Concurrent low-latency tracing GC; escape analysis moves values to the heap | Goroutines multiplexed onto few OS threads, typed channels |
 | Java | `javac` → bytecode → JVM interprets and JITs (OpenJDK, Oracle, Corretto) | Tracing GC (G1, ZGC); bounds-checked arrays | Platform threads plus Java 21 virtual threads for cheap I/O concurrency |
 | C# / .NET | Roslyn → CIL → CLR JIT (.NET 10 LTS) | Tracing GC; structs on the stack; `unsafe` pointers for interop | `async`/`await` on the thread pool, Task Parallel Library |
-| Python | CPython compiles to `.pyc` bytecode, runs on its VM; no build step | Reference counting plus a cycle collector; everything is a heap object; assignment copies the reference | `asyncio` event loop for I/O; the GIL limits CPU threads, so use processes for multi-core |
+| Python | CPython compiles to `.pyc` bytecode, runs on its VM; no build step | Reference counting plus a cycle collector; everything is a heap object; assignment copies the reference | `asyncio` event loop for I/O; standard CPython's GIL limits CPU threads (use processes, or free-threaded PEP 703 3.13t/3.14t builds for multi-core threads) |
 | JavaScript / TypeScript | V8, SpiderMonkey, JavaScriptCore: bytecode plus JIT on hot paths; TS type-checks then transpiles to JS | Tracing GC; objects, arrays, closures on the heap | One thread plus event loop (microtasks, macrotasks); Web Workers or Worker Threads for CPU work |
 | PHP | Zend Engine compiles to opcodes per request; OpCache speeds it up | Ref counting plus cycle GC; memory is per request and freed when the response ends | Many worker processes (PHP-FPM), not threads |
 | Ruby | YARV bytecode VM | Mark-and-sweep GC; everything is an object | Global VM lock in MRI; multi-process servers (Puma) |
@@ -31,7 +31,7 @@ Read when choosing a language or runtime, setting up a project's build, test, or
 | Go | Go modules (`go.mod`); `go build`, `go fmt`, `go test` | Large stdlib (`net/http`) | `go test`, `-race` detector, Delve |
 | Java | Maven (`pom.xml`) or Gradle; Maven Central | Spring Boot, Spring Data JPA, Hibernate, Jackson; Micronaut, Quarkus | JUnit, Mockito; IntelliJ, Eclipse; Actuator, Micrometer |
 | C# | .NET CLI, NuGet, `.csproj` | ASP.NET Core, EF Core, Blazor, .NET MAUI, .NET Aspire | xUnit, NUnit; Visual Studio, Rider, VS Code C# Dev Kit; profilers |
-| Python | pip and PyPI; `requirements.txt` or Poetry; `venv` | FastAPI, Django, Flask; PyTorch, TensorFlow, Transformers, Pandas, NumPy | pytest, unittest; Ruff, Flake8, Black; PyCharm, VS Code |
+| Python | `uv` + `pyproject.toml` (2026 default); pip/PyPI, `requirements.txt`, Poetry, `venv` | FastAPI, Django, Flask; PyTorch, TensorFlow, Transformers, Pandas, NumPy | pytest, unittest; Ruff, Flake8, Black; PyCharm, VS Code |
 | JS / TS | npm, pnpm, Yarn; Vite (Rolldown), Webpack, Bun | React, Next.js, Vue; Express, NestJS, Fastify, Koa; Zod | Vitest, Jest, Playwright; ESLint, Prettier; browser DevTools |
 | PHP | Composer, Packagist | Laravel (auth, routing, Eloquent), Symfony | PHPUnit, Pest; Xdebug |
 | Ruby | RubyGems, Bundler (`Gemfile.lock`) | Rails, Sinatra | RSpec, Minitest; Pry |

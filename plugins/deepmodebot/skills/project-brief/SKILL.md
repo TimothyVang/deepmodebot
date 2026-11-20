@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Run this once per project as the maintainer, then again whenever the project drifts. It publishes three things a contributor's agent needs before it touches code: a newcomer brief, a claimable task board, and guardrails that stop two people from building the same thing. Contributors then run `/deepmodebot:contribute` (see `CONTRIBUTING.md` once installed).
 
-Paths below are relative to this skill (`skill://project-brief/...`). In omp bash, `skill://project-brief` resolves to this skill's directory. In Claude Code, use the "Base directory for this skill" path shown when the skill loads. Claude Code tool names: `ask` → `AskUserQuestion`, `task` → `Agent`, `todo` → `TodoWrite`.
+Paths below are relative to this skill (`skill://project-brief/...`). In omp bash, `skill://project-brief` resolves directly; in Claude Code use the loaded base directory (`ask` → `AskUserQuestion`, `task` → `Agent`, `todo` → `TaskCreate`/`TaskUpdate`); in Antigravity (`agy`) use `~/.gemini/config/plugins/deepmodebot/skills/project-brief/` (`task` → `invoke_subagent`, `ask` → `ask_question`); in Codex use `spawn_agent`. Run Python with `-B` (`py -3 -B` on Windows). Details: `skill://agent-harnesses`.
 
 Deepmodebot rules apply throughout (`skill://deepmodebot`): restate first, answer observable questions by running them, prove claims with evidence, and follow its Autonomy section for shared-state actions. In the user's own repo, labels, issues, comments, and the PR need no ask: publish, then report what you did and how to undo it. Ask first, once, only when the user asked to be consulted or the repo is someone else's.
 
@@ -51,9 +51,9 @@ Detect the mode first: if `docs/PROJECT_BRIEF.md` exists, this is a re-run; jump
 
 1. **Restate the project.** In your own words: what the project is, who uses it, what the maintainer wants contributors to do, and what this run will publish. Get the repo identity with `gh repo view --json nameWithOwner,description,defaultBranchRef,visibility,url`. Don't wait for confirmation; the human corrects you if needed. Fuzzy goal → `skill://deepmodebot/references/techniques/in-your-own-words.md`.
 
-2. **Research, then write the brief.** Fill `docs/PROJECT_BRIEF.md` from `assets/PROJECT_BRIEF.template.md`. Sources: `README*`, `STACK.md`, `AGENTS.md`/`CLAUDE.md`, package manifests, CI files, the code tree, existing `docs/`, `gh issue list --state open --limit 200 --json number,title,labels,assignees`, and any verify skill (`.omp/skills/verify-*/SKILL.md` or `.claude/skills/verify-*/SKILL.md`). For a large repo, fan out read-only `scout` tasks, one per top-level area, each returning "directory → responsibility, entry points, how it's tested".
+2. **Research, then write the brief.** Fill `docs/PROJECT_BRIEF.md` from `assets/PROJECT_BRIEF.template.md`. Sources: `README*`, `STACK.md`, `AGENTS.md`/`CLAUDE.md`, package manifests, CI files, the code tree, existing `docs/`, `gh issue list --state open --limit 200 --json number,title,labels,assignees`, and any verify skill (`.omp/skills/`, `.claude/skills/`, or `.agents/skills/verify-*/SKILL.md` for Antigravity/Codex). For a large repo, fan out read-only `scout` tasks per top-level area returning "directory → responsibility, entry points, how it's tested".
    - **Run & verify** must be exact commands you actually ran this session, with the result. A command you couldn't run is marked `unverified` with the reason; never copy one from the README on faith.
-   - **No verify skill?** Contributors prove changes through it. Offer `/skill:create-verification-skill` once; if declined, write the manual proof steps you used.
+   - **No verify skill?** Contributors prove changes through it. Offer `create-verification-skill` (`/skill:create-verification-skill`, `/create-verification-skill`, or `$deepmodebot:create-verification-skill`) once; if declined, write the manual proof steps you used.
    - **Constraints and don'ts** (sensitive data, no telemetry leaving the network, licensing, files contributors must not touch, review owners) are the maintainer's call. Fill what the repo states, then `ask` for the rest in one batched question. Don't guess policy.
    - Delete template guidance comments and any section with nothing true to say. Prose → `skill://deepmodebot/references/techniques/unslop.md`.
 
@@ -61,7 +61,7 @@ Detect the mode first: if `docs/PROJECT_BRIEF.md` exists, this is a re-run; jump
    - Make **Area / files** concrete repo paths; overlap checks depend on them. Split tasks so open tasks touch disjoint paths where you can. Size L means split it first.
    - Label every task `help wanted`; add `good first issue` to S tasks that need no deep context.
    - Prefer adding a task shape to an existing issue over a duplicate; list those as "edit #N" rather than "new".
-   - Draft the full list (title, size, labels, area/files, new vs. edit) and the issue bodies; step 7 publishes them together with the files. Write each body to a `mktemp -p .scratch` file (the repo's git-excluded scratch folder; never system temp) using `### <field label>` headings in form order (the shape GitHub renders for form issues).
+   - Draft the full list (title, size, labels, area/files, new vs. edit) and the issue bodies; step 7 publishes them together with the files. Write each body inside the repo's git-excluded `.scratch/` folder (`mktemp -p .scratch` in bash; `New-Item -ItemType Directory -Force .scratch` + `.scratch/issue-<n>.md` in PowerShell; never system temp) using `### <field label>` headings in form order.
 
 4. **Install the assets** per the table above, into the working tree only.
    - Missing file → copy it. Existing identical file → leave it. Existing different file → show the diff and merge by hand: keep the maintainer's content, add only missing sections. Never overwrite.
@@ -79,7 +79,7 @@ Detect the mode first: if `docs/PROJECT_BRIEF.md` exists, this is a re-run; jump
 
    Labels are shared state: name each one you created or changed in the report.
 
-6. **Write the roadmap** after the issues exist (step 7). `python scripts/sync-roadmap.py --repo OWNER/REPO --out ROADMAP.md` (on Windows, `py -3` if `python` isn't Python 3). Read the result back and check every created issue appears under `## Open to claim`. Then run `python scripts/pr-overlap.py claims --repo OWNER/REPO` to prove the overlap script works against this repo; paste its output in your report.
+6. **Write the roadmap** after the issues exist (step 7). `python -B scripts/sync-roadmap.py --repo OWNER/REPO --out ROADMAP.md` (on Windows, `py -3 -B`). Read the result back and check every created issue appears under `## Open to claim`. Then run `python -B scripts/pr-overlap.py claims --repo OWNER/REPO` to prove the overlap script works against this repo; paste its output in your report.
 
 7. **Publish, then report.** In the user's own repo this needs no ask (deepmodebot Autonomy). Ensure the labels (step 5), create or edit the issues with `gh issue create --repo OWNER/REPO --title ... --body-file "$f" --label "help wanted"`, write the roadmap (step 6), and ship the files through `skill://deepmodebot/references/playbooks/opening-a-pr.md`: a branch and a PR, never a push to the default branch.
    In the report, list the task list, the labels, and every file you wrote or merged with a one-line reason, under "Decisions I made", each with how to undo it (close the issue, delete the label, revert the PR). When the user asked to be consulted, or the repo isn't theirs, show the same list in one question first and publish only what they approve.
@@ -87,11 +87,11 @@ Detect the mode first: if `docs/PROJECT_BRIEF.md` exists, this is a re-run; jump
 8. **Re-run mode.** When the brief already exists:
    - **Refresh the brief.** `git log --since=<brief's last commit date> --stat` plus a re-read of changed areas. Update only sections that drifted; re-run the Run & verify commands and update their recorded results.
    - **Release expired claims.** Fetch comments: `gh issue list --repo OWNER/REPO --state open --label "help wanted" --limit 200 --json number,title,assignees,labels,comments`. Find each author's newest claim comment that has an `Expires` date before today and no later unclaim from that author. Comment on each: `Claim by @<login> expired on <date>. This issue is open to claim again; comment here if you're still on it.` Remove the `claimed` label if set (`gh issue edit N --remove-label claimed`), and list the released claims in the report.
-     `python scripts/pr-overlap.py claims --repo OWNER/REPO` still lists the issue under someone else → name that holder in the comment instead of calling the issue open, and keep the label.
+     `python -B scripts/pr-overlap.py claims --repo OWNER/REPO` still lists the issue under someone else → name that holder in the comment instead of calling the issue open, and keep the label.
      Never unassign anyone without the user's yes. The issue is open again either way: both scripts skip an assignee whose own claim comment lapsed.
    - **Assets.** Diff each installed asset against this skill's copy; propose updates as in step 4.
    - **New tasks.** Repeat step 3 for gaps since the last run.
-   - **Overlap comments.** For each open PR: `python scripts/pr-overlap.py comment --repo OWNER/REPO --pr N`. It posts or updates one comment per PR (marker `<!-- deepmodebot:overlap -->`).
+   - **Overlap comments.** For each open PR: `python -B scripts/pr-overlap.py comment --repo OWNER/REPO --pr N`. It posts or updates one comment per PR (marker `<!-- deepmodebot:overlap -->`).
    - **Roadmap.** Re-run step 6 and include a changed `ROADMAP.md` in what step 7 ships.
    - Then step 7, which publishes and runs steps 5 and 6.
 

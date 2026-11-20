@@ -9,10 +9,11 @@ The pieces live in this skill's `assets/security-audit/`:
 
 ## Run it
 
-1. From a checkout of the target repo (bash with `git`, `gh`, `node`, and the `claude` CLI logged in): `bash <this skill>/assets/security-audit/audit-pr.sh <PR number>`. A local branch without a PR: `audit-pr.sh --range <base> <head>` prints the verdict and posts nothing. Add `--dry-run` to check the setup without a model call. It runs on Linux, macOS, and WSL. Native Windows (Git for Windows bash) can't run it: the pinned skill's validators need POSIX file flags Windows lacks, so the script stops before any model call.
+1. From a checkout of the target repo (bash with `git`, `gh`, `node`, and the `claude` CLI logged in): unset `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_USE_BEDROCK`, `CLAUDE_CODE_USE_VERTEX`, and `CLAUDE_CODE_USE_FOUNDRY` for subscription billing, then run `bash <this skill>/assets/security-audit/audit-pr.sh <PR number>` (or `audit-pr.sh --range <base> <head>` locally without posting).
+   Add `--dry-run` to check `git`/`gh`/`node`, diff extraction, and prompt assembly without a model call (note `--dry-run` skips checking whether `claude` is installed or logged in). `audit-pr.sh` sets no wall-clock timeout (only `--max-budget-usd`), so wrap it with `timeout` (e.g. `timeout 1800`) and back off on 429 rate limits rather than tight-looping. Native Windows (Git for Windows bash) cannot run it; use Linux, macOS, or WSL.
    Done when the script has exited and you have its exit code.
 2. Tune with environment variables when the defaults don't fit: `FAIL_AT` (default `high`), `BLOCK_ON_UNVALIDATED` (default `true`), `AUDIT_MODEL` (default `sonnet`), `AUDIT_AGENTS` (default `12`), `AUDIT_BUDGET_USD` (default `8`).
-3. Exit code `0` passes; `1` blocks; `2` means the audit could not run here (native Windows, or no `claude` CLI). A block is a P0 finding in the **pr-review** technique and blocks the **panel** like any failed check. The comment carries the marker `<!-- deepmodebot-security-audit -->`; each run updates the same comment.
+3. Exit code `0` passes; `1` blocks; `2` means the audit could not run or gate (native Windows, missing `claude` CLI on a non-dry run, or an invalid `FAIL_AT` value rejected by `gate.cjs`). A block is a P0 finding in the **pr-review** technique and blocks the **panel** like any failed check. The comment carries the marker `<!-- deepmodebot-security-audit -->`; each run updates the same comment.
 4. Exit `2`, or a harness with no `claude` CLI → the gate has not run. Say so in the report, never count it as a pass, and brief one **panel** verifier to read the diff for the security boundary (auth, permissions, input parsing, secrets) instead.
    Done when the report says the gate did not run and the verifier's result is in.
 
@@ -22,7 +23,7 @@ Done when the PR has the audit comment for its current head and the gate passed,
 
 - `confirmed`: a reproduced boundary violation with a severity. At or above `FAIL_AT`, it fails the gate. Fix it in the PR.
 - `needs_validation`: a source-grounded lead with an exact unresolved fact. It has no severity, and by default it blocks: the audit reads source and doesn't run code, so a real injection usually lands here rather than as `confirmed`. Settle each one: fix it, or prove it isn't exploitable and accept it with a separate PR that adds `<fingerprint> # <reason and proof>` to `.deepmodebot/security-audit-accepted.txt`. The runner reads acceptances from the base branch only, so a PR can't accept its own findings; the acceptance PR passes its own panel first.
-- No `findings.json`, or one that fails the skill's validator → the gate fails closed. Read the run output; fix the run, never the gate.
+- Missing or invalid `findings.json`, or missing `run-metadata.json` / `run_status !== "complete"` → `gate.cjs` fails closed (exit `1`). Read the run output; fix the run, never the gate.
 
 ## Limits
 

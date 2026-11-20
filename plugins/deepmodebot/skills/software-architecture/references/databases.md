@@ -181,7 +181,9 @@ CREATE POLICY tenant_isolation ON invoices
 SELECT set_config('app.tenant_id', $1, true);
 ```
 
-Trust boundary: any role can set a custom setting such as `app.tenant_id` ([set_config](https://www.postgresql.org/docs/current/functions-admin.html#FUNCTIONS-ADMIN-SET)). This policy stops app bugs that omit the tenant filter. It does not stop a caller that can run arbitrary SQL as `app_rw` or `agent_ro`, such as SQL injection or an agent with a SQL tool: that caller calls `set_config` with another tenant's UUID and reads that tenant's rows. Never give agents a SQL connection to pooled multi-tenant data. Where the caller can run arbitrary SQL, key isolation on something it cannot change: a separate database per tenant (silo), or one `LOGIN` role per tenant, with no membership in other tenant roles, and the policy keyed on `current_user`.
+Trust boundary: any role can set a custom setting such as `app.tenant_id` ([set_config](https://www.postgresql.org/docs/current/functions-admin.html#FUNCTIONS-ADMIN-SET)). This policy stops app bugs that omit the tenant filter, not a caller that can run arbitrary SQL as `app_rw` or `agent_ro` (such as SQL injection or an agent with a SQL tool), which can call `set_config` with another tenant's UUID and read their rows.
+
+Never give agents a SQL connection to pooled multi-tenant data. Where the caller can run arbitrary SQL, key isolation on something it cannot change: a separate database per tenant (silo), or one `LOGIN` role per tenant with no membership in other tenant roles and the policy keyed on `current_user`.
 
 ## 10. Access layers (ORMs, query builders, type generation)
 
@@ -244,7 +246,7 @@ On Neon, Console/API-created roles are members of `neon_superuser` and can read 
 Blocking dangerous operations, in layers:
 1. **Database**: agents get a branch or throwaway DB plus a non-owner role. That alone makes `DROP`/`TRUNCATE` on prod impossible for them.
 2. **Tooling**: Prisma refuses `migrate reset --force` when it detects an agent ([changelog](https://www.prisma.io/changelog/2025-08-27)). The agent should surface the prompt, not set the consent variable itself ([Prisma blog](https://www.prisma.io/blog/agents-md-for-databases)).
-3. **Harness**: deny rules beat allow rules, e.g. Claude Code `"permissions": {"deny": ["Bash(npx prisma migrate reset:*)", "Bash(npx drizzle-kit push --force:*)", "Bash(dropdb:*)"]}` ([settings](https://code.claude.com/docs/en/settings)). Prefix patterns are bypassable through wrappers (`pnpm exec`, scripts), so treat them as a seatbelt, not a gate [inference].
+3. **Harness**: deny rules beat allow rules — Claude Code `"permissions": {"deny": ["Bash(npx prisma migrate reset:*)", "Bash(npx drizzle-kit push --force:*)", "Bash(dropdb:*)"]}` ([settings](https://code.claude.com/docs/en/settings)); Antigravity `Deny` rules `command(npx prisma migrate reset)`, `command(npx drizzle-kit push --force)`, `command(dropdb)` ([permissions](https://antigravity.google/docs/permissions)); omp `bash.patterns` deny entries. Prefix patterns are bypassable through wrappers (`pnpm exec`, scripts), so treat them as a seatbelt, not a gate [inference].
 4. **CI review gate**: lint every migration (Squawk free; Atlas `migrate lint` paid). Require human approval for files containing `DROP`, `TRUNCATE`, `ALTER ... TYPE`, or `SET NOT NULL` [inference].
 5. **AGENTS.md**: state where scratch DBs come from, which commands need a human, and that tests run against real Postgres ([Prisma blog](https://www.prisma.io/blog/agents-md-for-databases)).
 

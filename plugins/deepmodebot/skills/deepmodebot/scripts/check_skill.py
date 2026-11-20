@@ -26,7 +26,14 @@ def installed_skills(skill_dir: Path) -> tuple[dict[str, Path], bool]:
     if not omp:
         return found, False
     try:
-        out = subprocess.run([omp, "skill", "list", "--json"], capture_output=True, text=True, timeout=60).stdout
+        out = subprocess.run(
+            [omp, "skill", "list", "--json"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=60,
+        ).stdout
         data = json.loads(out)
         for skill in data if isinstance(data, list) else data.get("skills", []):
             path = skill.get("path") or skill.get("filePath") or ""

@@ -49,7 +49,6 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
@@ -100,11 +99,12 @@ def _gh_path() -> str:
     return path
 
 
-def run_gh(args: list[str]) -> str:
+def run_gh(args: list[str], input_text: str | None = None) -> str:
     """Run gh with an argument list (no shell). Returns stdout as text."""
     try:
         proc = subprocess.run(
             [_gh_path(), *args],
+            input=input_text,
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -175,17 +175,9 @@ def parallel_map(fn, items: list) -> list:
 
 
 def gh_api_write(method: str, path: str, body: str) -> dict:
-    """Send {"body": body} via a temp JSON file (no untrusted text on the command line)."""
-    fd, tmp = tempfile.mkstemp(prefix="pr-overlap-", suffix=".json")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            json.dump({"body": body}, fh)
-        out = run_gh(["api", "--method", method, path, "--input", tmp])
-    finally:
-        try:
-            os.remove(tmp)
-        except OSError:
-            pass
+    """Send {"body": body} via stdin (no untrusted text on argv and no temp files)."""
+    payload = json.dumps({"body": body})
+    out = run_gh(["api", "--method", method, path, "--input", "-"], input_text=payload)
     return json.loads(out) if out.strip() else {}
 
 

@@ -2,7 +2,7 @@
 
 **Summary.** Best free setup: don't let the model read passwords at all. Reuse a session it is already signed in to (Playwright `storageState`, a persistent profile, or a relay into the user's own Chrome), or have a broker inject the credential into a child process or the page. Free broker: Bitwarden's open-source [Agent Access](https://github.com/bitwarden/agent-access) (`aac run`, human approval per request, still alpha). Paid broker that fills the page itself: [1Password for Agents](https://support.1password.com/1password-claude-security/).
 Give agents their own accounts and short-lived tokens with narrow scopes: GitHub fine-grained PATs, GitHub App tokens that expire after 1 hour, device-flow logins. Never give an agent the TOTP seed or passkey for a human account.
-Send secrets through stdin, not argv. Agent transcripts are saved to disk in plaintext (`~/.claude/projects`, `~/.codex/sessions`, `~/.omp/agent/sessions`), so any secret the model sees also ends up on disk.
+Send secrets through stdin, not argv. Agent transcripts and OAuth caches are saved to disk in plaintext (`~/.claude/projects`, `~/.codex/sessions`, `~/.omp/agent/sessions`, `~/.gemini/antigravity*/brain/<id>/.system_generated/logs/transcript*.jsonl`, `~/.gemini/antigravity/mcp_oauth_tokens.json`), so any secret the model sees also ends up on disk.
 
 ## Rules
 1. Order of preference: (a) the agent never sees the secret (the broker fills the page or injects env/stdin), (b) the agent uses a session cookie or OAuth token for its own account, (c) the agent reads a password from a vault. (c) is the last resort and only for low-value accounts [inference].
@@ -60,7 +60,7 @@ Prefer `aac run`: `aac connect --output json` prints the password to stdout, so 
 | omp browser relay | Drives the user's real, already-signed-in Chrome through an extension plus a local CDP relay | Ships with omp | n/a | Binds loopback; use `--token` if other local processes are untrusted. Cannot attach to DevTools-open or internal tabs | omp docs (`omp://user-facing-packages.md`, `omp://tools/browser.md`) |
 
 Rules for session reuse:
-- A saved state file or profile directory is a **bearer credential**. Treat it like a password: give it 0600 perms, keep it in the project's self-ignored `.scratch/auth/`, and delete it when the task ends ([Playwright](https://playwright.dev/docs/auth)).
+- A saved state file or profile directory is a **bearer credential**. Treat it like a password: give it `0600` perms on Unix (on Windows, restrict NTFS ACLs to the current user via `icacls <file> /inheritance:r /grant:r "$($env:USERNAME):(R,W)"`), keep it in the project's self-ignored `.scratch/auth/`, and delete it when the task ends ([Playwright](https://playwright.dev/docs/auth)).
 - Prefer a separate profile signed in as the **agent's own** account. Use relay or `--extension` into your personal browser only for supervised, interactive tasks, because the agent then holds every session you have open [inference].
 - Chrome 136+ ignores `--remote-debugging-port` on the **default** profile. Infostealers used it to pull cookies, so a non-default `--user-data-dir` is now required ([Chrome blog](https://developer.chrome.com/blog/remote-debugging-port)). Don't try to work around it.
 - Playwright MCP's `secrets`/`redactUrlParams` "is a convenience and not a security feature" ([README](https://github.com/microsoft/playwright-mcp)). browser-use redaction skips **screenshots**, and code the model writes "can read" the values ([browser-use](https://docs.browser-use.com/open-source/secrets.md)).
@@ -68,8 +68,8 @@ Rules for session reuse:
 ```bash
 # one-time human login, then the agent reuses the state in an isolated context
 npx @playwright/mcp@latest --isolated --storage-state=.scratch/auth/site.json
-# Chrome DevTools MCP with a throwaway profile
-npx chrome-devtools-mcp@latest --isolated
+# Chrome DevTools MCP with a repo-contained throwaway profile (avoid `--isolated`, which writes to system temp)
+npx chrome-devtools-mcp@latest --user-data-dir .scratch/chrome
 ```
 
 ## 3. CLI logins, keychains, and OAuth device flow
@@ -139,6 +139,7 @@ Shell tips [inference]:
 | Claude Code | `~/.claude/projects/` | Plaintext, **30 days** by default; `cleanupPeriodDays` changes it; Desktop/Cowork sessions exempt by default | [data usage](https://code.claude.com/docs/en/data-usage) |
 | Codex CLI | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`; `~/.codex/history.jsonl` | `[history] persistence = "none"` turns off history and `max_bytes` caps it. Whether that also stops `sessions/` rollouts is [unverified] | [config](https://developers.openai.com/codex/config-advanced), [recorder.rs](https://github.com/openai/codex/blob/main/codex-rs/rollout/src/recorder.rs) |
 | omp | `~/.omp/agent/sessions/<encoded-cwd>/<ts>_<id>.jsonl` (plus subagent transcripts) | `omp gc` compresses; delete the files to purge | omp docs (`omp://session.md`) |
+| Google Antigravity (`agy`/App/IDE) | `~/.gemini/antigravity*/brain/<id>/.system_generated/logs/transcript*.jsonl`; OAuth tokens in `~/.gemini/antigravity/mcp_oauth_tokens.json` | Plaintext JSONL transcripts and cached MCP OAuth tokens; delete/revoke to purge, and treat `${PLUGIN_DATA}` as out-of-repo harness state | [hooks](https://antigravity.google/docs/hooks), [mcp](https://antigravity.google/docs/mcp) |
 
 If a secret reaches context, assume it is on disk and possibly at the model provider: **rotate it, don't just delete the file** ([OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html)). Output masking is helpful but not a boundary: `pass-cli run` masks by default ([run doc](https://github.com/protonpass/pass-cli/blob/main/docs/public/docs/commands/contents/run.md)), Playwright MCP says redaction is "not a security feature".
 
@@ -161,4 +162,4 @@ If a secret reaches context, assume it is on disk and possibly at the model prov
 3. **Web logins:** a human logs in once, then the agent works from a Playwright `storageState` or a dedicated `--user-data-dir` signed in as the agent account. Use the omp relay or `--extension` only for supervised work in your real browser.
 4. **APIs and GitHub:** fine-grained PAT (select repos, 30-day expiry) or a GitHub App, held by the machine account. Cloud CLIs use device or `--no-browser` login under a separate profile/config dir.
 5. **MFA:** keep TOTP seeds and passkeys for human accounts with humans. Agent test accounts can use a brokered TOTP (`bu_2fa_code`) or Playwright virtual passkeys. For anything higher-stakes, the human approves (device flow, push, or Agent Access prompt).
-6. **Hygiene:** pass secrets over stdin, not argv. On machines that handle secrets, set `cleanupPeriodDays` low and Codex `history.persistence = "none"`, and prune `~/.codex/sessions` and `~/.omp/agent/sessions`. Rotate any secret that appeared in a transcript.
+6. **Hygiene:** pass secrets over stdin, not argv. On machines that handle secrets, set `cleanupPeriodDays` low and Codex `history.persistence = "none"`, and prune `~/.codex/sessions`, `~/.omp/agent/sessions`, and `~/.gemini/antigravity*/brain/`. Rotate any secret that appeared in a transcript.

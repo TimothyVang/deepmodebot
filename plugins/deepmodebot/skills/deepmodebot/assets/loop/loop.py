@@ -2,15 +2,21 @@
 """Drive an agent toward a goal file until its check passes (deepmodebot "Self-authoring" playbook).
 
     python loop.py audit [path] [--json] [--strict] [--write-goal <goal.md>]
-    python loop.py manifest <manifest.json> [--json] [--dry-run]   run every slice in a scope manifest
-                                                                   (--dry-run: validate the schema only)
-    python loop.py check <goal.md>                      validate the goal file, run its gates once
-    python loop.py run <goal.md> [--harness omp|claude|codex] [--max-iterations N] [--dry-run]
+    python loop.py manifest <manifest.json> [--sprint N] [--json] [--dry-run]
+                                                        run slices in a scope manifest (--sprint N runs sprint <= N
+                                                        and reports higher sprints deferred; --dry-run validates only)
+    python loop.py status <goal.md> [--sprint N] [--json]
+                                                        inspect latest-summary, manifest/sprint state, and resume cmd
+    python loop.py check <goal.md> [--sprint N]         validate the goal file, run its gates once
+    python loop.py run <goal.md> [--harness omp|claude|codex] [--max-iterations N] [--sprint N] [--dry-run]
 
 A goal file is Markdown with frontmatter (one `key: value` per line):
     goal: one-line objective
     check: shell command; exit 0 means done
-    manifest: docs/specs/app-manifest.json   (optional scope manifest JSON; auto-protected; all slices must pass)
+    manifest: docs/specs/app-manifest.json   (optional scope manifest JSON; auto-protected; supports sprint slices,
+                                              inventory classification, and sme_gate checkpoints)
+    active_sprint: 1                         (optional positive integer; evaluates manifest slices with sprint <= N
+                                              and reports sprint > N as deferred so total scope is never dropped)
     fast_check: fast static/lint/typecheck command run before check (optional)
     protect: tests/test_x.py scripts/check.sh  (required: files and folders the check runs, which the agent must not
                                               change; `absent:conftest.py` for a path that doesn't exist and must
@@ -32,17 +38,24 @@ A goal file is Markdown with frontmatter (one `key: value` per line):
     iteration_minutes: 60                    (time limit for one harness run; its process tree is killed after it)
     check_minutes: 15                        (time limit for one run of the check)
     fast_check_minutes: 5                    (time limit for one run of fast_check)
+    cooldown_seconds: 0                      (optional pause between iterations to pace rate limits)
+    rate_limit_retries: 2                    (optional backoff retries per iteration on transient 429/rate limits)
+    rate_limit_backoff_seconds: 60           (optional base backoff seconds when rate-limited; honors Retry-After)
     constraints: fixed scope and permission boundaries (optional; immutable with the other frontmatter)
     harness_args: --model sonnet             (extra flags for the harness, split like a shell)
+    escalate_after: 2                        (optional: switch to escalate_harness_args after N failed iterations)
+    escalate_harness_args: --model opus      (optional: harness flags used after escalate_after triggers)
+    fallback_harness_args: --model gpt-5     (optional: harness flags used on quota or persistent rate-limit errors)
+    checkpoint_every: 3                      (optional: pause cleanly with exit 6 every N iterations for review)
 
 Each iteration runs the harness headless in the project root on the user's subscription (API-key variables are
 removed from the child's environment), then runs the inner-loop gates (`fast_check`, `slop_guard`, `check`). The
 Markdown body is the agent-editable working plan; frontmatter remains fixed. Each prompt includes the current plan
 and bounded check feedback, with a path to the complete diagnostic log. Prompt snapshots, check results, harness
-logs, and trail.tsv go to <root>/.scratch/goals/<slug>/. Plan-only edits are not progress.
-The harness reads its prompt from stdin. --dry-run prints the command and prompt and runs nothing.
+logs, trail.tsv, <run_id>-summary.json, and latest-summary.json go to <root>/.scratch/goals/<slug>/. Plan-only edits
+are not progress. The harness reads its prompt from stdin. --dry-run prints the command and prompt and runs nothing.
 Exit codes: 0 done, 2 iteration cap, 3 stalled, 4 changed frontmatter or protected files,
-5 harness failure or timeout, 1 error. These are post-run integrity checks, not a sandbox.
+5 harness failure or timeout, 6 checkpoint reached, 1 error. These are post-run integrity checks, not a sandbox.
 """
 import argparse
 import ast
@@ -69,10 +82,23 @@ except ImportError:
 
 API_KEY_VARS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "OPENAI_API_KEY", "CODEX_API_KEY")
 REQUIRED = ("goal", "check", "protect", "max_iterations")
+INVENTORY_STATUSES = ("included", "duplicate", "non_target", "blocked", "pending")
+SME_GATE_VALUES = ("none", "required", "cleared")
+SME_GATE_MESSAGE = "SME gate required before advancing; run sme-review / questionnaire and mark sme_gate: cleared"
 COST_FLAGS = {"omp": "--max-cost", "claude": "--max-budget-usd"}
 CACHE_PARTS = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
 SLOP_SKIP_DIRS = {".git", ".scratch", ".worktrees", "node_modules", ".venv", "venv", "dist", "build", "target", "vendor"}
 TIME_LIMITS = {"iteration_minutes": "60", "check_minutes": "15", "fast_check_minutes": "5"}
+RATE_LIMIT_DEFAULTS = {"cooldown_seconds": "0", "rate_limit_retries": "2", "rate_limit_backoff_seconds": "60"}
+QUOTA_EXHAUSTED_RE = re.compile(
+    r"usage limit|weekly limit|five[- ]hour limit|5[- ]hour limit|session limit|insufficient_quota|quota exceeded|credit balance",
+    re.I,
+)
+RATE_LIMIT_RE = re.compile(
+    r"\b429\b|rate[- ]limit|too many requests|overloaded_error|retry[- ]after",
+    re.I,
+)
+RETRY_AFTER_RE = re.compile(r"retry[- ]after\s*[:=]\s*([0-9]+(?:\.[0-9]+)?)", re.I)
 ESLINT_CONFIGS = (
     ".eslintrc", ".eslintrc.json", ".eslintrc.js", ".eslintrc.cjs", ".eslintrc.yml", ".eslintrc.yaml",
     "eslint.config.js", "eslint.config.mjs", "eslint.config.cjs", "eslint.config.ts", "eslint.config.mts", "eslint.config.cts",
@@ -91,6 +117,9 @@ GUARDRAIL_CONFIGS = (
 )
 GUARDRAIL_CONFIG_BASENAMES = {os.path.normcase(name) for name in GUARDRAIL_CONFIGS}
 PYPROJECT_GUARDRAIL_TOOLS = ("ruff", "mypy", "pyright", "pytest", "coverage", "flake8", "pylint", "bandit")
+PACKAGE_JSON_GUARDRAIL_KEYS = (
+    "scripts", "eslintConfig", "jest", "biome", "prettier", "stylelint", "lint-staged", "husky",
+)
 CODE_EXTS = {".py", ".pyi", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts", ".rs", ".go"}
 PY_SUPPRESSION_RE = re.compile(
     r"#\s*(?:type:\s*ignore|pyright:\s*ignore|ruff:\s*noqa|noqa|pylint:\s*disable|nosec|pragma:\s*no\s*cover"
@@ -170,6 +199,42 @@ def parse(goal_path):
             raise SystemExit(f"{goal_path}: {key} must be a positive number of minutes")
     for key, default in (("forbid_slop", True), ("protect_configs", True), ("revert_on_fail", False)):
         parse_bool(fields, key, default, goal_path)
+    retries = fields.get("rate_limit_retries", RATE_LIMIT_DEFAULTS["rate_limit_retries"])
+    if not retries.isdigit():
+        raise SystemExit(f"{goal_path}: rate_limit_retries must be a non-negative integer")
+    try:
+        cooldown = float(fields.get("cooldown_seconds", RATE_LIMIT_DEFAULTS["cooldown_seconds"]))
+        if not 0 <= cooldown < math.inf:
+            raise ValueError
+    except ValueError:
+        raise SystemExit(f"{goal_path}: cooldown_seconds must be a non-negative finite number")
+    try:
+        backoff = float(fields.get("rate_limit_backoff_seconds", RATE_LIMIT_DEFAULTS["rate_limit_backoff_seconds"]))
+        if not 0 < backoff < math.inf:
+            raise ValueError
+    except ValueError:
+        raise SystemExit(f"{goal_path}: rate_limit_backoff_seconds must be a positive finite number")
+    for args_key in ("harness_args", "escalate_harness_args", "fallback_harness_args"):
+        if args_key in fields:
+            try:
+                shlex.split(fields[args_key])
+            except ValueError as err:
+                raise SystemExit(f"{goal_path}: {args_key} has invalid shell quoting: {err}")
+    if "escalate_after" in fields:
+        if not fields["escalate_after"].isdigit() or int(fields["escalate_after"]) < 1:
+            raise SystemExit(f"{goal_path}: escalate_after must be a positive integer")
+        if not fields.get("escalate_harness_args", "").strip():
+            raise SystemExit(f"{goal_path}: escalate_after requires escalate_harness_args")
+    elif "escalate_harness_args" in fields:
+        raise SystemExit(f"{goal_path}: escalate_harness_args requires escalate_after")
+    if "fallback_harness_args" in fields and not fields["fallback_harness_args"].strip():
+        raise SystemExit(f"{goal_path}: fallback_harness_args must not be empty")
+    if "checkpoint_every" in fields:
+        if not fields["checkpoint_every"].isdigit() or int(fields["checkpoint_every"]) < 1:
+            raise SystemExit(f"{goal_path}: checkpoint_every must be a positive integer")
+    if "active_sprint" in fields:
+        if not fields["active_sprint"].isdigit() or int(fields["active_sprint"]) < 1:
+            raise SystemExit(f"{goal_path}: active_sprint must be a positive integer")
     return fields, hashlib.sha256(match.group(1).encode()).hexdigest(), text[match.end():]
 
 
@@ -208,9 +273,8 @@ def load_pyproject_tools(text):
     return tools
 
 
-def pyproject_guard_digest(root):
-    """Hash guardrail tool tables in pyproject.toml while leaving [project] editable for dependencies and scripts."""
-    path = os.path.join(root, "pyproject.toml")
+def _pyproject_file_digest(path):
+    """Hash guardrail tool tables in a pyproject.toml file while leaving [project] editable."""
     if not os.path.lexists(path):
         return None
     if os.path.islink(path) or not os.path.isfile(path):
@@ -227,9 +291,13 @@ def pyproject_guard_digest(root):
     return hashlib.sha256(blob).hexdigest()
 
 
-def package_scripts_digest(root):
-    """Hash package.json `scripts` so an agent cannot turn `npm run lint` into `true`; dependencies stay editable."""
-    path = os.path.join(root, "package.json")
+def pyproject_guard_digest(root):
+    """Hash guardrail tool tables in root pyproject.toml while leaving [project] editable."""
+    return _pyproject_file_digest(os.path.join(root, "pyproject.toml"))
+
+
+def _package_json_file_digest(path):
+    """Hash package.json scripts and embedded linter/test configs while leaving dependencies editable."""
     if not os.path.lexists(path):
         return None
     if os.path.islink(path) or not os.path.isfile(path):
@@ -239,24 +307,42 @@ def package_scripts_digest(root):
             data = json.load(handle)
     except (OSError, ValueError) as exc:
         return f"invalid:{type(exc).__name__}"
-    scripts = data.get("scripts") if isinstance(data, dict) else None
-    return hashlib.sha256(json.dumps(scripts, sort_keys=True).encode("utf-8")).hexdigest() if scripts else None
+    if not isinstance(data, dict):
+        return None
+    guarded = {key: data[key] for key in PACKAGE_JSON_GUARDRAIL_KEYS if key in data and data[key]}
+    if not guarded:
+        return None
+    return hashlib.sha256(json.dumps(guarded, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def package_scripts_digest(root):
+    """Hash root package.json `scripts` and guardrail tool configs; dependencies stay editable."""
+    return _package_json_file_digest(os.path.join(root, "package.json"))
 
 
 def guardrail_state(root, skip):
     """Map of every guardrail config anywhere in the tree (root or nested, existing or newly created) to its content
-    hash, plus the guardrail tables of pyproject.toml and package.json. A nested ruff.toml or conftest.py overrides
-    the root config for its subtree, so creating one weakens the gate just like editing the root one."""
+    hash, plus the guardrail tables of every pyproject.toml and package.json at any depth. A nested ruff.toml,
+    pyproject.toml, package.json, or conftest.py overrides the root config for its subtree, so creating or editing one
+    weakens the gate just like editing the root one."""
     state = {}
-    for key, value in (("pyproject.toml [tool.*]", pyproject_guard_digest(root)),
-                       ("package.json scripts", package_scripts_digest(root))):
-        if value is not None:
-            state[key] = value
     for rel in walk_files(root, ".", skip, skip_names=SLOP_SKIP_DIRS):
         parts = rel.split("/")
-        if os.path.normcase(parts[-1]) not in GUARDRAIL_CONFIG_BASENAMES and not {".husky", ".githooks"} & set(parts[:-1]):
-            continue
+        base_norm = os.path.normcase(parts[-1])
         full = os.path.join(root, rel)
+        if base_norm == os.path.normcase("pyproject.toml"):
+            val = _pyproject_file_digest(full)
+            if val is not None:
+                state[f"{rel} [tool.*]"] = val
+            continue
+        if base_norm == os.path.normcase("package.json"):
+            val = _package_json_file_digest(full)
+            if val is not None:
+                key = "package.json scripts" if rel == "package.json" else f"{rel} [guardrails]"
+                state[key] = val
+            continue
+        if base_norm not in GUARDRAIL_CONFIG_BASENAMES and not {".husky", ".githooks"} & set(parts[:-1]):
+            continue
         if os.path.islink(full):
             state[rel] = f"link:{os.readlink(full)}"
         elif os.path.isfile(full):
@@ -273,10 +359,21 @@ def discover_guardrail_configs(root):
     return [name for name in GUARDRAIL_CONFIGS if os.path.lexists(os.path.join(root, name))]
 
 
+def _rel_inside_root(full, root):
+    """Return root-relative path if `full` lives strictly inside `root`, else None (handles Windows cross-drive and `..name`)."""
+    try:
+        rel = os.path.relpath(full, root)
+    except ValueError:
+        return None
+    if rel == "." or rel == ".." or rel.startswith(".." + os.sep) or os.path.isabs(rel):
+        return None
+    return rel
+
+
 def load_manifest(manifest_arg, root, source_label="manifest"):
     full = os.path.normpath(os.path.join(root, manifest_arg) if not os.path.isabs(manifest_arg) else manifest_arg)
-    rel = os.path.relpath(full, root)
-    if rel == "." or rel.startswith(".."):
+    rel = _rel_inside_root(full, root)
+    if rel is None:
         raise SystemExit(f"{source_label}: manifest path {manifest_arg!r} must live inside the project root")
     if not os.path.isfile(full):
         raise SystemExit(f"{source_label}: manifest path {manifest_arg!r} does not exist")
@@ -293,6 +390,10 @@ def load_manifest(manifest_arg, root, source_label="manifest"):
         raise SystemExit(f"{source_label}: manifest requires a non-empty 'product' string")
     if not isinstance(slices, list) or not slices:
         raise SystemExit(f"{source_label}: manifest requires a non-empty 'slices' list")
+    if "sme_gate" in data:
+        gate = data["sme_gate"]
+        if not isinstance(gate, str) or gate not in SME_GATE_VALUES:
+            raise SystemExit(f"{source_label}: manifest 'sme_gate' must be one of {', '.join(SME_GATE_VALUES)}")
     seen_ids = set()
     for idx, item in enumerate(slices, 1):
         if not isinstance(item, dict):
@@ -305,6 +406,94 @@ def load_manifest(manifest_arg, root, source_label="manifest"):
         if sid in seen_ids:
             raise SystemExit(f"{source_label}: duplicate slice id {sid!r} in manifest")
         seen_ids.add(sid)
+        if "sprint" in item:
+            sprint = item["sprint"]
+            if isinstance(sprint, bool) or not isinstance(sprint, int) or sprint < 1:
+                raise SystemExit(f"{source_label}: slice #{idx} ({sid}) 'sprint' must be a positive integer")
+        if "sme_gate" in item:
+            s_gate = item["sme_gate"]
+            if not isinstance(s_gate, str) or s_gate not in SME_GATE_VALUES:
+                raise SystemExit(
+                    f"{source_label}: slice #{idx} ({sid}) 'sme_gate' must be one of {', '.join(SME_GATE_VALUES)}"
+                )
+    if "inventory" in data:
+        inventory = data["inventory"]
+        if not isinstance(inventory, list):
+            raise SystemExit(f"{source_label}: manifest 'inventory' must be a list")
+        inv_ids = set()
+        parsed_inv = []
+        for idx, item in enumerate(inventory, 1):
+            if not isinstance(item, dict):
+                raise SystemExit(f"{source_label}: inventory item #{idx} must be an object")
+            raw_id = item.get("id")
+            if not isinstance(raw_id, str) or not raw_id.strip():
+                raise SystemExit(f"{source_label}: inventory item #{idx} requires a non-empty 'id' string")
+            iid = raw_id.strip()
+            if iid in inv_ids:
+                raise SystemExit(f"{source_label}: duplicate inventory id {iid!r} in manifest")
+            inv_ids.add(iid)
+            status = item.get("status")
+            if not isinstance(status, str) or status not in INVENTORY_STATUSES:
+                raise SystemExit(
+                    f"{source_label}: inventory item #{idx} ({iid}) 'status' must be one of "
+                    f"{', '.join(INVENTORY_STATUSES)}"
+                )
+            parsed_inv.append((idx, iid, status, item))
+        valid_reps = inv_ids | seen_ids
+        for idx, iid, status, item in parsed_inv:
+            if status == "duplicate":
+                rep = item.get("representative")
+                if not isinstance(rep, str) or not rep.strip():
+                    raise SystemExit(
+                        f"{source_label}: inventory item #{idx} ({iid}) with status 'duplicate' "
+                        "requires a non-empty 'representative' string"
+                    )
+                rep_id = rep.strip()
+                if rep_id == iid:
+                    raise SystemExit(
+                        f"{source_label}: inventory item #{idx} ({iid}) 'representative' cannot reference itself"
+                    )
+                if rep_id not in valid_reps:
+                    raise SystemExit(
+                        f"{source_label}: inventory item #{idx} ({iid}) 'representative' {rep_id!r} "
+                        "must match an inventory or slice id"
+                    )
+            elif status == "non_target":
+                reason = item.get("reason")
+                if not isinstance(reason, str) or not reason.strip():
+                    raise SystemExit(
+                        f"{source_label}: inventory item #{idx} ({iid}) with status 'non_target' "
+                        "requires a non-empty 'reason' string"
+                    )
+            elif status == "blocked":
+                for req_key in ("evidence", "unblock"):
+                    req_val = item.get(req_key)
+                    if not isinstance(req_val, str) or not req_val.strip():
+                        raise SystemExit(
+                            f"{source_label}: inventory item #{idx} ({iid}) with status 'blocked' "
+                            f"requires a non-empty {req_key!r} string"
+                        )
+                if "attempts" in item and item["attempts"] is not None:
+                    attempts = item["attempts"]
+                    valid_int = isinstance(attempts, int) and not isinstance(attempts, bool) and attempts >= 0
+                    valid_list = isinstance(attempts, list) and all(isinstance(a, str) and a.strip() for a in attempts)
+                    if not (valid_int or valid_list):
+                        raise SystemExit(
+                            f"{source_label}: inventory item #{idx} ({iid}) 'attempts' must be a non-negative "
+                            "integer or list of non-empty strings"
+                        )
+            elif status == "included":
+                if "slice" in item and item["slice"] is not None:
+                    linked = item["slice"]
+                    if not isinstance(linked, str) or not linked.strip():
+                        raise SystemExit(
+                            f"{source_label}: inventory item #{idx} ({iid}) 'slice' must be a non-empty string"
+                        )
+                    if linked.strip() not in seen_ids:
+                        raise SystemExit(
+                            f"{source_label}: inventory item #{idx} ({iid}) 'slice' {linked.strip()!r} "
+                            "must match a slice id"
+                        )
     return rel.replace(os.sep, "/"), data
 
 
@@ -321,8 +510,8 @@ def protected_paths(fields, root, goal_path):
             absent = entry.startswith("absent:")
             name = entry[len("absent:"):] if absent else entry
             full = os.path.normpath(os.path.join(root, name))
-            rel = os.path.relpath(full, root)
-            if rel == "." or rel.startswith(".."):
+            rel = _rel_inside_root(full, root)
+            if rel is None:
                 raise SystemExit(f"{goal_path}: protect path {name!r} must be inside the project root and not the root")
             if absent and os.path.lexists(full):
                 raise SystemExit(f"{goal_path}: protect path {name!r} exists; drop its `absent:` prefix")
@@ -462,11 +651,30 @@ def _broad_suppress_lines(tree):
                     yield node.lineno
 
 
+def _js_allows_regex(text, pos):
+    """Return True when a `/` at `pos` in JS/TS starts a regex literal rather than division."""
+    j = pos - 1
+    while j >= 0 and text[j] in " \t\r\n":
+        j -= 1
+    if j < 0:
+        return True
+    prev_ch = text[j]
+    if prev_ch in "([{:;,=!&|?+-*%^~<>":
+        return True
+    if prev_ch.isalnum() or prev_ch in "_$":
+        start = j
+        while start > 0 and (text[start - 1].isalnum() or text[start - 1] in "_$"):
+            start -= 1
+        return text[start:j + 1] in JS_REGEX_KW
+    return False
+
+
 def _strip_strings_keep_comments(text, ext=""):
-    """Replace string literal bodies with spaces while keeping newlines and comments intact. Single-line string
-    kinds end at a newline, so a stray quote (a JSX apostrophe, a regex literal) cannot hide the rest of the file;
-    a Rust `'a` lifetime is not a string at all."""
+    """Replace string and JS regex literal bodies with spaces while keeping newlines and comments intact. Single-line
+    kinds end at a newline, so a stray quote or regex cannot hide the rest of the file; a Rust `'a` lifetime is not
+    a string at all."""
     rust, go = ext == ".rs", ext == ".go"
+    js_like = ext in {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".mts", ".cts"}
     out = []
     i, n = 0, len(text)
     while i < n:
@@ -495,6 +703,32 @@ def _strip_strings_keep_comments(text, ext=""):
             end = n if end < 0 else end + 2
             out.append(text[i:end])
             i = end
+        elif js_like and ch == "/" and nxt not in ("/", "*", "\n", "") and _js_allows_regex(text, i):
+            j = i + 1
+            in_class = False
+            closed = False
+            while j < n and text[j] != "\n":
+                c = text[j]
+                if c == "\\" and j + 1 < n and text[j + 1] != "\n":
+                    j += 2
+                    continue
+                if c == "[":
+                    in_class = True
+                elif c == "]" and in_class:
+                    in_class = False
+                elif c == "/" and not in_class:
+                    closed = True
+                    j += 1
+                    while j < n and text[j].isalpha():
+                        j += 1
+                    break
+                j += 1
+            if closed:
+                out.append(" " * (j - i))
+                i = j
+            else:
+                out.append(ch)
+                i += 1
         elif ch in ("'", '"', "`"):
             quote = ch
             multiline = quote == "`" or (rust and quote == '"')
@@ -656,19 +890,37 @@ def scan_text_slop(rel, text):
                 "fix the compiler or clippy warning instead of suppressing it",
             ))
         comments = []
+        code_parts = []
         rest = line
-        if in_block:
-            end = rest.find("*/")
-            comments.append(rest if end < 0 else rest[:end + 2])
-            rest = "" if end < 0 else rest[end + 2:]
-            in_block = end < 0
-        code_part = rest
-        starts = [pos for pos in (rest.find("//"), rest.find("/*")) if pos >= 0]
-        if starts:
+        while rest:
+            if in_block:
+                end = rest.find("*/")
+                if end < 0:
+                    comments.append(rest)
+                    rest = ""
+                else:
+                    comments.append(rest[:end + 2])
+                    rest = rest[end + 2:]
+                    in_block = False
+                continue
+            starts = [pos for pos in (rest.find("//"), rest.find("/*")) if pos >= 0]
+            if not starts:
+                code_parts.append(rest)
+                break
             pos = min(starts)
-            code_part = rest[:pos]
-            comments.append(rest[pos:])
-            in_block = rest.startswith("/*", pos) and "*/" not in rest[pos + 2:]
+            if pos > 0:
+                code_parts.append(rest[:pos])
+            if rest.startswith("//", pos):
+                comments.append(rest[pos:])
+                break
+            close_rel = rest.find("*/", pos + 2)
+            if close_rel < 0:
+                comments.append(rest[pos:])
+                in_block = True
+                break
+            comments.append(rest[pos:close_rel + 2])
+            rest = rest[close_rel + 2:]
+        code_part = " ".join(code_parts)
         comment = " ".join(comments)
         if ext == ".rs" and RS_STUB_MACRO_RE.search(code_part):
             macro = RS_STUB_MACRO_RE.search(code_part).group(0)
@@ -863,6 +1115,27 @@ def revert_failed_iteration(root, goal_path, allowed, base):
         handle.write(goal_bytes)
 
 
+def discover_manifests(root):
+    """Find valid `*-manifest.json` files under `docs/specs/` and `.scratch/goals/`."""
+    valid = []
+    for rel_dir in ("docs/specs", ".scratch/goals"):
+        folder = os.path.join(root, rel_dir)
+        if not os.path.isdir(folder):
+            continue
+        for entry in sorted(os.listdir(folder)):
+            if not entry.endswith("-manifest.json"):
+                continue
+            rel_path = f"{rel_dir}/{entry}"
+            if not os.path.isfile(os.path.join(root, rel_path)):
+                continue
+            try:
+                norm_rel, _ = load_manifest(rel_path, root, "audit")
+            except SystemExit:
+                continue
+            valid.append(norm_rel)
+    return valid
+
+
 def audit_repo(root):
     """Inspect a git repo's inner-loop feedback gates and return a structured readiness report."""
     static_checks = []
@@ -961,10 +1234,14 @@ def audit_repo(root):
 
     configs = discover_guardrail_configs(root)
     pyproject_guarded = sorted(name for name in PYPROJECT_GUARDRAIL_TOOLS if name in pyproject_tools)
+    manifests = discover_manifests(root)
+    detected_manifest = manifests[0] if len(manifests) == 1 else ""
     protect_candidates = list(configs)
     for candidate in ("tests", "test", "scripts/check.py"):
         if os.path.lexists(os.path.join(root, candidate)) and candidate not in protect_candidates:
             protect_candidates.append(candidate)
+    if detected_manifest and detected_manifest not in protect_candidates:
+        protect_candidates.append(detected_manifest)
 
     gaps = []
     if not static_checks:
@@ -985,6 +1262,16 @@ def audit_repo(root):
     else:
         check_cmd = "false"
 
+    recommended = {
+        "fast_check": fast_cmd,
+        "check": check_cmd,
+        "protect": " ".join(protect_candidates) if protect_candidates else "none",
+        "forbid_slop": True,
+        "protect_configs": True,
+    }
+    if detected_manifest:
+        recommended["manifest"] = detected_manifest
+
     return {
         "root": root,
         "ready": bool(static_checks and test_checks),
@@ -998,23 +1285,18 @@ def audit_repo(root):
             "protect_configs": configs,
             "pyproject_guardrail_sections": pyproject_guarded,
             "protect_candidates": protect_candidates,
+            "manifests": manifests,
         },
         "gaps": gaps,
-        "recommended": {
-            "fast_check": fast_cmd,
-            "check": check_cmd,
-            "protect": " ".join(protect_candidates) if protect_candidates else "none",
-            "forbid_slop": True,
-            "protect_configs": True,
-        },
+        "recommended": recommended,
     }
 
 
 def write_goal_scaffold(report, dest_arg):
     root = report["root"]
     dest = os.path.normpath(os.path.abspath(dest_arg))
-    rel = os.path.relpath(dest, root)
-    if rel == "." or rel.startswith(".."):
+    rel = _rel_inside_root(dest, root)
+    if rel is None:
         raise SystemExit(f"--write-goal path {dest_arg!r} must live inside the project root ({root})")
     if os.path.lexists(dest):
         raise SystemExit(f"--write-goal refuses to overwrite existing file {dest_arg!r}")
@@ -1024,6 +1306,8 @@ def write_goal_scaffold(report, dest_arg):
         "---",
         "goal: Replace with one-sentence verifiable objective",
     ]
+    if rec.get("manifest"):
+        lines.append(f"manifest: {rec['manifest']}")
     if rec["fast_check"]:
         lines.append(f"fast_check: {rec['fast_check']}")
     lines.extend([
@@ -1127,75 +1411,203 @@ def run_check(command, root, protect, minutes):
     return code, output
 
 
-def evaluate_manifest(manifest_data, root, protect, minutes):
-    """Run every slice check in manifest_data. Returns (exit_code_or_None, formatted_scoreboard, structured_dict)."""
+def partition_manifest_slices(manifest_data, active_sprint=None):
+    all_slices = manifest_data["slices"]
+    if active_sprint is None:
+        return list(all_slices), []
+    active = [item for item in all_slices if item.get("sprint", 1) <= active_sprint]
+    deferred = [item for item in all_slices if item.get("sprint", 1) > active_sprint]
+    return active, deferred
+
+
+def summarize_inventory(manifest_data):
+    counts = {status: 0 for status in INVENTORY_STATUSES}
+    pending_ids = []
+    for item in manifest_data.get("inventory", ()):
+        status = item["status"]
+        counts[status] += 1
+        if status == "pending":
+            pending_ids.append(item["id"].strip())
+    return counts, pending_ids
+
+
+def active_sme_blockers(manifest_data, active_slices):
+    blockers = []
+    if manifest_data.get("sme_gate", "none") == "required":
+        blockers.append("manifest")
+    for item in active_slices:
+        if item.get("sme_gate", "none") == "required":
+            blockers.append(f"slice:{item['id'].strip()}")
+    return blockers
+
+
+def build_scope_summary(manifest_rel, manifest_data, active_sprint=None, manifest_summary=None, sprint_source=None):
+    active_slices, deferred_slices = partition_manifest_slices(manifest_data, active_sprint)
+    deferred_ids = [item["id"].strip() for item in deferred_slices]
+    inv_counts, pending_ids = summarize_inventory(manifest_data)
+    sme_blockers = active_sme_blockers(manifest_data, active_slices)
+    scope = {
+        "manifest": manifest_rel,
+        "active_sprint": active_sprint,
+        "passed_slices": manifest_summary["passed"] if manifest_summary is not None else 0,
+        "active_slices": len(active_slices),
+        "total_slices": len(manifest_data["slices"]),
+        "deferred_slices": deferred_ids,
+        "scope_complete": bool(manifest_summary["scope_complete"]) if manifest_summary is not None else False,
+        "inventory_counts": inv_counts,
+        "pending_inventory": pending_ids,
+        "sme_gate_blocked": bool(sme_blockers),
+        "sme_gate_blockers": sme_blockers,
+    }
+    if sprint_source:
+        scope["active_sprint_source"] = sprint_source
+    return scope
+
+
+def _append_manifest_scope_lines(lines, manifest_data, deferred_slices, inv_counts, pending_ids):
+    if deferred_slices:
+        deferred_ids = [item["id"].strip() for item in deferred_slices]
+        for item in deferred_slices:
+            lines.append(f"  [DEFERRED sprint {item['sprint']}] {item['id'].strip()}: {item['title'].strip()}")
+        lines.append(
+            f"  (total scope incomplete: {len(deferred_ids)} slice(s) remain deferred in later sprints: "
+            f"{', '.join(deferred_ids)})"
+        )
+    if "inventory" in manifest_data:
+        parts = ", ".join(f"{status}={inv_counts[status]}" for status in INVENTORY_STATUSES)
+        lines.append(f"Inventory: {parts}")
+    if pending_ids:
+        lines.append(
+            f"[inventory gate failed] {len(pending_ids)} unclassified pending inventory item(s): "
+            f"{', '.join(pending_ids)}"
+        )
+
+
+def evaluate_manifest(manifest_data, root, protect, minutes, active_sprint=None):
+    """Run active slice checks in manifest_data. Returns (exit_code_or_None, formatted_scoreboard, structured_dict)."""
+    all_slices = manifest_data["slices"]
+    active_slices, deferred_slices = partition_manifest_slices(manifest_data, active_sprint)
+    deferred_ids = [item["id"].strip() for item in deferred_slices]
+    inv_counts, pending_ids = summarize_inventory(manifest_data)
+    sme_blockers = active_sme_blockers(manifest_data, active_slices)
+    total_slices = len(all_slices)
+
+    def make_summary(passed, ready, results):
+        scope_complete = bool(ready and not deferred_ids)
+        return {
+            "product": manifest_data["product"],
+            "passed": passed,
+            "total": len(active_slices),
+            "total_slices": total_slices,
+            "active_sprint": active_sprint,
+            "deferred_slices": deferred_ids,
+            "ready": ready,
+            "scope_complete": scope_complete,
+            "sme_gate_blocked": bool(sme_blockers),
+            "sme_gate_blockers": sme_blockers,
+            "inventory_counts": inv_counts,
+            "pending_inventory": pending_ids,
+            "slices": results,
+        }
+
+    if sme_blockers:
+        lines = [
+            f"[manifest blocked by sme_gate] Product: {manifest_data['product']}",
+            f"  {SME_GATE_MESSAGE} (blocked by: {', '.join(sme_blockers)})",
+        ]
+        _append_manifest_scope_lines(lines, manifest_data, deferred_slices, inv_counts, pending_ids)
+        return 1, "\n".join(lines) + "\n", make_summary(0, False, [])
+
+    if active_sprint is not None and not active_slices:
+        lines = [
+            f"[manifest failed] no slices match active_sprint <= {active_sprint} "
+            f"({len(deferred_ids)} deferred of {total_slices} total) for Product: {manifest_data['product']}",
+        ]
+        _append_manifest_scope_lines(lines, manifest_data, deferred_slices, inv_counts, pending_ids)
+        return 1, "\n".join(lines) + "\n", make_summary(0, False, [])
+
     results = []
     first_failure = None
     passed = 0
-    for item in manifest_data["slices"]:
+    for item in active_slices:
         sid, title, cmd = item["id"].strip(), item["title"].strip(), item["check"].strip()
         s_code, s_out = run_check(cmd, root, protect, minutes)
+        entry = {"id": sid, "title": title, "exit": s_code, "passed": s_code == 0, "output": s_out}
+        if "sprint" in item or active_sprint is not None:
+            entry["sprint"] = item.get("sprint", 1)
         if s_code is None:
-            results.append({"id": sid, "title": title, "exit": None, "passed": False, "output": s_out})
+            entry["passed"] = False
+            results.append(entry)
             lines = [f"[manifest timeout on {sid}] Product: {manifest_data['product']}"]
             for r in results:
                 tag = "PASS" if r["passed"] else ("TIMEOUT" if r["exit"] is None else f"FAIL exit {r['exit']}")
                 lines.append(f"  [{tag}] {r['id']}: {r['title']}")
+            _append_manifest_scope_lines(lines, manifest_data, deferred_slices, inv_counts, pending_ids)
             if s_out.strip():
                 lines.append(f"\nTimed-out slice ({sid}) output:\n{s_out}")
-            return None, "\n".join(lines) + "\n", {
-                "product": manifest_data["product"], "passed": passed, "total": len(manifest_data["slices"]),
-                "ready": False, "slices": results,
-            }
-        ok = s_code == 0
-        if ok:
+            return None, "\n".join(lines) + "\n", make_summary(passed, False, results)
+        if s_code == 0:
             passed += 1
         elif first_failure is None:
             first_failure = (sid, title, s_code, s_out)
-        results.append({"id": sid, "title": title, "exit": s_code, "passed": ok, "output": s_out})
+        results.append(entry)
 
-    total = len(manifest_data["slices"])
-    lines = [f"[manifest {passed}/{total} slices green] Product: {manifest_data['product']}"]
+    active_total = len(active_slices)
+    if active_sprint is not None:
+        if deferred_ids:
+            header = (
+                f"[manifest sprint {active_sprint}: {passed}/{active_total} active slices green; "
+                f"{len(deferred_ids)} deferred of {total_slices} total] Product: {manifest_data['product']}"
+            )
+        else:
+            header = f"[manifest sprint {active_sprint}: {passed}/{active_total} slices green] Product: {manifest_data['product']}"
+    else:
+        header = f"[manifest {passed}/{active_total} slices green] Product: {manifest_data['product']}"
+    lines = [header]
     for r in results:
         tag = "PASS" if r["passed"] else f"FAIL exit {r['exit']}"
         lines.append(f"  [{tag}] {r['id']}: {r['title']}")
+    _append_manifest_scope_lines(lines, manifest_data, deferred_slices, inv_counts, pending_ids)
     if first_failure is not None:
         fid, ftitle, fcode, fout = first_failure
         lines.append(f"\nFirst failing slice ({fid} - {ftitle}):\n{fout.rstrip()}")
-        return (fcode or 1), "\n".join(lines) + "\n", {
-            "product": manifest_data["product"], "passed": passed, "total": total, "ready": False, "slices": results,
-        }
-    return 0, "\n".join(lines) + "\n", {
-        "product": manifest_data["product"], "passed": passed, "total": total, "ready": True, "slices": results,
-    }
+        return (fcode or 1), "\n".join(lines) + "\n", make_summary(passed, False, results)
+    if pending_ids:
+        return 1, "\n".join(lines) + "\n", make_summary(passed, False, results)
+    return 0, "\n".join(lines) + "\n", make_summary(passed, True, results)
 
 
-def evaluate_gates(fields, root, protect, limits, slop_baseline=None, check_slop=False, slop_skip=(), manifest_data=None):
+def evaluate_gates(fields, root, protect, limits, slop_baseline=None, check_slop=False, slop_skip=(),
+                   manifest_data=None, active_sprint=None):
     """Run inner-loop and scope gates in order: fast_check -> slop_guard -> manifest -> check."""
+    manifest_summary = None
     fast_cmd = fields.get("fast_check", "").strip()
     if fast_cmd:
         f_code, f_out = run_check(fast_cmd, root, protect, limits["fast_check_minutes"])
         if f_code is None:
-            return None, f_out, "fast_check"
+            return None, f_out, "fast_check", manifest_summary
         if f_code != 0:
-            return f_code, f"[fast_check failed]\n{f_out}", "fast_check"
+            return f_code, f"[fast_check failed]\n{f_out}", "fast_check", manifest_summary
     if check_slop:
         current_slop = scan_repo_slop(root, skip=slop_skip)
         added = diff_new_slop(current_slop, slop_baseline if slop_baseline is not None else Counter())
         if added:
             report = "[slop_guard failed] newly introduced code-slop patterns must be fixed at the root cause:\n"
             report += "\n".join(item[4] for item in added) + "\n"
-            return 1, report, "slop_guard"
+            return 1, report, "slop_guard", manifest_summary
     if manifest_data is not None:
-        m_code, m_out, _ = evaluate_manifest(manifest_data, root, protect, limits["check_minutes"])
+        m_code, m_out, manifest_summary = evaluate_manifest(
+            manifest_data, root, protect, limits["check_minutes"], active_sprint=active_sprint
+        )
         if m_code is None:
-            return None, m_out, "manifest"
+            return None, m_out, "manifest", manifest_summary
         if m_code != 0:
-            return m_code, m_out, "manifest"
+            stage = "sme_gate" if manifest_summary.get("sme_gate_blocked") else "manifest"
+            return m_code, m_out, stage, manifest_summary
     c_code, c_out = run_check(fields["check"], root, protect, limits["check_minutes"])
     if c_code is None:
-        return None, c_out, "check"
-    return c_code, c_out, ("pass" if c_code == 0 else "check")
+        return None, c_out, "check", manifest_summary
+    return c_code, c_out, ("pass" if c_code == 0 else "check"), manifest_summary
 
 
 def cost_cap(fields, harness, goal_path):
@@ -1213,10 +1625,30 @@ def cost_cap(fields, harness, goal_path):
     return cost
 
 
-def harness_command(fields, harness, cost):
+def classify_harness_failure(log_path):
+    """Distinguish hard subscription/API quota exhaustion from transient 429 rate limits in the harness log."""
+    try:
+        with open(log_path, "rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(0, size - 32768))
+            tail = handle.read().decode("utf-8", errors="replace")
+    except OSError:
+        return "error", None
+    if QUOTA_EXHAUSTED_RE.search(tail):
+        return "quota", None
+    if RATE_LIMIT_RE.search(tail):
+        match = RETRY_AFTER_RE.search(tail)
+        retry_after = float(match.group(1)) if match else None
+        return "rate_limit", retry_after
+    return "error", None
+
+
+def harness_command(fields, harness, cost, extra_args=None):
     """The prompt is not in the command: every harness reads it from stdin. On Windows npm installs a harness as a
     .cmd shim, and cmd.exe would parse quotes and & in an argument (the prompt carries the check command)."""
-    extra = shlex.split(fields.get("harness_args", ""))
+    raw_args = fields.get("harness_args", "") if extra_args is None else extra_args
+    extra = shlex.split(raw_args)
     if harness == "omp":
         cmd = ["omp", "-p", "--no-title", "--max-cost", cost, *extra]
     elif harness == "claude":
@@ -1247,6 +1679,8 @@ def run_audit_cli(opts):
         if report["guardrails"]["pyproject_guardrail_sections"]:
             sections = ", ".join(f"[tool.{s}]" for s in report["guardrails"]["pyproject_guardrail_sections"])
             print(f"  pyproject_guardrails: {sections}")
+        if report["guardrails"].get("manifests"):
+            print(f"  manifests: {', '.join(report['guardrails']['manifests'])}")
         if report["gaps"]:
             print("  gaps:")
             for gap in report["gaps"]:
@@ -1259,18 +1693,51 @@ def run_audit_cli(opts):
 def run_manifest_cli(opts):
     if not opts.goal:
         raise SystemExit("loop.py manifest requires a <manifest.json> path")
+    if opts.sprint is not None and opts.sprint < 1:
+        raise SystemExit("--sprint must be a positive integer")
     manifest_path = os.path.abspath(opts.goal)
     root = project_root(manifest_path)
     manifest_rel, manifest_data = load_manifest(manifest_path, root, opts.goal)
     if opts.dry_run:
         total = len(manifest_data["slices"])
+        active_slices, deferred_slices = partition_manifest_slices(manifest_data, opts.sprint)
+        deferred_ids = [item["id"].strip() for item in deferred_slices]
+        inv_counts, pending_ids = summarize_inventory(manifest_data)
+        sme_blockers = active_sme_blockers(manifest_data, active_slices)
+        has_scope_ext = (
+            opts.sprint is not None
+            or "inventory" in manifest_data
+            or manifest_data.get("sme_gate", "none") != "none"
+            or any("sprint" in s or s.get("sme_gate", "none") != "none" for s in manifest_data["slices"])
+        )
         if opts.json:
-            print(json.dumps({"manifest": manifest_rel, "product": manifest_data["product"], "total": total, "valid": True},
-                             indent=2))
+            payload = {"manifest": manifest_rel, "product": manifest_data["product"], "total": total, "valid": True}
+            if has_scope_ext:
+                payload.update({
+                    "active_sprint": opts.sprint,
+                    "active_slices": len(active_slices),
+                    "total_slices": total,
+                    "deferred_slices": deferred_ids,
+                    "inventory_counts": inv_counts,
+                    "pending_inventory": pending_ids,
+                    "sme_gate_blocked": bool(sme_blockers),
+                    "sme_gate_blockers": sme_blockers,
+                })
+            print(json.dumps(payload, indent=2))
         else:
-            print(f"manifest ok: {manifest_rel} ({total} slices) for {manifest_data['product']}")
+            extra = []
+            if opts.sprint is not None:
+                extra.append(f"sprint {opts.sprint}: {len(active_slices)} active, {len(deferred_ids)} deferred")
+            if "inventory" in manifest_data:
+                extra.append(f"inventory {sum(inv_counts.values())} items ({inv_counts['pending']} pending)")
+            if sme_blockers:
+                extra.append(f"sme_gate required ({', '.join(sme_blockers)})")
+            suffix = f" [{'; '.join(extra)}]" if extra else ""
+            print(f"manifest ok: {manifest_rel} ({total} slices){suffix} for {manifest_data['product']}")
         return 0
-    code, scoreboard, summary = evaluate_manifest(manifest_data, root, [manifest_rel], opts.check_minutes)
+    code, scoreboard, summary = evaluate_manifest(
+        manifest_data, root, [manifest_rel], opts.check_minutes, active_sprint=opts.sprint
+    )
     summary["manifest"] = manifest_rel
     if opts.json:
         print(json.dumps(summary, indent=2))
@@ -1281,21 +1748,181 @@ def run_manifest_cli(opts):
     return 0 if code == 0 else 1
 
 
+def read_last_trail_row(trail_path):
+    if not os.path.isfile(trail_path):
+        return None
+    try:
+        with open(trail_path, encoding="utf-8", errors="replace") as handle:
+            lines = [line.rstrip("\r\n") for line in handle if line.strip()]
+    except OSError:
+        return None
+    if len(lines) < 2:
+        return None
+    headers = lines[0].split("\t")
+    values = lines[-1].split("\t")
+    return {headers[idx]: values[idx] if idx < len(values) else "" for idx in range(len(headers))}
+
+
+def format_loop_command(root, *args):
+    """Build a copy-pasteable command pointing at this loop.py that works from `root`."""
+    launcher = "py -3 -B" if os.name == "nt" else "python -B"
+    script_abs = os.path.abspath(__file__)
+    try:
+        rel = os.path.relpath(script_abs, root)
+    except ValueError:
+        rel = None
+    if rel and rel != ".." and not rel.startswith(".." + os.sep) and not os.path.isabs(rel):
+        script_arg = rel.replace("\\", "/")
+    else:
+        script_arg = script_abs
+    quoted_parts = []
+    for part in (script_arg, *args):
+        text = str(part)
+        if any(ch.isspace() for ch in text):
+            text = f'"{text}"'
+        quoted_parts.append(text)
+    return " ".join([launcher, *quoted_parts])
+
+
+def run_status_cli(opts, root, fields, goal_rel, manifest_rel, manifest_data, active_sprint, sprint_source,
+                   harness, trail, trail_rel, latest_summary_path, latest_summary_rel):
+    summary = None
+    if os.path.isfile(latest_summary_path):
+        try:
+            with open(latest_summary_path, encoding="utf-8") as handle:
+                parsed = json.load(handle)
+            if isinstance(parsed, dict):
+                summary = parsed
+        except (OSError, ValueError):
+            summary = None
+    last_trail = read_last_trail_row(trail)
+
+    effective_sprint = active_sprint
+    effective_source = sprint_source
+    if effective_sprint is None and summary and isinstance(summary.get("scope"), dict):
+        prev_sprint = summary["scope"].get("active_sprint")
+        if isinstance(prev_sprint, int) and not isinstance(prev_sprint, bool) and prev_sprint >= 1:
+            effective_sprint = prev_sprint
+            effective_source = summary["scope"].get("active_sprint_source") or "summary"
+
+    scope = None
+    next_sprint = None
+    if manifest_data is not None:
+        prev_scope = summary.get("scope") if (summary and isinstance(summary.get("scope"), dict)) else None
+        prev_manifest_summary = None
+        if prev_scope and prev_scope.get("active_sprint") == effective_sprint:
+            prev_manifest_summary = {
+                "passed": prev_scope.get("passed_slices", 0),
+                "scope_complete": prev_scope.get("scope_complete", False),
+            }
+        scope = build_scope_summary(
+            manifest_rel, manifest_data, effective_sprint,
+            manifest_summary=prev_manifest_summary, sprint_source=effective_source,
+        )
+        _, deferred_objs = partition_manifest_slices(manifest_data, effective_sprint)
+        if deferred_objs:
+            next_sprint = min(item.get("sprint", 1) for item in deferred_objs)
+            scope["next_sprint"] = next_sprint
+
+    if summary is None:
+        status_label = "not_started"
+    elif summary.get("exit_code") == 0:
+        status_label = "sprint_complete" if (scope and scope["deferred_slices"]) else "complete"
+    elif summary.get("exit_reason") == "sme_gate_required" or (scope and scope["sme_gate_blocked"]):
+        status_label = "blocked_sme_gate"
+    elif summary.get("exit_code") == 6:
+        status_label = "checkpoint"
+    else:
+        status_label = str(summary.get("exit_reason") or "stopped")
+
+    sprint_args = ["--sprint", str(effective_sprint)] if effective_sprint is not None else []
+    if scope and scope["sme_gate_blocked"]:
+        resume_note = SME_GATE_MESSAGE
+        resume_command = format_loop_command(root, "run", goal_rel, *sprint_args)
+    elif scope and scope["pending_inventory"]:
+        resume_note = (
+            f"Classify {len(scope['pending_inventory'])} pending inventory item(s) in {manifest_rel} before resuming."
+        )
+        resume_command = format_loop_command(root, "run", goal_rel, *sprint_args)
+    elif summary is not None and summary.get("exit_code") == 0 and scope and scope["deferred_slices"]:
+        resume_note = (
+            f"Sprint {effective_sprint} passed; advance to sprint {next_sprint} "
+            f"({len(scope['deferred_slices'])} deferred slice(s) remain)."
+        )
+        resume_command = format_loop_command(root, "run", goal_rel, "--sprint", str(next_sprint))
+    elif summary is not None and summary.get("exit_code") == 0:
+        resume_note = "Goal complete; no resume needed."
+        resume_command = None
+    else:
+        resume_note = "Run or resume the goal loop."
+        resume_command = format_loop_command(root, "run", goal_rel, *sprint_args)
+
+    payload = {
+        "status": status_label,
+        "goal": fields["goal"],
+        "goal_file": goal_rel,
+        "harness": summary.get("harness", harness) if summary else harness,
+        "iterations_run": summary.get("iterations_run", 0) if summary else 0,
+        "last_exit_code": summary.get("exit_code") if summary else None,
+        "last_exit_reason": summary.get("exit_reason") if summary else None,
+        "last_trail": last_trail,
+        "latest_summary": latest_summary_rel if summary else None,
+        "trail": trail_rel if last_trail else None,
+        "scope": scope,
+        "resume_note": resume_note,
+        "resume_command": resume_command,
+    }
+    if opts.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        print(f"goal status ({status_label}): {payload['goal']}")
+        print(f"  goal_file: {goal_rel} | harness: {payload['harness']} | iterations_run: {payload['iterations_run']}")
+        if summary is not None:
+            print(f"  last_run: exit {payload['last_exit_code']} ({payload['last_exit_reason']}) [{latest_summary_rel}]")
+        if last_trail is not None:
+            print(
+                f"  last_trail: iter {last_trail.get('iteration')} harness_exit={last_trail.get('harness_exit')} "
+                f"check_exit={last_trail.get('check_exit')} stage={last_trail.get('stage')}"
+            )
+        if scope is not None:
+            print(
+                f"  manifest: {manifest_rel} (active_sprint={scope['active_sprint']}, "
+                f"deferred={len(scope['deferred_slices'])}/{scope['total_slices']}, "
+                f"scope_complete={scope['scope_complete']})"
+            )
+            if scope["deferred_slices"]:
+                print(f"  deferred_slices: {', '.join(scope['deferred_slices'])}")
+            inv_parts = ", ".join(f"{k}={scope['inventory_counts'][k]}" for k in INVENTORY_STATUSES)
+            print(f"  inventory: {inv_parts}")
+            if scope["sme_gate_blocked"]:
+                print(f"  sme_gate_blocked: True ({', '.join(scope['sme_gate_blockers'])})")
+            else:
+                print("  sme_gate_blocked: False")
+        print(f"  resume_note: {resume_note}")
+        if resume_command:
+            print(f"  resume: {resume_command}")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("action", choices=["audit", "manifest", "check", "run"])
-    parser.add_argument("goal", nargs="?", help="goal.md for check/run, manifest.json for manifest, or repo path for audit")
+    parser.add_argument("action", choices=["audit", "manifest", "status", "check", "run"])
+    parser.add_argument("goal", nargs="?", help="goal.md for status/check/run, manifest.json for manifest, or repo path for audit")
     parser.add_argument("--harness")
     parser.add_argument("--max-iterations", type=int)
+    parser.add_argument("--sprint", type=int,
+                        help="evaluate manifest slices with sprint <= N and report higher sprints deferred (manifest, status, check, run)")
     parser.add_argument("--check-minutes", type=float, default=15.0, help="per-slice timeout in minutes (manifest only)")
     parser.add_argument("--dry-run", action="store_true",
                         help="run: print the harness command and run nothing, not even the check; "
                              "manifest: validate the schema without running slice checks")
-    parser.add_argument("--json", action="store_true", help="print JSON output (audit and manifest)")
+    parser.add_argument("--json", action="store_true", help="print JSON output (audit, manifest, and status)")
     parser.add_argument("--strict", action="store_true", help="exit 1 when static or test inner-loop checks are missing (audit only)")
     parser.add_argument("--write-goal", help="write a starter goal contract inside the project root (audit only)")
     opts = parser.parse_args()
 
+    if opts.sprint is not None and opts.sprint < 1:
+        raise SystemExit("--sprint must be a positive integer")
     if opts.action == "audit":
         return run_audit_cli(opts)
     if opts.action == "manifest":
@@ -1303,7 +1930,7 @@ def main():
             raise SystemExit("--check-minutes must be a positive number")
         return run_manifest_cli(opts)
     if not opts.goal:
-        raise SystemExit("loop.py check and run require a <goal.md> path")
+        raise SystemExit(f"loop.py {opts.action} requires a <goal.md> path")
 
     fields, digest, plan = parse(opts.goal)
     root = project_root(opts.goal)
@@ -1313,6 +1940,12 @@ def main():
     revert_on_fail = parse_bool(fields, "revert_on_fail", False, opts.goal)
     manifest_arg = fields.get("manifest", "").strip()
     manifest_rel, manifest_data = load_manifest(manifest_arg, root, opts.goal) if manifest_arg else ("", None)
+    if opts.sprint is not None and manifest_data is None:
+        raise SystemExit("--sprint requires a manifest in the goal frontmatter")
+    frontmatter_sprint = int(fields["active_sprint"]) if "active_sprint" in fields else None
+    active_sprint = opts.sprint if opts.sprint is not None else frontmatter_sprint
+    sprint_source = "cli" if opts.sprint is not None else ("frontmatter" if frontmatter_sprint is not None else None)
+    sprint_overridden = opts.sprint is not None and opts.sprint != frontmatter_sprint
     protect = protected_paths(fields, root, opts.goal)
     harness = opts.harness or fields.get("harness", "omp")
     if harness not in ("omp", "claude", "codex"):
@@ -1325,6 +1958,14 @@ def main():
     log_dir = os.path.join(root, ".scratch", "goals", slug)
     trail = os.path.join(log_dir, "trail.tsv")
     trail_rel = os.path.relpath(trail, root).replace(os.sep, "/")
+    latest_summary_path = os.path.join(log_dir, "latest-summary.json")
+    latest_summary_rel = os.path.relpath(latest_summary_path, root).replace(os.sep, "/")
+
+    if opts.action == "status":
+        return run_status_cli(
+            opts, root, fields, goal_rel, manifest_rel, manifest_data, active_sprint, sprint_source,
+            harness, trail, trail_rel, latest_summary_path, latest_summary_rel,
+        )
     protect_text = " ".join(protect) or "none"
     fast_cmd = fields.get("fast_check", "").strip()
     manifest_clause = f", scope manifest (`{manifest_rel}`)," if manifest_rel else ""
@@ -1341,10 +1982,16 @@ def main():
         if forbid_slop else ""
     )
     if manifest_rel:
-        slop_notice += (
-            f"Deliver every slice in {manifest_rel} end to end; partial slice completion keeps the goal open until "
-            "all slices and the final check pass. "
-        )
+        if active_sprint is not None:
+            slop_notice += (
+                f"Deliver every active slice in {manifest_rel} through sprint {active_sprint} end to end without "
+                "regressing earlier sprints; later-sprint slices stay deferred in the manifest until activated. "
+            )
+        else:
+            slop_notice += (
+                f"Deliver every slice in {manifest_rel} end to end; partial slice completion keeps the goal open until "
+                "all slices and the final check pass. "
+            )
 
     def prompt(i, input_check=None, stalled_turns=0):
         feedback = output
@@ -1377,14 +2024,21 @@ def main():
 
     if opts.action == "check":
         baseline = head_slop_counts(root, skip=slop_skip) if forbid_slop else Counter()
-        code, output, stage = evaluate_gates(fields, root, protect, limits, slop_baseline=baseline,
-                                             check_slop=forbid_slop, slop_skip=slop_skip, manifest_data=manifest_data)
+        code, output, stage, _ = evaluate_gates(
+            fields, root, protect, limits, slop_baseline=baseline,
+            check_slop=forbid_slop, slop_skip=slop_skip, manifest_data=manifest_data,
+            active_sprint=active_sprint,
+        )
         stage_limit = limits["fast_check_minutes"] if stage == "fast_check" else limits["check_minutes"]
         timed_out = f"the {stage} ran past {stage_limit} minutes and was stopped"
         absent = [path for path in protect if not os.path.lexists(os.path.join(root, path))]
         print(f"goal ok: {fields['goal']}\nprotected: {protect_text}")
         if manifest_rel:
-            print(f"manifest: {manifest_rel} ({len(manifest_data['slices'])} slices)")
+            sprint_note = (
+                f", active_sprint={active_sprint}" + (" (CLI override)" if sprint_overridden else "")
+                if active_sprint is not None else ""
+            )
+            print(f"manifest: {manifest_rel} ({len(manifest_data['slices'])} slices{sprint_note})")
         if fast_cmd:
             print(f"fast_check: {fast_cmd}")
         print(f"guards: forbid_slop={forbid_slop} protect_configs={protect_configs} revert_on_fail={revert_on_fail}")
@@ -1406,15 +2060,65 @@ def main():
             raise SystemExit(f"revert_on_fail requires a clean working tree outside {goal_rel} (found: {sample})")
 
     slop_baseline = slop_counts(scan_repo_slop(root, skip=slop_skip)) if forbid_slop else Counter()
-    code, output, stage = evaluate_gates(fields, root, protect, limits, slop_baseline=slop_baseline,
-                                         check_slop=False, slop_skip=slop_skip, manifest_data=manifest_data)
+    code, output, stage, last_manifest_summary = evaluate_gates(
+        fields, root, protect, limits, slop_baseline=slop_baseline,
+        check_slop=False, slop_skip=slop_skip, manifest_data=manifest_data,
+        active_sprint=active_sprint,
+    )
     stage_limit = limits["fast_check_minutes"] if stage == "fast_check" else limits["check_minutes"]
     timed_out = f"the {stage} ran past {stage_limit} minutes and was stopped"
     if code is None:
         print(f"{timed_out}; nothing was run")
         return 5
     if code == 0:
-        print("check already passes; nothing to do")
+        os.makedirs(log_dir, exist_ok=True)
+        ignore = os.path.join(root, ".scratch", ".gitignore")
+        if not os.path.exists(ignore):
+            with open(ignore, "w", encoding="utf-8") as handle:
+                handle.write("*\n")
+        run_id = f"{time.strftime('%Y%m%dT%H%M%S')}-{os.getpid()}"
+        summary_path = os.path.join(log_dir, f"{run_id}-summary.json")
+        deferred = last_manifest_summary.get("deferred_slices", []) if last_manifest_summary else []
+        exit_reason = "sprint_already_passed" if deferred else "already_passed"
+        payload = {
+            "run_id": run_id,
+            "goal": fields["goal"],
+            "goal_file": goal_rel,
+            "harness": harness,
+            "iterations_run": 0,
+            "active_args_history": [{
+                "iteration": 0,
+                "tier": "default",
+                "args": fields.get("harness_args", ""),
+                "reason": "initial",
+                "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            }],
+            "rate_limit_retries_used": 0,
+            "exit_code": 0,
+            "exit_reason": exit_reason,
+            "check_exit": 0,
+            "stage": stage,
+            "elapsed_seconds": 0.0,
+            "trail": trail_rel,
+        }
+        if manifest_data is not None:
+            payload["scope"] = build_scope_summary(
+                manifest_rel, manifest_data, active_sprint, last_manifest_summary, sprint_source=sprint_source
+            )
+        encoded = json.dumps(payload, indent=2) + "\n"
+        with open(summary_path, "w", encoding="utf-8") as handle:
+            handle.write(encoded)
+        tmp_latest = os.path.join(log_dir, f".{run_id}-latest-summary.tmp")
+        with open(tmp_latest, "w", encoding="utf-8") as handle:
+            handle.write(encoded)
+        os.replace(tmp_latest, latest_summary_path)
+        if deferred:
+            print(
+                f"sprint {active_sprint} check already passes; nothing to do "
+                f"(total scope incomplete; deferred: {', '.join(deferred)})"
+            )
+        else:
+            print("check already passes; nothing to do")
         return 0
 
     os.makedirs(tmp, exist_ok=True)
@@ -1429,53 +2133,207 @@ def main():
     env = {k: v for k, v in os.environ.items() if k not in API_KEY_VARS}
     env.update(TMPDIR=tmp, TMP=tmp, TEMP=tmp)
     run_id = f"{time.strftime('%Y%m%dT%H%M%S')}-{os.getpid()}"
+    run_started = time.time()
+    summary_path = os.path.join(log_dir, f"{run_id}-summary.json")
     guard = protect_digest(root, protect)
     config_guard = guardrail_state(root, own) if protect_configs else {}
+    if sprint_overridden:
+        print(f"using CLI --sprint {active_sprint} override (goal frontmatter unchanged)")
 
     last_output, unchanged = output, 0
     last_post_harness = workspace_state(root, own)
+    cooldown = float(fields.get("cooldown_seconds", RATE_LIMIT_DEFAULTS["cooldown_seconds"]))
+    max_rate_retries = int(fields.get("rate_limit_retries", RATE_LIMIT_DEFAULTS["rate_limit_retries"]))
+    base_backoff = float(fields.get("rate_limit_backoff_seconds", RATE_LIMIT_DEFAULTS["rate_limit_backoff_seconds"]))
+    active_args = fields.get("harness_args", "")
+    escalate_after = int(fields["escalate_after"]) if "escalate_after" in fields else None
+    escalate_args = fields.get("escalate_harness_args", "").strip() or None
+    fallback_args = fields.get("fallback_harness_args", "").strip() or None
+    checkpoint_every = int(fields["checkpoint_every"]) if "checkpoint_every" in fields else None
+    escalated = False
+    on_fallback = False
+    consecutive_failures = 0
+    iterations_run = 0
+    rate_limit_retries_used = 0
+    active_args_history = [{
+        "iteration": 1,
+        "tier": "default",
+        "args": active_args,
+        "reason": "initial",
+        "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+    }]
+
+    def record_switch(iteration, tier, new_args, reason):
+        ts = time.strftime("%Y-%m-%dT%H:%M:%S")
+        active_args_history.append({
+            "iteration": iteration,
+            "tier": tier,
+            "args": new_args,
+            "reason": reason,
+            "ts": ts,
+        })
+        clean_args = re.sub(r"\s+", " ", new_args).strip()
+        with open(trail, "a", encoding="utf-8") as handle:
+            handle.write(f"{ts}\t{run_id}\t{iteration}\t{harness}\t-\tswitch:{tier}({clean_args})\t0\tswitch\n")
+
+    def finish(exit_code, exit_reason):
+        payload = {
+            "run_id": run_id,
+            "goal": fields["goal"],
+            "goal_file": goal_rel,
+            "harness": harness,
+            "iterations_run": iterations_run,
+            "active_args_history": active_args_history,
+            "rate_limit_retries_used": rate_limit_retries_used,
+            "exit_code": exit_code,
+            "exit_reason": exit_reason,
+            "check_exit": "timeout" if code is None else code,
+            "stage": stage,
+            "elapsed_seconds": round(time.time() - run_started, 3),
+            "trail": trail_rel,
+        }
+        if manifest_data is not None:
+            payload["scope"] = build_scope_summary(
+                manifest_rel, manifest_data, active_sprint, last_manifest_summary, sprint_source=sprint_source
+            )
+        encoded = json.dumps(payload, indent=2) + "\n"
+        with open(summary_path, "w", encoding="utf-8") as handle:
+            handle.write(encoded)
+        tmp_latest = os.path.join(log_dir, f".{run_id}-latest-summary.tmp")
+        with open(tmp_latest, "w", encoding="utf-8") as handle:
+            handle.write(encoded)
+        os.replace(tmp_latest, latest_summary_path)
+        return exit_code
+
+    if stage == "sme_gate" or (
+        manifest_data is not None
+        and active_sme_blockers(manifest_data, partition_manifest_slices(manifest_data, active_sprint)[0])
+    ):
+        if stage != "sme_gate":
+            code, output, last_manifest_summary = evaluate_manifest(
+                manifest_data, root, protect, limits["check_minutes"], active_sprint=active_sprint
+            )
+            stage = "sme_gate"
+        print(output.rstrip())
+        return finish(6, "sme_gate_required")
+
+    def safe_parse_goal():
+        try:
+            return parse(opts.goal)
+        except (SystemExit, OSError):
+            return None
+
     for i in range(1, limit + 1):
-        cmd = harness_command(fields, harness, cost)
-        _, current_digest, plan = parse(opts.goal)
-        current_config = guardrail_state(root, own) if protect_configs else {}
-        if current_digest != digest or protect_digest(root, protect) != guard or current_config != config_guard:
-            print(f"iteration {i}: goal frontmatter or protected files changed; stopping")
-            return 4
-        prefix = os.path.join(log_dir, f"{run_id}-iteration-{i}")
-        input_check = f"{prefix}-input-check.log"
-        iteration_prompt = prompt(i, input_check, unchanged)
-        with open(f"{prefix}-prompt.txt", "x", encoding="utf-8") as snapshot:
-            snapshot.write(iteration_prompt)
-        with open(input_check, "x", encoding="utf-8") as diagnostic:
-            diagnostic.write(f"exit: {code}\n{output}")
+        if i > 1 and cooldown > 0:
+            time.sleep(cooldown)
+        rate_retry = 0
+        exec_index = 0
         before = workspace_state(root, own)
-        started = time.time()
-        with open(os.path.join(log_dir, f"{run_id}-iteration-{i}.log"), "x", encoding="utf-8", errors="replace") as log:
-            harness_exit, _ = run_limited(cmd, limits["iteration_minutes"], iteration_prompt, cwd=root, env=env, stdout=log,
-                                          stderr=subprocess.STDOUT)
-        if harness_exit is None:
-            if revert_on_fail and parse(opts.goal)[1] == digest and protect_digest(root, protect) == guard:
-                revert_failed_iteration(root, opts.goal, own, base)
-            print(f"iteration {i}: the harness ran past {limits['iteration_minutes']} minutes and was stopped. Log: "
-                  f"{os.path.relpath(log.name, root)}")
-            return 5
+        while True:
+            cmd = harness_command(fields, harness, cost, extra_args=active_args)
+            parsed_before = safe_parse_goal()
+            if parsed_before is None:
+                print(f"iteration {i}: goal frontmatter is missing or corrupted; stopping")
+                return finish(4, "tampered_frontmatter")
+            _, current_digest, plan = parsed_before
+            current_config = guardrail_state(root, own) if protect_configs else {}
+            if current_digest != digest or protect_digest(root, protect) != guard or current_config != config_guard:
+                print(f"iteration {i}: goal frontmatter or protected files changed; stopping")
+                return finish(4, "integrity_violation")
+            suffix = "" if exec_index == 0 else f"-retry-{exec_index}"
+            prefix = os.path.join(log_dir, f"{run_id}-iteration-{i}{suffix}")
+            input_check = f"{prefix}-input-check.log"
+            iteration_prompt = prompt(i, input_check, unchanged)
+            with open(f"{prefix}-prompt.txt", "x", encoding="utf-8") as snapshot:
+                snapshot.write(iteration_prompt)
+            with open(input_check, "x", encoding="utf-8") as diagnostic:
+                diagnostic.write(f"exit: {code}\n{output}")
+            started = time.time()
+            log_path = f"{prefix}.log"
+            with open(log_path, "x", encoding="utf-8", errors="replace") as log:
+                harness_exit, _ = run_limited(cmd, limits["iteration_minutes"], iteration_prompt, cwd=root, env=env,
+                                              stdout=log, stderr=subprocess.STDOUT)
+            iterations_run = i
+            if harness_exit is None:
+                parsed_timeout = safe_parse_goal()
+                if revert_on_fail and parsed_timeout is not None and parsed_timeout[1] == digest and protect_digest(root, protect) == guard:
+                    revert_failed_iteration(root, opts.goal, own, base)
+                print(f"iteration {i}: the harness ran past {limits['iteration_minutes']} minutes and was stopped. Log: "
+                      f"{os.path.relpath(log_path, root)}")
+                return finish(5, "harness_timeout")
+            parsed_after = safe_parse_goal()
+            if parsed_after is None or parsed_after[1] != digest:
+                print(f"iteration {i}: the agent changed the goal's frontmatter; stopping")
+                return finish(4, "tampered_frontmatter")
+            current = protect_digest(root, protect)
+            if current != guard:
+                print(f"iteration {i}: the agent changed protected files ({', '.join(changed_keys(guard, current)[:5])}); stopping")
+                return finish(4, "tampered_protected")
+            current_config = guardrail_state(root, own) if protect_configs else {}
+            if current_config != config_guard:
+                changed = ", ".join(changed_keys(config_guard, current_config)[:5])
+                print(f"iteration {i}: the agent changed or created guardrail configs ({changed}); stopping")
+                return finish(4, "tampered_configs")
+            if harness_exit != 0:
+                failure_kind, retry_after = classify_harness_failure(log_path)
+                if failure_kind == "quota":
+                    with open(trail, "a", encoding="utf-8") as handle:
+                        handle.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')}\t{run_id}\t{i}\t{harness}\t{harness_exit}\t"
+                                     f"quota\t{time.time() - started:.0f}\tquota\n")
+                    if fallback_args and not on_fallback:
+                        active_args = fallback_args
+                        on_fallback = True
+                        rate_retry = 0
+                        exec_index += 1
+                        record_switch(i, "fallback", active_args, "quota")
+                        print(f"iteration {i}: subscription or API quota exhausted; switching to fallback_harness_args "
+                              f"({active_args}) and continuing")
+                        continue
+                    if revert_on_fail:
+                        revert_failed_iteration(root, opts.goal, own, base)
+                    print(f"iteration {i}: subscription or API quota exhausted; stopping (switch model family or wait for reset). Log: "
+                          f"{os.path.relpath(log_path, root)}")
+                    return finish(5, "quota_exhausted")
+                if failure_kind == "rate_limit":
+                    if rate_retry < max_rate_retries:
+                        delay = min(3600.0, max(retry_after or 0.0, base_backoff * (2 ** rate_retry)))
+                        with open(trail, "a", encoding="utf-8") as handle:
+                            handle.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')}\t{run_id}\t{i}\t{harness}\t{harness_exit}\t"
+                                         f"rate_limited\t{time.time() - started:.0f}\trate_limit\n")
+                        print(f"iteration {i}: transient rate limit; backing off {delay:.1f}s (retry {rate_retry + 1}/{max_rate_retries})")
+                        time.sleep(delay)
+                        rate_retry += 1
+                        rate_limit_retries_used += 1
+                        exec_index += 1
+                        continue
+                    if fallback_args and not on_fallback:
+                        with open(trail, "a", encoding="utf-8") as handle:
+                            handle.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')}\t{run_id}\t{i}\t{harness}\t{harness_exit}\t"
+                                         f"rate_limited\t{time.time() - started:.0f}\trate_limit\n")
+                        active_args = fallback_args
+                        on_fallback = True
+                        rate_retry = 0
+                        exec_index += 1
+                        record_switch(i, "fallback", active_args, "rate_limit")
+                        print(f"iteration {i}: rate limit persisted after {max_rate_retries} retries; switching to "
+                              f"fallback_harness_args ({active_args}) and continuing")
+                        continue
+                    if revert_on_fail:
+                        revert_failed_iteration(root, opts.goal, own, base)
+                    print(f"iteration {i}: rate limit persisted after {max_rate_retries} retries; stopping. Log: "
+                          f"{os.path.relpath(log_path, root)}")
+                    return finish(5, "rate_limit_exhausted")
+            break
         post_harness = workspace_state(root, own)
         progressed = post_harness != before and post_harness != last_post_harness
         last_post_harness = post_harness
-        if parse(opts.goal)[1] != digest:
-            print(f"iteration {i}: the agent changed the goal's frontmatter; stopping")
-            return 4
-        current = protect_digest(root, protect)
-        if current != guard:
-            print(f"iteration {i}: the agent changed protected files ({', '.join(changed_keys(guard, current)[:5])}); stopping")
-            return 4
-        current_config = guardrail_state(root, own) if protect_configs else {}
-        if current_config != config_guard:
-            changed = ", ".join(changed_keys(config_guard, current_config)[:5])
-            print(f"iteration {i}: the agent changed or created guardrail configs ({changed}); stopping")
-            return 4
-        code, output, stage = evaluate_gates(fields, root, protect, limits, slop_baseline=slop_baseline,
-                                             check_slop=forbid_slop, slop_skip=slop_skip, manifest_data=manifest_data)
+        code, output, stage, iter_manifest_summary = evaluate_gates(
+            fields, root, protect, limits, slop_baseline=slop_baseline,
+            check_slop=forbid_slop, slop_skip=slop_skip, manifest_data=manifest_data,
+            active_sprint=active_sprint,
+        )
+        if iter_manifest_summary is not None:
+            last_manifest_summary = iter_manifest_summary
         stage_limit = limits["fast_check_minutes"] if stage == "fast_check" else limits["check_minutes"]
         timed_out = f"the {stage} ran past {stage_limit} minutes and was stopped"
         with open(f"{prefix}-check.log", "x", encoding="utf-8") as diagnostic:
@@ -1485,8 +2343,15 @@ def main():
                          f"{'timeout' if code is None else code}\t{time.time() - started:.0f}\t{stage}\n")
         print(f"iteration {i}: harness exit {harness_exit}, check exit {'timeout' if code is None else code} ({stage})")
         if code == 0:
-            print("goal met")
-            return 0
+            deferred = last_manifest_summary.get("deferred_slices", []) if last_manifest_summary else []
+            if deferred:
+                print(
+                    f"goal met for sprint {active_sprint} "
+                    f"(total scope incomplete: {len(deferred)} deferred slice(s) remain: {', '.join(deferred)})"
+                )
+            else:
+                print("goal met")
+            return finish(0, "goal_met")
         if revert_on_fail:
             revert_failed_iteration(root, opts.goal, own, base)
             output = output + ("\n" if output and not output.endswith("\n") else "") + (
@@ -1494,18 +2359,35 @@ def main():
             )
         if code is None:
             print(f"{timed_out}; stopping")
-            return 5
+            return finish(5, "check_timeout")
         if harness_exit != 0:
             print(f"harness exited {harness_exit} (a cost cap, auth, or terminal failure); stopping. Log: "
-                  f"{os.path.relpath(log.name, root)}")
-            return 5
+                  f"{os.path.relpath(log_path, root)}")
+            return finish(5, "harness_failure")
         unchanged = 0 if progressed or output != last_output else unchanged + 1
         last_output = output
+        consecutive_failures += 1
+        if checkpoint_every and i % checkpoint_every == 0:
+            if unchanged >= stall_after:
+                print(f"neither the check output nor the working tree changed for {unchanged} iterations; stopping as stalled")
+                return finish(3, "stalled")
+            print(f"checkpoint reached after {i} iterations (check exit {code}); "
+                  f"inspect {trail_rel} and {latest_summary_rel}, then re-run to resume")
+            return finish(6, "checkpoint")
+        if (not escalated and not on_fallback and escalate_after is not None
+                and consecutive_failures >= escalate_after and i < limit):
+            active_args = escalate_args
+            escalated = True
+            unchanged = 0
+            record_switch(i + 1, "escalated", active_args, "escalate_after")
+            print(f"iteration {i}: {consecutive_failures} consecutive failed iterations on default args; "
+                  f"escalating to escalate_harness_args ({active_args}) for iteration {i + 1}")
+            continue
         if unchanged >= stall_after:
             print(f"neither the check output nor the working tree changed for {unchanged} iterations; stopping as stalled")
-            return 3
+            return finish(3, "stalled")
     print(f"iteration cap {limit} reached; goal not met")
-    return 2
+    return finish(2, "iteration_cap")
 
 
 if __name__ == "__main__":

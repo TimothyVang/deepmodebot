@@ -37,6 +37,7 @@ function checkedOutBranch(cwd: string): string | undefined {
 		const out = execFileSync("git", ["symbolic-ref", "--short", "-q", "HEAD"], {
 			cwd,
 			encoding: "utf8",
+			timeout: 5_000,
 			stdio: ["ignore", "pipe", "ignore"],
 			windowsHide: true,
 		});
@@ -46,36 +47,76 @@ function checkedOutBranch(cwd: string): string | undefined {
 	}
 }
 
+function unquote(token: string): string {
+	if (token.length >= 2 && ((token.startsWith('"') && token.endsWith('"')) || (token.startsWith("'") && token.endsWith("'")))) {
+		return token.slice(1, -1);
+	}
+	return token;
+}
+
+function resolveEffectiveCwd(line: string, matchStart: number, matchText: string, baseCwd: string): string {
+	let cwd = resolve(baseCwd || process.cwd());
+	const before = line.slice(0, matchStart);
+	const cdRe = /(?:^|[;&|(\s])cd +(?:-L|-P +)*("[^"]*"|'[^']*'|[^ ;&|)]+)/g;
+	let cdMatch: RegExpExecArray | null;
+	while ((cdMatch = cdRe.exec(before)) !== null) {
+		const target = unquote(cdMatch[1]);
+		if (target && target !== "-") cwd = resolve(cwd, target);
+	}
+	const gitCRe = /\bgit\b(?: +[^ ;&|]+)*? +-C +("[^"]*"|'[^']*'|[^ ;&|]+)/g;
+	let cMatch: RegExpExecArray | null;
+	while ((cMatch = gitCRe.exec(matchText)) !== null) {
+		const target = unquote(cMatch[1]);
+		if (target) cwd = resolve(cwd, target);
+	}
+	return cwd;
+}
+
 const watched: Record<string, string> = { bash: "command", eval: "code" };
 
 export default function gitGuard(pi: {
-	on(event: "tool_call", handler: (event: { toolName: string; input: Record<string, unknown> }) => unknown): void;
+	on(
+		event: "tool_call",
+		handler: (event: { toolName: string; input?: Record<string, unknown> }, ctx?: { cwd?: string }) => unknown,
+	): void;
 }): void {
-	pi.on("tool_call", event => {
+	pi.on("tool_call", (event, ctx) => {
 		const field = watched[event.toolName];
 		if (!field) return;
 		const rules = loadRules();
 		if (!rules) return { block: true, reason: `git guard: cannot read ${patternFile}; blocking until it is restored.` };
+		const inputCwd = typeof event.input?.cwd === "string" && event.input.cwd.trim() ? event.input.cwd.trim() : "";
+		const baseCwd = inputCwd || ctx?.cwd || process.cwd();
 		// One line at a time, as grep does in git-guard.sh: arguments must not run on into the next command.
-		// A backslash-newline continues the command on the next line.
+		// A backslash-newline continues the command on the next line; tabs normalize to spaces so patterns stay portable.
 		const lines = String(event.input?.[field] ?? "")
 			.replace(/\\\r?\n/g, " ")
+			.replace(/\t/g, " ")
 			.split(/\r?\n/);
-		let branch: string | null | undefined = null;
+		const branchCache = new Map<string, string | undefined>();
 		for (const rule of rules) {
-			const hit = lines.map(line => rule.command.exec(line)).find(match => match !== null);
-			if (!hit) continue;
-			if (rule.branch) {
-				if (branch === null) branch = checkedOutBranch(resolve(String(event.input?.cwd ?? "")));
-				if (!branch || !rule.branch.test(branch)) continue;
+			for (const line of lines) {
+				const hit = rule.command.exec(line);
+				if (!hit) continue;
+				if (rule.branch) {
+					const targetCwd = resolveEffectiveCwd(line, hit.index, hit[0], baseCwd);
+					let branch: string | undefined;
+					if (branchCache.has(targetCwd)) {
+						branch = branchCache.get(targetCwd);
+					} else {
+						branch = checkedOutBranch(targetCwd);
+						branchCache.set(targetCwd, branch);
+					}
+					if (!branch || !rule.branch.test(branch)) continue;
+				}
+				return {
+					block: true,
+					reason:
+						`Blocked by the git guard: "${hit[0]}" can destroy work or rewrite shared history. ` +
+						"Use a safe form instead (git stash, a new branch, git push --force-with-lease to your own feature branch, " +
+						"a PR for the default branch), or ask the user to run it themselves.",
+				};
 			}
-			return {
-				block: true,
-				reason:
-					`Blocked by the git guard: "${hit[0]}" can destroy work or rewrite shared history. ` +
-					"Use a safe form instead (git stash, a new branch, git push --force-with-lease to your own feature branch, " +
-					"a PR for the default branch), or ask the user to run it themselves.",
-			};
 		}
 	});
 }

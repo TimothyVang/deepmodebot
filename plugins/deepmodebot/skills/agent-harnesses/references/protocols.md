@@ -2,7 +2,7 @@
 
 Read when you must expose a capability to agents, plug an agent into an editor or orchestrator, delegate to a remote agent, add agent-callable actions to a web page, or judge whether a tool server is safe to use. Covers wire facts, config shapes, testing, and security rules.
 
-Checked 2026-11-11 against: MCP spec `2026-07-28` (latest), ACP v1 stable + v2 Draft, A2A `1.0.0`, WebMCP Draft CG Report 11 Nov 2026, local `omp` 18.18.9, `codex-cli` 0.163.0, Claude Code 2.1.322.
+Checked 2026-11-11 against: MCP spec `2026-07-28` (latest), ACP v1 stable + v2 Draft, A2A `1.0.0`, WebMCP Draft CG Report 11 Nov 2026, local `omp` 18.18.9, `codex-cli` 0.163.0, Claude Code 2.1.322, and 2026-11-13 against Google Antigravity docs (`antigravity.google/docs`).
 
 ## Overview
 
@@ -72,6 +72,7 @@ Common shape: `{"mcpServers": {"name": {"command": "npx", "args": [...], "env": 
 | omp | project `.omp/mcp.json`, user `~/.omp/agent/mcp.json`; also reads `.claude`, `.codex`, `.cursor`, `.vscode`, root `mcp.json`/`.mcp.json` (omp 18.18.9 docs, omp://mcp-config.md) | `/mcp add` in session |
 | Claude Code | project `.mcp.json` (needs approval per project), `--mcp-config`, `--strict-mcp-config` (claude 2.1.322 --help) | `claude mcp add [--transport http] <name> <cmdOrUrl>`; `claude mcp serve` exposes Claude Code as a server (claude 2.1.322 --help) |
 | Codex | `~/.codex/config.toml` `[mcp_servers.<name>]`, project `.codex/config.toml` (omp://mcp-config.md; codex 0.163.0 --help) | `codex mcp add <name> -- <cmd>` or `--url <url>`; `codex mcp list/get/login` (codex-cli 0.163.0 --help) |
+| Antigravity (`agy`/App/IDE) | `.agents/mcp_config.json`, `~/.gemini/config/mcp_config.json`, plugin `mcp_config.json` (`mcpServers`; stdio or Streamable HTTP only) ([mcp](https://antigravity.google/docs/mcp)) | `/mcp` interactive manager; plugin servers namespaced `<plugin>_<server>` |
 
 ### Security rules
 - Tool descriptions, annotations, and outputs are untrusted input. Clients MUST treat annotations as untrusted unless the server is trusted ([tools](https://modelcontextprotocol.io/specification/2026-07-28/server/tools.md)).
@@ -119,9 +120,10 @@ Source: [v1 schema](https://agentclientprotocol.com/protocol/v1/schema.md). `fs/
 - Agents, native: Gemini CLI, GitHub Copilot CLI, Cursor, Goose, OpenCode, Qwen Code, Kiro, Junie, Cline, Mistral Vibe, others ([agents](https://agentclientprotocol.com/get-started/agents.md)).
 - Claude: via adapter [claude-agent-acp](https://github.com/agentclientprotocol/claude-agent-acp). Codex: via adapter [codex-acp](https://github.com/agentclientprotocol/codex-acp) ([registry](https://agentclientprotocol.com/get-started/registry.md)). Neither CLI shows a native `acp` subcommand (claude 2.1.322 --help; codex-cli 0.163.0 --help).
 - omp: native, `omp acp` runs omp as an ACP server over stdio (omp 18.18.9 --help).
+- Antigravity: native, `agy acp` (`agy acp --login`) runs an ACP server over stdio JSON-RPC ([Antigravity ACP](https://antigravity.google/docs/cli/acp)).
 
 ### Run an agent under ACP for testing
-- Point the client's agent command at `omp acp`, `npx @agentclientprotocol/claude-agent-acp`, or the codex adapter [unverified: adapter npm package names; check each repo README].
+- Point the client's agent command at `omp acp`, `agy acp`, `npx @agentclientprotocol/claude-agent-acp`, or `npx @agentclientprotocol/codex-acp` (adapter npm packages from [claude-agent-acp](https://github.com/agentclientprotocol/claude-agent-acp) and [codex-acp](https://github.com/agentclientprotocol/codex-acp)).
 - Hand-drive: spawn the agent, write one JSON line `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1,"clientCapabilities":{}}}`, then `session/new` with absolute `cwd` and `mcpServers: []`, then `session/prompt` [inference from v1 schema].
 
 ## A2A (Agent2Agent)

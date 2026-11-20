@@ -1,6 +1,6 @@
 # Keeping agents from leaking or exfiltrating credentials: free tools, controls, incidents (as of 2026-11-11)
 
-**Summary.** Layer three free controls: (1) a secret scanner at commit and in CI (gitleaks MIT, or TruffleHog AGPL for verified hits) plus GitHub push protection, which is free for public repos only; (2) agent-side read and env scrubbing (Claude Code `Read(...)` deny rules + `sandbox.credentials` + `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1`; Codex `shell_environment_policy` with `ignore_default_excludes = false`); (3) default-deny egress (Claude/Codex sandboxes, devcontainer firewall, E2B/Daytona network lists).
+**Summary.** Layer three free controls: (1) a secret scanner at commit and in CI (gitleaks MIT, or TruffleHog AGPL for verified hits) plus GitHub push protection, which is free for public repos only; (2) agent-side read and env scrubbing (Claude Code `Read(...)` deny rules + `sandbox.credentials` + `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1`; Codex `shell_environment_policy` with `ignore_default_excludes = false`; Antigravity `--sandbox` + `Deny > Ask > Allow` rules); (3) default-deny egress (Claude/Codex/Antigravity sandboxes, devcontainer firewall, E2B/Daytona network lists).
 Assume prompt injection will happen: 2025-2026 incidents (GitHub MCP, Supabase MCP, s1ngularity, Shai-Hulud, Miasma, Deadbugz) all turned an agent's own reach into the exfil path.
 When a secret leaks, revoke it before anything else. Rewriting history does not reach forks, other clones, or cached views. Short-lived OIDC credentials limit how much a leak can do.
 
@@ -11,7 +11,7 @@ Legend: `[unverified]` = not confirmed in a primary source; `[inference]` = my d
 | Tool | What it does | Free terms / license | Latest release | Agent-relevant notes | Source |
 |---|---|---|---|---|---|
 | gitleaks | Regex+entropy scan of git history, dirs, stdin | MIT, fully free CLI | v8.30.1, 2026-03-21 (commits to 2026-10) | Official pre-commit hook runs `gitleaks git --pre-commit --redact --staged --verbose`; `--redact` keeps secrets out of agent-visible logs | [repo](https://github.com/gitleaks/gitleaks), [hooks](https://github.com/gitleaks/gitleaks/blob/master/.pre-commit-hooks.yaml) |
-| gitleaks-action | GitHub Action wrapper | Free license key required for org-owned repos, not personal; GitHub reports license NOASSERTION (not a standard OSS license) | v3.0.0, 2026-05-30 (Node 24) | v2 stops working after Node 20 removal on 2026-09-16; use `@v3` | [repo](https://github.com/gitleaks/gitleaks-action) |
+| gitleaks-action | GitHub Action wrapper | Free license key required for org-owned repos, not personal; GitHub reports license NOASSERTION (not a standard OSS license) | v3.0.0, 2026-05-30 (Node 24) | v2 stops working after Node 20 removal on 2026-09-16; pin v3 by full 40-char commit SHA (`@<sha> # v3.0.0`) | [repo](https://github.com/gitleaks/gitleaks-action) |
 | Betterleaks | New scanner from the gitleaks maintainers incl. original author; Aikido-sponsored | MIT | v1.10.0, 2026-11-04 (repo created 2026-02-03) | Validation is opt-in (`-v`), optional revocation; scans GitHub/GitLab issues, PRs, HF, S3, containers; `main` is v2 pre-release | [repo](https://github.com/betterleaks/betterleaks) |
 | TruffleHog OSS | 800+ detectors, live verification against provider APIs | AGPL-3.0 (copyleft; fine to run, obligations if you modify and offer as a service) | v3.99.8, 2026-11-02 | `--results=verified` cuts noise; hook: `trufflehog git file://. --since-commit HEAD --results=verified --fail`; verification makes outbound calls with the found secret [inference] | [repo](https://github.com/trufflesecurity/trufflehog), [hooks](https://github.com/trufflesecurity/trufflehog/blob/main/.pre-commit-hooks.yaml) |
 | ggshield (GitGuardian) | CLI and hooks backed by GitGuardian SaaS | Client MIT; Starter plan free: up to 25 devs, unlimited real-time scanning, up to 500 historical scan detections, 10K API calls/month | v1.56.1, 2026-10-26 | Needs a GitGuardian API key, so content is scanned by their API [inference]; not offline | [repo](https://github.com/GitGuardian/ggshield), [pricing](https://www.gitguardian.com/pricing) |
@@ -44,6 +44,8 @@ repos:
 | Codex sandbox | OS sandbox; `workspace-write` with network **off** by default | Codex CLI Apache-2.0 | rust-v0.167.1, 2026-11-10 | Enable network only via `[sandbox_workspace_write] network_access = true`, then constrain with `features.network_proxy` domain rules | [security](https://developers.openai.com/codex/agent-approvals-security), [repo](https://github.com/openai/codex) |
 | Codex `shell_environment_policy` | Controls env vars passed to spawned commands | Built in | 2026 docs | **`ignore_default_excludes` defaults to `true`, so vars containing KEY/SECRET/TOKEN ARE passed unless you set it to `false`** | [advanced config](https://developers.openai.com/codex/config-file/config-advanced), [reference](https://developers.openai.com/codex/config-reference) |
 | Claude Code PreToolUse hooks | Script returns `permissionDecision: "deny"` before a tool runs | Built in | 2026 docs | String matching is defense in depth only; hooks run outside the sandbox with your full access | [hooks](https://code.claude.com/docs/en/hooks) |
+| Antigravity OS sandbox & `Deny > Ask > Allow` | Linux namespaces / macOS Seatbelt / Win11 24H2+ AppContainer + fine-grained `read_file`/`command`/`mcp` rules | Built in (`agy`/App/IDE) | 2026 docs | Blocks `~/.ssh`, `.env`, and network except `read_url(...)`; no-op on unsupported hosts (`v1.4.4+`); `Deny` beats `Ask`/`Allow`; unconfigured MCP tools default to `Ask` | [sandbox](https://antigravity.google/docs/sandbox), [permissions](https://antigravity.google/docs/permissions) |
+| Antigravity `PreToolUse` hooks | `.agents/hooks.json`, `~/.gemini/config/hooks.json`, or plugin `hooks.json` returns `{"decision":"deny"}` | Built in | 2026 docs | Must exit `0` with valid JSON; any non-zero exit fails open. Prefer `node ./scripts/<name>.mjs` for Windows + Unix portability | [hooks](https://antigravity.google/docs/hooks) |
 | Snyk Agent Scan (ex mcp-scan) | Scans MCP configs, tools, skills for poisoning | Apache-2.0 client; requires Snyk account/API token | v0.6.11, 2026-11-06 | Sends tool names, descriptions, MCP configs to Snyk API (secrets redacted first), so not offline | [repo](https://github.com/invariantlabs-ai/mcp-scan) |
 
 Claude Code baseline (user settings `~/.claude/settings.json`, so a repo cannot weaken it):
@@ -95,9 +97,13 @@ if [ "$(jq -r .tool_name <<<"$in")" = Grep ]; then
 fi
 exit 0
 ```
-The hook sees only the tool call, so a Bash `grep -r .` or a script that opens files still reaches secrets; the baseline's sandbox `filesystem.denyRead` globs close that path.
+The hook sees only the tool call, so a Bash `grep -r .` or a script that opens files still reaches secrets; the baseline's sandbox `filesystem.denyRead` globs close that path. On Windows, run cross-platform hooks with `node` (as Antigravity's plugin hooks do) or Python (`py -3 -B`) rather than bash/`jq`/`find`.
 
-MCP rules from the official [security best practices](https://modelcontextprotocol.io/docs/draft/tutorials/security/security_best_practices) (draft-track page) and [spec](https://modelcontextprotocol.io/specification/2025-11-25):
+Antigravity baseline (`~/.gemini/antigravity-cli/settings.json`, following [sandbox](https://antigravity.google/docs/sandbox) and [permissions](https://antigravity.google/docs/permissions)):
+- Set `"enableTerminalSandbox": true`, `"allowNonWorkspaceAccess": false`, and `"toolPermission": "proceed-in-sandbox"`.
+- Add `Deny` rules (`Deny > Ask > Allow`) for `read_file(.env)`, `read_file(.env.*)`, `read_file(~/.ssh/**)`, `read_file(~/.aws/**)`, and keep `mcp(...)` tools on `Ask` unless explicitly allowed. Note Windows rules strip drive letters (`C:`) and normalize `\` to `/`.
+
+MCP rules from the official [security best practices](https://modelcontextprotocol.io/specification/2026-07-28/basic/security_best_practices) and [spec `2026-07-28`](https://modelcontextprotocol.io/specification/2026-07-28):
 - **Token passthrough is forbidden:** servers MUST NOT accept tokens not issued for them, and forwarding a client token downstream creates a confused deputy and breaks audit trails.
 - **Confused deputy:** OAuth proxy servers with a static client ID MUST do per-client consent, exact `redirect_uri` matching, and single-use `state`.
 - **Local server compromise:** clients MUST show the full startup command before one-click install and SHOULD sandbox servers with minimal filesystem and network access. Local servers should prefer stdio or an authenticated transport.
@@ -144,7 +150,7 @@ Rules:
 
 1. **Revoke or rotate first.** GitHub says this is step one and often sufficient. GitHub Support helps purge data only when rotation cannot mitigate the risk ([GitHub](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository)).
 2. **Check for use:** provider audit logs; GitHub security log `action:repo.create` for exfil repos; IOCs such as `/tmp/inventory.txt` for s1ngularity ([GHSA](https://github.com/advisories/GHSA-cxm3-wv7p-598c)). Also rotate everything that was in env vars or shell history on the host ([StepSecurity](https://www.stepsecurity.io/blog/miasma-worm-hits-microsoft-again-azure-functions-action-and-72-other-repositories-disabled-after-supply-chain-attack-targeting-ai-coding-agents)).
-3. **Hunt persistence:** shell rc files (s1ngularity appended `sudo shutdown -h 0`, per [Nx](https://nx.dev/blog/s1ngularity-postmortem)), `.claude/`, `.gemini/`, `.cursor/rules/`, `.vscode/tasks.json`, `.mcp.json`.
+3. **Hunt persistence:** shell rc files (s1ngularity appended `sudo shutdown -h 0`, per [Nx](https://nx.dev/blog/s1ngularity-postmortem)), `.claude/`, `.gemini/`, `.agents/`, `.antigravity-plugin/`, `.cursor/rules/`, `.vscode/tasks.json`, `.mcp.json`, and `mcp_config.json`.
 4. **Rewrite only if needed:** `git-filter-repo --sensitive-data-removal --invert-paths --path FILE` (needs v2.47 or later). Limits: commits stay reachable in forks, in other clones, via SHA in cached views, and through PRs until Support dereferences them. Rewriting also drops commit signatures ([GitHub](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository)).
 5. Tool freshness: git-filter-repo's last release is v2.47.0 (2024-12-04, older than 12 months), but commits continue (2026-07) and GitHub reports license NOASSERTION ([repo](https://github.com/newren/git-filter-repo)). BFG is GPL-3.0 with its last release on 2025-01-18 and no commits since, so treat it as **unmaintained** ([repo](https://github.com/rtyley/bfg-repo-cleaner)).
 6. **Shrink blast radius next time:** GitHub Actions OIDC replaces long-lived cloud secrets with short-lived tokens ([GitHub](https://docs.github.com/en/actions/concepts/security/openid-connect)). npm trusted publishing removes `NPM_TOKEN` from CI ([npm](https://docs.npmjs.com/trusted-publishers)). Audit OIDC trust policies too, because a stale trust was the Mini Shai-Hulud entry point ([OWASP Q3 2026](https://genai.owasp.org/2026/10/08/genai-and-agentic-ai-exploit-roundup-q3-2026/)).
@@ -163,10 +169,16 @@ gitleaks git --redact --log-opts="origin/HEAD..HEAD" .
 # 5. Optional: verified-only check (makes outbound calls to providers)
 trufflehog git file://. --since-commit HEAD --results=verified --fail
 # 6. Agent and editor config changes need human review (Miasma vector)
-git diff --cached --name-only | grep -E '^\.(claude|gemini|cursor|codex|vscode)/|(^|/)\.mcp\.json$|AGENTS\.md$|CLAUDE\.md$'
+git diff --cached --name-only | grep -E '^\.(claude|gemini|agents|antigravity-plugin|cursor|codex|vscode)/|(^|/)(\.mcp|mcp_config|hooks)\.json$|AGENTS\.md$|CLAUDE\.md$'
+```
+PowerShell equivalents for steps 1, 6, and env presence:
+```powershell
+git diff --cached --name-only | Select-String -Pattern '(^|/)\.env($|\.)|\.pem$|\.key$|\.p12$|id_(rsa|ed25519)|credentials' | Where-Object { $_ -notmatch '\.env\.(example|sample|template)$' }
+git diff --cached --name-only | Select-String -Pattern '^\.(claude|gemini|agents|antigravity-plugin|cursor|codex|vscode)/|(^|/)(\.mcp|mcp_config|hooks)\.json$|AGENTS\.md$|CLAUDE\.md$'
+Test-Path Env:VAR   # returns True/False without printing the secret value
 ```
 - Never pass `--no-verify`, `SKIP=gitleaks`, or a push-protection bypass to get past a finding. Stop and report to the human instead.
-- Never print, echo, or `cat` a secret to verify it. Check that it is set instead (`[ -n "$VAR" ]`).
+- Never print, echo, or `cat` a secret to verify it. Check that it is set instead (`[ -n "$VAR" ]` in bash; `Test-Path Env:VAR` in PowerShell).
 - If a scan hits, unstage the file, move the value to the secret store or `.env`, and tell the human to rotate it if it was ever committed or pushed.
 
 ## Threats and failure modes
@@ -178,16 +190,17 @@ git diff --cached --name-only | grep -E '^\.(claude|gemini|cursor|codex|vscode)/
 - **Env inheritance:** Claude's sandbox inherits env vars, and Codex passes `*TOKEN*` vars unless `ignore_default_excludes = false` ([Claude](https://code.claude.com/docs/en/sandboxing), [Codex](https://developers.openai.com/codex/config-file/config-advanced)).
 - **Partial coverage:** `Read` deny misses scripts that open files themselves. The sandbox misses file tools, hooks, and MCP servers, and is absent on native Windows ([permissions](https://code.claude.com/docs/en/permissions), [sandboxing](https://code.claude.com/docs/en/sandboxing)).
 - **Over-broad allowlists and escape hatches:** `github.com` in an allowlist, unsandboxed retries, `bypassPermissions` mode, `allowUnixSockets` for `docker.sock` ([sandboxing](https://code.claude.com/docs/en/sandboxing)).
-- **Over-privileged tokens:** `service_role`, org-wide PATs, and broad MCP scopes turn one injection into full access ([MCP scope minimization](https://modelcontextprotocol.io/docs/draft/tutorials/security/security_best_practices), [OWASP ASI03](https://genai.owasp.org/download/52117)).
+- **Over-privileged tokens:** `service_role`, org-wide PATs, and broad MCP scopes turn one injection into full access ([MCP scope minimization](https://modelcontextprotocol.io/specification/2026-07-28/basic/security_best_practices), [OWASP ASI03](https://genai.owasp.org/download/52117)).
 - **Scanner-side leaks:** verification and SaaS scanners send candidate secrets off-box ([inference] from [TruffleHog](https://github.com/trufflesecurity/trufflehog) verification and [Snyk Agent Scan](https://github.com/invariantlabs-ai/mcp-scan) data-sharing notes); unredacted findings land in transcripts.
 - **False comfort from a history rewrite:** forks, clones, and cached SHAs keep the secret ([GitHub](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository)).
 
 ## Recommendation for a solo dev / small team, all free
 
-1. Add `pre-commit` + gitleaks (MIT) locally, and gitleaks CLI or `gitleaks-action@v3` in CI (the action needs a free key for org repos). Make repos public only if you also want GitHub's free scanning and push protection; private-repo push protection costs $19/committer/month.
+1. Add `pre-commit` + gitleaks (MIT) locally, and gitleaks CLI or `gitleaks-action@<commit-sha> # v3` (pinned to a full 40-char commit SHA) in CI (the action needs a free key for org repos). Make repos public only if you also want GitHub's free scanning and push protection; private-repo push protection costs $19/committer/month.
 2. In user-level Claude Code settings: `Read` deny rules for `.env*`, keys, and cloud creds; `sandbox.enabled` with `allowUnsandboxedCommands: false`, `failIfUnavailable: true`, a strict registry-only allowlist, and `sandbox.credentials` deny entries; export `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1`. On Windows, run agents in WSL2 so the sandbox works.
 3. In Codex: keep `workspace-write` with network off, and set `shell_environment_policy` with `inherit = "core"` and `ignore_default_excludes = false`.
-4. For unattended or `--dangerously-skip-permissions` runs, use the reference devcontainer with `init-firewall.sh`, or E2B Hobby with `allowInternetAccess: false`. Never mount `~/.ssh` or cloud credential files.
-5. Give agents task-scoped tokens: fine-grained per-repo GitHub tokens, read-only DB roles (never `service_role`), and OIDC plus npm trusted publishing in CI so long-lived publish tokens do not exist.
-6. Review every diff touching `.claude/`, `.gemini/`, `.cursor/`, `.vscode/tasks.json`, or `.mcp.json`. Add MCP servers like dependencies: pin versions, read tool descriptions, and re-approve when they change.
-7. On any leak: rotate first, check logs, hunt persistence, then optionally run `git-filter-repo --sensitive-data-removal`.
+4. In Antigravity (`agy`): enable `--sandbox` / `enableTerminalSandbox: true`, keep `allowNonWorkspaceAccess: false`, add `Deny` rules for `.env*`/`~/.ssh/**`/`~/.aws/**`, and use `variables` instead of literal keys in `mcp_config.json`.
+5. For unattended or `--dangerously-skip-permissions` runs, use the reference devcontainer with `init-firewall.sh`, or E2B Hobby with `allowInternetAccess: false`. Never mount `~/.ssh` or cloud credential files.
+6. Give agents task-scoped tokens: fine-grained per-repo GitHub tokens, read-only DB roles (never `service_role`), and OIDC plus npm trusted publishing in CI so long-lived publish tokens do not exist.
+7. Review every diff touching `.claude/`, `.gemini/`, `.agents/`, `.antigravity-plugin/`, `.cursor/`, `.vscode/tasks.json`, `.mcp.json`, or `mcp_config.json`. Add MCP servers like dependencies: pin versions, read tool descriptions, and re-approve when they change.
+8. On any leak: rotate first, check logs, hunt persistence, then optionally run `git-filter-repo --sensitive-data-removal`.

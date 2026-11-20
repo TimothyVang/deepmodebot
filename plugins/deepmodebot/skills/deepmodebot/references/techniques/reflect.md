@@ -2,8 +2,8 @@
 
 **Use when:** user says "reflect". Skip for trivial or off-topic conversations or ones an existing skill already covered correctly. One-offs are not learnings.
 
-1. Locate this conversation's transcript (`history://` / `archive` for the current session only; never other projects). None usable → pass a tight digest. Done when you hold a transcript reference or a digest.
-2. Spawn three reviewers in one `task` batch as default `task` agents (not `reviewer`: they must read the transcript via `history://` and look up referenced tickets, threads, traces), each given the transcript and one lens:
+1. Locate this conversation's transcript (`history://` / `archive` in omp; the current conversation's saved `transcript.jsonl` / session log in Antigravity, Claude Code, or Codex; never other projects). None usable → pass a tight digest. Done when you hold a transcript reference or a digest.
+2. Spawn three reviewers in one `task` batch as default `task` agents (not `reviewer`: they must read the transcript via `history://` in omp or the saved transcript path/digest elsewhere and look up referenced tickets, threads, traces), each given the transcript and one lens:
    - **Judgment.** The durable principle behind a specific incident: mistakes and corrections received, user preferences and workflow patterns, codebase knowledge gained.
    - **Tooling.** The concrete tool, command, path, or flag fact future agents would re-derive. Plus agent self-sufficiency: every time the user hand-supplied context (ticket ID, thread URL, trace, "this is from PR #X") the agent could have fetched, routed to the skill that should fetch it next time. Use a different model family than yours here, when one is available.
    - **Divergent.** Blind spots the others miss: second-order effects, what should have happened but didn't, decisions that worked for the wrong reasons or by luck, paths not taken. The contrarian learning beneath the obvious one.

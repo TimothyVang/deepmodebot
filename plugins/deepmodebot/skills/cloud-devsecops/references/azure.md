@@ -173,7 +173,7 @@ jobs:
   deploy:
     environment: Production   # sub => repo:ORG/REPO:environment:Production
     steps:
-      - uses: azure/login@v3
+      - uses: azure/login@<commit-sha>  # pin full 40-char SHA (v3)
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -251,7 +251,7 @@ Azure Pipelines service connections: use app registration or managed identity **
 - Org policy on an intermediate root MG; `deny` as `DoNotEnforce` first; remediation tasks for DINE/Modify.
 - New vaults: RBAC, purge protection, public access off, PE; choose retention deliberately.
 - Central `privatelink.*` zones with DINE zone groups and internet fallback where needed.
-- Pin `azure/login@v3`, `microsoft/ps-rule@v2.9.0`, Checkov; third-party actions by SHA `[inference]`.
+- Pin `azure/login`, `microsoft/ps-rule` (v2.9.0), Checkov, and third-party actions by full 40-char commit SHA (`@<sha> # vX`, per `devsecops-pipeline.md`) `[inference]`.
 
 **Avoid**
 - Client secrets, `--sdk-auth` JSON, publish profiles, user accounts as service accounts.

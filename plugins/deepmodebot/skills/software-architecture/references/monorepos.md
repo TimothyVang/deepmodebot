@@ -4,7 +4,7 @@ Summary (facts checked 2026-11-11):
 - A monorepo pays off only when code is shared across deployables AND you invest in affected-only CI plus caching; without that it is slower than a polyrepo ([Vercel](https://vercel.com/i/monorepos-full-stack-teams), [Google CACM](https://cacm.acm.org/research/why-google-stores-billions-of-lines-of-code-in-a-single-repository/fulltext)).
 - Default JS/TS stack: pnpm workspaces + catalogs, `apps/` + `packages/`, Turborepo for task caching, Changesets only if you publish. Python: uv workspaces. Go: one `go.mod`. Rust: Cargo workspace. Polyglot at scale: Bazel 9 (Bzlmod only), Pants, or moon.
 - Enforce package boundaries with a tool (Nx module boundaries, `turbo boundaries`, dependency-cruiser, sheriff, import-linter); agents do not respect conventions that are not checked.
-- Agent context: one root `AGENTS.md` plus short per-package files. Harnesses load nested files differently (Codex: root to cwd only; Claude Code: subdirectories on demand; omp: ancestors plus pointers), so put package commands where the agent will actually start.
+- Agent context: one root `AGENTS.md` plus short per-package files. Harnesses load nested files differently (Codex and Antigravity: root/ancestors to cwd only, ignoring subfolders below cwd; Claude Code: subdirectories on demand; omp: ancestors plus pointers), so put package commands where the agent will actually start.
 - Remote cache security is real: Nx deprecated its bucket cache plugins over cache poisoning (CVE-2025-36852); never let untrusted PR builds write to the cache `main` reads.
 
 ## 1. Monorepo or polyrepo
@@ -138,9 +138,9 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7   # latest major as of 2026-11 (v7.0.1)
+      - uses: actions/checkout@<commit-sha>  # pin full SHA (v7.0.1 as of 2026-11)
         with: { fetch-depth: 0, filter: blob:none }
-      - uses: pnpm/action-setup@v6  # latest major as of 2026-11 (v6.1.1)
+      - uses: pnpm/action-setup@<commit-sha> # pin full SHA (v6.1.1 as of 2026-11)
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run lint check-types test build --affected
 ```
@@ -155,6 +155,7 @@ How harnesses discover nested instruction files:
 | Codex | Global `~/.codex/AGENTS.md`, then project root down to cwd; per dir `AGENTS.override.md` > `AGENTS.md` > fallbacks; concatenated root first | Not loaded: Codex "stops searching once it reaches your current directory" | 32 KiB combined cap (`project_doc_max_bytes`); start Codex in the package dir for package rules | [Codex AGENTS.md](https://developers.openai.com/codex/guides/agents-md) |
 | Claude Code | `CLAUDE.md`/`CLAUDE.local.md` in cwd and every ancestor | Subdirectory `CLAUDE.md` loads when Claude reads/edits a file there | Reads `AGENTS.md` (v2.1.277+) only if no `CLAUDE.md`/`CLAUDE.local.md` on the path; target under 200 lines; on Windows use `@AGENTS.md` import, not a symlink | [Claude memory](https://code.claude.com/docs/en/memory), [large codebases](https://code.claude.com/docs/en/large-codebases) |
 | omp | Standalone `AGENTS.md`/`CLAUDE.md` from cwd up to repo root, one per depth, all depths kept, closer files last | With workspace tree on, deeper `AGENTS.md` files are listed as pointers in `<dir-context>`, not injected | Task subagents drop files named `AGENTS.md`; put must-follow rules in `.omp/RULES.md` | [omp context files](https://github.com/can1357/oh-my-pi/blob/main/docs/context-files.md) |
+| Antigravity (`agy`/App/IDE) | `AGENTS.md` and `GEMINI.md` in cwd and parents up to repo root, plus `~/.gemini/AGENTS.md` and `~/.gemini/GEMINI.md` | Subfolders below cwd are not scanned | Every matching rule loads; start in the package dir or read nested `AGENTS.md` explicitly | [customization-discovery](https://antigravity.google/docs/customization-discovery) |
 
 Rules:
 - Root `AGENTS.md`: what the repo is, package map (one line per package), the exact commands (`pnpm turbo run test --filter=<pkg>`), boundaries rules, where ADRs/migrations/infra live. Keep it under ~200 lines ([Claude memory](https://code.claude.com/docs/en/memory)).
@@ -179,7 +180,7 @@ Rules:
 
 ## Traps for agents
 
-- Assuming a nested `AGENTS.md` is in context. Codex never loads files below cwd; Claude loads them only after touching a file there; omp lists them as pointers. Read the package `AGENTS.md` before editing a package ([Codex](https://developers.openai.com/codex/guides/agents-md), [Claude](https://code.claude.com/docs/en/memory), [omp](https://github.com/can1357/oh-my-pi/blob/main/docs/context-files.md)).
+- Assuming a nested `AGENTS.md` is in context. Codex and Antigravity never load files below cwd; Claude loads them only after touching a file there; omp lists them as pointers. Read the package `AGENTS.md` before editing a package ([Codex](https://developers.openai.com/codex/guides/agents-md), [Claude](https://code.claude.com/docs/en/memory), [omp](https://github.com/can1357/oh-my-pi/blob/main/docs/context-files.md), [Antigravity](https://antigravity.google/docs/customization-discovery)).
 - Adding a `CLAUDE.md` or `CLAUDE.local.md` next to an `AGENTS.md`: Claude Code then stops reading `AGENTS.md` by default ([Claude memory](https://code.claude.com/docs/en/memory)).
 - Symlinking `CLAUDE.md` to `AGENTS.md` in a repo cloned on Windows: Git checks it out as a one-line text file unless `core.symlinks` is on ([Claude memory](https://code.claude.com/docs/en/memory)).
 - Linking packages with TS `paths` or relative `../../packages/x/src` imports instead of `workspace:*` deps; JIT packages break and `turbo boundaries` flags it ([Turborepo TS](https://turborepo.dev/docs/guides/tools/typescript), [boundaries](https://turborepo.dev/docs/reference/boundaries)).

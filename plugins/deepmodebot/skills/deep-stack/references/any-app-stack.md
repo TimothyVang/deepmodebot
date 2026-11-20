@@ -24,7 +24,7 @@ Never present an inferred pick as a default pick.
    - Check each candidate's current docs and release state. Use `npx opensrc <package>` or the official repo so the agent reads real source, not memory.
    - Pick one, label it **inferred**, and write the one-line reason in terms of the rules.
 5. **Prototype the riskiest picks.** Take the one or two choices most likely to be wrong (an inferred core runtime, a new storage engine, an agent framework). Run deepmodebot's Prototype playbook (`skill://deepmodebot/references/playbooks/prototype.md`), or a ten-minute spike. Prove the pick does the app's hardest job. A failed spike means pick the next candidate and say so.
-6. **Lay out the repo.** Default to one monorepo, so agents see everything and clients share one core. Name the folders: apps, services, shared packages. Put the service-layer split in it: entry points own the product rules, services own reusable operations (`references/structure.md`).
+6. **Lay out the repo.** When the project ships multiple deployables or shared packages, default to one monorepo so agents see everything and clients share one core (`apps/`, `services/`, `packages/`); for a single deployable with no shared code, start as a single-package repo (`skill://software-architecture/references/monorepos.md`). Put the service-layer split in it: entry points own the product rules, services own reusable operations (`references/structure.md`).
 7. **Write `STACK.md`** at the repo root (merge into an existing one; never overwrite it):
 
    ```markdown

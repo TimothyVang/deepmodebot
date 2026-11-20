@@ -1,6 +1,6 @@
 ---
 name: deep-stack
-description: "Stack picks and ship loop: a 2026 default software stack and the decision rules behind it, applied to any app (web, CLI, desktop, mobile, AI agent, data/ML, security tooling), plus an agent-driven UI design workflow and a per-task ship loop (worktree, service-layer build, recorded evidence, reviewed PR). Use when the user asks to pick a stack, \"what stack\", or to build a tech stack for a new app; designs a UI with an agent via a design system; or wants one change shipped as an evidence-backed, reviewed PR. An issue queue run as a software factory is deepmodebot's Work a queue playbook, factory source."
+description: "2026 default software stack and decision rules for any app (web, CLI, desktop, mobile, AI agent, data/ML, security), plus agent UI design and a per-task ship loop (worktree, service layer, proof, reviewed PR). Use for 'what stack', picking/building a stack, agent UI design, or shipping one evidence-backed PR; issue queues use deepmodebot's Work a queue (factory)."
 ---
 
 # Stack picks and ship loop
@@ -37,10 +37,10 @@ Pick the steps the task needs. Read-only reviews and investigations skip all of 
 5. **Ship.** Open the PR with that evidence as a before and after table. Run every human-facing text through `references/unslop/unslop.md`. Then run deepmodebot's **pr-review** technique (`skill://deepmodebot/references/techniques/pr-review.md`) on the PR. It reviews with your own subagents, so no third-party review service is needed.
    Done when no P0/P1 finding is open and every P2 is fixed or dismissed with a reason, or the technique hit its 3-round cap or oscillated, and you report its `review:` line with the open findings. Present the PR URL, then merge it on a deepmodebot panel pass (`skill://deepmodebot/references/techniques/panel.md`).
 
-## Running it from omp
+## Running across harnesses
 
-- Parallel slices: give each `task` subagent its own worktree and branch from step 1. Never share a checkout.
-- Browser QA for step 4: the `browser` tool drives the app and takes the screenshots; `ffmpeg` records video when a sequence matters.
+- Parallel slices: give each subagent (`task` in omp, `Agent` in Claude Code, `spawn_agent` in Codex, `invoke_subagent` with `Workspace: "branch"` in Antigravity) its own worktree and branch from step 1. Never share a checkout.
+- Browser QA for step 4: drive the app and take screenshots with omp's `browser` tool, Antigravity's built-in `browser` subagent, or Playwright; `ffmpeg` records video when a sequence matters.
 - Prerequisites by step: `gh` authenticated (PRs, pr-review); a browser or Playwright for UI captures; `ffmpeg` for video. A missing prerequisite stops that step. Report it and the evidence you have instead of substituting a weaker check.
 
 ## With deepmodebot

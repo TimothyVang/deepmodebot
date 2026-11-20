@@ -36,7 +36,7 @@ Check the tier before trusting a result (Floci CLI skill, AWS reference: [floci-
 
 | Path | Command | Notes |
 |---|---|---|
-| CLI (recommended) | `brew install floci-io/floci/floci`, `curl -fsSL https://floci.io/install.sh \| sh`, `iwr https://floci.io/install.ps1 \| iex`, or `java -jar floci.jar` (Java 25+) | Manages lifecycle only; does not wrap `aws`/`az`/`gcloud`/`oci` |
+| CLI (recommended) | `brew install floci-io/floci/floci`, pinned release archive verified with `sha256sums.txt`/cosign, or `java -jar floci.jar` (Java 25+) | Avoid piping unverified remote scripts (`curl \| sh` / `iwr \| iex`); manages lifecycle only, does not wrap `aws`/`az`/`gcloud`/`oci` |
 | Docker / Compose | `image: floci/floci:2.4.0`, `ports: ["127.0.0.1:4566:4566"]` | Docker 23.0+ and compose v2 ([installation doc](https://github.com/floci-io/floci/blob/main/docs/getting-started/installation.md)) |
 | Native binary | `floci-aws-<os>-<arch>` from Releases | Verify via `sha256sums.txt`, cosign `*.sigstore.json` or `gh attestation verify`; Linux needs glibc >= 2.34 (no Alpine/RHEL 8/AL2) |
 | Kubernetes | `helm install floci ./charts/floci -n floci --create-namespace --wait` | Lambdas run as pods |
@@ -52,7 +52,7 @@ Check the tier before trusting a result (Floci CLI skill, AWS reference: [floci-
 | AWS | `eval "$(floci aws env -o text)"` sets `AWS_ENDPOINT_URL=http://localhost.floci.io:4566`, `test`/`test`, `us-east-1` | Never add `-q` (suppresses exports). `--profile <real>` can override the endpoint. Some SDKs skip `AWS_ENDPOINT_URL` for SQS |
 | Azure | `floci az setup && eval "$(floci az env -o text)"` | Without `setup`, `az` control-plane commands hit **real Azure** |
 | GCP | `eval "$(floci gcp env -o text)"` sets `*_EMULATOR_HOST=localhost:4588` | `gcloud` **ignores** `*_EMULATOR_HOST`; set `CLOUDSDK_API_ENDPOINT_OVERRIDES_<API>` |
-| OCI | `floci oci setup` writes `~/.oci/floci_key.pem` and a `[FLOCI]` profile | Never point the `-compat` image's public key at real OCI |
+| OCI | `floci oci setup` writes `~/.oci/floci_key.pem` and a `[FLOCI]` profile | Writes under `$HOME/.oci` (outside repo: hard stop under deepmodebot unless user-approved or redirected via `OCI_CLI_CONFIG_FILE` into `.scratch/`); never point `-compat`'s key at real OCI |
 
 - SDKs (AWS): `endpointOverride`/`endpoint_url`/`BaseEndpoint`; S3 path-style unless the host is `localhost.floci.io`.
 - Set `FLOCI_HOSTNAME` (AWS), `FLOCI_AZ_HOSTNAME`, or `FLOCI_GCP_HOSTNAME`+`FLOCI_GCP_BASE_URL` when another container consumes returned URLs (SQS `QueueUrl`, presigned URLs).
@@ -102,8 +102,8 @@ Default posture is permissive: no signature checks, no IAM, in-memory state. A g
 ```sh
 export AWS_CONFIG_FILE=/dev/null AWS_SHARED_CREDENTIALS_FILE=/dev/null   # [inference]
 unset AWS_PROFILE AWS_SESSION_TOKEN GOOGLE_APPLICATION_CREDENTIALS
-export CLOUDSDK_CONFIG="$HOME/.floci/gcp/gcloud"
-floci aws start --detach --persist ./.floci-aws
+export CLOUDSDK_CONFIG="$PWD/.scratch/floci-gcp/gcloud"
+floci aws start --detach --persist ./.scratch/floci-aws
 floci aws wait --timeout 90s
 eval "$(floci aws env -o text)"
 echo "$AWS_ENDPOINT_URL" | grep -Eq 'localhost|127\.0\.0\.1' || { echo "NOT LOCAL"; exit 1; }
@@ -152,7 +152,7 @@ floci aws reset --yes; floci aws stop --remove
 ### Azure
 
 ```sh
-floci az start --detach --persist ./.floci-az
+floci az start --detach --persist ./.scratch/floci-az
 floci az wait --timeout 90s
 floci az setup && eval "$(floci az env -o text)"
 az cloud show --query name -o tsv     # MUST be the Floci cloud, not AzureCloud
@@ -177,7 +177,7 @@ provider "azurerm" {
 ### GCP
 
 ```sh
-floci gcp start --detach --persist ./.floci-gcp && floci gcp wait --timeout 90s
+floci gcp start --detach --persist ./.scratch/floci-gcp && floci gcp wait --timeout 90s
 eval "$(floci gcp env -o text)"
 export FIREBASE_AUTH_EMULATOR_HOST=localhost:4588   # not exported by env
 E=http://localhost:4588
@@ -191,16 +191,20 @@ Terraform `google`: `GOOGLE_OAUTH_ACCESS_TOKEN=fake` plus `*_custom_endpoint` pe
 
 ### Testcontainers
 
-- Java `FlociContainer` (2.x artifact `io.floci:testcontainers-floci-aws` + `-bom`; READMEs disagree, trust the [module README](https://github.com/floci-io/testcontainers-floci)); Azure `FlociAzContainer` with `withTlsConfig(c -> c.enabled(true))`; Node `@floci/testcontainers`, Python `testcontainers-floci`, .NET `Testcontainers.Floci`; GCP `GenericContainer("floci/floci-gcp:latest")` + `Wait.forHttp("/health")`.
+- Java `FlociContainer` (2.x artifact `io.floci:testcontainers-floci-aws` + `-bom`; READMEs disagree, trust the [module README](https://github.com/floci-io/testcontainers-floci)); Azure `FlociAzContainer` with `withTlsConfig(c -> c.enabled(true))`; Node `@floci/testcontainers`, Python `testcontainers-floci`, .NET `Testcontainers.Floci`; GCP `GenericContainer("floci/floci-gcp:<pinned-version>")` + `Wait.forHttp("/health")` (pin version/digest, never `:latest`).
 
 ### GitHub Actions
 
-Install into `$HOME/.local/bin` (the script calls `sudo` otherwise) (Floci CLI skill, CI reference: [floci-cli skills](https://github.com/floci-io/floci-cli/tree/main/skills/floci)):
+Download a pinned release binary and verify `sha256sums.txt` (avoid piping `curl | sh`; or use a digest-pinned service container below):
 ```yaml
-- name: Install floci
+- name: Install floci (pinned + verified)
+  env: { FLOCI_VER: "2.4.0" }
   run: |
     mkdir -p "$HOME/.local/bin"
-    curl -fsSL https://floci.io/install.sh | FLOCI_INSTALL_DIR="$HOME/.local/bin" sh
+    curl -fsSLO "https://github.com/floci-io/floci-cli/releases/download/v${FLOCI_VER}/floci-linux-amd64"
+    curl -fsSLO "https://github.com/floci-io/floci-cli/releases/download/v${FLOCI_VER}/sha256sums.txt"
+    grep 'floci-linux-amd64$' sha256sums.txt | sha256sum -c -
+    install -m 0755 floci-linux-amd64 "$HOME/.local/bin/floci"
     echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 - name: Start emulator
   run: |
@@ -235,7 +239,7 @@ Service-container alternative (in-process services only; Docker-backed ones need
 | Auth/IAM | Off by default; opt-in partial | Paid enforcement [unverified] | None by default [unverified] | Dev account key | Spanner: no TLS/auth/IAM | n/a |
 | Best for | Multi-cloud integration, IaC loops | Teams on Pro features | Fast Python unit tests | Storage-only Azure | Spanner/Bigtable fidelity; `gcloud pubsub` unsupported on Pub/Sub emulator | Stored procs, change feed, RU/s |
 
-LocalStack to Floci: swap image to `floci/floci:latest` (or `-compat`), move data mount `/var/lib/localstack` → `/app/data`. LocalStack env vars are auto-translated (`PERSISTENCE=1` → `FLOCI_STORAGE_MODE=persistent`, etc.); `SERVICES` is ignored ([migration guide](https://github.com/floci-io/floci/blob/main/docs/getting-started/migrate-from-localstack.md)).
+LocalStack to Floci: swap image to a pinned `floci/floci:<version>` (or `-compat`), move data mount `/var/lib/localstack` → `/app/data`. LocalStack env vars are auto-translated (`PERSISTENCE=1` → `FLOCI_STORAGE_MODE=persistent`, etc.); `SERVICES` is ignored ([migration guide](https://github.com/floci-io/floci/blob/main/docs/getting-started/migrate-from-localstack.md)).
 
 ## Known gaps
 

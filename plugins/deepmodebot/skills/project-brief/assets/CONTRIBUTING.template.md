@@ -24,11 +24,25 @@ omp plugin install deepmodebot@deepmodebot
 /plugin install deepmodebot@deepmodebot
 ```
 
+**Codex**
+
+```bash
+codex plugin marketplace add TimothyVang/deepmodebot
+codex plugin add deepmodebot@deepmodebot
+```
+
+**Google Antigravity (`agy`)**
+
+```bash
+git clone https://github.com/TimothyVang/deepmodebot
+agy plugin install ./deepmodebot/plugins/deepmodebot
+```
+
 You also need the GitHub CLI, signed in (`gh auth status`), and Python 3.10+.
 
 ## 2. Run `/deepmodebot:contribute`
 
-In your clone of `{{OWNER/REPO}}`:
+In your clone of `{{OWNER/REPO}}` (use `/contribute` in Antigravity, `$deepmodebot:contribute` in Codex):
 
 ```text
 /deepmodebot:contribute
@@ -93,7 +107,7 @@ Use the PR template. Every PR must have:
 
 - **Checks** must pass, run locally before you open the PR and again after each fix: {{CI_CHECKS}}. Paste the output in the PR. There is no CI.
 - **Overlap check:** your agent runs `python scripts/pr-overlap.py comment --repo {{OWNER/REPO}} --pr <N>` after opening the PR, and the maintainer's agent re-runs it on open PRs. It posts one comment when your PR touches the same files as another open PR or an active claim. Resolve the overlap with the other author before merge.
-- **Review:** before opening a PR, your agent self-reviews its branch with deepmodebot's pr-review technique (local mode) and fixes or dismisses each finding. Maintainers review PRs with `/deepmodebot:review-pr`; address or reply to each finding.
+- **Review:** before opening a PR, your agent self-reviews its branch with deepmodebot's pr-review technique (local mode) and fixes or dismisses each finding. Maintainers review PRs with `/deepmodebot:review-pr` (`/review-pr` in Antigravity); address or reply to each finding.
 - A maintainer reviews and merges. Push follow-up commits to the same branch; don't open a second PR for the same issue.
 
 ## Without an agent
@@ -104,7 +118,7 @@ Everything above works by hand: post the claim comment, run the overlap check, f
 
 [ROADMAP.md](ROADMAP.md) is a snapshot of the task board, generated from GitHub Issues by `scripts/sync-roadmap.py`. Edit issues, not that file.
 
-- It goes stale between syncs. The live board is the open `help wanted` issues plus `python scripts/pr-overlap.py claims --repo {{OWNER/REPO}}`. `/deepmodebot:contribute` reads those, not the file.
-- The maintainer's agent refreshes it on every `/deepmodebot:project-brief` re-run with `python scripts/sync-roadmap.py --repo {{OWNER/REPO}}` and ships the changed file in that run's PR.
+- It goes stale between syncs. The live board is the open `help wanted` issues plus `python -B scripts/pr-overlap.py claims --repo {{OWNER/REPO}}`. `/deepmodebot:contribute` (`/contribute` in Antigravity, `$deepmodebot:contribute` in Codex) reads those, not the file.
+- The maintainer's agent refreshes it on every `/deepmodebot:project-brief` (`/project-brief` in Antigravity, `$deepmodebot:project-brief` in Codex) re-run with `python -B scripts/sync-roadmap.py --repo {{OWNER/REPO}}` and ships the changed file in that run's PR.
 - To see whether it is current: `python scripts/sync-roadmap.py --repo {{OWNER/REPO}} --check`. Exit `1` means out of date.
 - Leave it out of task PRs. A regenerated roadmap in every PR would overlap all the others.

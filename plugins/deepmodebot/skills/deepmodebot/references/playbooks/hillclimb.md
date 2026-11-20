@@ -28,8 +28,8 @@ Core discipline: one change, one measurement, keep or revert. Never stack untest
    - Done when the stop predicate is met (see Gates), with one `decisions.tsv` row per attempt.
 9. On a plateau (several rejects in a row): pivot category, combine near-misses, re-read the source, or try something more radical.
    Done when the next logged attempt comes from a different category or approach than the rejected run.
-10. Stack the kept commits in landing order, run **Opening a PR** (`references/playbooks/opening-a-pr.md`), and land them through `references/playbooks/shipping.md` on a panel pass.
-    Done when every kept commit is merged.
+10. Deliver per SKILL.md's delivery-target rule: for local review or a repo with no remote, keep the verified kept commits on a non-default working branch (or leave a single S/M win uncommitted when requested) without pushing or committing directly to the default branch. For publication, stack the kept commits in landing order, run **Opening a PR** (`references/playbooks/opening-a-pr.md`), and land them through `references/playbooks/shipping.md` on a panel pass.
+    Done when the requested delivery target holds (verified local branch/tree or every kept commit merged).
 
 ## Gates
 - No reproducing case → fix the repro, don't hillclimb.
