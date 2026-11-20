@@ -229,5 +229,22 @@ class TestYtEnrich(unittest.TestCase):
             self.assertEqual(bad["views"], "")
 
 
+    def test_captions_meta_without_oauth_keeps_the_video_and_records_why(self):
+        def fake_get(endpoint, params):
+            if endpoint == "captions":
+                raise yt.BlockedError(source_url="https://www.googleapis.com/youtube/v3/captions", status=401,
+                                      reason="http_401", evidence="Login Required")
+            return {"items": [{"id": "L1OBRtfPS34", "snippet": {"title": "t", "description": ""},
+                               "contentDetails": {"caption": "true"}, "statistics": {}}]}
+
+        args = mock.Mock(videos=["L1OBRtfPS34"], comments=0, captions_meta=True)
+        with mock.patch.object(yt, "yt_api_get", side_effect=fake_get):
+            out = yt.cmd_api_video(args)
+        self.assertEqual(out["returned_count"], 1)
+        record = out["items"][0]
+        self.assertEqual(record["caption_tracks"], [])
+        self.assertIn("OAuth", record["caption_tracks_error"])
+        self.assertIn("401", record["caption_tracks_error"])
+
 if __name__ == "__main__":
     unittest.main()

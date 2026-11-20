@@ -466,7 +466,14 @@ def cmd_api_video(args: argparse.Namespace) -> dict[str, Any]:
                     )
                 record["top_comments"] = comments
             if args.captions_meta:
-                cap_resp = yt_api_get("captions", {"part": "snippet", "videoId": vid})
+                # captions.list needs OAuth 2.0; an API key alone is refused. Record that and keep the video.
+                try:
+                    cap_resp = yt_api_get("captions", {"part": "snippet", "videoId": vid})
+                except (BlockedError, RuntimeError) as exc:
+                    cap_resp = {}
+                    status = exc.payload.get("http_status") if isinstance(exc, BlockedError) else None
+                    record["caption_tracks_error"] = (
+                        f"captions.list refused the API key (HTTP {status or 'error'}); it requires OAuth 2.0")
                 record["caption_tracks"] = [
                     {
                         "language": c.get("snippet", {}).get("language"),
@@ -1726,7 +1733,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_api_vid = sub.add_parser("api-video", help="Tier 1: Official YouTube Data API v3 videos.list (+ optional top/pinned comments).")
     p_api_vid.add_argument("videos", nargs="+", help="One or more YouTube URLs or video IDs (batched up to 50/call).")
     p_api_vid.add_argument("--comments", type=int, default=0, help="Fetch up to N top/relevant comments per video (0=skip).")
-    p_api_vid.add_argument("--captions-meta", action="store_true", help="Also list caption track metadata via captions.list.")
+    p_api_vid.add_argument("--captions-meta", action="store_true", help="Also try captions.list for caption track metadata (needs OAuth; an API key alone is refused and recorded as caption_tracks_error).")
     p_api_vid.set_defaults(func=cmd_api_video)
 
     p_api_ch = sub.add_parser("api-channel", help="Tier 1: Official YouTube Data API v3 channel uploads inventory.")
@@ -1751,7 +1758,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_batch.add_argument("--delay", type=float, default=2.5, help="Base seconds between inspect requests (default: 2.5).")
     p_batch.add_argument("--jitter", type=float, default=1.0, help="Random extra jitter seconds for inspect requests (default: 1.0).")
     p_batch.add_argument("--comments", type=int, default=0, help="In API mode, also fetch up to N top/pinned comments per video.")
-    p_batch.add_argument("--captions-meta", action="store_true", help="In API mode, also fetch caption track metadata.")
+    p_batch.add_argument("--captions-meta", action="store_true", help="In API mode, also try captions.list (needs OAuth; an API key alone is recorded as caption_tracks_error).")
     p_batch.add_argument("--limit", type=int, help="Optional cap on number of videos to process.")
     p_batch.set_defaults(func=cmd_batch)
 
