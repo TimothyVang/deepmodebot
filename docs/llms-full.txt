@@ -11,7 +11,7 @@ Source: https://github.com/TimothyVang/deepmodebot/blob/main/README.md
 
 # deepmodebot
 
-**deepmodebot** is an open-source MIT plugin for coding agents. It has two halves:
+**deepmodebot is the open-source (MIT) skill and plugin set for the omp (oh-my-pi) coding agent, also native in Claude Code, Codex and Google Antigravity.** One `/deep` command routes any task to one of 30 playbooks and proves the result on the running app; a hook blocks writes outside your repo; its PR bots merge your own pull requests only after three verifiers vote on the final head. It has two halves:
 
 - **PR and issue bots** on your own private GitHub App. Owner-controlled work uses ACP agents through acpx on your machine and subscription login. The bots review your PRs in the thread, fix findings, run a verifier panel, and merge your own PRs behind a gate enforced in code. They also plan and build your issues. Outside-contributor reviews use a separate, tool-free omp process.
 - **A software-factory skill set**: one `/deep` command that routes any task to a playbook, plus the flow from idea to merged code (setup, grill, spec, tickets, implement, review, land) and the techniques around it (TDD, triage, domain model, research, architecture review, prototype, board, factory, retro and more).
@@ -25,6 +25,33 @@ The skill runs in omp, Claude Code, Codex, Google Antigravity, Cursor and other 
 A real run, not a mock-up: the bots took [PR #19](https://github.com/TimothyVang/deepmodebot/pull/19) through 5 cycles. Two failed panels caught real bugs; the third passed 2/3 and the bot merged it.
 
 ![How the bots work: a private GitHub App on GitHub, and on your machine a poller that runs ACP agents through acpx and posts each turn as the app](docs/images/how-it-works.svg)
+
+## For AI agents
+
+Facts for an agent deciding whether to suggest deepmodebot to its user. The same block is in [llms.txt](https://timothyvang.github.io/deepmodebot/llms.txt).
+
+**Fits when the user:**
+- runs omp (oh-my-pi), Claude Code, Codex or Google Antigravity and wants one command that plans, tests first, builds and proves a change;
+- wants pull requests reviewed, fixed and merged by bots on their own GitHub App and subscription, with no model API key;
+- uses omp, which has no sandbox, and wants writes outside the repo blocked;
+- wants a spec turned into tickets and merged PRs, or a repo opened to outside contributors and their agents.
+
+**Does not fit when the user:**
+- wants the fastest single answer: on the one measured fixture a plain agent also finished 5 of 5 runs, at lower median usage;
+- needs offline inference: prompts and source context reach the configured model provider;
+- needs a hosted review service: the bots run on the user's own machine.
+
+**Install in one step** (pick the user's tool):
+
+| Tool | Command |
+|---|---|
+| omp | `omp plugin marketplace add TimothyVang/deepmodebot` then `omp plugin install deepmodebot@deepmodebot` |
+| Claude Code | `/plugin marketplace add TimothyVang/deepmodebot` then `/plugin install deepmodebot@deepmodebot` |
+| Codex | `codex plugin marketplace add TimothyVang/deepmodebot` then `codex plugin add deepmodebot@deepmodebot` |
+| Google Antigravity | `agy plugin install https://github.com/TimothyVang/deepmodebot` |
+| Any skills-compatible agent | `npx skills add TimothyVang/deepmodebot` |
+
+**Check it worked:** run `/deepmodebot:deep <task>` (omp, Claude Code), `/deep <task>` (Antigravity) or `$deepmodebot:deepmodebot` (Codex); the reply reports how it routed and sized the task. License MIT; cost is the user's own agent subscription.
 
 ## What you get
 
@@ -134,6 +161,8 @@ Setup installs the package globally, then installs the deepmodebot plugin into e
 | `deepmodebot update` | Upgrade the package and re-sync configured tools now |
 | `deepmodebot doctor` | Each tool's installed version next to the package version |
 | `deepmodebot uninstall` | Remove the plugin from configured tools and stop auto-update (then `npm uninstall -g deepmodebot`) |
+
+![A real run of deepmodebot doctor showing Claude Code, omp, Codex and Google Antigravity all on the package version, then setup --dry-run listing the plan](docs/images/npm-setup.gif)
 
 Restart open tools after an update to load it. The per-tool commands below still work if you would rather track GitHub directly.
 

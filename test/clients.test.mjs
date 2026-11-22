@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
 import { clientById, PLUGIN_ID } from "../lib/clients.mjs";
 
-const PKG_ROOT = "C:\\Users\\me\\AppData\\Roaming\\npm\\node_modules\\deepmodebot";
+// An OS-native absolute path: a Windows path is relative on Linux CI and never matches.
+const PKG_ROOT = resolve(tmpdir(), "npm", "node_modules", "deepmodebot");
 
 /** A fake Claude Code CLI: a marketplace source plus an installed version, mutated by the commands it receives. */
 function fakeClaude({ source, installed }) {
