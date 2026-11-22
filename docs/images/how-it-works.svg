@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" viewBox="0 0 1200 650" role="img" aria-labelledby="t d">
 <title id="t">How the deepmodebot bots work</title>
-<desc id="d">A private GitHub App named deepmodebot-&lt;login&gt; posts to PR and issue threads. On your machine, bot.py polls the installed repos, runs ACP agents through acpx for owner roles (omp by default, or Claude Code, Codex and others) and a separate tool-free omp process for outside-contributor PRs on your subscription logins, and pushes and merges with your own gh and git.</desc>
+<desc id="d">A private GitHub App named deepmodebot-&lt;login&gt; posts to PR and issue threads. On your machine, bot.py polls the installed repos, runs ACP agents through acpx (omp by default, or Claude Code, Codex and others) on your subscription logins, and pushes and merges with your own gh and git.</desc>
 <defs>
 <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#9fb0c8"/></marker>
 <marker id="ahA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#fbbf24"/></marker>
@@ -9,7 +9,7 @@
 </defs>
 <rect x="1" y="1" width="1198" height="648" rx="24" fill="#0b1220" stroke="#232e43" stroke-width="2"/>
 <text x="40" y="58" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="26" font-weight="700" fill="#e6edf3" text-anchor="start">How the bots work</text>
-<text x="40" y="86" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#9fb0c8" text-anchor="start">Private GitHub App for identity. Local poller runs ACP agents for your roles (tool-free omp for outside PRs), on your subscriptions.</text>
+<text x="40" y="86" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#9fb0c8" text-anchor="start">A private GitHub App gives them a name. A poller on your machine does the work. Any ACP agent, on your own subscription logins.</text>
 <rect x="30" y="130" width="360" height="440" rx="18" fill="none" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="6 6" opacity="0.8"/><rect x="50" y="117" width="76" height="26" rx="13" fill="#0b1220"/><text x="62" y="135" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#a78bfa" text-anchor="start" letter-spacing="1.2">GITHUB</text>
 <rect x="50" y="160" width="320" height="100" rx="14" fill="#111b2f" stroke="#303c51" stroke-width="1.5"/>
 <rect x="50" y="174" width="4" height="72" rx="2" fill="#a78bfa"/>

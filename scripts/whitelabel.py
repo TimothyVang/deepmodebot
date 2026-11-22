@@ -266,7 +266,8 @@ def own_run_rewrites(out: Path, d: dict) -> None:
             (r"^!\[[^\]\n]*\]\(docs/images/pr-19-thread\.gif\)$", f"![{DEMO_ALT}](docs/images/how-it-works.gif)"),
             (r"^A real run, not a mock-up:[^\n]*$", DEMO_CAPTION),
             (r"^\*\*Has it merged a real PR on its own\?\*\*[^\n]*\n\n", ""),
-            (r"^!\[A real run of (install\.py --check)\]", lambda m: f"![Example output of {m.group(1)}]"),
+            # every terminal recording's alt text (install.py --check, the npm installer's doctor and setup)
+            (r"^!\[A real run of ([^\]\n]*)\]", lambda m: f"![Example output of {m.group(1)}]"),
         ],
         "docs/index.html": [
             (r'("screenshot": "[^"]*/)pr-19-thread\.gif"', lambda m: m.group(1) + 'how-it-works.gif"'),
