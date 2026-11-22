@@ -5,3 +5,7 @@ out*.json
 plugins/deepmodebot/skills/deepmodebot/assets/github-app/brand.local.json
 .scratch/
 .worktrees/
+
+# design-skill working files (local only)
+docs/.taste-skill/
+docs/shots/

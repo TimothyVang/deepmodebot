@@ -1,296 +1,503 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-type="software" data-radius="sharp" data-ground="painting" data-buttons="tonal" data-motion>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>deepmodebot: PR and issue bots plus a software-factory skill set for coding agents</title>
-<meta name="description" content="deepmodebot is an open-source MIT plugin for coding agents. Its bots review, fix, verify on a 3-agent panel and merge your own GitHub PRs, on your own GitHub App and subscription, with no API keys. Its skills take work from idea to spec, tickets, code and a merged PR.">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>deepmodebot: the skill and plugin set for omp coding agents</title>
+<meta name="description" content="Open-source MIT plugin for omp (oh-my-pi): one /deep command routes work to 30 playbooks, blocks writes outside your repo, and lands pull requests only after a 3-verifier vote.">
 <meta name="author" content="TimothyVang">
-<meta name="robots" content="index, follow">
+<meta name="robots" content="index, follow, max-image-preview:large">
 <link rel="canonical" href="https://timothyvang.github.io/deepmodebot/">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="alternate" type="text/markdown" href="llms.txt" title="llms.txt">
-<meta name="theme-color" content="#0b1220">
+<meta name="theme-color" content="#161c1a">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="deepmodebot">
-<meta property="og:title" content="deepmodebot: PR and issue bots plus a software-factory skill set">
-<meta property="og:description" content="Bots that review, fix, verify and merge your own PRs on your GitHub App and subscription, and skills that take work from idea to merged PR. Open source, MIT.">
+<meta property="og:title" content="deepmodebot: the skill and plugin set for omp coding agents">
+<meta property="og:description" content="One /deep command, 30 playbooks, a write guard for omp, and PR bots that merge only after three verifiers vote. MIT, on your own subscription.">
 <meta property="og:url" content="https://timothyvang.github.io/deepmodebot/">
-<meta property="og:image" content="https://timothyvang.github.io/deepmodebot/images/og.png">
-<meta property="og:image:width" content="1280">
-<meta property="og:image:height" content="640">
-<meta property="og:image:alt" content="deepmodebot: PR and issue bots that review, fix, verify and merge, plus a software-factory skill set.">
+<meta property="og:image" content="https://timothyvang.github.io/deepmodebot/share.jpg">
+<meta property="og:image:alt" content="deepmodebot running a task in omp: route, tests first, build, proof and a verifier panel.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="deepmodebot: PR and issue bots plus a software-factory skill set">
-<meta name="twitter:description" content="Bots that review, fix, verify and merge your own PRs on your GitHub App and subscription. Skills from idea to merged PR. MIT.">
-<meta name="twitter:image" content="https://timothyvang.github.io/deepmodebot/images/og.png">
-<meta name="twitter:image:alt" content="deepmodebot: PR and issue bots plus a software-factory skill set.">
+<meta name="twitter:title" content="deepmodebot: the skill and plugin set for omp coding agents">
+<meta name="twitter:description" content="One /deep command, 30 playbooks, a write guard for omp, and PR bots gated by a 3-verifier vote. MIT.">
+<meta name="twitter:image" content="https://timothyvang.github.io/deepmodebot/share.jpg">
+<meta name="twitter:image:alt" content="deepmodebot running a task in omp: route, tests first, build, proof and a verifier panel.">
+<meta name="site-kind" content="software">
+<meta name="page-type" content="software">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   "name": "deepmodebot",
+  "alternateName": "deepmodebot for omp",
   "applicationCategory": "DeveloperApplication",
+  "applicationSubCategory": "AI coding agent plugin",
   "operatingSystem": "Windows, macOS, Linux",
-  "description": "Open-source MIT plugin combining a self-hosted GitHub review bot with coding-agent workflows. Owner-controlled roles use ACP agents and subscription logins. Outside-contributor reviews use a tool-free omp process. Published changes pass review and a verifier gate; ordinary local changes stay available for human review.",
+  "softwareVersion": "0.9.0",
+  "description": "Open-source MIT skill and plugin set for the omp (oh-my-pi) coding agent, also installable in Claude Code, Codex and Google Antigravity. One /deep command routes any task to 30 playbooks, 24 principles and 52 techniques; a hook blocks writes outside the project; PR bots review, fix and merge your own pull requests only after three verifiers vote on the final head.",
   "url": "https://timothyvang.github.io/deepmodebot/",
   "downloadUrl": "https://github.com/TimothyVang/deepmodebot",
+  "installUrl": "https://github.com/TimothyVang/deepmodebot#omp",
   "codeRepository": "https://github.com/TimothyVang/deepmodebot",
   "license": "https://opensource.org/licenses/MIT",
-  "image": "https://timothyvang.github.io/deepmodebot/images/og.png",
-  "screenshot": "https://timothyvang.github.io/deepmodebot/images/pr-19-thread.gif",
-  "dateModified": "2026-11-19",
+  "isAccessibleForFree": true,
+  "image": "https://timothyvang.github.io/deepmodebot/share.jpg",
+  "dateModified": "2026-11-22",
   "author": {"@type": "Person", "name": "TimothyVang", "url": "https://github.com/TimothyVang"},
   "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
-  "keywords": "AI code review, GitHub App, PR bots, autonomous merge, verifier panel, ACP, acpx, omp, Claude Code, Codex, Google Antigravity, software factory, spec, tickets, TDD, agent skills, self-hosted"
+  "featureList": ["/deep command that routes tasks to 30 playbooks", "Write guard hook for omp, which has no sandbox", "Delegation through omp task and scout subagents", "Skills addressed as skill:// paths", "PR review, fix and merge behind a 3-verifier panel", "Native plugin for omp, Claude Code, Codex and Google Antigravity"],
+  "keywords": "omp, oh-my-pi, omp skills, omp plugin, coding agent skills, agent skills, AI code review, PR bots, verifier panel, Claude Code plugin, Codex plugin, Google Antigravity plugin, software factory"
 }
 </script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "FAQPage",
-  "dateModified": "2026-11-19",
+  "dateModified": "2026-11-22",
   "mainEntity": [
-    {"@type": "Question", "name": "What is deepmodebot?",
-     "acceptedAnswer": {"@type": "Answer", "text": "deepmodebot is an open-source MIT plugin combining a self-hosted PR and issue bot with workflows for planning, implementation, review and delivery. Local work requires runtime proof; published changes also pass the verifier gate."}},
-    {"@type": "Question", "name": "How do the deepmodebot PR bots work?",
-     "acceptedAnswer": {"@type": "Answer", "text": "A poller checks repos where your app is installed. An author and reviewer exchange ACP-backed turns in the PR thread until no P0/P1 remains and every P2 is answered. Exactly three independent verifiers assess the same head; all responses must be valid and at least two must pass. Deterministic repository, ownership and merge gates still apply."}},
-    {"@type": "Question", "name": "Does deepmodebot need an API key?",
-     "acceptedAnswer": {"@type": "Answer", "text": "No. Supported agent CLIs use existing subscription logins, and calls count against their usage. This is not offline inference: prompts and source context can reach the configured model provider."}},
-    {"@type": "Question", "name": "Which agents and harnesses does deepmodebot work with?",
-     "acceptedAnswer": {"@type": "Answer", "text": "Owner-controlled bot roles use ACP agents supported by acpx. Outside-contributor reviews currently require omp. The portable skill instructions target omp, Claude Code, Codex, Google Antigravity, Cursor and other skill-loading harnesses; not every combination has been tested."}},
-    {"@type": "Question", "name": "Will deepmodebot merge other people's PRs?",
-     "acceptedAnswer": {"@type": "Answer", "text": "No. Only your own PRs merge: your account opened them from your repo, not a fork, and their commits pass the ownership checks in code. Everyone else's PRs get review comments only."}},
-    {"@type": "Question", "name": "What is the deepmodebot software factory?",
-     "acceptedAnswer": {"@type": "Answer", "text": "A set of playbooks and techniques that take an idea to merged code: set up the repo, grill the idea, prototype a fork, write a spec, cut it into tickets, build them with TDD on one integration branch or one PR per ticket, then review and land through a verifier panel. Triage, research, a domain model, architecture review and retros sit around that line."}},
-    {"@type": "Question", "name": "Has deepmodebot merged a real PR on its own?",
-     "acceptedAnswer": {"@type": "Answer", "text": "Yes. PR 19 in TimothyVang/deepmodebot went through 5 cycles: a conflict merge, review rounds, two failed panels that caught real bugs, then a 2/3 panel pass and a squash merge by the bot. The whole conversation is public in the PR thread."}},
-    {"@type": "Question", "name": "Can I white-label an AI code review GitHub App?",
-     "acceptedAnswer": {"@type": "Answer", "text": "Yes. deepmodebot is MIT licensed. Supply brand.json to scripts/whitelabel.py to rename the product, commands, skills, bot, site and metadata. License notices retain attribution. Immutable docs/evidence/ files retain their original paths and bytes as upstream observations, not proof of a rebranded run. The build rejects other source-name leftovers. install.py --brand <name> renames only the bots."}}
+    {"@type": "Question", "name": "Does deepmodebot need an API key?", "acceptedAnswer": {"@type": "Answer", "text": "No. It runs on the subscription login of your agent CLI, and calls count against that subscription. Prompts and source context still reach your model provider."}},
+    {"@type": "Question", "name": "What does deepmodebot cost?", "acceptedAnswer": {"@type": "Answer", "text": "Nothing. It is MIT licensed. Usage counts against your own omp, Claude, Codex or Antigravity plan."}},
+    {"@type": "Question", "name": "Does deepmodebot work outside omp?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. It installs as a native plugin in Claude Code, Codex and Google Antigravity, and the skills load in other SKILL.md harnesses. Reviews of outside contributors' pull requests need omp."}},
+    {"@type": "Question", "name": "Will deepmodebot write outside my repo?", "acceptedAnswer": {"@type": "Answer", "text": "Not with the guard on. The omp hook blocks write, edit and ast_edit outside the project; list a folder in .deepmodebot.json to allow it. The hook does not parse shell commands, so the skill's own rule covers bash."}},
+    {"@type": "Question", "name": "Does deepmodebot merge without me?", "acceptedAnswer": {"@type": "Answer", "text": "Only your own pull requests, and only when three verifiers answer at the same final head with at least two passing. It never merges over a failing check."}},
+    {"@type": "Question", "name": "Is deepmodebot faster than a plain agent?", "acceptedAnswer": {"@type": "Answer", "text": "No. On the one measured feature fixture both finished 5 of 5 runs, and the plain agent used less: $0.98 against $1.63 median. deepmodebot adds the gates and the proof, not speed."}}
   ]
 }
 </script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gabarito:wght@400..700&family=Figtree:wght@400..600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/system.css">
+<link rel="stylesheet" href="assets/ui/cards.css">
+<link rel="stylesheet" href="assets/motion/motion.css">
+<link rel="stylesheet" href="assets/backgrounds/backgrounds.css">
+<link rel="stylesheet" href="assets/layout/layout.css">
+<link rel="stylesheet" href="assets/icons/icon.css">
 <style>
-:root{--brand-primary:#6d28d9;--brand-accent:#a78bfa;--brand-bg:#0b1220;--brand-surface:#111b2f;--brand-text:#e6edf3;--brand-muted:#9fb0c8}
-:root{--bg:color-mix(in srgb,var(--brand-primary) 3%,#f7f8fb);--fg:#0f172a;--muted:#475569;--card:#ffffff;--edge:color-mix(in srgb,var(--brand-primary) 10%,#dbe2ee);--accent:var(--brand-primary);--on-accent:#fff;--code:color-mix(in srgb,var(--brand-primary) 5%,#eef2f8)}
-@media (prefers-color-scheme:dark){:root{--bg:var(--brand-bg);--fg:var(--brand-text);--muted:var(--brand-muted);--card:var(--brand-surface);--edge:color-mix(in srgb,var(--brand-muted) 15%,var(--brand-surface));--accent:var(--brand-accent);--on-accent:var(--brand-bg);--code:color-mix(in srgb,var(--brand-muted) 6%,var(--brand-surface))}}
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 ui-sans-serif,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
-a{color:var(--accent)}
-header.top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--edge)}
-nav{max-width:1100px;margin:0 auto;padding:10px 24px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
-nav .brand{color:var(--fg);text-decoration:none;margin-right:auto}
-nav .brand img{display:block;height:32px;width:auto}
-nav a{text-decoration:none;color:var(--muted);font-size:15px}
-nav a:hover{color:var(--fg)}
-main{max-width:1100px;margin:0 auto;padding:0 24px 64px}
-section{padding:56px 0 8px}
-#evidence{scroll-margin-top:6rem}
-h1{font-size:clamp(34px,5vw,54px);line-height:1.1;margin:0 0 16px;letter-spacing:-.02em}
-h2{font-size:30px;margin:0 0 12px;letter-spacing:-.01em}
-h3{font-size:19px;margin:24px 0 6px}
-p.lead{font-size:20px;color:var(--muted);max-width:860px;margin:0 0 24px}
-.hero{padding-top:64px}
-.pills{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 28px;padding:0;list-style:none}
-.pills li{border:1px solid var(--edge);background:var(--card);border-radius:999px;padding:4px 12px;font-size:14px;color:var(--muted)}
-.cta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:32px}
-.btn{display:inline-block;padding:10px 18px;border-radius:10px;font-weight:600;text-decoration:none;border:1px solid var(--edge);background:var(--card);color:var(--fg)}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
-figure{margin:24px 0}
-figure img{display:block;width:100%;height:auto;border-radius:18px}
-figcaption{color:var(--muted);font-size:15px;margin-top:10px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:16px 0}
-.card{background:var(--card);border:1px solid var(--edge);border-radius:14px;padding:18px 20px}
-.card h3{margin-top:0}
-pre{background:var(--code);border:1px solid var(--edge);border-radius:12px;padding:16px 18px;overflow:auto;font:14px/1.6 ui-monospace,SFMono-Regular,"Cascadia Mono",Consolas,monospace}
-code{font-family:ui-monospace,SFMono-Regular,"Cascadia Mono",Consolas,monospace;font-size:.92em;background:var(--code);padding:1px 5px;border-radius:5px}
-pre code{background:none;padding:0}
-.table-wrap{overflow-x:auto;border:1px solid var(--edge);border-radius:14px;background:var(--card)}
-table{border-collapse:collapse;width:100%;font-size:15px}
-th,td{text-align:left;vertical-align:top;padding:10px 12px;border-bottom:1px solid var(--edge)}
-tr:last-child td,tr:last-child th{border-bottom:0}
-dl.skills{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px 24px;margin:16px 0}
-dl.skills div{background:var(--card);border:1px solid var(--edge);border-radius:12px;padding:12px 16px}
-dl.skills dt{font-weight:700}
-dl.skills dd{margin:4px 0 0;color:var(--muted);font-size:15px}
-footer{border-top:1px solid var(--edge);color:var(--muted);font-size:14px}
-footer div{max-width:1100px;margin:0 auto;padding:24px}
+:root {
+  --p-bg: #161c1a; --p-surface: #1f2725; --p-ink: #e3e2da; --p-muted: #8e948d;
+  --p-accent: #9fc7b8; --p-accent-ink: #161c1a; --p-action: #9fc7b8; --p-action-ink: #161c1a;
+  --p-inv-bg: #e3e2da; --p-inv-surface: #d3d2cb; --p-inv-ink: #161c1a; --p-inv-muted: #555a55;
+  --p-inv-accent: #161c1a; --p-inv-accent-ink: #e3e2da; --p-inv-action: #161c1a; --p-inv-action-ink: #e3e2da;
+  --font-display: "Gabarito", system-ui, sans-serif;
+  --font-text: "Figtree", system-ui, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --display-weight: 400;
+  --display-tracking: -0.03em;
+  --display-tracking-xl: -0.04em;
+  --ly-scale: 0.98;
+}
+</style>
+<link rel="stylesheet" href="assets/ui/base.css">
+<link rel="stylesheet" href="assets/ui/terminal-run/fragment.css">
+<link rel="stylesheet" href="assets/ui/window/fragment.css">
+<link rel="stylesheet" href="assets/ui/diff-review/fragment.css">
+<link rel="stylesheet" href="assets/ui/checklist/fragment.css">
+<link rel="stylesheet" href="assets/ui/notify/fragment.css">
+<link rel="stylesheet" href="assets/ui/search/fragment.css">
+<link rel="stylesheet" href="assets/diagrams/diagram.css">
+<script>document.documentElement.classList.add('m-enter');setTimeout(()=>document.documentElement.classList.add('m-enter-done'),700)</script>
+<script src="assets/backgrounds/backgrounds.js"></script>
+<script>document.documentElement.classList.add('mo-js');setTimeout(()=>document.documentElement.classList.add('mo-safe'),2500)</script>
+<link rel="modulepreload" href="assets/moments/moments.js">
+<link rel="modulepreload" href="assets/moments/lib.js">
+<link rel="modulepreload" href="assets/moments/iris-opens/moment.js">
+<style>
+  /* app-frame recipe (sections-library.md) */
+  .app.ui { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); margin-top: var(--s-7); background: var(--u-bg); border: 1px solid var(--u-border); border-radius: var(--u-r); box-shadow: var(--u-shadow); }
+  .app > .app__pane { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+  .app > .app__pane + .app__pane { border-left: 1px solid var(--u-line); }
+  .app > .app__pane > .ui-panel { width: 100%; border: 0; border-radius: 0; box-shadow: none; }
+  .app > .app__pane::after { content: ""; position: absolute; inset: auto 0 0 0; height: 64px; background: linear-gradient(transparent, var(--u-bg)); pointer-events: none; }
+  @media (min-width: 1024px) and (max-width: 1279px) { .app.ui { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); } }
+  @media (max-width: 1023px) {
+    .app.ui { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .app > .app__pane--list { max-height: 252px; }
+    .app > .app__pane--list::after { display: none; }
+    .app .ui-win__side { display: none; }
+    .app .ui-win__body { grid-template-columns: minmax(0, 1fr); }
+    .app > .app__pane + .app__pane { border-left: 0; border-top: 1px solid var(--u-line); }
+  }
+  @media (max-width: 639px) {
+    .app.ui { grid-template-rows: minmax(0, 1fr); }
+    .app > .app__pane--list { display: none; }
+    .app > .app__pane + .app__pane { border-top: 0; }
+  }
+  #omp .panel { --p-h: 260px; }
+  #install .panel { --p-h: 200px; }
+  #proof .stack-4 > p, #proof .rows__name, #proof .rows__value { color: var(--ink); }
+  #tools .panel { --p-h: 520px; }
+  @media (max-width: 639px) { #omp .panel { --p-h: 110px; } #omp .panel:has(> .dg) { --p-h: 240px; } #tools .panel { --p-h: 400px; } #install .panel { --p-h: 110px; } }
+  @media (min-width: 640px) and (max-width: 1023px) { #install { --h: 2; } }
+  /* inside a visual: the install commands */
+  .cmd { margin: 0; height: 100%; padding: var(--s-5); background: var(--p-surface); font: 400 15px/1.6 var(--font-mono); color: var(--p-ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+  #omp .panel > .dg, #tools .panel > .dg { background: var(--p-surface); }
+  .cmd .p { color: var(--muted); user-select: none; }
 </style>
 </head>
 <body>
-<header class="top">
-<nav aria-label="Main">
-<a class="brand" href="#top"><img src="images/logo.svg" alt="deepmodebot" height="32"></a>
-<a href="#how">How it works</a>
-<a href="#evidence">Evidence</a>
-<a href="#factory">Software factory</a>
-<a href="#install">Install</a>
-<a href="#safety">Safety</a>
-<a href="#faq">FAQ</a>
-<a href="https://github.com/TimothyVang/deepmodebot">GitHub</a>
-</nav>
+<!-- type: software (developer tool)
+     deal: hero split, nav nav-centre, close close-type, footer footer-dark, rhythm space, buttons tonal, mark wordmark,
+           palette green-black-bone, type gabarito, radius sharp, ground painting (painterly-landscape in the hero frame),
+           card ground gradient-mesh
+     moments: iris-opens on #proof (needs its own ground: ground-inverse, the one change from rhythm space) -->
+<header class="nav nav--centre">
+  <div class="wrap nav__bar">
+    <a class="skip-link" href="#top">Skip to content</a>
+    <a class="nav__logo" href="#top">deepmodebot</a>
+    <nav class="nav__links" aria-label="Main">
+      <div class="nav__item"><a class="nav__link" href="#how">Review</a></div>
+      <div class="nav__item"><a class="nav__link" href="#omp">omp</a></div>
+      <div class="nav__item"><a class="nav__link" href="#proof">Proof</a></div>
+      <div class="nav__item"><a class="nav__link" href="#tools">Harnesses</a></div>
+      <div class="nav__item"><a class="nav__link" href="#faq">Questions</a></div>
+    </nav>
+    <div class="nav__actions">
+      <a class="btn btn--primary" href="#install">Get the omp plugin</a>
+    </div>
+    <button class="nav__toggle" type="button" aria-expanded="false" aria-label="Menu">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
 </header>
+
 <main id="top">
+  <section class="hero hero--split" data-enter aria-labelledby="hero-h">
+    <div class="wrap"><div class="hero-text grid hero__grid">
+      <div class="hero__text span-5">
+        <p class="hero__kicker"><span class="dot" aria-hidden="true"></span>Version 0.9.0, MIT licensed</p>
+        <h1 id="hero-h">The skill set for omp coding agents</h1>
+        <p class="hero__lead">One /deep command sends any task to one of 30 playbooks, proves the result on the running app, and lands a pull request only after three verifiers vote.</p>
+        <div class="btn-row"><a class="btn btn--primary" href="#install">Get the omp plugin<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a><a class="btn btn--secondary" href="https://github.com/TimothyVang/deepmodebot">See the source</a></div>
+      </div>
+      <div class="hero__media span-6 start-7" data-fx="painterly-landscape" data-fx-seed="11" role="img" aria-label="A deepmodebot run in omp: the task is routed to the feature playbook, tests are written first, the change is built and proved, and the verifier panel passes.">
+        <div class="stage">
+          <div class="at-rise fit" style="--fit-max:520px;--ax:max(32px, 50% - 260px);--ay:72px;--ay-sm:24px" data-ui-loop>
+            <div class="ui ui-panel ui-term" data-ui="terminal-run">
+              <div class="ui-term__head">
+                <span class="ui-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                <span class="ui-term__title">your-repo</span>
+                <span class="ui-meta">omp</span>
+                <span class="ui-spacer"></span>
+                <span class="ui-chip ui-chip--plain ui-term__branch"><svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="3.5" r="1.5"/><circle cx="5" cy="12.5" r="1.5"/><circle cx="11" cy="5.5" r="1.5"/><path d="M5 5v6M11 7c0 2.6-6 1.8-6 4"/></svg>retry-backoff</span>
+              </div>
+              <div class="ui-term__screen" data-term-screen>
+                <div class="ui-term__track" data-term-track>
+                  <div class="ui-term__ln ui-term__cmd"><span class="ui-term__cwd">~/your-repo</span><span class="ui-term__sig">&gt;</span><span class="ui-term__typed" data-term-cmd>/deep add retry backoff</span></div>
+                  <div class="ui-term__ln ui-term__meter" data-term-out data-term-meter><span class="ui-term__bar" style="--p:1"><i></i></span><span class="ui-term__count" data-term-count>4 of 4 steps</span></div>
+                  <div class="ui-term__ln ui-term__log" data-term-out data-term-step><svg class="ui-term__tick" viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg><span class="ui-term__path">route: feature playbook</span><span class="ui-term__n">size M</span><span class="ui-term__t">2s</span></div>
+                  <div class="ui-term__ln ui-term__log" data-term-out data-term-step><svg class="ui-term__tick" viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg><span class="ui-term__path">tests first: 3 failing</span><span class="ui-term__n">red</span><span class="ui-term__t">41s</span></div>
+                  <div class="ui-term__ln ui-term__log" data-term-out data-term-step><svg class="ui-term__tick" viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg><span class="ui-term__path">build: poller.ts</span><span class="ui-term__n">+48 &minus;6</span><span class="ui-term__t">3m 12s</span></div>
+                  <div class="ui-term__ln ui-term__log" data-term-out data-term-step><svg class="ui-term__tick" viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg><span class="ui-term__path">proof: on the running app</span><span class="ui-term__n">green</span><span class="ui-term__t">58s</span></div>
+                  <div class="ui-term__ln ui-term__gap" data-term-out aria-hidden="true"></div>
+                  <div class="ui-term__ln ui-term__sum" data-term-out><span class="ui-term__key">Review</span><span class="ui-term__val">0 P0, 0 P1</span><span class="ui-term__dim">(2 P2 fixed)</span></div>
+                  <div class="ui-term__ln ui-term__sum" data-term-out><span class="ui-term__key">Panel</span><span class="ui-term__val">3 passed</span><span class="ui-term__dim">(3)</span></div>
+                  <div class="ui-term__ln ui-term__done" data-term-out data-term-done><span class="ui-term__ok"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 8.3 2.4 2.4 4.6-5"/></svg></span><b>Ready to land</b><span class="ui-term__dim">at the same head</span></div>
+                  <div class="ui-term__ln ui-term__cmd" data-term-next><span class="ui-term__cwd">~/your-repo</span><span class="ui-term__sig">&gt;</span><span class="ui-term__typed"></span><i class="ui-term__caret" aria-hidden="true"></i></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="ly-float">
+          <div class="ly-float__row"><span class="ly-live">Merge gate</span><span>three verifiers</span></div>
+          <div class="ly-float__title">2 passes needed at the final head</div>
+        </div>
+      </div>
+    </div></div>
+  </section>
 
-<section class="hero" aria-labelledby="hero-title">
-<h1 id="hero-title">Bots that review, fix, verify and merge your PRs. Skills that take work from idea to merged code.</h1>
-<p class="lead">deepmodebot combines a self-hosted GitHub review bot with workflows for planning, implementation and delivery. Owner-controlled bots use ACP agents and your subscription login. They discuss findings in the PR thread, verify fixes and merge your own PRs through a gate in code. Ordinary local work stays in your starting tree for review. No model API key or public webhook server is required.</p>
-<ul class="pills" aria-label="Key facts">
-<li>MIT licensed</li><li>Runs on your machine</li><li>Subscription logins</li><li>ACP owner roles</li><li>Verifier-gated merges</li><li>Local or published delivery</li>
-</ul>
-<div class="cta">
-<a class="btn primary" href="#install">Install</a>
-<a class="btn" href="https://github.com/TimothyVang/deepmodebot">View on GitHub</a>
-<a class="btn" href="https://github.com/TimothyVang/deepmodebot/pull/19">See a real run</a>
-</div>
-<figure>
-<img src="images/pr-19-thread.gif" width="960" height="600" alt="The real thread of PR 19: the author bot merges main into the PR, the reviewer posts findings, the author fixes them, the coordinator blocks after three rounds, the owner says continue, two panels fail with evidence, the third passes 2/3, and the bot squash-merges.">
-<figcaption>A real run, not a mock-up: the bots took <a href="https://github.com/TimothyVang/deepmodebot/pull/19">PR #19</a> through 5 cycles. Two failed panels caught real bugs; the third passed 2/3 and the bot merged it.</figcaption>
-</figure>
-</section>
+  <section class="section" id="how" aria-labelledby="how-h">
+    <div class="wrap">
+      <div class="grid">
+        <h2 class="span-5" id="how-h">deepmodebot reviews and lands your pull requests</h2>
+        <div class="span-6 start-7 stack-4">
+          <p>A reviewer bot posts findings on the diff, the author bot answers each with a fix or a reason, and three verifiers vote on the final head before it merges.</p>
+          <a class="link" href="https://github.com/TimothyVang/deepmodebot/blob/main/plugins/deepmodebot/skills/deepmodebot/references/techniques/github-app.md">Read how the bots work</a>
+        </div>
+      </div>
+      <div class="ui app fill" role="img" aria-label="The deepmodebot pull request list beside an open review: the reviewer bot flags a filter that skips every file under node_modules and suggests a fix." data-ui-pause-host>
+        <div class="app__pane app__pane--list">
+          <div class="ui ui-panel ui-win" data-ui="window" data-open="Review" data-work="Fixing" data-done="Merged">
+            <div class="ui-win__bar">
+              <span class="ui-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="ui-win__crumb">deepmodebot <i>/</i> <b>Pull requests</b></span>
+              <span class="ui-spacer"></span>
+              <span class="ui-win__search" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg><span class="ui-win__ph">Search</span><span class="ui-kbd">/</span></span>
+            </div>
+            <div class="ui-win__body">
+              <nav class="ui-win__side" aria-hidden="true">
+                <span class="ui-win__nav is-on"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M2.5 9h3l1 1.5h3l1-1.5h3"/><path d="M2.5 9 4 3.5h8L13.5 9v3.5h-11z"/></svg>Open<em>2</em></span>
+                <span class="ui-win__nav"><svg class="ui-icon" viewBox="0 0 16 16"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg>Merged</span>
+                <span class="ui-win__label">Bots</span>
+                <span class="ui-win__nav"><span class="ui-win__hash">#</span>Reviewer</span>
+                <span class="ui-win__nav"><span class="ui-win__hash">#</span>Panel</span>
+              </nav>
+              <div class="ui-win__main">
+                <div class="ui-win__cols" aria-hidden="true"><span>Author</span><span>Pull request</span><span>Status</span><span>No.</span></div>
+                <ul class="ui-win__rows">
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">TV</span><span class="ui-win__who">TimothyVang</span><span class="ui-win__sub">One npm package for four tools</span><span class="ui-win__st is-you" data-st>Review</span><span class="ui-win__age">98</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">TV</span><span class="ui-win__who">TimothyVang</span><span class="ui-win__sub">Cap review agents per PR</span><span class="ui-win__st" data-st>Review</span><span class="ui-win__age">97</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">TV</span><span class="ui-win__who">TimothyVang</span><span class="ui-win__sub">C++, Go and Npgsql perf checks</span><span class="ui-win__st is-done" data-st>Merged</span><span class="ui-win__age">96</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">TV</span><span class="ui-win__who">TimothyVang</span><span class="ui-win__sub">perf_audit scanner and evals</span><span class="ui-win__st is-done" data-st>Merged</span><span class="ui-win__age">95</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">TV</span><span class="ui-win__who">TimothyVang</span><span class="ui-win__sub">110 server optimization lessons</span><span class="ui-win__st is-done" data-st>Merged</span><span class="ui-win__age">94</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">TV</span><span class="ui-win__who">TimothyVang</span><span class="ui-win__sub">Diff coverage for pr-review</span><span class="ui-win__st is-done" data-st>Merged</span><span class="ui-win__age">93</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">TV</span><span class="ui-win__who">TimothyVang</span><span class="ui-win__sub">Local lessons and tools</span><span class="ui-win__st is-done" data-st>Merged</span><span class="ui-win__age">92</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">TV</span><span class="ui-win__who">TimothyVang</span><span class="ui-win__sub">The 0.9.0 overhaul</span><span class="ui-win__st is-done" data-st>Merged</span><span class="ui-win__age">91</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">TV</span><span class="ui-win__who">TimothyVang</span><span class="ui-win__sub">Bounded review and delivery</span><span class="ui-win__st is-done" data-st>Merged</span><span class="ui-win__age">66</span></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="app__pane app__pane--open" data-ui-loop>
+          <div class="ui ui-panel ui-diff" data-ui="diff-review">
+            <div class="ui-diff__head">
+              <svg class="ui-icon ui-diff__fold" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.25 3.5 3.5 3.5-3.5"/></svg>
+              <span class="ui-diff__repo">deepmodebot</span><i class="ui-diff__slash" aria-hidden="true">/</i>
+              <span class="ui-diff__path"><span class="ui-diff__dir">lib/</span><b>tree.mjs</b></span>
+              <span class="ui-spacer"></span>
+              <span class="ui-diff__stat"><b class="is-add"><span class="ui-diff__was">+1</span><span class="ui-diff__now">+3</span></b><b class="is-del"><span class="ui-diff__was">&minus;1</span><span class="ui-diff__now">&minus;1</span></b><span class="ui-diff__bar" aria-hidden="true"><i class="is-add"></i><i class="is-add"></i><i class="is-add"></i><i class="is-del"></i></span></span>
+            </div>
+            <div class="ui-diff__hunk"><span>@@ -36,8 +36,10 @@</span> <em class="ui-diff__sig">export function mirror(src, dst) {</em></div>
+            <div class="ui-diff__lines">
+              <div class="ui-diff__ln"><i>36</i><i>36</i><span class="ui-diff__code" data-i="0"><span class="k">export function</span> <span class="f">mirror</span>(src, dst) {</span></div>
+              <div class="ui-diff__ln is-target" data-diff-target><i>37</i><i>37</i><span class="ui-diff__code" data-i="1"><span class="ui-diff__ind">  </span><span class="k">const</span> skip = (p) =&gt; p.<span class="f">split</span>(sep)<mark class="ui-diff__w">.<span class="f">some</span>(ignored)</mark>;</span></div>
+              <div class="ui-diff__sug" data-diff-sug><div class="ui-diff__ln is-add"><i></i><i>37</i><span class="ui-diff__code" data-i="1"><span class="ui-diff__ind">  </span><span class="k">const</span> skip = (p) =&gt; <mark class="ui-diff__w"><span class="f">relative</span>(src, p)</mark>.<span class="f">split</span>(sep).<span class="f">some</span>(ignored);</span></div></div>
+              <div class="ui-diff__thread">
+                <div class="ui-diff__by">
+                  <span class="ui-avatar" data-tone="4">RB</span>
+                  <span class="ui-diff__name">deepmodebot reviewer</span>
+                  <span class="ui-diff__time">P1</span>
+                  <span class="ui-spacer"></span>
+                  <span class="ui-diff__act" data-diff-act>
+                    <button class="ui-btn ui-btn--sm ui-diff__apply" type="button" tabindex="-1" data-diff-apply><span class="ui-diff__lbl">Apply suggestion</span><i class="ui-diff__spin" aria-hidden="true"></i></button>
+                    <span class="ui-chip ui-diff__done"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 8.4 2.6 2.6L12 5.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Applied</span>
+                  </span>
+                </div>
+                <div class="ui-diff__msg">The package lives under <code>node_modules</code>, so this skips every file.</div>
+              </div>
+              <div class="ui-diff__ln is-del"><i>38</i><i></i><span class="ui-diff__code" data-i="1"><span class="ui-diff__ind">  </span><span class="f">cpSync</span>(src, dst, { recursive: <span class="k">true</span> });</span></div>
+              <div class="ui-diff__ln is-add"><i></i><i>38</i><span class="ui-diff__code" data-i="1"><span class="ui-diff__ind">  </span><span class="f">cpSync</span>(src, dst, { recursive: <span class="k">true</span>, force: <span class="k">true</span>,</span></div>
+              <div class="ui-diff__ln is-add"><i></i><i>39</i><span class="ui-diff__code" data-i="2"><span class="ui-diff__ind">    </span>filter: (p) =&gt; !<span class="f">skip</span>(p) });</span></div>
+              <div class="ui-diff__ln"><i>39</i><i>40</i><span class="ui-diff__code" data-i="1"><span class="ui-diff__ind">  </span><span class="k">const</span> keep = <span class="f">listFiles</span>(src);</span></div>
+              <div class="ui-diff__ln"><i>40</i><i>41</i><span class="ui-diff__code" data-i="1"><span class="ui-diff__ind">  </span><span class="k">for</span> (<span class="k">const</span> file <span class="k">of</span> <span class="f">listFiles</span>(dst))</span></div>
+              <div class="ui-diff__ln"><i>41</i><i>42</i><span class="ui-diff__code" data-i="2"><span class="ui-diff__ind">    </span><span class="k">if</span> (!keep.<span class="f">has</span>(file.rel)) <span class="f">rmSync</span>(file.path);</span></div>
+              <div class="ui-diff__ln"><i>42</i><i>43</i><span class="ui-diff__code" data-i="0">}</span></div>
+              <div class="ui-diff__ln"><i>43</i><i>44</i><span class="ui-diff__code" data-i="0"></span></div>
+              <div class="ui-diff__ln"><i>44</i><i>45</i><span class="ui-diff__code" data-i="0"><span class="k">export function</span> <span class="f">treeDiffs</span>(src, dst, limit = <span class="n">5</span>) {</span></div>
+              <div class="ui-diff__ln"><i>45</i><i>46</i><span class="ui-diff__code" data-i="1"><span class="ui-diff__ind">  </span><span class="k">if</span> (!<span class="f">existsSync</span>(dst)) <span class="k">return</span> <span class="s">"missing"</span>;</span></div>
+              <div class="ui-diff__ln"><i>46</i><i>47</i><span class="ui-diff__code" data-i="1"><span class="ui-diff__ind">  </span><span class="k">const</span> a = <span class="f">listFiles</span>(src);</span></div>
+              <div class="ui-diff__ln"><i>47</i><i>48</i><span class="ui-diff__code" data-i="1"><span class="ui-diff__ind">  </span><span class="k">const</span> b = <span class="f">listFiles</span>(dst);</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-<section id="evidence" aria-labelledby="evidence-title">
-<h2 id="evidence-title">Measured behavior, not replacement claims</h2>
-<div class="table-wrap">
-<table>
-<thead><tr><th scope="col">Area</th><th scope="col">Evidence and limits</th></tr></thead>
-<tbody>
-<tr><th scope="row">Local delivery</th><td>On one feature fixture, the revised command finished 5/5 runs and every artifact passed all 19 CLI checks.
-Plain-agent runs also finished 5/5 and passed all 19 checks, with lower median reported usage ($0.9754 versus $1.6271).
-<a href="https://github.com/TimothyVang/deepmodebot/blob/main/evals/results/local-delivery-2026-11-12.md">Read the experiment and corrections</a>.</td></tr>
-<tr><th scope="row">Review quality</th><td>Historical bug cases, clean controls and explicit finding adjudication. No matched hosted-review comparison has been demonstrated. <a href="https://github.com/TimothyVang/deepmodebot/tree/main/evals/review">Review protocol</a> and <a href="https://github.com/TimothyVang/deepmodebot/blob/main/evals/results/review-quality-2026-11-12.md">paired results</a>.</td></tr>
-<tr><th scope="row">Workflow coverage</th><td>Pinned inventories distinguish related routes, executed journeys and unsupported capabilities. A mapping is not feature-parity proof. <a href="https://github.com/TimothyVang/deepmodebot/tree/main/evals/workflows">Workflow protocol</a> and <a href="https://github.com/TimothyVang/deepmodebot/blob/main/evals/results/workflow-coverage-2026-11-12.md">captured outcomes</a>.</td></tr>
-<tr><th scope="row">Visual E2E &amp; design pilot</th><td>Synthetic six-step invoice app exercised through browser, HTTP, SQLite, replay, three image-review contexts, and a local Penpot import. <a href="https://github.com/TimothyVang/deepmodebot/blob/main/docs/evidence/ecosystem-pilot-2026-11-13/README.md">Read the pilot report</a>.</td></tr>
-<tr><th scope="row">0.9.0 overhaul status</th><td>The 2026-11-12 and 2026-11-15 eval reports above predate the 0.9.0 overhaul. Post-overhaul routing evals for the compacted <code>&lt;24 KB</code> <code>SKILL.md</code> (33-case <code>evals/routing/cases.json</code>) and live agent journeys for 0.9.0 additions (<code>sme-review</code>, <code>workspace-map</code>, <code>loop.py</code> sprint/fallback gates, Sprint mode, native Antigravity plugin) have not been re-run yet; unit tests verify script state machines only.</td></tr>
-</tbody>
-</table>
-</div>
-<p>These small development experiments use a known fixture and same-provider judges, not independent vendor evaluations.
-Reported usage is a harness estimate, not a subscription invoice. No general superiority or complete replacement has been demonstrated.
-Self-hosted orchestration still sends prompts to the configured model provider.</p>
-</section>
+  <section class="section g2" id="omp" aria-labelledby="omp-h">
+    <div class="wrap">
+      <div class="group">
+        <div class="section-head">
+          <h2 id="omp-h">Built on omp's own tools. <span class="muted">Other harnesses get a translation map.</span></h2>
+        </div>
+        <div class="grid">
+          <article class="card card--row span-6">
+            <h3>Delegates through task and scout</h3>
+            <p>Read-only searches go to scout and edits to task subagents, each brief naming the exact files and one acceptance check.</p>
+            <div class="panel panel--flush" data-fx="gradient-mesh" data-fx-palette='{"bg":"#cdd6c6","surface":"#dce3d6","ink":"#262d24","accent":"#6c8e63"}' data-fx-seed="21" data-fx-params='{"drift":0}'>
+              <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:400px;--ax:max(24px, 50% - 200px);--ay:calc(100% - 180px);--ay-sm:calc(100% - 180px)" data-ui-loop>
+                <div class="ui ui-panel ui-checks" data-ui="checklist">
+                  <div class="ui-checks__head"><div class="ui-title">Brief for task 2</div><span class="ui-spacer"></span><div class="ui-meta" data-checks-count>2 of 5</div></div>
+                  <div class="ui-checks__bar"><i data-checks-bar style="--k:0.4"></i></div>
+                  <ul class="ui-checks__list">
+                    <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Goal in one sentence</span></li>
+                    <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Absolute project root</span></li>
+                    <li class="ui-check"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Exact files it owns</span></li>
+                    <li class="ui-check"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">One acceptance check</span></li>
+                    <li class="ui-check"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Writes inside the root only</span></li>
+                  </ul>
+                </div>
+              </div></div>
+            </div>
+          </article>
+          <article class="card card--row span-6">
+            <h3>Blocks writes outside the project</h3>
+            <p>omp has no sandbox, so the omp-contain hook stops write, edit and ast_edit outside the repo in every session.</p>
+            <div class="panel panel--flush" data-fx="gradient-mesh" data-fx-palette='{"bg":"#cdd6c6","surface":"#dce3d6","ink":"#262d24","accent":"#6c8e63"}' data-fx-seed="34" data-fx-params='{"drift":0}'>
+              <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:400px;--ax:max(24px, 50% - 200px);--ay:calc(100% - 180px);--ay-sm:calc(100% - 180px)">
+                <div class="ui ui-notify" data-ui="notify">
+                  <ul class="ui-notify__list" data-notify-list>
+                    <li class="ui-note"><span class="ui-note__ico"><svg class="ui-icon" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M4.2 11.8 11.8 4.2"/></svg></span><span class="ui-note__text"><span class="ui-note__title">omp-contain blocked edit<time>now</time></span><span class="ui-note__body">~/.ssh/config is outside the project</span></span></li>
+                    <li class="ui-note"><span class="ui-note__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg></span><span class="ui-note__text"><span class="ui-note__title">Allowed write<time>1m</time></span><span class="ui-note__body">.scratch/notes.md, inside the repo</span></span></li>
+                    <li class="ui-note"><span class="ui-note__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg></span><span class="ui-note__text"><span class="ui-note__title">Allowed write<time>3m</time></span><span class="ui-note__body">A folder you listed in .deepmodebot.json</span></span></li>
+                  </ul>
+                </div>
+              </div></div>
+            </div>
+          </article>
+        </div>
+      </div>
+      <div class="grid">
+        <article class="card card--row span-6">
+          <h3>Loads skills by skill:// path</h3>
+          <p>Twelve skills resolve as skill://deepmodebot/ paths, so a playbook loads only when its route needs it.</p>
+          <div class="panel panel--flush" data-fx="gradient-mesh" data-fx-palette='{"bg":"#cdd6c6","surface":"#dce3d6","ink":"#262d24","accent":"#6c8e63"}' data-fx-seed="47" data-fx-params='{"drift":0}'>
+            <div class="stage stage--fade-b"><div class="at-rise fit to-edge" style="--fit-max:400px;--ax:max(24px, 50% - 200px);--ay:56px;--ay-sm:56px">
+              <div class="ui ui-panel ui-search" data-ui="search">
+                <div class="ui-search__field">
+                  <svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>
+                  <span class="ui-search__q"><span data-search-q>skill://deepmodebot</span><i class="ui-search__caret"></i></span>
+                  <kbd class="ui-search__kbd">read</kbd>
+                </div>
+                <div class="ui-search__group">References</div>
+                <ul class="ui-search__list" data-search-list>
+                  <li class="ui-search__row is-sel"><span class="ui-search__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M4 2.5h5l3 3v8H4z"/><path d="M9 2.5v3h3"/></svg></span><span class="ui-search__t">playbooks/<b>feature</b>.md</span><span class="ui-search__m">30</span></li>
+                  <li class="ui-search__row"><span class="ui-search__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M4 2.5h5l3 3v8H4z"/><path d="M9 2.5v3h3"/></svg></span><span class="ui-search__t">principles/<b>prove-it-works</b>.md</span><span class="ui-search__m">24</span></li>
+                  <li class="ui-search__row"><span class="ui-search__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M4 2.5h5l3 3v8H4z"/><path d="M9 2.5v3h3"/></svg></span><span class="ui-search__t">techniques/<b>tdd</b>.md</span><span class="ui-search__m">52</span></li>
+                </ul>
+                <div class="ui-search__foot"><span>Loaded on demand</span><span>Not in context</span></div>
+              </div>
+            </div></div>
+          </div>
+        </article>
+        <article class="card card--row span-6">
+          <h3>Picks a model tier before it delegates</h3>
+          <p>Each job takes the smallest tier that fits and checks omp usage first, so a rate limit pauses work.</p>
+          <div class="panel panel--flush">
+            <div class="dg" data-diagram='{"layout":"lanes","alt":"A task goes through the omp usage check and splits into three model tiers: small for search, medium for mechanical work, high for design and review.","input":{"label":"Task","icon":"ui:list-todo","sub":"from /deep"},"core":{"label":"omp usage","icon":"ui:gauge"},"lanes":[{"label":"Small","icon":"ui:search","done":true,"sub":"Search"},{"label":"Medium","icon":"ui:wrench","done":true,"sub":"Edits"},{"label":"High","icon":"ui:brain","done":true,"sub":"Review"}]}'></div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
 
-<section id="how" aria-labelledby="how-title">
-<h2 id="how-title">How the bots work</h2>
-<p>A private GitHub App gives the bots a name in your threads. A poller, <code>bot.py watch</code>, runs on your machine. Owner-controlled roles use <a href="https://github.com/openclaw/acpx">acpx</a> and their own subscription logins. Outside-contributor reviews instead run in a separate, tool-free omp process. The poller posts comments as your app and uses your authenticated git and <code>gh</code> for publication.</p>
-<figure>
-<img src="images/how-it-works.svg" width="1200" height="650" alt="Diagram: on GitHub, your private app deepmodebot-login, PR and issue threads, and branches and checks. On your machine, the config directory, bot.py watch, your gh and git, and acpx connecting an author agent and a reviewer agent, omp by default.">
-</figure>
-<h3>The PR conversation</h3>
-<p>The coordinator posts a kickoff. When the branch conflicts with its base, the author merges the base into the head and pushes; it never rebases or force-pushes. The reviewer returns evidence-backed findings. The author fixes each finding or dismisses it with proof. They repeat until no P0/P1 remains and every P2 is answered, for at most three rounds; an owner's <code>@deepmodebot continue</code> starts more. The repository check then runs. Exactly three independent verifier agents assess the same final head in separate worktrees. All three responses must be valid and at least two must pass, regardless of change size. A majority never overrides a failed deterministic gate.</p>
-<figure>
-<img src="images/pr-conversation.svg" width="1200" height="940" alt="Sequence diagram of the PR conversation: kickoff, conflict merge, review and answer rounds over ACP mirrored to the thread, a three-verifier panel, and the merge gate checks before a squash merge.">
-</figure>
-<p>The merge gate is code, not a prompt. It merges only your own PR, at the same head the panel voted on, with every required check reported and green, with no conflict, and with merges allowed by <code>autonomousMerge</code>. Anyone else's PR gets review comments only.</p>
-<p>Outside-contributor reviews receive the diff and a bounded packet of changed source files and direct local imports read from Git objects. Omitted files and limits are explicit. This is not whole-repository analysis, and it never executes the contributor's code.</p>
-<h3>The issue conversation</h3>
-<p>On a new issue, the author agent plans, the reviewer critiques, and the author answers, all read-only and all in the issue thread. When you opened the issue, or you comment <code>@deepmodebot implement</code>, the author builds it on <code>deepmodebot/issue-&lt;n&gt;</code> and opens a PR that closes the issue. The PR conversation then lands it.</p>
-<figure>
-<img src="images/issue-flow.svg" width="1200" height="630" alt="Flow diagram: trigger, read as untrusted data, plan, critique, answer, then if the owner opened the issue or said implement, build on a branch, open a PR with Closes, land it with the PR conversation, and the merge closes the issue.">
-</figure>
-</section>
+  <section class="section ground-inverse" id="proof" data-moment="iris-opens" data-moment-opts='{"from": "base"}' aria-labelledby="proof-h">
+    <div class="wrap">
+      <div class="grid">
+        <div class="span-5 stack-4">
+          <h2 id="proof-h">Eval results from 5 runs per arm</h2>
+          <p>A plain agent also finished every run, and spent less. deepmodebot adds review gates and proof, not speed. The small fixture does not show general superiority.</p>
+          <a class="link" href="https://github.com/TimothyVang/deepmodebot/blob/main/evals/results/local-delivery-2026-11-12.md">Read the eval report</a>
+        </div>
+        <ul class="rows span-6 start-7">
+          <li><span class="rows__name">Runs finished with deepmodebot</span><span class="rows__value">5 of 5</span><p>Every artifact passed all 19 CLI checks.</p></li>
+          <li><span class="rows__name">Runs finished by a plain agent</span><span class="rows__value">5 of 5</span><p>Also passed all 19 checks.</p></li>
+          <li><span class="rows__name">Median reported usage</span><span class="rows__value">$1.63 vs $0.98</span><p>deepmodebot first; a harness estimate, not an invoice.</p></li>
+          <li><span class="rows__name">Invoice pilot, browser to SQLite</span><span class="rows__value">6 of 6 steps</span><p>Recording and replay each passed every step.</p></li>
+          <li><span class="rows__name">Image review by three verifiers</span><span class="rows__value">2 approvals</span><p>One asked for a revision; all three answers were valid.</p></li>
+        </ul>
+      </div>
+    </div>
+  </section>
 
-<section id="factory" aria-labelledby="factory-title">
-<h2 id="factory-title">The software factory</h2>
-<p>One command, <code>/deep</code>, reads your request and the repo and routes it across <strong>30 playbooks, 24 principles, and 52 techniques</strong> from a compact <code>SKILL.md</code> under Antigravity's 24 KB limit (core rules before <code>## Routes</code> under Claude Code's ~20 KB post-compaction window) backed by <code>references/catalog.md</code>. You never pick a skill. The main line takes an idea to merged code with pre-task model/effort selection, machine-enforced Full-Scope Completion, and SME-in-the-loop incremental sprints; skip the phases a job doesn't need.</p>
-<div class="table-wrap">
-<table>
-<thead><tr><th scope="col">Phase</th><th scope="col">Flow</th><th scope="col">Leaves behind</th></tr></thead>
-<tbody>
-<tr><td>0. Set up the repo once</td><td>Setup</td><td>A tracker (GitHub issues, local files, or another tracker), mapped labels, <code>GLOSSARY.md</code>, <code>docs/adr/</code>, <code>CODING_STANDARDS.md</code>, an <code>AGENTS.md</code> section</td></tr>
-<tr><td>1. Sharpen the idea</td><td>Grill, with its With docs mode</td><td>A decision table, glossary terms, ADRs</td></tr>
-<tr><td>2. Settle a fork by running it</td><td>Prototype</td><td>A decision backed by an observation</td></tr>
-<tr><td>3. Write it down</td><td>Spec (plus <code>sme-review</code> in complex domains)</td><td><code>docs/specs/&lt;slug&gt;.md</code> and a spec issue</td></tr>
-<tr><td>4. Cut it up</td><td>Tickets</td><td>Tracer-bullet tickets grouped into incremental sprints</td></tr>
-<tr><td>5. Build it</td><td>Phased build (sprint or build mode) or Work a queue (one PR per ticket), with TDD</td><td>Merged code</td></tr>
-<tr><td>6. Review and land</td><td>PR review (correctness, security, spec and standards lenses), verifier panel, PR conversation</td><td>A merged PR with evidence</td></tr>
-</tbody>
-</table>
-</div>
-<h3>Around the main line</h3>
-<dl class="skills">
-<div><dt>Triage</dt><dd>Sorts incoming issues and outside PRs into a category and a state, and posts a brief or the questions that block them.</dd></div>
-<div><dt>Wayfinder</dt><dd>Charts an effort too big for one session and hands its decisions to a spec.</dd></div>
-<div><dt>Run a goal</dt><dd>Drives one goal to a checkable end without you, in one session or via <code>loop.py</code> (<code>status</code>, <code>check</code>, <code>run</code>, <code>manifest</code>, <code>audit</code>) with sprint-aware Scope Manifests (<code>--sprint N</code>, <code>inventory</code>, <code>sme_gate</code>), cheap-first model escalation, quota/429 fallback, cadence/SME checkpoints (<code>checkpoint_every</code> or <code>sme_gate</code>, exit 6; active-sprint pass with deferred slices exits 0 with <code>scope_complete: false</code>), and zero-loss JSON resume telemetry (<code>latest-summary.json</code>).</dd></div>
-<div><dt>End-to-end</dt><dd>Expands a broad prompt or rough idea into a machine-checked Scope Manifest and builds every vertical slice through persistence, error states, and cold-start proof (or pauses only at an explicit sprint/SME checkpoint while reporting remaining sprints as incomplete).</dd></div>
-<div><dt>Work a queue</dt><dd>Turns a backlog, a queue of PRs, or labeled issues (through the <code>factory</code> CLI) into merged PRs, each after a panel pass.</dd></div>
-<div><dt>domain-model</dt><dd>Keeps <code>GLOSSARY.md</code> and ADRs current as names and decisions change.</dd></div>
-<div><dt>research</dt><dd>Writes an answer that later sessions will cite into the repo.</dd></div>
-<div><dt>architecture-review</dt><dd>Finds structural friction across the codebase and settles which refactors to make.</dd></div>
-<div><dt>tournament</dt><dd>Runs a 12-agent bracket across architecture and research lenses with verified receipts and single-insight grafting before code is written.</dd></div>
-<div><dt>security-audit</dt><dd>Audits a PR's security before it merges, run by your own agent.</dd></div>
-<div><dt>retro</dt><dd>Improves the repo's files, checks and docs after a session, so the next agent works faster.</dd></div>
-<div><dt>Handoff and Pause safely</dt><dd>A portable doc for another session, harness or person, or a resume note for later in this repo.</dd></div>
-<div><dt>questionnaire</dt><dd>Writes the questions for the one person who holds a fact nobody else has.</dd></div>
-<div><dt>sme-review</dt><dd>Validates complex-domain customer specs and sprint deliverables with an SME lens and pauses for a human SME questionnaire when domain rules cannot be proved.</dd></div>
-<div><dt>wizard</dt><dd>A guided script for steps only a human can do: dashboards, credentials, irreversible clicks.</dd></div>
-<div><dt>teach and course</dt><dd>Explains a change or subsystem, or runs a course on a topic over many sessions.</dd></div>
-<div><dt>pre-commit</dt><dd>Runs the repo's own lint, typecheck and tests at commit time.</dd></div>
-<div><dt>git-guardrails</dt><dd>Turns the git hard stops into a hook the harness enforces before a destructive command runs.</dd></div>
-<div><dt>workspace-map</dt><dd>Automatic zero-bloat memory-mapped SQLite/FTS5 index (<code>workspace_map.py</code>) shared per repo across Orca/git worktrees for ~300-token orientation, exact symbol lookup, own open PRs, and Scope Manifest/loop state. Antigravity's hook auto-injects a fast offline git-only overview on deepmodebot slash commands (writing <code>.scratch/workspace-map.db</code>, skipped on read-only commands when absent); omp, Claude Code, and Codex invoke it on Route Step 1; <code>workspaces</code> and <code>prs</code> fetch live Orca/GitHub PR state on demand.</dd></div>
-<div><dt>deep-stack</dt><dd>Stack picks and decision rules for any app, an agent-driven UI design workflow, and a per-task ship loop.</dd></div>
-<div><dt>Verification skills</dt><dd>Build and maintain a per-repo <code>verify-&lt;app&gt;</code> skill so agents can drive your app and capture proof.</dd></div>
-</dl>
-</section>
+  <section class="section" id="tools" aria-labelledby="tools-h">
+    <div class="wrap">
+      <div class="grid">
+        <div class="span-5 stack-4">
+          <h2 id="tools-h">deepmodebot plugins for Claude Code, Codex and Antigravity</h2>
+          <p>The same skills install natively in each. omp stays the default agent for the PR bots, and reviews of outside contributors' pull requests run only on omp.</p>
+          <a class="link" href="https://github.com/TimothyVang/deepmodebot#install">See every install command</a>
+        </div>
+        <div class="span-6 start-7">
+          <div class="panel panel--flush">
+            <div class="dg" data-dg-still data-diagram='{"layout":"hub","motion":{"pulse":"none"},"alt":"omp at the centre, with deepmodebot also installed in Claude Code, Codex, Google Antigravity and GitHub.","center":{"label":"omp","icon":"ui:terminal"},"spokes":[{"label":"Claude Code","icon":"claude-code"},{"label":"Codex","icon":"openai"},{"label":"Antigravity","icon":"logos:google-icon"},{"label":"GitHub App","icon":"github"}]}'></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-<section id="install" aria-labelledby="install-title">
-<h2 id="install-title">Install</h2>
-<h3>The skills</h3>
-<p>In omp:</p>
-<pre><code>omp plugin marketplace add TimothyVang/deepmodebot
-omp plugin install deepmodebot@deepmodebot</code></pre>
-<p>In Claude Code, run <code>/plugin marketplace add TimothyVang/deepmodebot</code> and <code>/plugin install deepmodebot@deepmodebot</code>. In Codex, run <code>codex plugin marketplace add TimothyVang/deepmodebot</code> and <code>codex plugin add deepmodebot@deepmodebot</code>. In Google Antigravity, clone first and install the subfolder plugin: <code>git clone https://github.com/TimothyVang/deepmodebot</code> then <code>agy plugin install ./deepmodebot/plugins/deepmodebot</code> (or <code>agy plugin install ./plugins/deepmodebot</code> from an existing clone; update with <code>git pull</code> and re-install). Antigravity's bundled hook, <code>deepmodebot_omp</code> MCP server, and 3 subagents need Node.js 18+ and Python 3.10+. Cursor and other harnesses that load <code>SKILL.md</code> skills take the folders in <code>plugins/deepmodebot/skills/</code>. Then, in any repo, run <code>/deepmodebot:deep &lt;your task&gt;</code> in omp or Claude Code, <code>/deep &lt;your task&gt;</code> in Antigravity, or <code>$deepmodebot:deepmodebot &lt;your task&gt;</code> in Codex, which loads the skills but not the slash commands.</p>
-<h3>The bots</h3>
-<p>You need git, <code>gh</code> logged in, openssl (Git for Windows ships one), Node and npm, Python 3.10 or newer, and at least one ACP agent CLI on its subscription login. Then run three commands:</p>
-<pre><code>git clone https://github.com/TimothyVang/deepmodebot
-cd deepmodebot/plugins/deepmodebot/skills/deepmodebot
-py -3 assets/github-app/install.py      # python3 on macOS and Linux</code></pre>
-<p>The installer checks your tools, installs acpx when it is missing, finds the ACP agents on your PATH (omp first, then Claude Code, Codex, Gemini CLI, Cursor, Copilot, OpenCode), registers omp with acpx, sends a test prompt over ACP to the agents the bots will use, creates your private GitHub App in the browser, waits while you install it on the repos you pick, writes <code>bot.json</code>, and registers the poller to start on its own (Task Scheduler or the Startup folder, launchd, systemd or cron). It asks before each change. <code>--yes</code> accepts every default, and <code>--check</code> reports what is missing and changes nothing.</p>
-<figure>
-<img src="images/install.gif" width="827" height="515" alt="Terminal recording of a real run of install.py --check: tools, the agent harnesses found (omp, Claude Code, Codex, OpenCode), an ACP round trip to omp, and the GitHub App installation all report ok.">
-<figcaption>A real run of <code>install.py --check</code>, recorded to <a href="images/install.cast">an asciicast</a>.</figcaption>
-</figure>
-<p>Day to day, <code>bot.py status</code> shows what it is doing, and <code>bot.py once --repo &lt;owner/repo&gt; --dry-run</code> previews a cycle without posting.</p>
-</section>
+  <section class="section" id="faq" aria-labelledby="faq-h">
+    <div class="wrap">
+      <div class="grid grid--top">
+        <div class="span-5 stack-4">
+          <h2 id="faq-h">Questions about deepmodebot</h2>
+          <p class="muted">Anything else is answered in the README.</p>
+          <a class="link" href="https://github.com/TimothyVang/deepmodebot#faq">Read the full FAQ</a>
+        </div>
+        <div class="faq span-6 start-7">
+          <div class="faq__item"><h3>Does deepmodebot need an API key?</h3><p>No. It runs on your agent CLI's subscription login; prompts still reach your model provider.</p></div>
+          <div class="faq__item"><h3>How much does the plugin cost?</h3><p>Nothing. It is MIT licensed; usage counts against your own plan.</p></div>
+          <div class="faq__item"><h3>Does deepmodebot work outside omp?</h3><p>Yes, in Claude Code, Codex and Antigravity. Outside-contributor reviews need omp.</p></div>
+          <div class="faq__item"><h3>Can the plugin write outside my repo?</h3><p>Not with the guard on. The hook skips shell commands, so the skill's rule covers bash.</p></div>
+          <div class="faq__item"><h3>Is deepmodebot faster than a plain agent?</h3><p>No. In the measured fixture the plain agent used less; deepmodebot adds gates and proof.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="section" id="install" style="--hm: 2" aria-labelledby="install-h">
+    <div class="wrap">
+      <div class="section-head"><h2 id="install-h">Set up deepmodebot in omp in 4 steps</h2></div>
+      <div class="grid">
+        <article class="card card--row span-3">
+          <span class="step-num">1</span>
+          <h3>Add the marketplace</h3>
+          <p>omp reads the plugin list straight from the GitHub repo.</p>
+          <div class="panel"><pre class="cmd"><span class="p">$ </span>omp plugin marketplace add TimothyVang/deepmodebot</pre></div>
+        </article>
+        <article class="card card--row span-3">
+          <span class="step-num">2</span>
+          <h3>Install the plugin</h3>
+          <p>omp copies the skills, commands and agents into its plugin cache.</p>
+          <div class="panel"><pre class="cmd"><span class="p">$ </span>omp plugin install deepmodebot@deepmodebot</pre></div>
+        </article>
+        <article class="card card--row span-3">
+          <span class="step-num">3</span>
+          <h3>Turn on the write guard</h3>
+          <p>The link file loads the guard from the plugin, so upgrades never leave a stale copy.</p>
+          <div class="panel"><pre class="cmd"><span class="p">$ </span>cp omp-contain-link.ts ~/.omp/agent/hooks/pre/</pre></div>
+        </article>
+        <article class="card card--row span-3">
+          <span class="step-num">4</span>
+          <h3>Run your first task</h3>
+          <p>Type the command and the task in any repo; it picks the playbook.</p>
+          <div class="panel"><pre class="cmd"><span class="p">&gt; </span>/deepmodebot:deep add retry backoff to the poller</pre></div>
+        </article>
+      </div>
+    </div>
+  </section>
 
-<section id="safety" aria-labelledby="safety-title">
-<h2 id="safety-title">Safety</h2>
-<div class="grid">
-<div class="card"><h3>Installing is the opt-in</h3><p>The bots work only in repos where you installed your app. A base-branch <code>.deepmodebot.json</code> with <code>"bot": false</code> skips a repo, and <code>"autonomousMerge": false</code> stops at merge-ready.</p></div>
-<div class="card"><h3>Only your PRs merge</h3><p>Your account opened the PR from your repo, not a fork, and its commits pass the ownership checks in code. Everyone else's PRs get review comments only.</p></div>
-<div class="card"><h3>A gate in code</h3><p>Same head as the panel, every required check green, no conflict, merge authorized. The opt-out file is read from the base branch, so a PR cannot grant itself a merge.</p></div>
-<div class="card"><h3>Thread text is data</h3><p>PR and issue text is wrapped as untrusted input, and <code>@path</code> mentions are defanged. A request in it to merge, push or post elsewhere is reported as a finding.</p></div>
-<div class="card"><h3>History stays intact</h3><p>Conflicts are fixed by merging the base into the head. No rebase, no force-push, no branch deletion.</p></div>
-<div class="card"><h3>Separate credentials from prompts</h3><p>The app key stays in local configuration. Child processes use a scrubbed environment. Source context and prompts still reach your configured model provider; self-hosted does not mean offline.</p></div>
-</div>
-</section>
-
-<section id="faq" aria-labelledby="faq-title">
-<h2 id="faq-title">FAQ</h2>
-<h3>What is deepmodebot?</h3>
-<p>deepmodebot is an open-source MIT plugin combining a self-hosted PR and issue bot with workflows for planning, implementation, review and delivery. Local work requires runtime proof; published changes also pass the verifier gate.</p>
-<h3>How do the deepmodebot PR bots work?</h3>
-<p>A poller on your machine checks the repos where your app is installed. An author agent and a reviewer agent, each an ACP agent reached through acpx, keep a session per PR, and a coordinator posts every turn to the thread as your app until no P0 or P1 finding is open and every P2 is answered. The repo's check command runs, three independent verifiers vote (all three must respond validly and at least two must pass), and a gate in code merges your own PR at the voted head.</p>
-<h3>Does deepmodebot need an API key?</h3>
-<p>No. Supported agent CLIs use existing subscription logins, and calls count against their usage. This is not offline inference: prompts and source context can reach the configured model provider.</p>
-<h3>Which agents and harnesses does deepmodebot work with?</h3>
-<p>Owner-controlled bot roles use ACP agents supported by acpx. Outside-contributor reviews currently require omp. The portable skill instructions target omp, Claude Code, Codex, Google Antigravity, Cursor and other skill-loading harnesses; not every combination has been tested.</p>
-<h3>Will deepmodebot merge other people's PRs?</h3>
-<p>No. Only your own PRs merge: your account opened them from your repo, not a fork, and their commits pass the ownership checks in code. Everyone else's PRs get review comments only.</p>
-<h3>What is the deepmodebot software factory?</h3>
-<p>A set of playbooks and techniques that take an idea to merged code: set up the repo, grill the idea, prototype a fork, write a spec, cut it into tickets, build them with TDD on one integration branch or one PR per ticket, then review and land through a verifier panel. Triage, research, a domain model, architecture review and retros sit around that line.</p>
-<h3>Has deepmodebot merged a real PR on its own?</h3>
-<p>Yes. <a href="https://github.com/TimothyVang/deepmodebot/pull/19">PR 19</a> in TimothyVang/deepmodebot went through 5 cycles: a conflict merge, review rounds, two failed panels that caught real bugs, then a 2/3 panel pass and a squash merge by the bot. The whole conversation is public in the PR thread.</p>
-<h3>Can I white-label an AI code review GitHub App?</h3>
-<p>Yes. deepmodebot is MIT licensed. Supply <code>brand.json</code> to <code>scripts/whitelabel.py</code> to rename the product, commands, skills, bot, site and metadata. License notices retain attribution. Immutable <code>docs/evidence/</code> files retain their original paths and bytes as upstream observations, not proof of a rebranded run. The build rejects other source-name leftovers. <code>install.py --brand &lt;name&gt;</code> renames only the bots. See the <a href="https://github.com/TimothyVang/deepmodebot/blob/main/docs/rebrand.md">rebrand guide</a>.</p>
-</section>
 </main>
-<footer>
-<div>
-<p>deepmodebot is MIT licensed, by <a href="https://github.com/TimothyVang">TimothyVang</a>. See <a href="https://github.com/TimothyVang/deepmodebot/blob/main/LICENSE">LICENSE</a> and <a href="https://github.com/TimothyVang/deepmodebot/blob/main/NOTICE.md">NOTICE.md</a>. Agents are reached through <a href="https://github.com/openclaw/acpx">acpx</a>. The diagrams are hand-written SVG; the GIFs are encoded with <a href="https://github.com/ImageOptim/gifski">gifski</a> and <a href="https://github.com/asciinema/agg">agg</a> from real screenshots and a real terminal recording.</p>
-<p><a href="https://github.com/TimothyVang/deepmodebot">Source</a> · <a href="https://github.com/TimothyVang/deepmodebot/issues">Support</a> · <a href="llms.txt">llms.txt</a> · <a href="llms-full.txt">llms-full.txt</a></p>
-</div>
+
+<footer class="footer closing footer--dark ground-inverse" id="contact" aria-labelledby="close-h">
+  <div class="wrap">
+    <div class="closing__cta close--type">
+      <div class="section-head">
+        <h2 id="close-h">Add deepmodebot to omp</h2>
+        <p>MIT licensed. Two commands, then /deepmodebot:deep in any repo.</p>
+      </div>
+      <a class="btn btn--primary btn--xl btn--wide" href="#install">Get the omp plugin<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+    </div>
+    <div class="closing__links">
+      <div class="grid">
+        <div class="span-4 stack-4">
+          <a class="nav__logo" href="#top">deepmodebot</a>
+          <p class="footer__lede">Open-source skills, guards and PR bots for omp coding agents.</p>
+        </div>
+        <div class="span-2 footer__col"><h3>Product</h3><ul><li><a href="#how">PR review</a></li><li><a href="#omp">omp tools</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Evidence</h3><ul><li><a href="#proof">Eval results</a></li><li><a href="#faq">Questions</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Setup</h3><ul><li><a href="#install">omp install</a></li><li><a href="#tools">Other harnesses</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Source</h3><ul><li><a href="https://github.com/TimothyVang/deepmodebot">GitHub repo</a></li><li><a href="llms.txt">llms.txt</a></li></ul></div>
+      </div>
+      <div class="footer__legal">
+        <span>&copy; 2026 TimothyVang &nbsp; <a href="https://github.com/TimothyVang/deepmodebot/blob/main/LICENSE">MIT License</a></span>
+        <div class="socials"></div>
+        <span class="credits">Product names and logos are trademarks of their owners</span>
+      </div>
+    </div>
+  </div>
 </footer>
+
+<nav class="actionbar" aria-label="Quick actions">
+  <a class="btn btn--primary" href="#install">Get the omp plugin</a>
+</nav>
+
+<script type="module" src="assets/system.js"></script>
+<script type="module" src="assets/motion/motion.js"></script>
+<script type="module" src="assets/layout/layout.js"></script>
+<script type="module" src="assets/diagrams/mount.js"></script>
 </body>
 </html>
