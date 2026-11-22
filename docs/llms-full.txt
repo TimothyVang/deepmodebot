@@ -118,6 +118,25 @@ Around the main line:
 
 ## Install
 
+### All tools at once (npm, auto-updating)
+
+With Node.js 20+ installed, run:
+
+```bash
+npx deepmodebot@latest setup
+```
+
+Setup installs the package globally, then installs the deepmodebot plugin into every tool it finds on `PATH` (Claude Code, omp, Codex, Google Antigravity) through that tool's own plugin commands. Each tool's marketplace points at the npm package folder, so all of them run one version. It also adds an hourly `deepmodebot update --quiet` (a hidden Windows scheduled task, or a cron line on macOS and Linux) that upgrades the package and re-syncs only the tools setup configured. An update counts as done only when the tool reports the new version (Antigravity: when its installed files match the package), so a copy blocked by a running app retries next hour instead of passing silently.
+
+| Command | What it does |
+|---|---|
+| `deepmodebot setup` | Install into detected tools; `--clients claude,omp,codex,agy`, `--dry-run`, `--no-auto-update`, `--yes` |
+| `deepmodebot update` | Upgrade the package and re-sync configured tools now |
+| `deepmodebot doctor` | Each tool's installed version next to the package version |
+| `deepmodebot uninstall` | Remove the plugin from configured tools and stop auto-update (then `npm uninstall -g deepmodebot`) |
+
+Restart open tools after an update to load it. The per-tool commands below still work if you would rather track GitHub directly.
+
 ### omp
 
 ```bash

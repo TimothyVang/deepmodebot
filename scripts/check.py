@@ -366,6 +366,15 @@ run = subprocess.run([sys.executable, str(agents_md), "check", str(ROOT)],
 if run.returncode:
     problems.append(f"{run.stdout.strip()}\n  fix: python {agents_md.relative_to(ROOT).as_posix()} build .")
 
+# The npm installer (bin/, lib/) has node:test suites, including the version-sync check across manifests.
+if (ROOT / "package.json").is_file() and shutil.which("node"):
+    run = subprocess.run(["node", "--test", "test/*.test.mjs"], cwd=ROOT,
+                         capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
+    if run.returncode:
+        problems.append(f"npm installer tests failed (node --test)\n{(run.stdout + run.stderr)[-3000:]}")
+elif (ROOT / "package.json").is_file():
+    print("note: node not on PATH; npm installer tests skipped")
+
 if problems:
     print("\n".join(problems))
     sys.exit(1)

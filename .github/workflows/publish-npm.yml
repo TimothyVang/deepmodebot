@@ -1,0 +1,54 @@
+name: Publish to npm
+
+# Every merge to main that carries a new version publishes it; machines running
+# `deepmodebot update` (hourly) pick it up. A merge without a version bump is skipped,
+# because npm never accepts the same version twice.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # npm trusted publishing (OIDC) and provenance; no stored token
+
+concurrency:
+  group: publish-npm
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Skip when this version is already on npm
+        id: version
+        run: |
+          v=$(node -p "require('./package.json').version")
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          if npm view "deepmodebot@$v" version >/dev/null 2>&1; then
+            echo "deepmodebot@$v is already published; nothing to do."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checks and tests
+        if: steps.version.outputs.publish == 'true'
+        run: |
+          python scripts/check.py
+          npm test
+
+      - name: Publish
+        if: steps.version.outputs.publish == 'true'
+        run: npm publish --provenance --access public

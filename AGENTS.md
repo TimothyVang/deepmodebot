@@ -10,7 +10,8 @@
 
 ## Checks
 
-- Checks, after every edit and before calling a part done: `python scripts/check.py`. No separate test command was found; if this check does not run the tests, add one.
+- Fast checks, after every edit: `python scripts/check.py`.
+- Tests, before calling a part done: `npm test`.
 - Live proof: the `.omp/skills/verify-deepmodebot`, `.agents/skills/verify-deepmodebot` skill. Tests alone are not proof.
 
 ## Work area

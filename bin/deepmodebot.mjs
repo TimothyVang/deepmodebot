@@ -1,0 +1,229 @@
+#!/usr/bin/env node
+import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { createInterface } from "node:readline/promises";
+import { fileURLToPath } from "node:url";
+import { disableAutoUpdate, enableAutoUpdate } from "../lib/autoupdate.mjs";
+import { CLIENTS, clientById } from "../lib/clients.mjs";
+import { run, which } from "../lib/run.mjs";
+import { clearState, log, readState, withLock, writeState } from "../lib/state.mjs";
+
+const PKG = "deepmodebot";
+const here = dirname(realpathSync(fileURLToPath(import.meta.url)));
+const pkgRoot = resolve(here, "..");
+const version = JSON.parse(readFileSync(join(pkgRoot, "package.json"), "utf8")).version;
+
+const args = process.argv.slice(2);
+const cmd = args.find((a) => !a.startsWith("-")) ?? "help";
+const flag = (name) => args.includes(`--${name}`);
+const option = (name) => {
+  const i = args.indexOf(`--${name}`);
+  return i >= 0 ? args[i + 1] : args.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
+};
+const quiet = flag("quiet");
+const say = (msg) => {
+  if (!quiet) console.log(msg);
+};
+
+const HELP = `deepmodebot ${version}: install and auto-update the deepmodebot plugin in Claude Code, omp, Codex, and Google Antigravity.
+
+Usage: deepmodebot <command>
+
+  setup      Install the plugin into every detected tool and turn on hourly auto-update
+             --clients claude,omp,codex,agy   only these tools
+             --dry-run                        show the plan, change nothing
+             --no-auto-update                 skip the hourly task
+             --yes                            do not ask before changing anything
+  update     Upgrade this npm package, then re-sync the tools setup configured (--quiet for the hourly task)
+  doctor     Show each tool's installed version next to this package's version
+  uninstall  Remove the plugin from the configured tools and stop auto-update
+  version    Print the package version
+
+Run once with: npx deepmodebot@latest setup`;
+
+// Use the npm that ships beside the node running us. A scheduled task can see a different
+// `npm` on PATH (another Node install), which warns on stderr or targets another global root.
+const bundledNpm = join(dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
+const npm = (npmArgs) => (existsSync(bundledNpm) ? run(process.execPath, [bundledNpm, ...npmArgs]) : run("npm", npmArgs));
+
+/** The global npm root; the plugin must live there so tool configs never point into a temporary npx cache. */
+function globalRoot() {
+  const r = npm(["root", "-g"]);
+  const root = r.code === 0 ? r.stdout.split(/\r?\n/).pop()?.trim() : undefined;
+  return root && existsSync(root) ? root : undefined;
+}
+
+const isGlobalInstall = () => {
+  const root = globalRoot();
+  return root !== undefined && resolve(root, PKG).toLowerCase() === pkgRoot.toLowerCase();
+};
+
+const ctx = { run, pkgRoot, version };
+
+function detectClients(only) {
+  const wanted = only ? only.split(",").map((s) => s.trim()) : CLIENTS.map((c) => c.id);
+  const unknown = wanted.filter((id) => !clientById(id));
+  if (unknown.length) throw new Error(`unknown client(s): ${unknown.join(", ")} (use claude, omp, codex, agy)`);
+  return wanted.map(clientById).filter((c) => which(c.bin));
+}
+
+function syncClients(ids) {
+  const results = [];
+  for (const id of ids) {
+    const client = clientById(id);
+    if (!client || !which(client.bin)) {
+      results.push({ id, ok: false, detail: "not on PATH, skipped" });
+      continue;
+    }
+    let res;
+    try {
+      res = client.ensure(ctx);
+    } catch (e) {
+      res = { ok: false, detail: String(e.message ?? e) };
+    }
+    results.push({ id, ...res });
+  }
+  return results;
+}
+
+function report(results) {
+  for (const r of results) say(`  ${r.ok ? "ok  " : "FAIL"} ${clientById(r.id)?.label ?? r.id}: ${r.detail}`);
+  return results.every((r) => r.ok);
+}
+
+async function confirm(question) {
+  if (flag("yes") || !process.stdin.isTTY) return true;
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const answer = (await rl.question(`${question} [Y/n] `)).trim().toLowerCase();
+  rl.close();
+  return answer === "" || answer === "y" || answer === "yes";
+}
+
+async function setup() {
+  if (!isGlobalInstall() && !flag("dry-run")) {
+    // Running from npx: install globally first so every tool points at a folder that stays put.
+    say(`Installing ${PKG}@${version} globally so the tools have a stable copy...`);
+    const r = npm(["install", "-g", `${PKG}@${version}`]);
+    if (r.code !== 0) throw new Error(`npm install -g failed: ${r.out.slice(-400)}`);
+    const root = globalRoot();
+    const r2 = run(process.execPath, [join(root, PKG, "bin", "deepmodebot.mjs"), ...args]);
+    console.log(r2.out);
+    return r2.code;
+  }
+  const clients = detectClients(option("clients"));
+  if (!clients.length) {
+    console.log("No supported tool found on PATH (claude, omp, codex, agy).");
+    return 1;
+  }
+  say(`deepmodebot ${version} from ${pkgRoot}`);
+  say("Plan:");
+  for (const c of clients) say(`  - ${c.label}: install or update the deepmodebot plugin from this package`);
+  const auto = !flag("no-auto-update");
+  if (auto) say("  - turn on hourly auto-update (deepmodebot update --quiet)");
+  if (flag("dry-run")) return 0;
+  if (!(await confirm("Apply?"))) return 1;
+
+  const results = syncClients(clients.map((c) => c.id));
+  const ok = report(results);
+  const state = { clients: clients.map((c) => c.id), autoUpdate: auto, version, lastResult: results };
+  if (auto) {
+    const r = enableAutoUpdate({ run, node: process.execPath, bin: join(pkgRoot, "bin", "deepmodebot.mjs") });
+    say(`  ${r.ok ? "ok  " : "FAIL"} auto-update: ${r.detail}`);
+    state.autoUpdate = r.ok;
+  }
+  writeState(state);
+  say(ok ? "Done. Restart open tools to load the new version." : "Some tools failed; the hourly update retries them.");
+  return ok ? 0 : 1;
+}
+
+function update() {
+  const state = readState();
+  if (!state.clients?.length) {
+    console.log("Nothing configured yet. Run: npx deepmodebot@latest setup");
+    return 1;
+  }
+  const outcome = withLock(() => {
+    if (!flag("no-self-update")) {
+      const r = npm(["install", "-g", `${PKG}@latest`]);
+      if (r.code !== 0) {
+        log(`npm install -g ${PKG}@latest failed: ${r.out.slice(-300)}`);
+        say(`npm upgrade failed; re-syncing ${version} anyway`);
+      }
+      // Hand off to the freshly installed copy so new client logic runs this sync.
+      const root = globalRoot();
+      const candidate = root && join(root, PKG, "bin", "deepmodebot.mjs");
+      const fresh = candidate && existsSync(candidate) ? candidate : undefined;
+      const isOtherCopy = fresh && resolve(fresh).toLowerCase() !== resolve(here, "deepmodebot.mjs").toLowerCase();
+      const wasUpgraded = fresh && readInstalledVersion(root) !== version;
+      if (isOtherCopy || wasUpgraded) {
+        const r2 = run(process.execPath, [fresh, "update", "--no-self-update", ...(quiet ? ["--quiet"] : [])]);
+        if (!quiet) console.log(r2.out);
+        return { code: r2.code };
+      }
+    }
+    const results = syncClients(state.clients);
+    const ok = report(results);
+    writeState({ ...state, version, lastResult: results, lastUpdate: new Date().toISOString() });
+    log(`${version}: ${results.map((r) => `${r.id}=${r.ok ? "ok" : "FAIL"} (${r.detail})`).join("; ")}`);
+    return { code: ok ? 0 : 1 };
+  });
+  if (outcome.skipped) {
+    say("Another update is running; skipped.");
+    return 0;
+  }
+  return outcome.code;
+}
+
+function readInstalledVersion(root) {
+  try {
+    return JSON.parse(readFileSync(join(root, PKG, "package.json"), "utf8")).version;
+  } catch {
+    return undefined;
+  }
+}
+
+function doctor() {
+  const state = readState();
+  console.log(`deepmodebot package ${version} at ${pkgRoot}${isGlobalInstall() ? "" : " (not the global install)"}`);
+  console.log(`auto-update: ${state.autoUpdate ? "on" : "off"}${state.lastUpdate ? `, last run ${state.lastUpdate}` : ""}`);
+  let ok = true;
+  for (const c of CLIENTS) {
+    if (!which(c.bin)) {
+      console.log(`  -    ${c.label}: not on PATH`);
+      continue;
+    }
+    const v = c.installedVersion(run);
+    const managed = state.clients?.includes(c.id);
+    const good = v === version;
+    if (managed && !good) ok = false;
+    console.log(`  ${good ? "ok  " : managed ? "FAIL" : "-   "} ${c.label}: ${v ?? "not installed"}${managed ? "" : " (not managed by setup)"}`);
+  }
+  return ok ? 0 : 1;
+}
+
+function uninstall() {
+  const state = readState();
+  for (const id of state.clients ?? []) {
+    const c = clientById(id);
+    if (c && which(c.bin)) say(`  ${c.label}: ${c.uninstall(ctx).detail}`);
+  }
+  disableAutoUpdate({ run });
+  clearState();
+  say(`Removed. To remove the package itself: npm uninstall -g ${PKG}`);
+  return 0;
+}
+
+const commands = { setup, update, doctor, uninstall, version: () => (console.log(version), 0), help: () => (console.log(HELP), 0) };
+const handler = flag("version") ? commands.version : flag("help") || flag("h") ? commands.help : commands[cmd];
+if (!handler) {
+  console.error(`Unknown command: ${cmd}\n\n${HELP}`);
+  process.exit(2);
+}
+try {
+  process.exitCode = await handler();
+} catch (e) {
+  console.error(`deepmodebot: ${e.message ?? e}`);
+  log(`error in ${cmd}: ${e.message ?? e}`);
+  process.exitCode = 1;
+}
+
