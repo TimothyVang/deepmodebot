@@ -324,13 +324,13 @@ def theme_site(out: Path, d: dict) -> None:
               lambda m: m.group(1) + ld_json(d["description"]), rel, 1)
     t = sub(app, r'"author": \{[^}\n]*\}',
             lambda m: '"author": ' + ld_json({"@type": "Organization", "name": d["author"]["name"], "url": d["author"]["url"]}), rel, 1)
-    t = sub(t, r":root\{--brand-primary:[^}]*\}",
-            f":root{{--brand-primary:{c['primary']};--brand-accent:{c['accent']};--brand-bg:{c['background']};"
-            f"--brand-surface:{c['surface']};--brand-text:{c['text']};--brand-muted:{c['muted']}}}", rel, 1)
-    t = sub(t, r'(<a class="brand" href="#top"><img src="images/logo\.svg" alt=")[^"]*(")',
-            lambda m: m.group(1) + a(d["name"]) + m.group(2), rel, 1)
-    t = sub(t, r'(<footer>.*?by )<a href="[^"]*">[^<]*</a>',
-            lambda m: m.group(1) + f'<a href="{a(d["author"]["url"])}">{html.escape(d["author"]["name"])}</a>', rel, 1, re.S)
+    # The page's palette tokens (design kit :root block): ground, surface, ink, muted, accent and action.
+    t = sub(t, r"--p-bg: #[0-9a-fA-F]{3,8}; --p-surface: #[0-9a-fA-F]{3,8}; --p-ink: #[0-9a-fA-F]{3,8}; --p-muted: #[0-9a-fA-F]{3,8};",
+            f"--p-bg: {c['background']}; --p-surface: {c['surface']}; --p-ink: {c['text']}; --p-muted: {c['muted']};", rel, 1)
+    t = sub(t, r"--p-accent: #[0-9a-fA-F]{3,8}; --p-accent-ink: (#[0-9a-fA-F]{3,8}); --p-action: #[0-9a-fA-F]{3,8};",
+            lambda m: f"--p-accent: {c['accent']}; --p-accent-ink: {m.group(1)}; --p-action: {c['primary']};", rel, 1)
+    t = sub(t, r'(<a class="nav__logo" href="#top">)[^<]*(</a>)', lambda m: m.group(1) + html.escape(d["name"]) + m.group(2), rel)
+    t = sub(t, r'(<span>&copy; \d{4} )[^&<]*', lambda m: m.group(1) + html.escape(d["author"]["name"]) + " ", rel, 1)
     path.write_text(t, encoding="utf-8", newline="\n")
 
 

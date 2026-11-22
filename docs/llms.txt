@@ -20,9 +20,21 @@ Key facts:
 - Post-overhaul eval status (0.9.0): committed 2026-11-12 and 2026-11-15 eval reports predate the 0.9.0 overhaul. Post-overhaul routing evals for the compacted `<24 KB` `SKILL.md` / 33-case `evals/routing/cases.json` and live agent journeys for 0.9.0 additions (`sme-review`, `workspace-map`, `loop.py` sprint/fallback gates, Sprint mode, native Antigravity plugin) have not been re-run yet; unit tests verify script state machines only.
 - White-label: one `brand.json` and `py -3 scripts/whitelabel.py --brand <file> --out <dir>` rebrand everything: the product name and logo, colors, commands, skills, the bot and its GitHub App, the docs site, the README, images, and the SEO and llms files. LICENSE and NOTICE stay, with your copyright line added. `install.py --brand <name>` is a shortcut that renames only the bots.
 
+## deepmodebot for omp (oh-my-pi)
+
+deepmodebot is written for omp first; other harnesses get a translation map of omp's tool names.
+
+- Native omp install: `omp plugin marketplace add TimothyVang/deepmodebot`, then `omp plugin install deepmodebot@deepmodebot`, then `/deepmodebot:deep <task>` in any repo.
+- omp's own tools: playbooks delegate read-only search to `scout` and edits to `task` subagents, track work in `todo`, and read references as `skill://deepmodebot/...` paths, loaded only when a route needs them.
+- Write guard: omp has no sandbox, so the `omp-contain` pre-hook blocks `write`, `edit` and `ast_edit` outside the project in every session; `.deepmodebot.json` `extraWriteRoots` allows a folder you name. The hook does not parse shell commands, so the skill's rule covers `bash`.
+- Quota discipline: before delegating it picks the smallest model tier that fits and checks `omp usage`, so a rate limit pauses work instead of losing it.
+- PR bots: omp is the default ACP agent for owner-controlled bot roles, and reviews of outside contributors' pull requests currently require omp's sealed, tool-free mode.
+- Size: 12 skills, 30 playbooks, 24 principles, 52 techniques, 7 commands and 3 agents (reviewer, scout, security-reviewer). MIT licensed, version 0.9.0.
+- Honest limit: on the one measured feature fixture a plain agent also finished 5/5 runs at lower median usage; deepmodebot adds review gates and proof, not speed.
+
 ## Docs
 
-- [Site](https://timothyvang.github.io/deepmodebot/): overview, the real PR #19 run, diagrams, the software factory, install, safety, FAQ
+- [Site](https://timothyvang.github.io/deepmodebot/): the omp skill set, PR review in the thread, omp-native tools, eval results, other harnesses, install, FAQ
 - [README](https://github.com/TimothyVang/deepmodebot/blob/main/README.md): what the plugin ships, install, the bots, the software factory, FAQ
 - [Flow map](https://github.com/TimothyVang/deepmodebot/blob/main/plugins/deepmodebot/skills/deepmodebot/references/flows.md): the main line from idea to merged code, on-ramps, and what to do between phases
 - [github-app technique](https://github.com/TimothyVang/deepmodebot/blob/main/plugins/deepmodebot/skills/deepmodebot/references/techniques/github-app.md): setup with install.py, running the poller, bot.json, opt-out, safety
