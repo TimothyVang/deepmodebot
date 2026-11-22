@@ -18,7 +18,11 @@ concurrency:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    # The repo's Python tests assume Windows paths (evals/outcome, github-app), so checks run where they pass.
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
 
