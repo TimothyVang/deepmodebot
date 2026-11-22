@@ -1,0 +1,46 @@
+{
+  "name": "deepmodebot",
+  "version": "0.9.0",
+  "description": "Install and auto-update the deepmodebot plugin in Claude Code, omp, Codex, and Google Antigravity from one npm package.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TimothyVang/deepmodebot.git"
+  },
+  "homepage": "https://github.com/TimothyVang/deepmodebot#readme",
+  "bugs": {
+    "url": "https://github.com/TimothyVang/deepmodebot/issues"
+  },
+  "keywords": [
+    "agent-skills",
+    "claude-code",
+    "codex",
+    "antigravity",
+    "omp",
+    "plugin"
+  ],
+  "bin": {
+    "deepmodebot": "bin/deepmodebot.mjs"
+  },
+  "files": [
+    "bin",
+    "lib",
+    ".claude-plugin",
+    ".omp-plugin",
+    "plugins/deepmodebot",
+    "!**/__pycache__",
+    "!**/*.pyc",
+    "!**/.pytest_cache"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
