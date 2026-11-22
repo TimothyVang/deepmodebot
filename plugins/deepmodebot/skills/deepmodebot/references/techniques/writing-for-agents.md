@@ -61,6 +61,12 @@ Each step ends with how the agent knows it is done. A vague end ("once you under
 - **Splitting.** Split off a separate skill when it has its own trigger word that people use, or another skill must reach it, and that reach is worth one more always-loaded description.
 - **Routing.** Route on the words of the request. A file existing in the repo is evidence, never a trigger, or unrelated work in that repo gets captured.
 
+
+## Bots, delegates, and standing routines
+
+- **One job, one voice, explicit anti-jobs.** Name what the agent owns and explicitly list what it must *never* do (a scout never edits or posts; a drafter never sends; a watcher never auto-fixes without a gate). Remove leftover tools it does not need.
+- **Quiet when nothing is actionable.** Standing routines, healthchecks, and watchers stay silent when there is nothing concrete to report; no "all clear" noise.
+- **Standing self-healthchecks.** Pair long-lived workflows with two lightweight checks: a periodic friction scan over recent transcripts (recurring corrections, hand-supplied context, skipped verifications) and a periodic token/waste audit (unused rules, noisy triggers, oversized outputs). Never auto-apply structural changes without review.
 **Output:** the edited document, with each change justified by one of the rules above, and the pointer lines that lead to it.
 
 **Done when** every step in the edited document ends on a check, every pointer leads with its trigger word, and every no-op and stale line is gone.

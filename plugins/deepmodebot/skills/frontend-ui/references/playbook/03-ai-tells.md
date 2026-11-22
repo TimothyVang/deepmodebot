@@ -4,6 +4,7 @@ Each is legitimate only when the brief asks for it. [anthropic frontend-design s
 - Purple or indigo gradients over white cards; gradient washes used as decoration. AI glow, gradient borders and generative animation may mark only content that is *actively generating*: never idle controls, and never two indicators at once. [articles/ai-ux/carbon-for-ai; articles/ai-ux/atlassian-rovo-ai-guidelines]
 - Unlabeled sparkle icons; a one-time "AI can make mistakes" in a greeting or footer; anthropomorphic progress copy ("I thought about…", "I understand"). [articles/ai-ux/nngroup-ai-ux-research]
 - A bordered card plus a colored status pill for every tool call (the old AI Elements look; the upstream rebuild removed it). Tool calls are plain trace lines. [github/ai-ui/vercel-ai-elements]
+- **Helpful-model widget & chip clutter** [`aistudio.google.com/learn/ai-ui-design-google-ai-studio`]: the fastest tell of a vibe-coded app is an excess of purposeless chips, redundant status pills, micro-badges, and decorative helper widgets nobody asked for. Circle every non-essential element on a screenshot (Annotate pass) and remove it cleanly.
 - **Video tells** (§5a) [github/motion-graphics/_batch-motion-graphics-repos; youtube/747ZnEtsRbg]:
   - A centered title on a gradient.
   - A dark navy void with small floating UI; device mockups; product UI tilted in 3D.

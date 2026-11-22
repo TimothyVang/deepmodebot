@@ -20,6 +20,8 @@ Skip phases the work doesn't need. One PR of settled work starts at phase 5 with
 | Situation | Flow |
 |---|---|
 | Open architecture or research space, blind spots, or a high-vagueness ambition | **tournament** (`references/techniques/tournament.md`), proposing Champion and Runner-Up before phase 1 or 3 |
+| Scanning a repo for gaps, overclaims, and ranked Hardcore Mode `/deep` prompts | **suggest** (`references/techniques/suggest.md`, with optional **gen-ui** A2UI 1.0 cockpit) |
+| Auditing checks, diffs, or math proofs (`verify_proof.py`) for gaps, check theater, and overclaims | **self-grill** (`references/techniques/self-grill.md`) and **formal-verification** (`references/techniques/formal-verification.md`) |
 | First use of the planning flows in a repo | Setup (`references/playbooks/setup.md`) |
 | Building a whole app or rough idea end to end across all slices without stopping at an MVP | End-to-end (`references/playbooks/end-to-end.md`) |
 | Issues or outside PRs pile up | Triage (`references/playbooks/triage.md`), which feeds phase 5 with `triage:agent-ready` items |

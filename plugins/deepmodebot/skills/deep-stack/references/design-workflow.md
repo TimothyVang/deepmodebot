@@ -2,13 +2,14 @@
 
 Run the ordered steps below when designing or restyling a UI with an agent. Each step ends on a **Done when** check; finish it before moving on. The design system is the single source of truth: page fixes flow back into it, and agents build pages only from it.
 
-Source dates: 2026-09-28 (Paper workflow, newest), 2026-06-23 (Claude Design workflow), 2026-05-08 and 2025-12-01 (component libraries). The newest wins conflicts.
+Source dates: 2026-11-11 (Google A2UI `1.0`, `a2ui.org`), 2026-09-28 (Paper workflow), 2026-09-16 (Google AI Studio Build 8-way UI guide, `aistudio.google.com/learn/ai-ui-design-google-ai-studio`), 2026-06-23 (Claude Design workflow), 2026-05-08 and 2025-12-01 (component libraries). The newest wins conflicts.
 
 ## Which design tool
 - **Default: Paper + its MCP**, a Figma alternative that agents drive well, controlled from the coding harness (2026-09-28).
+- **Rapid live-DOM alternative: Google AI Studio Build + Edit tool** (2026-09-16): upload reference screenshots (or extract a 5–6 sentence visual design system prompt first), remix a Gallery applet for complex multimodal scaffolds, generate/retouch cohesive assets with Nano Banana, preview Google Fonts live on canvas, explore logic-preserving Design Variations (*Editorial & Refined*, *Technical & Systematic*, *Warm & Approachable*), inspect DOM padding/proportions directly, and circle clutter in Annotate mode (`"Remove all circled elements"`).
 - **Alternative: Claude Design**, exported to Claude Code with "Send to Claude Code" and the Claude Design MCP. It is strong at producing design systems (2026-06-23).
-- Both follow the same loop: inspiration → design system with tokens → tweak → build pages from it.
-
+- **Agent-driven dynamic UI surfaces: Google A2UI `1.0`** (`a2ui.org`, 2026-11-11): when an agent responds with interactive UI, emit declarative A2UI `1.0` JSON (`catalog.json` + flat `updateComponents` + `@path` `updateDataModel` + `action` events) rendered natively by `@a2ui/react`, `@a2ui/lit`, `@a2ui/angular`, or `a2ui_flutter`, never model-authored HTML/JS (`skill://deepmodebot/references/techniques/gen-ui.md`).
+- All static/app design tools follow the same loop: inspiration → design system with tokens → tweak → build pages from it.
 ## Principles
 - Build a design system and tokens before any page. Apps designed page by page without them drift out of consistency (2026-06-23).
 - A design system is the single source of truth for components, guidelines, and brand (colors, copy).
@@ -26,10 +27,10 @@ Source dates: 2026-09-28 (Paper workflow, newest), 2026-06-23 (Claude Design wor
 ## Ordered workflow
 
 ### Step 1: Collect inspiration
-1. Browse Mobbin (mobbin.com) for sites in your niche and outside it. It collects well-designed sections (onboarding, hero, dashboards) and has an MCP server. The free tier is enough.
-2. Bookmark designs you like from designers you follow, and keep them in one inspiration library.
-3. With no inspiration, start from Vercel's `vercel.com/design.md` (light or dark) as a foundation, not a target.
-4. Take a full-page screenshot of the chosen site.
+1. Browse Mobbin (`mobbin.com`) across **iOS Mobile** (`/discover/apps/ios/animations`, `/community/mobile/featured` collections like *That was smooth!*, *Micro-interactions*, *Tactile*), **Web Apps**, and **Sites** (`skill://frontend-ui/references/patterns/mobbin-shipped-apps.md`, `mobbin-animations.md`).
+2. **For any Website or Web App spotted on Mobbin, visit the live URL directly** at both `1440×900` (desktop) and `390×844` (mobile) to inspect its real computed CSS easing curves, durations, font metrics, OKLCH tokens, and touch navigation rather than relying on static thumbnails alone.
+3. Bookmark designs you like in one inspiration library; with no inspiration, start from Vercel's `vercel.com/design.md` (light or dark) as a foundation, not a target.
+4. Capture full-page desktop (`1440 px`) and mobile (`390 px`) screenshots of the chosen reference.
 - **Done when:** you have at least one full-page screenshot (or a design.md) that captures how the app should feel.
 
 ### Step 2: Build the design system (most important step)
@@ -82,6 +83,7 @@ Source dates: 2026-09-28 (Paper workflow, newest), 2026-06-23 (Claude Design wor
 - Single-version designs, and exact copies of another site.
 - Generic sameness. A little time on quality makes a product stand out.
 - The default HTML `<video>` player where a hover player fits better.
+- Helpful-model widget & chip clutter: purposeless chips, redundant status badges, and decorative widgets nobody asked for (circle them in an Annotate pass and strip them cleanly, 2026-09-16).
 
 ## UI component libraries (install by giving the agent the code, CLI, or URL)
 | Library | Use for | Date |

@@ -53,6 +53,11 @@
   - Recognize competing gestures in parallel. No double-tap handlers where single taps matter, since they add about 0.5 s to every tap.
   - Hint toward the outcome during the press, and keep enter and exit paths symmetric.
   - Use Vaul rather than a hand-built sheet.
+  - **Mobile continuity & tactile patterns** (`references/patterns/mobbin-animations.md`, from 86 Mobbin mobile clips + 24 live sites):
+    - **Persistent bar/CTA morphs:** morph dismissed sheet CTAs into docked floating cart/status pills (`DoorDash`), and expand `48–56 px` mini-player/active-task bars above the tab bar into full-screen sheets via `layoutId` (`Spotify`, `MD Vinyl`).
+    - **Detent-coupled sheet scrims:** keep `0` scrim at `peek`/`half` detents so maps/lists stay live; fade scrim and scale root view (`0.94`) continuously past 50% drag (`Airbnb`, `Arc Search`).
+    - **Tactile controls:** couple card-swipe `dx` to subtle tilt (`dx * 0.04deg`), use `rotateY(180deg)` (`backface-visibility: hidden`) for card/pass detail flips (`Revolut`, `Phantom`), and support `600–900 ms` press-and-hold radial fills for reflective commits (`stoic.`).
+    - **Explicit property lists:** list `color, background-color, border-color, transform, opacity` (`150–250 ms` on `cubic-bezier(0.16, 1, 0.3, 1)` or `cubic-bezier(0.2, 0, 0, 1)`), matching top live Mobbin sites (`Ramp`, `Attio`, `Superpower`, `Mintlify`).
 
 **When to animate**, gated by frequency before choosing any curve [youtube/vjP8bNs8aok; youtube/z3Lo5QT7nME]:
 

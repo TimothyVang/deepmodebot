@@ -52,9 +52,9 @@
   - Async messages use `aria-live="polite"`.
   - The URL reflects UI state.
 - **Mobile baseline before the first component** [.claude/skills/mobile-native]:
-  - `viewport-fit=cover`, `interactive-widget=resizes-content`, a per-scheme `theme-color`.
-  - `touch-action: manipulation`, `100dvh`, safe-area insets.
-  - `overscroll-behavior` only under `(pointer: fine)`, to keep pull-to-refresh.
+  - `viewport-fit=cover`, `interactive-widget=resizes-content`, a per-scheme `theme-color`, and zero horizontal overflow (`scrollWidth <= innerWidth`) at `390 px`.
+  - `touch-action: manipulation`, `100dvh`, `env(safe-area-inset-bottom)` on sticky sheet/tab-bar CTAs, and native Camera/Photos/Files pickers instead of desktop drag-and-drop upload boxes on mobile.
+  - `overscroll-behavior` only under `(pointer: fine)`, to keep pull-to-refresh. Keep cached content visible during offline/critical states with a calm status banner (`Offline · Updated 4m ago`), and never low-contrast or hide the `×` close button on paywalls or full-screen overlays (`references/patterns/mobbin-shipped-apps.md`).
 - **Native ports** (when an app ships native clients; optional private-repo detail in `TimothyVang/frontend:reference/articles/app-type-guides.md`):
   - platform target sizes: 48 dp Android, 60 pt visionOS, 66 pt tvOS (44 px stays the web floor);
   - native body text sizes: 13 pt macOS, 14 epx Windows;

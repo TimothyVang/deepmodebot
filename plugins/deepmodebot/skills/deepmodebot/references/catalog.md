@@ -1,6 +1,6 @@
 # Deepmodebot catalog
 
-On-demand index of deepmodebot's autonomous modes, all 30 playbooks, 52 techniques, 24 principles, and habits. `SKILL.md` holds the binding rules and compact router; read only the section and linked file your task needs. Paths are relative to this skill.
+On-demand index of deepmodebot's autonomous modes, all 30 playbooks, 59 techniques, 25 principles, and habits. `SKILL.md` holds the binding rules and compact router; read only the section and linked file your task needs. Paths are relative to this skill.
 
 ## Running without the human
 
@@ -57,11 +57,13 @@ Every playbook lives at `references/playbooks/<file>.md`. Open a `todo` list wit
 
 Large cross-cutting work with no clean fit, or step-away work that must be trusted later, routes to `references/techniques/figure-it-out.md` (designs a bespoke rigorous playbook). Standing multi-day programs route to `references/playbooks/run-a-goal.md` at program scale.
 
-## Full technique triggers (52)
+## Full technique triggers (59)
 
 Each technique is one file at `references/techniques/<name>.md`. Read only what applies; skip for size **S**. Technique and playbook names mean deepmodebot's files, not same-named global skills (`skill://tdd`, `skill://prototype`, `skill://teach`, `skill://wizard`, `skill://retro`, `skill://handoff`).
 
 - **Fast orientation, Orca/git worktrees, own PRs, or manifest state** → **workspace-map** (`references/techniques/workspace-map.md`): zero-bloat memory-mapped SQLite/FTS5 index (`assets/workspace-map/workspace_map.py` `overview`/`query`/`workspaces`/`prs`/`sync`/`prune`), shared per repo across worktrees (~300-token turn-1 map).
+- **Semantic auto-routing, prompt upgrade & repo suggestions** → **autoroute** (`references/techniques/autoroute.md`, `assets/autoroute/autoroute.py` 3-stage LLM router + route critic), **prompt-upgrade** (`references/techniques/prompt-upgrade.md`, `assets/prompt-tools/prompt_tools.py upgrade`), and **suggest** (`references/techniques/suggest.md`, `prompt_tools.py suggest --ui` repo gap/overclaim scanner).
+- **Interactive human cockpits & A2UI surfaces** → **gen-ui** (`references/techniques/gen-ui.md`, `assets/gen-ui/gen_ui.py` Google A2UI v1.0 compiler/validator + `.scratch/gen-ui/` 8-surface cap).
 
 - **Before building anything new** → **prior-art** (`references/techniques/prior-art.md`): check trending first (`python -B "<this skill>/scripts/trending.py" find <terms>`, `py -3 -B` on Windows), then GitHub, registries, and docs; check license before copying or forking.
 - **Module/interface with 2+ viable shapes** → **architect** (`references/techniques/architect.md`) before coding; skip for small edits crossing one function boundary.
@@ -69,13 +71,14 @@ Each technique is one file at `references/techniques/<name>.md`. Read only what 
 - **Parallel fan-out & sibling coordination** → **swarm** (`references/techniques/swarm.md`) for matrices, races, fuzzing, partitions; **arena** (`references/techniques/arena.md`) for code/design bakeoffs; **agent-collaboration** (`references/techniques/agent-collaboration.md`) for sibling messaging and ACP routing; **coworkers** (`references/techniques/coworkers.md`) for direct peer handoffs.
 - **Contested design only** → **interrogate** (`references/techniques/interrogate.md`), keeping only findings a run proves.
 - **Open direction, blind spots, or vague ambition** → **tournament** (`references/techniques/tournament.md`) before locking one shape.
-- **Draft plan or goal to stress-test** → **grill** (`references/techniques/grill.md`; With docs mode when `GLOSSARY.md`/`docs/adr/` exist); vague goal before looping → **goal-review** (`references/techniques/goal-review.md`) then `self-authoring`.
+- **Draft plan or goal to stress-test** → **grill** (`references/techniques/grill.md`; With docs mode when `GLOSSARY.md`/`docs/adr/` exist); adversarial check/diff/overclaim Prosecutor audit → **self-grill** (`references/techniques/self-grill.md`, `assets/self-grill/self_grill.py`); vague goal before looping → **goal-review** (`references/techniques/goal-review.md`) then `self-authoring`.
+- **Formal math proofs, TLA+/SMT invariants & Claim-DAGs** → **formal-verification** (`references/techniques/formal-verification.md`, `assets/formal-verification/verify_proof.py`: Lean 4 + Comparator, Rocq, TLA+, Z3/SMT-LIB2, natural-language Claim-DAG counterexample stress-testing).
 - **Complex domain or questionable customer spec** → **sme-review** (`references/techniques/sme-review.md`) before locking a spec, starting a loop, or advancing past Sprint 1 (`sme_gate: "required"`); escalate unverified P0/P1 rules via **questionnaire** (`references/techniques/questionnaire.md`).
 - **Multi-PR or customer-facing spec** → cut **incremental sprints** (Tickets + Phased build sprint mode; Sprint 1 = verified feedback slice, Sprint 2..N stay queued/deferred in the Scope Manifest as remaining scope, never falsely marked done).
 - **Before unattended loops/queues or AI code slop** → **inner-loop** (`references/techniques/inner-loop.md`): harden fast static checks, anti-slop guards, and protected configs before scaling iterations.
 - **Tool/skill routing** → **tool-routing** (`references/techniques/tool-routing.md`) for designing automatic tool or skill routers.
-- **Visual E2E & design evidence** → **visual-e2e** (`references/techniques/visual-e2e.md`) to record/replay full E2E workflows with 3-agent sampled-frame image review (capped at 24 images, not full-video review); **open-design-evidence** (`references/techniques/open-design-evidence.md`) for portable SVG/Mermaid/HTML workflow diagrams linked to recordings (with a Penpot import/edit check; report raw-SVG or raster limits).
-- **Rate limits, 429s, or heavy token burn** → `references/principles/guard-the-context-window.md` + `skill://agent-harnesses/references/delegation-efficiency.md`: pick tiers from LM benchmarks, avoid Fast/Ultrafast, `/clear` between unrelated tasks, plan L / execute S-M, cheap-first with an oracle, batch 3-5 spawns, reuse warm agents, pass file paths, set cost/cooldown caps, and back off or rotate model family on 429s.
+- **Visual E2E, video forensics & design evidence** → **visual-e2e** (`references/techniques/visual-e2e.md`) to record/replay full E2E workflows with 3-agent sampled-frame image review (capped at 24 images, not full-video review); **open-design-evidence** (`references/techniques/open-design-evidence.md`) for portable SVG/Mermaid/HTML workflow diagrams linked to recordings (with a Penpot import/edit check; report raw-SVG or raster limits); **video-forensics** (`references/techniques/video-forensics.md`) for shot-by-shot `rea-video` / `VIDEO.md` deconstruction and remake verification.
+- **Rate limits, 429s, or heavy token burn** → `references/principles/guard-the-context-window.md` + `skill://agent-harnesses/references/delegation-efficiency.md` + `assets/quota-guard/quota_guard.py`: enforce nested anti-stacking (`max_subagents=0`), pin `flash_lite`/`flash` helpers, pack 1 `prosecutor-bundle.md` reviewer for `M`, use delta-only re-review + `<2 KB` `.scratch/quota-guard/` checkpoints, and prune disposables with `assets/cleanup/self_cleanup.py`.
 - **Measured number** → **benchmark-checklist** (`references/techniques/benchmark-checklist.md`) before reporting or acting.
 - **Prose** (reply, docs, PR body, commit) → **unslop** (`references/techniques/unslop.md`); docs and PR/commit text also → **technical-writing** (`references/techniques/technical-writing.md`).
 - **Before review** → **no-comments** (`references/techniques/no-comments.md`) on the diff (apply inline for diffs under ~20 lines).
@@ -85,11 +88,11 @@ Each technique is one file at `references/techniques/<name>.md`. Read only what 
 - **Tooling & instruction hygiene** → **tdd** (`references/techniques/tdd.md`), **architecture-review** (`references/techniques/architecture-review.md`), **git-guardrails** (`references/techniques/git-guardrails.md`), **pre-commit** (`references/techniques/pre-commit.md`), **scrape** (`references/techniques/scrape.md`), **wizard** (`references/techniques/wizard.md`), **writing-for-agents** (`references/techniques/writing-for-agents.md`; generate/refresh `AGENTS.md` with `assets/agents-md/agents_md.py`).
 - **Communication & reflection** → **in-your-own-words** (`references/techniques/in-your-own-words.md`), **sharpen** (`references/techniques/sharpen.md`), **teach** (`references/techniques/teach.md`), **course** (`references/techniques/course.md`), **re-explain** (`references/techniques/re-explain.md`), **recall** (`references/techniques/recall.md`), **blast-radius** (`references/techniques/blast-radius.md`), **reflect** (`references/techniques/reflect.md`), **retro** (`references/techniques/retro.md`).
 
-## Full principles directory (24)
+## Full principles directory (25)
 
 One file per principle in `references/principles/<name>.md`. Read the file before applying or citing it.
 
-- **Core (design):** `laziness-protocol` (bias to deletion, smallest change), `foundational-thinking` (types, data structures, shared state before logic), `redesign-from-first-principles` (integrate a requirement as if there from day one), `subtract-before-you-add` (remove complexity first), `experience-first` (design from user experience).
+- **Core (design):** `hardcore-mode` (aim straight for the first-principles architectural ceiling, zero sandbagging), `laziness-protocol` (bias to deletion, smallest change), `foundational-thinking` (types, data structures, shared state before logic), `redesign-from-first-principles` (integrate a requirement as if there from day one), `subtract-before-you-add` (remove complexity first), `experience-first` (design from user experience).
 - **Core (execution):** `attack-the-premise` (two fixes sharing a premise failed the same gate, so test it), `minimize-reader-load` (count layers/hidden state; collapse one-caller wrappers), `outcome-oriented-execution` (converge on target architecture, no throwaway compat), `exhaust-the-design-space` (2-3 prototypes for novel decisions), `build-the-lever` (build the script/checker reviewers rerun).
 - **Architecture:** `model-the-domain`, `boundary-discipline` (guards at boundaries, trust internal types, pure core), `type-system-discipline` (illegal states unrepresentable, brand primitives, parse at boundaries), `make-operations-idempotent`, `migrate-callers-then-delete-legacy-apis`, `separate-before-serializing-shared-state`.
 - **Verification:** `prove-it-works`, `fix-root-causes` (a guard fixes only legitimate states), `sequence-verifiable-units`, `test-behavior-not-implementation`, `explain-the-number`.

@@ -207,8 +207,9 @@ class AntigravityGuardTests(unittest.TestCase):
     def test_namespaced_and_workflow_slash_commands_activate_session(self):
         prompts = [
             "/deepmodebot:deep ship feature",
+            "/suggest",
+            "/deepmodebot:suggest",
             "/deepmodebot:tournament find gaps",
-            "/tournament find architecture gaps",
             "/deepmodebot:review-pr 12",
             "/review-pr 12",
             "/land-pr 12",

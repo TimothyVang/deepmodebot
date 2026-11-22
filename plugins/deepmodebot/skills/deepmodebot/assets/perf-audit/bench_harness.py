@@ -17,6 +17,8 @@ import threading
 import time
 import urllib.parse
 
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
 
 def percentile(sorted_vals: list[float], pct: float) -> float:
     if not sorted_vals:
@@ -105,12 +107,24 @@ def run_http_bench(url: str, concurrency: int, duration_s: float, gzip: bool, wa
 
 def run_cmd_bench(cmd: list[str], runs: int, warmup: int) -> dict:
     for _ in range(warmup):
-        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        subprocess.run(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            creationflags=NO_WINDOW,
+        )
     times_ms: list[float] = []
     errors = 0
     for _ in range(runs):
         t0 = time.perf_counter()
-        proc = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        proc = subprocess.run(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            creationflags=NO_WINDOW,
+        )
         dt_ms = (time.perf_counter() - t0) * 1000.0
         times_ms.append(dt_ms)
         if proc.returncode != 0:
@@ -129,35 +143,46 @@ def run_cmd_bench(cmd: list[str], runs: int, warmup: int) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Local HTTP and command benchmark harness.")
-    sub = parser.add_subparsers(dest="mode", required=True)
+    sub = parser.add_subparsers(dest="subcmd", required=True)
 
-    p_http = sub.add_parser("http", help="Benchmark an HTTP/1.1 endpoint with keep-alive.")
-    p_http.add_argument("--url", required=True)
-    p_http.add_argument("--concurrency", type=int, default=16)
-    p_http.add_argument("--duration", type=float, default=5.0)
-    p_http.add_argument("--warmup", type=float, default=0.5)
-    p_http.add_argument("--gzip", action="store_true")
-    p_http.add_argument("--json", action="store_true")
+    http_p = sub.add_parser("http", help="Benchmark an HTTP endpoint with persistent keep-alive.")
+    http_p.add_argument("--url", required=True)
+    http_p.add_argument("--concurrency", type=int, default=16)
+    http_p.add_argument("--duration", type=float, default=3.0)
+    http_p.add_argument("--warmup", type=float, default=0.5)
+    http_p.add_argument("--gzip", action="store_true")
+    http_p.add_argument("--json", action="store_true")
 
-    p_cmd = sub.add_parser("cmd", help="Benchmark a command repeatedly.")
-    p_cmd.add_argument("--runs", type=int, default=5)
-    p_cmd.add_argument("--warmup", type=int, default=1)
-    p_cmd.add_argument("--json", action="store_true")
-    p_cmd.add_argument("cmd", nargs=argparse.REMAINDER)
+    cmd_p = sub.add_parser("cmd", help="Benchmark a CLI command across repeated runs.")
+    cmd_p.add_argument("--runs", type=int, default=10)
+    cmd_p.add_argument("--warmup", type=int, default=2)
+    cmd_p.add_argument("--json", action="store_true")
+    cmd_p.add_argument("command", nargs=argparse.REMAINDER)
 
     args = parser.parse_args(argv)
-    if args.mode == "http":
+    if args.subcmd == "http":
         res = run_http_bench(args.url, args.concurrency, args.duration, args.gzip, args.warmup)
     else:
-        cmd = args.cmd[1:] if args.cmd and args.cmd[0] == "--" else args.cmd
+        cmd = list(args.command)
+        if cmd and cmd[0] == "--":
+            cmd = cmd[1:]
         if not cmd:
-            parser.error("cmd mode requires a command after --")
+            parser.error("cmd requires a command after --")
         res = run_cmd_bench(cmd, args.runs, args.warmup)
 
     if args.json:
         print(json.dumps(res, indent=2))
+    elif res["mode"] == "http":
+        print(
+            f"HTTP {res['url']} c={res['concurrency']} rps={res['rps']} "
+            f"p50={res['p50_ms']}ms p95={res['p95_ms']}ms p99={res['p99_ms']}ms "
+            f"max={res['max_ms']}ms errors={res['errors']}/{res['requests']}"
+        )
     else:
-        print(json.dumps(res))
+        print(
+            f"CMD runs={res['runs']} min={res['min_ms']}ms p50={res['p50_ms']}ms "
+            f"p95={res['p95_ms']}ms max={res['max_ms']}ms errors={res['errors']}"
+        )
     return 1 if res["errors"] > 0 else 0
 
 

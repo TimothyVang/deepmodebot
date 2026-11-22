@@ -14,7 +14,8 @@ A **seam** is where one module meets another and where a test or a second implem
    - one concept spread across many small modules a reader has to hop between;
    - shallow modules, pass-through layers, wrappers with one caller;
    - pure helpers pulled out for testing while the bugs live in how they are wired together;
-   - one internal decision known by several modules (leak);
+   - one internal decision known by several modules (leak), or cross-boundary imports that explicit directory boundaries (server vs client, main vs renderer) plus dependency-graph lint rules would forbid;
+   - nuanced foot-gun APIs (raw `useEffect`, imperative timers) exposed in product code instead of confined to a supported framework wrapper;
    - code that is untested, or hard to test through its current interface;
    - hot-path performance friction (cross-thread hops, per-connection buffers, unbatched DB round trips, or false sharing; see `domain-rules/references/high-scale-server-optimization.md` and `data-structures-and-cache-optimization.md`).
    It runs the deletion test on every suspect and returns candidates, each with files, problem, proposed change, and deletion-test result.

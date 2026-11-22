@@ -28,7 +28,8 @@ Paths written `TimothyVang/frontend:<path>` and bracketed citations like `[youtu
 
 ## What the images and motion clips taught (text)
 
-- `references/patterns/mobbin-shipped-apps.md`: layout patterns from shipped apps
+- `references/patterns/mobbin-shipped-apps.md`: layout patterns and 59-component selection matrix from shipped apps
+- `references/patterns/mobbin-animations.md`: mobile & web motion techniques (86 Mobbin clips and 24 live-site CSS audits)
 - `references/patterns/pinterest-patterns.md`: patterns and AI tells from 341 popular UI pins
 - `references/patterns/pinterest-animations.md`: 193 animated pins as motion techniques, by type
 - `references/patterns/motion-clips.md`: what every reference-talk clip shows, as motion vocabulary
@@ -136,10 +137,10 @@ Read the bundled `references/` file first. Paths prefixed `TimothyVang/frontend:
 | Full workflow, AI-tell list, review rubric | `references/playbook/01-workflow.md`, `references/playbook/02-review-rubric.md`, `references/playbook/03-ai-tells.md` |
 | New page, visual direction, color, typography | `references/playbook/06-typography-layout.md`, `references/playbook/06a-color.md`, `references/playbook/03-ai-tells.md` |
 | Picking a component library or shadcn theming | `references/playbook/04-components.md`, `references/patterns/live-demos.md` (optional: `TimothyVang/frontend:.claude/skills/shadcn/SKILL.md`) |
-| Chat, agent activity, tool calls, approvals, AI UX | `references/playbook/04a-agent-ui.md` (optional: `TimothyVang/frontend:reference/articles/ai-ux/_batch-ai-ux-guidelines.md`) |
-| Seeing shipped layouts or motion vocabulary | `references/patterns/mobbin-shipped-apps.md`, `references/patterns/pinterest-patterns.md`, `references/patterns/pinterest-animations.md`, `references/patterns/motion-clips.md` |
-| Building UI animation, choreography, gestures, perf | `references/playbook/05-motion.md`, `references/patterns/motion-clips.md` |
-| Motion graphics, launch/promo videos, Remotion/HyperFrames | `references/playbook/05a-motion-graphics.md`, `references/patterns/motion-graphics.md` |
+| Chat, agent activity, tool calls, A2UI v1.0, approvals, AI UX | `references/playbook/04a-agent-ui.md`, `skill://deepmodebot/references/techniques/gen-ui.md` |
+| Seeing shipped layouts or motion vocabulary | `references/patterns/mobbin-shipped-apps.md`, `references/patterns/mobbin-animations.md`, `references/patterns/pinterest-patterns.md`, `references/patterns/pinterest-animations.md`, `references/patterns/motion-clips.md` |
+| Building UI animation, choreography, gestures, perf | `references/playbook/05-motion.md`, `references/patterns/mobbin-animations.md`, `references/patterns/motion-clips.md` |
+| Motion graphics, launch/promo videos, Remotion/HyperFrames/rea-video | `references/playbook/05a-motion-graphics.md`, `references/patterns/motion-graphics.md`, `skill://deepmodebot/references/techniques/video-forensics.md` |
 | Copy, microcopy, CTAs, error messages | `references/playbook/07-copy.md` |
 | Reviewing UI, accessibility, keyboard, ARIA, mobile, edge cases | `references/playbook/02-review-rubric.md`, `references/playbook/08-quality-floor.md`, `references/playbook/03-ai-tells.md` |
 | Steering UI agents and revision passes | `references/playbook/09-steering-agents.md`, `references/playbook/01-workflow.md` |

@@ -66,6 +66,7 @@ CATEGORIES = [
                                         "self-hosted", "rust", "typescript", "golang", "python"]),
 ]
 OTHER = "Everything else"
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
 def today():
@@ -77,7 +78,7 @@ def github_token():
     if token:
         return token
     try:
-        out = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True, timeout=10)
+        out = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True, timeout=10, creationflags=NO_WINDOW)
         return out.stdout.strip() or None
     except (OSError, subprocess.SubprocessError):
         return None
@@ -507,6 +508,7 @@ def project_cache() -> Path:
             encoding="utf-8",
             errors="replace",
             timeout=15,
+            creationflags=NO_WINDOW,
         )
         root = Path(proc.stdout.strip()) if proc.returncode == 0 and proc.stdout.strip() else Path.cwd()
     except (OSError, subprocess.SubprocessError):

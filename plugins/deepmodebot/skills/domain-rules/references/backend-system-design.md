@@ -83,6 +83,7 @@ Common split: REST or GraphQL at the edge, gRPC inside.
 - Composite indexes work left to right. `(last_name, first_name)` serves `last_name` alone or both, never `first_name` alone. (CS-4H)
 - Partial indexes (`WHERE status = 'pending'`) speed queries on a small hot subset of a big table. (SQL-10)
 - Run `EXPLAIN` or `EXPLAIN ANALYZE` before shipping a query to confirm the index is used. (CS-4H)
+- Postgres auto-indexes `PRIMARY KEY` and `UNIQUE`, never `REFERENCES` foreign keys: index every child FK column (`orders(customer_id)`) or parent `DELETE`/`UPDATE` locks and sequential-scans the child table, and lead composite indexes with `tenant_id` on pooled RLS tables.
 
 ### Transactions and IDs
 
@@ -91,12 +92,20 @@ Common split: REST or GraphQL at the edge, gRPC inside.
 - Keep transactions short. Never hold one open across a slow external API call; it pins pool connections and row locks. (JAVA-INT)
 - One database: sequential integer IDs (4–8 bytes, small indexes). Distributed key generation: UUIDs (16 bytes), preferably time-ordered UUIDv7. (UUID)
 
+### Query patterns, pagination & async hot paths
+
+- Eliminate N+1 queries (`SELECT` or ORM `.findUnique`/`.get` inside `for`/`while` loops): batch IDs with `WHERE id = ANY($1)`, `JOIN`, or DataLoader, and assert bounded SQL query counts in integration tests.
+- Replace `OFFSET` pagination with keyset/cursor pagination (`WHERE (created_at, id) < ($1, $2) ORDER BY created_at DESC, id DESC LIMIT 50`) so deep pages stay O(log N) instead of scanning skipped rows.
+- Never block an `async` event loop (FastAPI, Node, Tokio) with synchronous I/O (`requests.*`, `time.sleep`, `fs.readFileSync`, `bcrypt.hashSync`), and cap fan-out with `asyncio.Semaphore` / `p-limit` / `errgroup.SetLimit` instead of unbounded `Promise.all(items.map(...))` or serial `await`-in-loop waterfalls.
+- Reuse one process-level connection pool (`replicas * pool_size <= max_connections` or PgBouncer) and set explicit connect + read timeouts on every outbound HTTP/DB client.
+
 ## Caching
 
 - Cache-aside: read the cache; on a miss, read the DB, return, and fill the cache. (BACKEND-ECO)
 - A cache is never durable. A missing key must repopulate cleanly from the system of record. (DB-LAWS)
 - Every cache has a hard memory cap and an eviction policy. An unbounded cache is a slow memory leak. (CS-4H)
 - LRU is a hashmap (O(1) lookup) plus a doubly linked list (O(1) move-to-front and tail evict). (CS-4H)
+- Prevent cache stampede (thundering herd) on hot-key expiry with `singleflight` request coalescing, short lease locks, jittered TTLs (`ttl * (0.9 + 0.2 * rand)`), or `stale-while-revalidate`.
 
 ## Partitioning and sharding
 
@@ -123,7 +132,7 @@ Common split: REST or GraphQL at the edge, gRPC inside.
 
 ## Resilience
 
-- Circuit breaker (Resilience4j) around every third-party call. States: closed (normal), open (fail fast with a fallback), half-open (let trial calls through to test recovery). (PATTERNS)
+- Set connect + request timeouts on every outbound call and retry at one layer only with full jitter plus a retry-budget token bucket; add a circuit breaker (Resilience4j — closed, open, half-open) around third-party calls when a degraded fallback exists. (PATTERNS)
 - Idempotency keys on payments and other mutations. A duplicate retry returns the original response. Principle `make-operations-idempotent`. (BACKEND-INT)
 - Degrade gracefully: serve cached or partial data rather than failing the whole app. (SYS-FINALLY)
 

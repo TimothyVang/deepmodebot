@@ -3,6 +3,7 @@
 **Use when:** a plan, design, or idea needs stress-testing before work starts ("grill me", "grill this plan", "stress-test it", "poke holes in this"), or a Wayfinder ticket labeled `wayfinder:grilling`.
 
 You run the interview, and by default you also answer it: the user prefers the agent decide. A grilling that ends in questions nobody answered has failed.
+**Never present an un-converged `v1`:** run internal adversarial passes (`v1 -> v2 -> ... -> vK`) against real repo files until a pass finds **0 new P0/P1 flaws**, then show converged `vK` plus a short scar table of killed flaws.
 
 1. **Tree.** Map the plan as a design tree: every decision, and the decisions that hang off it. The **frontier** is every decision whose prerequisites are settled. Done when every decision in the plan is a node and the frontier is marked.
 2. **Round.** Write the whole frontier as numbered questions, each with its real options. Done when each frontier decision has a numbered question with at least two options.
@@ -14,7 +15,7 @@ You run the interview, and by default you also answer it: the user prefers the a
    Log each answer as one row in the decision trail per the **show-me-your-work** technique (`references/techniques/show-me-your-work.md`): the question, the choice, why, the evidence, and how to reverse it.
    Done when every question in the round has a trail row.
 4. **Recompute.** Settled answers push the frontier outward. A question that depends on another question still open waits for a later round. Repeat until the frontier is empty: every branch visited, nothing silently assumed.
-5. **Report and proceed.** Show the user the decisions as a short table (question, choice, why, how to reverse), then carry on with the work. Don't wait for confirmation; the user overrides any row by saying so.
+5. **Report, visualize when multi-branch, and proceed.** Show the user the decisions as a short table (question, choice, why, how to reverse); when `3+` coupled decisions or trade-offs exist (or the user wants a visual interactive view), also render an A2UI v1.0 decision cockpit (`assets/gen-ui/gen_ui.py from-grill --spec-stdin`, per `references/techniques/gen-ui.md`) inside `.scratch/gen-ui/` so the human can inspect options and override any choice with one click, then carry on with the work without waiting for confirmation.
    Done when the table holds one row per trail row and the next piece of work has started.
 
 **Live mode.** Only when the user asks to answer themselves ("interview me", "wait for my answers", "ask me live"): present each round with your recommended answer, worded so "yes" accepts it, and wait for their answers before the next round. Facts are still yours to look up; never ask the user for one.

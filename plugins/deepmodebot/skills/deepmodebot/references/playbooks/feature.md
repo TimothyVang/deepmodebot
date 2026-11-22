@@ -7,9 +7,13 @@ Use when: adding new behavior. You own the design, review and proof. Choose loca
 For a local M feature, use this short path instead of the shipping steps below:
 
 1. Read the affected code, callers and existing checks. Name the requested behavior and the data shape that fits the existing design.
-   Done when each requirement has an observable check, and no design or trust-boundary uncertainty requires size L.
-2. Implement in the starting working tree. Reuse the existing test and CLI/app paths; add regression coverage for uncertain behavior, not for wording or wiring.
-   Done when the requested behavior works without unrelated features or policy changes.
+   - In a monorepo (`package.json` workspaces, `pnpm-workspace.yaml`, `uv`/`Cargo` workspace), read `skill://software-architecture/references/monorepos.md` and identify the owning package and direct dependents before editing.
+   - On backend routes, DB queries, migrations, or hot loops, read `skill://domain-rules/references/high-scale-server-optimization.md` and `skill://domain-rules/references/data-structures-and-cache-optimization.md`.
+   Done when each requirement has an observable check, package scope is named (if monorepo), and no design or trust-boundary uncertainty requires size L.
+2. Implement in the starting working tree. Reuse the existing test and CLI/app paths (in monorepos, run workspace-filtered checks on the owning package and its direct dependents unless a shared config changed).
+   - On backend/systems changes, avoid N+1 / `await`-in-loop waterfalls, sync-in-async blocking I/O, missing HTTP timeouts, per-request pools, `OFFSET` scans, and unindexed FKs; verify with `python -B "<this installed skill>/assets/perf-audit/perf_audit.py" --path "<root>" --fail-on-high`.
+   - Add regression coverage for uncertain behavior, not for wording or wiring.
+   Done when the requested behavior works without unrelated features, policy changes, or high-severity `perf_audit` traps.
 3. Run the actual user path, including its relevant boundaries and failure cases. Review the diff against the request and existing conventions; fix findings a code read or run proves.
    Done when the real output proves every requirement and the checked-out tree contains the result.
 4. Report the changed behavior, command and observed result. Leave the changes uncommitted for local review.

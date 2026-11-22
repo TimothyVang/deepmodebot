@@ -17,6 +17,8 @@ Headless engines this playbook may use:
 - `assets/loop/loop.py` runs a goal file under headless omp, Claude Code, or Codex until its check passes. Details are in the Self-authoring playbook (`references/playbooks/self-authoring.md`).
 - The GitHub App bot (`references/techniques/github-app.md`) polls the user's repos and runs pr-conversation and issue-conversation with no session open.
 
+**Inner-loop-first & signal grouping:** Harden local verification and deterministic checks before scaling outer-loop automation (automating a sloppy inner loop multiplies slop). Group related incoming bug reports or signals in the coordinator before fanning out workers so shared root causes are solved once instead of duplicated.
+
 ## Session scale
 
 One task, one session, one completion predicate.
@@ -106,7 +108,7 @@ Work two tracks at once: the tactical one (land the next unit) and the strategic
     Done when the tracker lists each sampled retro and marks each candidate it produced dispatched or filed.
 16. A chunk too big for one PR goes through the Spec playbook (`references/playbooks/spec.md`), then Tickets (`references/playbooks/tickets.md`), then Phased build in build mode (`references/playbooks/phased-build.md`), with this playbook still owning the workers.
     Done when the chunk has a spec, tickets, and an integration branch with an owner in the tracker.
-17. Schedule the recurring work: a wiki lint (contradictions, orphan pages, missing links, claims newer sources overtook), a sweep of open PRs and issues, and checks on anything the goal depends on.
+17. Schedule the recurring work: a wiki lint (contradictions, orphan pages, missing links, claims newer sources overtook), a sweep of open PRs and issues, and two standing self-healthchecks (periodic transcript friction scan + token/waste audit) that stay quiet when there is nothing actionable to propose.
     Use the harness's scheduler if it has one; otherwise a background heartbeat job as in Session scale step 3. Recurring work that should outlive this session goes in the final report as a proposed schedule (cron or Task Scheduler running `omp -p @<prompt file>`, or the harness's equivalent) for the user to enable.
     Done when each recurring job is scheduled with its id in the tracker, or listed in the final report as a proposed schedule.
 

@@ -117,7 +117,7 @@ OPEN_AMBITION_RE = re.compile(
 CONCRETE_ACTION_VERB_RE = re.compile(
     r"\b(add|create|implement|wire|store|expose|render|show|support|track|remember|allow|parse|validate|export"
     r"|send|delete|remove|update|change|sort|filter|replace|move|configure|set\s+up|enable|disable|hide|limit|block|log"
-    r"|notify|sync|import|download|upload|convert|converts|compute|enforce)\b",
+    r"|notify|sync|import|download|upload|convert|converts|compute|enforce|deploy|provision|migrate|optimize|instrument)\b",
     re.I,
 )
 
@@ -125,7 +125,8 @@ CONCRETE_SURFACE_RE = re.compile(
     r"\b(page|endpoint|button|toggle|table|cli|flag|modal|form|route|webhook|webhooks|test|tests|file|column|header|footer"
     r"|sidebar|menu|dialog|banner|card|list|row|field|input|dropdown|tab|api|command|hook|job|queue|email|emails"
     r"|invoice|invoices|order|orders|cart|session|login|checkout|billing|settings|profile|user|users|token|cache"
-    r"|report|reports|rule|rules|siem|subscription|subscriptions)\b",
+    r"|report|reports|rule|rules|siem|subscription|subscriptions|terraform|iam|policy|s3|bucket|docker|kubernetes|k8s"
+    r"|oauth|dashboard|animation|animations|worker|scheduler|serializer|postgres|sqlite|redis|pipeline)\b",
     re.I,
 )
 
@@ -133,6 +134,65 @@ GREENFIELD_LEAD_RE = re.compile(
     r"^\s*(?:please\s+)?(?:start|build|create|make)\s+(?:me\s+)?(?:a|an)\s+(?:[\w-]+\s+){0,3}?(?:app|tool|cli|service|site)\b",
     re.I,
 )
+
+DEFAULT_PANEL_SEATS = (
+    "claude-fable-5-2-high",
+    "claude-opus-5-5-high-fast",
+    "gemini-4-neon-xhigh",
+)
+
+SENSITIVE_PROMPT_RE = re.compile(
+    r"\b(auth|oauth|jwt|session|token|secret|secrets|password|credential|credentials|rbac|acl|permission|permissions"
+    r"|migration|migrations|stripe|billing|payment|payments|webhook|webhooks|security|encrypt|decrypt|crypto|signature"
+    r"|ci\s+(?:workflow|pipeline|config|yaml|yml)|\.github/workflows|hooks?\.json|mcp_config|agents\.md|claude\.md"
+    r"|env\s+var|\.env|trust\s+boundary|sanitiz|parser)\b",
+    re.I,
+)
+
+SMALL_FIX_RE = re.compile(
+    r"\b(typo|one[- ]line|two[- ]line|single[- ]line|quick\s+fix|spelling|readme\.md|says\s+`[^`]+`\.\s*it\s+should\s+be)\b",
+    re.I,
+)
+
+CROSS_CUTTING_RE = re.compile(
+    r"\b(migration|migrations|across\s+the\s+repo|every\s+api|every\s+route|end[- ]to[- ]end|multi[- ]pr|sprint|sprints"
+    r"|new\s+module|whole\s+suite|all\s+the\s+tickets)\b",
+    re.I,
+)
+
+SELF_GRILL_RE = re.compile(
+    r"(\bself[- ]grill\b"
+    r"|\bgrill\s+(?:my|our|the|this)\s+(?:checks?|diff|tests?|code|work|evidence|assumptions?|pr|implementation)\b"
+    r"|\b(?:audit|stress[- ]test|challenge)\s+(?:my|our|the|this)\s+(?:checks?|tests?|evidence|assumptions?)\b"
+    r"|\bcheck\s+(?:my|our)\s+(?:assumptions?|blind\s*spots?|checks?)\b"
+    r"|\bcheck\s+if\s+(?:my|our)\s+tests?\s+are\s+actually\b|\bcheck\s+theater\b|\bjust\s+mocking\s+stuff\b"
+    r"|\bsanity[- ]check\s+(?:my|our|this)\s+(?:diff|checks?|work|plan)\b"
+    r"|\badversarial\s+self[- ]check\b"
+    r"|\b(?:find|look\s+for|hunt(?:\s+for)?|check\s+for)\s+(?:\d+\s+)?(?!(?:architecture|architectural|research)\s+gaps?\b)gaps?\b"
+    r"|\b(?:are\s+there\s+(?:any\s+)?|find\s+(?:\d+\s+)?|look\s+for\s+(?:\d+\s+)?)overclaims?\b"
+    r"|\bwhat\s+(?:gaps?\s+)?did\s+(?:you|we)\s+miss\b"
+    r"|^\s*are\s+you\s+sure\s*[?!.]*\s*$)",
+    re.I,
+)
+
+READ_ONLY_MODES = frozenset({
+    "pr-review", "investigation", "grill", "self-grill", "tournament", "research",
+    "flows", "architecture-review", "retro", "course", "questionnaire", "re-explain",
+    "security-audit", "pr-agent", "blast-radius", "sharpen", "reflect", "recall",
+    "interrogate", "sme-review", "eval", "formal-verification", "prompt-upgrade",
+    "suggest", "runtime-forensics", "trace-forensics", "teach", "autoroute",
+    "video-forensics", "gen-ui", "goal-review", "workspace-map", "deep-stack",
+    "agent-collaboration", "tool-routing",
+})
+
+LARGE_MODES = frozenset({
+    "work-a-queue", "run-a-goal", "phased-build", "wayfinder", "shipping", "swarm", "end-to-end",
+})
+
+PANEL_MODES = frozenset({
+    "tournament", "arena", "interrogate", "security-audit", "shipping",
+    "work-a-queue", "phased-build",
+})
 
 TOURNAMENT_BUILD_RE = re.compile(
     r"(?:^|[,;.!?]\s*|\b(?:and|then)\s+)"
@@ -156,7 +216,9 @@ TOURNAMENT_CHECKPOINT_RE = re.compile(
 )
 
 GRILL_RE = re.compile(
-    r"(\bgrill\s+(?:me|this|my|our|with\s+docs)\b"
+    r"(^\s*grill\s*[?!.]*\s*$"
+    r"|\bgrill\s+(?:me|this|it|my|our|with\s+docs)\b"
+    r"|\bare\s+you\s+sure\W+grill\b"
     r"|\brecord\s+the\s+decisions\b"
     r"|\bstress[- ]test\s+(?:this|my|our|the)\s+(?:plan|idea|design|spec|approach)\b"
     r"|\bpoke\s+holes\s+in\b"
@@ -164,6 +226,56 @@ GRILL_RE = re.compile(
     r"|\b(?:review|check|critique)\s+(?:my|our|this)\s+draft\s+(?:plan|design|spec)\b)",
     re.I,
 )
+
+
+def estimate_route_profile(
+    mode: str, intent: str, text: str, lower: str, anchors: int, empty_dir: bool
+) -> tuple[str, str, str, str, list[str]]:
+    sensitive = bool(SENSITIVE_PROMPT_RE.search(text) or ENV_ANCHOR_RE.search(text))
+    cross_cutting = bool(CROSS_CUTTING_RE.search(lower))
+    clause_count = len(re.findall(r",\s+(?:and\s+)?[a-z]+\b", lower))
+
+    if mode == "prior-art":
+        size = "L" if (empty_dir or re.search(r"\b(?:new|small|build|start|create)\b.*\b(?:app|tool|cli|service|site)\b", lower)) else "none"
+    elif mode == "inner-loop":
+        size = "none" if intent == "audit" else ("L" if cross_cutting else "M")
+    elif mode in READ_ONLY_MODES:
+        size = "none"
+    elif mode in LARGE_MODES:
+        size = "L"
+    elif mode in ("bug-fix", "pr-conversation", "refactoring") and SMALL_FIX_RE.search(text) and not sensitive and not cross_cutting:
+        size = "S"
+    elif mode in ("feature", "refactoring", "tdd") and (cross_cutting or (sensitive and clause_count >= 2)):
+        size = "L"
+    else:
+        size = "M"
+
+    if mode == "self-grill":
+        self_grill = "checks"
+    elif mode in ("grill", "wayfinder", "spec", "architect", "sme-review", "goal-review"):
+        self_grill = "plan"
+    elif size == "L":
+        self_grill = "both"
+    elif size == "M" and sensitive:
+        self_grill = "both"
+    elif size == "M":
+        self_grill = "checks"
+    else:
+        self_grill = "none"
+
+    if size == "S":
+        model_tier, effort = "S", "low"
+    elif mode in ("investigation", "recall", "flows", "worktree-cleanup", "workspace-map"):
+        model_tier, effort = "S", "medium"
+    elif size == "L" or mode in ("tournament", "architecture-review", "security-audit", "interrogate", "arena", "formal-verification"):
+        model_tier, effort = "L", "xhigh"
+    elif sensitive or mode in ("grill", "self-grill", "sharpen", "reflect", "sme-review", "goal-review", "pr-review", "blast-radius", "eval", "prompt-upgrade", "suggest"):
+        model_tier, effort = "L", "high"
+    else:
+        model_tier, effort = "M", "medium"
+
+    panel_seats = list(DEFAULT_PANEL_SEATS) if (size == "L" or mode in PANEL_MODES) else []
+    return size, self_grill, model_tier, effort, panel_seats
 
 
 def count_concrete_anchors(prompt: str) -> int:
@@ -191,10 +303,18 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
             build_requested = bool(GREENFIELD_LEAD_RE.search(text) or TOURNAMENT_BUILD_RE.search(text))
             intent = "execute" if build_requested else "discover"
             checkpoint = not build_requested or bool(TOURNAMENT_CHECKPOINT_RE.search(text))
+        size, self_grill, model_tier, effort, panel_seats = estimate_route_profile(
+            mode, intent, text, lower, anchors, empty_dir
+        )
         return {
             "mode": mode,
+            "size": size,
             "intent": intent,
             "vagueness": vagueness,
+            "self_grill": self_grill,
+            "model_tier": model_tier,
+            "effort": effort,
+            "panel_seats": panel_seats,
             "checkpoint_before_code": checkpoint,
             "anchors": anchors,
             "reason": reason,
@@ -278,7 +398,7 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
 
     if re.search(
         r"\bsme[- ]review\b|\bsme\s+in\s+the\s+loop\b|\bsubject\s+matter\s+expert\s+review\b"
-        r"|\bsme[-_ ]?gate\b|\bcomplex[- ]domain\s+(?:customer\s+)?spec\s+(?:sanity\s+check|review)\b",
+        r"|\bsme[-_ ]?gate\b|\bcheck\s+domain\s+invariants\b|\bcomplex[- ]domain\s+(?:customer\s+)?spec\s+(?:sanity\s+check|review)\b",
         lower,
     ):
         return out("sme-review", "audit", "low", "Complex-domain SME review or gate check.")
@@ -289,6 +409,25 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
         lower,
     ):
         return out("goal-review", "audit", "medium", "Goal milestone drafting and three-reviewer goal review.")
+
+    if re.search(
+        r"\b(?:deepmode(?:bot)?\s+suggest)\b"
+        r"|\bsuggest\s+(?:me\s+)?(?:some\s+)?(?:full[- ]scope\s+|next\s+)?prompts?\b"
+        r"|\bwhat\s+prompts?\s+should\s+i\s+run\b"
+        r"|\bwhat\s+should\s+i\s+(?:fix|work\s+on)\s+next\s+in\s+(?:this|the)\s+repo\b"
+        r"|\bdid\s+we\s+overclaim\b|\baudit\s+(?:for\s+)?gaps?\s+and\s+overclaims?\b",
+        lower,
+    ):
+        return out("suggest", "audit", "low", "Repository gap/overclaim scan and full-scope prompt suggestion request.")
+
+    if re.search(
+        r"\b(?:a2ui|gen[- ]ui)\b|\b(?:generate|build|render)\b.{0,30}\b(?:interactive\s+cockpit|ui\s+to\s+talk\s+to\s+(?:the\s+)?human)\b",
+        lower,
+    ):
+        return out("gen-ui", "execute", "low", "Declarative A2UI v1.0 surface or interactive human cockpit request.")
+
+    if SELF_GRILL_RE.search(text):
+        return out("self-grill", "audit", "low", "Adversarial Prosecutor self-grill audit of gaps, overclaims, checks, or diff.")
 
     if GRILL_RE.search(text):
         return out("grill", "stress-test", "medium", "Plan or design stress-test request.")
@@ -400,6 +539,48 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
     if re.search(r"\bsecurity-audit\b|\baudit\s+every\s+pr\b|\badd\s+a\s+security\s+gate\b|\bsecurity\s+audit\s+of\b", lower):
         return out("security-audit", "audit", "low", "Security audit request.")
 
+    if re.search(
+        r"\bno[- ]comments\b|\bcomment[- ]sicko\b"
+        r"|\b(?:remove|strip|delete|clean(?:\s+up)?)\b.{0,30}\bcomments\b",
+        lower,
+    ):
+        return out("no-comments", "execute", "low", "Code comment removal and workaround cleanup request.")
+
+    if re.search(
+        r"\bformal\s+verification\b|\bmodel[- ]check(?:ing)?\b|\btla\+(?![A-Za-z0-9_])|\bstatechart\b"
+        r"|\blean\s*(?:4|proof|theorem|formalization)\b|\bmathlib\b|\bcomparator\b|\bnanoda\b"
+        r"|\b(?:formalize|prove)\s+(?:this|the)\s+(?:theorem|lemma|conjecture|invariant)\b"
+        r"|\bproperty[- ]based\s+ui\b|\bbombadil\b|(?<![A-Za-z0-9_])\.(?:lean|tla|smt2)\b",
+        lower,
+    ):
+        return out("formal-verification", "audit", "low", "Formal verification, theorem proving, model checking, or invariant check.")
+
+    if re.search(
+        r"\bgarden(?:ing)?\s+(?:the\s+|this\s+)?(?:codebase|repo)\b|\bcodebase\s+gardening\b"
+        r"|\bpattern\s+buffer\b|\bban\s+this\s+anti[- ]pattern\b|\bencode\s+(?:this\s+)?correction\b",
+        lower,
+    ):
+        return out("correct", "execute", "low", "Codebase gardening and structural anti-pattern elimination request.")
+
+    if re.search(
+        r"\bfuzz\s+(?:the\s+|this\s+)?(?:release|build|app)\b|\brelease\s+fuzz(?:ing)?\b",
+        lower,
+    ):
+        return out("swarm", "audit", "low", "Release fuzzing swarm over the real build.")
+
+    if re.search(
+        r"\b(?:review|improve|upgrade|rewrite|fix|clean\s+up)\s+(?:my|this|the|a\s+user'?s?)\s+prompt\b"
+        r"|\bmake\s+(?:my|this)\s+prompt\s+better\b"
+        r"|\bconvert\s+(?:this|it|my\s+prompt)\s+to\s+a?\s*deepmode(?:bot)?\s*prompt\b"
+        r"|\bturn\s+this\s+into\s+a\s+(?:full[- ]scope\s+)?deepmode(?:bot)?\s+prompt\b"
+        r"|\bprompt[- ]upgrade\b",
+        lower,
+    ):
+        return out("prompt-upgrade", "stress-test", "low", "Prompt review and full-scope Deepmode prompt compilation request.")
+
+    if re.search(r"\b(?:rea[- ]video|videomd|video\.md)\b|\b(?:reverse[- ]engineer|break\s+down|remake|deconstruct)\b.{0,35}\bvideo\b|\bis\s+this\s+video\s+ai\b", lower):
+        return out("video-forensics", "audit", "low", "Shot-by-shot video forensics, VIDEO.md breakdown, or remake plan.")
+
     if re.search(r"\brun\s+pr-agent\b|\bwith\s+pr-agent\b", lower):
         return out("pr-agent", "audit", "low", "PR-Agent review pass request.")
 
@@ -411,14 +592,16 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
                    "Inner-loop gate hardening or audit request.")
 
     if re.search(
-        r"\brun\s+(?:an?\s+|the\s+)?(?:skill|prompt|workflow|routing)\s+eval(?:s|uation)?\b"
+        r"\brun\s+(?:an?\s+|the\s+)?(?:(?:blinded|skill|prompt|workflow|routing)\s+)*eval(?:s|uation)?\b"
+        r"|\bbuild\s+(?:a\s+|an\s+)?(?:blinded\s+)?eval\b|\beval\s+this\s+(?:skill|prompt)\b"
         r"|\beval\s+(?:playbook|suite)\b|\bcompare\s+(?:this|the)\s+(?:skill|prompt)\s+against\s+(?:baseline|the\s+version\s+without)\b",
         lower,
     ):
         return out("eval", "audit", "low", "Skill or workflow evaluation request.")
 
     if re.search(
-        r"\bhillclimb\b|\bautoresearch\b|\boptimize\s+(?:this|the)\s+(?:metric|score|pass\s+rate|throughput|latency)\s+(?:in\s+a\s+loop|iteratively|until)\b",
+        r"\bhillclimb\b|\bautoresearch\b|\bfrom\s+\d+\s*(?:ms|s|%)\s+(?:down\s+(?:to|below|under)|below|under)\s+\d+|\bbelow\s+\d+\s*ms\b|\bunder\s+\d+\s*ms\b"
+        r"|\boptimize\s+(?:this|the)\s+(?:metric|score|pass\s+rate|throughput|latency)\s+(?:in\s+a\s+loop|iteratively|until)\b",
         lower,
     ):
         return out("hillclimb", "execute", "low", "Iterative metric-improvement loop request.")
@@ -443,7 +626,7 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
         return out("tool-routing", "question", "low", "Tool and capability routing request.")
 
     if re.search(
-        r"\bprototype\s+(?:this|it|both|the\s+two|to\s+settle)\b|\bbuild\s+a\s+(?:quick|throwaway|empirical)\s+prototype\b"
+        r"\bprototype\s+(?:this|it|both|the\s+two|to\s+settle)\b|\b(?:build\s+a\s+|quick\s+|throwaway\s+)(?:quick\s+|throwaway\s+|empirical\s+)?(?:prototype|spike)\b"
         r"|\bsettle\s+(?:this|the)\s+fork\s+by\s+(?:running|prototyping)\b",
         lower,
     ):
@@ -452,16 +635,16 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
     if re.search(r"\bopen(?:ing)?\s+(?:a|the)\s+pr\b|\bcut\s+a\s+pr\s+for\s+(?:this|my)\s+branch\b|\bprepare\s+(?:this|my)\s+branch\s+for\s+a\s+pr\b", lower):
         return out("opening-a-pr", "execute", "low", "PR preparation and opening workflow.")
 
-    if re.search(r"\bship\s+(?:this|the)\s+(?:pr|branch|change|release)\b|\bshipping\s+playbook\b|\bverify\s+trunk\s+after\s+merge\b", lower):
+    if re.search(r"\b(?:ship|land)\s+(?:this|the)\s+(?:pr|branch|change|release|stack)\b|\bshipping\s+playbook\b|\bverify\s+trunk\s+after\s+merge\b", lower):
         return out("shipping", "execute", "low", "PR shipping and post-merge verification workflow.")
 
-    if re.search(r"\bpause[- ]safely\b|\bpause\s+(?:this|work|for\s+now)\s+safely\b|\bstop\s+for\s+now\s+and\s+(?:save|leave)\s+a\s+resume\s+note\b", lower):
+    if re.search(r"\bpause[- ]safely\b|\bpause\s+(?:safely|this\s+safely|work\s+safely|for\s+now\s+safely)\b|\bcheckpoint\s+and\s+pause\b|\bresume\s+tomorrow\b|\bstop\s+for\s+now\s+and\s+(?:save|leave)\s+a\s+resume\s+note\b", lower):
         return out("pause-safely", "execute", "low", "Safe pause and resume-note capture.")
 
-    if re.search(r"\bsession[- ]pickup\b|\bpick\s+up\s+(?:this|the|a)\s+(?:handoff|paused\s+session)\b|\bresume\s+from\s+(?:this|the)\s+(?:handoff|resume\s+note)\b", lower):
+    if re.search(r"\bsession[- ]pickup\b|\bpick\s+up\s+(?:where\s+(?:the\s+)?(?:previous|last)\s+agent|(?:this|the|a)\s+(?:handoff|paused\s+session))\b|\btake\s+over\b.*\bin[- ]flight\b|\bresume\s+from\s+(?:this|the)\s+(?:handoff|resume\s+note)\b", lower):
         return out("session-pickup", "execute", "low", "Resuming work from a handoff or paused session.")
 
-    if re.search(r"\bworktree[- ]cleanup\b|\bclean\s*up\s+(?:(?:old|stale|merged|my|the)\s+)*(?:git\s+)?worktrees?\b|\bprune\s+(?:stale\s+)?(?:git\s+)?worktrees?\b", lower):
+    if re.search(r"\bworktree[- ]cleanup\b|\b(?:clean\s*up|prune|delete|remove)\s+(?:(?:old|stale|merged|my|the)\s+)*(?:git\s+)?worktrees?\b", lower):
         return out("worktree-cleanup", "execute", "low", "Git worktree and branch cleanup.")
 
     if re.search(
@@ -474,17 +657,38 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
     ):
         return out("workspace-map", "question", "low", "Workspace, worktree, PR, or FTS5 symbol index lookup.")
 
-    if re.search(r"\bvisual[- ]parity\b|\bpixel[- ]exact\s+(?:ui|match|parity)\b|\bpixel[- ]diff\s+zero\b|\bmatch\s+(?:this|the)\s+(?:figma|mockup|screenshot)\s+pixel\b", lower):
+    if re.search(r"\bvisual[- ]parity\b|\bpixel[- ]exact\b|\bpixel\s+diff\b|\bpixel[- ]diff\s+zero\b|\bpixel[- ]for[- ]pixel\b|\bmatch\s+(?:this|the)\s+(?:figma|mockup|screenshot)\s+pixel\b", lower):
         return out("visual-parity", "execute", "low", "Pixel-exact UI visual parity work.")
 
-    if re.search(r"\breference[- ]rebuild\b|\brebuild\s+(?:this|our|the)\s+ui\s+(?:to\s+match|like)\b|\bclone\s+the\s+ui\s+of\b", lower):
+    if re.search(r"\breference[- ]rebuild\b|\brebuild\s+(?:this|our|the)\s+[\w\s-]{0,25}ui\s+(?:to\s+match|like)\b|\bto\s+the\s+standard\s+of\b|\bclone\s+the\s+ui\s+of\b", lower):
         return out("reference-rebuild", "execute", "low", "UI rebuild against a named reference app.")
 
-    if re.search(r"\bruntime[- ]forensics\b|\bdebug\s+(?:a|this)\s+live\s+(?:symptom|process|hanging\s+service)\b|\bdiagnose\s+(?:why|this)\s+live\s+(?:server|process|worker)\b", lower):
+    if re.search(r"\bruntime[- ]forensics\b|\b(?:memory\s+leak|leaking\s+ram|idle\s+cpu|cpu\s+(?:100%|spike|stuck)|freez(?:e|es|ing))\b|\bdebug\s+(?:a|this)\s+live\s+(?:symptom|process|hanging\s+service)\b|\bdiagnose\s+(?:why|this)\s+live\s+(?:server|process|worker)\b", lower):
         return out("runtime-forensics", "audit", "low", "Live runtime symptom forensics.")
 
-    if re.search(r"\btrace[- ]forensics\b|\b(?:cpu\s+profile|flame\s*graph|heap\s+dump|heap\s+snapshot|memory\s+leak\s+trace|perf\s+trace)\b", lower):
+    if re.search(r"\btrace[- ]forensics\b|(?:(?<![A-Za-z0-9_])\.(?:cpuprofile|heapsnapshot)\b)|\b(?:cpuprofile|cpu\s+profile|flame\s*graph|heap\s+dump|heap\s+snapshot|chrome\s+trace|memory\s+leak\s+trace|perf\s+trace)\b", lower):
         return out("trace-forensics", "audit", "low", "Profile, trace, or heap-dump forensics.")
+
+    if re.search(r"\bteach\s+me\b(?!.*\bover\s+the\s+next\b)|\bhelp\s+me\s+really\s+understand\b", lower):
+        return out("teach", "question", "low", "Guided conceptual explanation request.")
+
+    if re.search(r"\bblast\s+radius\b|\bwhat\s+could\s+this\s+break\b", lower):
+        return out("blast-radius", "audit", "low", "Diff blast-radius and hidden breakage analysis.")
+
+    if re.search(r"\bsharpen\s+(?:this|my|our|the)\s+(?:prompt|task|ask|request)\b|\bmake\s+this\s+(?:prompt|task)\s+deeper\b", lower):
+        return out("sharpen", "stress-test", "medium", "Prompt deepening and external-oracle sharpening request.")
+
+    if re.search(r"^\s*reflect\b|\breflect\s+on\s+(?:this|the)\s+(?:session|chat|conversation|run)\b", lower):
+        return out("reflect", "audit", "low", "Session transcript reflection and skill improvement request.")
+
+    if re.search(r"\bcatch\s+me\s+up\b|\bwhere\s+did\s+i\s+leave\s+off\b|\brecall\s+my\s+work\b", lower):
+        return out("recall", "question", "low", "Recent work and thread recall request.")
+
+    if re.search(r"\bthrow\s+it\s+in\s+the\s+arena\b|\barena\s+this\b", lower):
+        return out("arena", "discover", "medium", "Parallel candidate bakeoff with cross-judge and grafting.")
+
+    if re.search(r"\badversarial\s+review\b|\binterrogate\s+(?:this|my|our|the)\b", lower):
+        return out("interrogate", "audit", "low", "Run-proved adversarial interrogation request.")
 
     if re.search(r"\bwhat\s+stack\b|\bpick\s+(?:a|the)\s+stack\b", lower) and not GREENFIELD_LEAD_RE.search(text):
         return out("deep-stack", "question", "low", "Stack choice only, no build requested.")
@@ -521,10 +725,10 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
         return out("investigation", "question", "low", "Read-only codebase question.")
 
     if re.search(
-        r"\b(?:\d+(?:\.\d+)?x\s+slower|got\s+slower|slowness|p9[59]\s+went\s+from|p9[59]\s+(?:tail\s+)?latency|tail\s+latency|latency\s+regression|cache\s+misses|memory\s+layout|hits\s+oom|optimize\s+(?:the\s+)?(?:server|db\s+pooling|memory\s+layout|throughput|latency))\b",
+        r"\b(?:\d+(?:\.\d+)?x\s+slower|got\s+slower|slowness|p9[59]\s+(?:went\s+from|jumped|is\s+\d+|(?:tail\s+)?latency)|tail\s+latency|latency\s+(?:spike|regression)|cache\s+misses|memory\s+layout|hits\s+oom|n\+1\s+quer(?:y|ies)|(?:optimize|speed\s+up)\b.{0,45}\b(?:endpoint|route|query|queries|api|backend|server|db\s+pooling|memory\s+layout|throughput|latency|serialization|pool))\b",
         lower,
     ):
-        return out("perf-issue", "execute", "low", "Measured performance regression.")
+        return out("perf-issue", "execute", "low", "Measured performance regression or backend hot-path optimization.")
 
     gf_match = GREENFIELD_LEAD_RE.search(text)
     if gf_match and (empty_dir or re.search(r"\bnew\s+(?:app|tool|cli|service|site)\b", lower)):
@@ -549,7 +753,9 @@ def classify_prompt(prompt: str, has_factory: bool = False, empty_dir: bool = Fa
 
     if re.search(
         r"\b(?:find\s+out\s+why\s+and\s+fix|wrong\s+total|is\s+wrong|typo|bug|crash(?:es|ed|ing)?|fail(?:s|ed|ing)"
-        r"|throws?\b|broken|regression|error\b|500\b|redirect\s+loop|deadlock|race\s+condition|should\s+be)\b",
+        r"|throws?\b|broken|regression|error\b|500\b|redirect\s+loop|deadlock|race\s+condition|should\s+be"
+        r"|i'?m\s+(?:struggling|stuck)|struggling\s+with|stuck\s+on|keeps?\s+(?:breaking|failing|crashing)"
+        r"|does(?:n'?t|\s+not)\s+work|doesnt\s+work)\b",
         lower,
     ) or (re.search(r"\bfix\b", lower) and not re.search(r"\bfix\s+(?:everything|it\s+all)\b", lower)):
         return out("bug-fix", "execute", "low", "Concrete defect reproduction and fix.")

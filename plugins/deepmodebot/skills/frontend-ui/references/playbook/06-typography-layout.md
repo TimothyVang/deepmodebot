@@ -29,7 +29,7 @@
   - Spacing on a 4 px grid. Schoger's 6/30 px steps are rejected.
 - **Type scale:**
   - App surfaces use a fixed scale (12/14/16/18/20/24/30/36/48), with body at 16/1.5 and tighter leading as size grows.
-  - Persuade surfaces may use a fluid `clamp()` scale.
+  - Persuade surfaces may use a fluid `clamp()` scale, scaling desktop display `h1` (`48–80 px`, `-0.02em` to `-0.03em` tracking, `text-wrap: balance`) by **`0.50×–0.67×` at `390 px` mobile** (`28–44 px`, zero horizontal overflow — measured across 24 live Mobbin sites in `references/patterns/mobbin-shipped-apps.md`).
 - **Font mechanics** [youtube/n0iAYEpU0Fk]:
   - Re-tune size and weight when swapping families, because x-height differs.
   - `font-optical-sizing: auto`. Real italics only.
@@ -41,8 +41,8 @@
   - Logical properties for RTL.
   - `cqw` + `clamp()` for in-between sizes.
 - **Depth and finish** [github/pbakaus-impeccable; github/vercel-labs-web-interface-guidelines]:
-  - A 4–5 step elevation scale mapped to element type (input → dropdown → panel → modal): a tight ambient shadow plus a larger downward-offset direct shadow, alpha around .08, tinted toward the background hue. Raised panels are lighter than the page (white on about 2% darker). [youtube/7Z9rrryIOC4]
-  - Semi-transparent borders.
+  - A 4–5 step elevation scale mapped to element type (input → dropdown → panel → modal): 3-layer OKLCH ambient shadows (`oklch(0 0 0 / 0.01..0.03)` as on `Attio`), plus optional `1 px` top inner rim highlights (`inset 0 1px 0 oklch(1 0 0 / 0.18)` as on `Superpower` and tactile mobile controls). Raised panels are lighter than the page (white on about 2% darker). [youtube/7Z9rrryIOC4]
+  - Semi-transparent `1 px` borders; sticky glass chrome uses `backdrop-filter: blur(12px–24px) saturate(1.6–1.8)`.
   - Concentric radii: a child's radius is no larger than its parent's.
   - Theme the browser surfaces too: `::selection`, caret, scrollbars, focus ring, `color-scheme`, `theme-color`.
 - **More type hygiene:** `text-wrap: balance` on headings; about −0.02em tracking on large headings; no weight change on hover; `Intl.*` for numbers and dates; a non-breaking space in `10 MB` and `⌘ K`.

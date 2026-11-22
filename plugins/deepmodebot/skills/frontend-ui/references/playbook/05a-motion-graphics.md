@@ -89,7 +89,7 @@ Scope: anything rendered to MP4 (launch films, explainers, social clips, docs vi
 
     Build it by reverse-engineering videos you already approved. **Lock the theme across generated stills:** pass the previous image (or a character or product reference) into each new generation as the style reference, because a style reference alone drifts. Fix palette, mood and font per video.
 15. **An asset bank with a dictionary:** each file maps to what it shows or sounds like and when to use it, covering real screenshots, logos, icons, licensed fonts, footage and SFX. Never AI-drawn logos or icons.
-16. **Reference grammar from frames:** download the reference, sample a frame every 0.5 s (denser where edits happen), then write a style guide and a shot list. Pick a reference in the same format.
+16. **Reference grammar from frames (`rea-video` + `VIDEO.md`):** before remaking or studying a reference video, run `skill://deepmodebot/references/techniques/video-forensics.md` (`JuneYaooo/rea-video`) to decompose cut timings, beat grid (`video/rhythm.md`), stems (`rea-video stems`), and foreground layers (`rea-video code-remake`), then score your rendered MP4 against the reference via `rea-video compare <ref> <remake> -o <dir>` (`compare.json` + `compare_worst.jpg`). Pick a reference in the same format.
 17. **Voice-over first.** Word-level timestamps place every graphic on its word; captions stay editable text. Overlays never cover the speaker's face (compute a face-safe zone). Split multi-speaker audio into one track per speaker that keeps silence while the other talks, so each avatar or layout lines up without manual cutting. SFX go in last, after QA.
 18. **Shot budget:**
     - About 6–8 shots per 15 s; generated-video shots run 4–10 s.

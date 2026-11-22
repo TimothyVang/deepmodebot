@@ -19,3 +19,7 @@ Order of preference [youtube/zsCGS-Yzjnw; .claude/skills/pick-ui-library]:
 
 4. **Design components** (Magic UI, Aceternity, RareUI, 21st.dev) only for the single standout moment. Install through the CLI or registry so the code lives in the repo and can be edited.
 5. **AI-product states** come from shadcn's chat components; see §4a. Beautiful UI is the visual reference.
+6. **Mobile vs. web component thresholds** (`references/patterns/mobbin-shipped-apps.md`, distilled from 59 Mobbin Glossary guides):
+   - **Bottom `Tab Bar` (`3–5` items max):** primary mobile destinations only; `>5` sections → `Drawer` / rail. Never put infrequent settings in a Tab Bar.
+   - **`Bottom Sheet` vs. `Action Sheet` vs. `Context Menu`:** `Bottom Sheet` (`Vaul`) for supplementary context/filters (`peek` detent = no scrim; `expanded` = scrim + `scale(0.94)` root recession + explicit `×` button); `Action Sheet` for `3–5` quick mobile choices + separated `Cancel`; long-press `Context Menu` only for secondary item actions (`scale(1.03)` lift + `blur(16px)`).
+   - **`Segmented Control` (`2–4` equal views, instant switch)** vs. `Select`/`Combobox` (`5+` choices); **`Stepper` (`1–10`)** vs. **horizontal tick-ruler scrubber** (bounded mobile numeric ranges without popping OS keyboard) vs. numeric `<input>`.

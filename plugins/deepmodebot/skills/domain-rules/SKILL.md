@@ -25,6 +25,8 @@ Deepmodebot's principles, gates, and playbooks win any conflict. These files sup
 
 ## Sources
 
+Extended 105-video source key table: `references/sources.md`.
+
 | Key | Uploaded | Video |
 |---|---|---|
 | AGI | 2026-10-11 | [AGI: The Technology That Could Change the World](https://youtu.be/tNs0NMNSmmM) |
