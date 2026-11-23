@@ -25,7 +25,7 @@ WHITE_LABEL_EXEMPT = {
     Path("plugins/deepmodebot/skills/deepmodebot/assets/repo-references.json"),
     Path("docs/research/youtube-learning/history-recovery.md"),
 }
-LOCAL_ONLY = {".git", ".scratch", ".worktrees", "__pycache__"}  # self-ignored work folders and caches, never shipped
+LOCAL_ONLY = {".git", ".scratch", ".worktrees", "__pycache__", "node_modules"}  # self-ignored work folders, caches and installed packages, never shipped
 RULES_WINDOW_BYTES = 20_000  # about 5,000 tokens at 4 bytes each: what Claude Code keeps of a skill after compaction
 SKILL_BODY_MAX_BYTES = 24_000  # Antigravity truncates skill bodies above 24 KB
 CORE_LINE_BYTES = 600  # deepmodebot's SKILL.md, sibling SKILL.md, playbooks and techniques: one instruction per line

@@ -81,11 +81,12 @@ For **S**, only one-line restate, single-item scope check, real-artifact proof, 
 - **Scope ledger.** Track 100% of the request per Full-scope completion (M/L/multi-item use a Scope Manifest; Size S tracks its single item inline).
 - **Name principles.** On M/L, add a "Why I chose this" line naming each read principle (`references/principles/`) that changed a decision.
 - **Prove on the real artifact.** Run the real app/CLI/service and capture evidence. Reuse an existing verify skill; else drive directly; create one only when requested or justified by repeated runs. Tests alone are not proof.
-- **Decide; don't ask.** Fact → look up. Observable fork → Prototype. Product/design/preference → decide (Autonomy). Investigation answers read-only from evidence.
+- **Decide; don't ask.** Fact → look up (free, keyless: **docs-lookup**, `references/techniques/docs-lookup.md`). Observable fork → Prototype. Product/design/preference → decide (Autonomy). Investigation answers read-only from evidence.
 - **Secrets, logins, tokens, auth** → read `skill://secrets-and-auth` first. Never print, paste, or commit secrets; use scoped short-lived identities; rotate leaks.
 - **Name data shape first** (`references/principles/model-the-domain.md`); new domains/DBs/layouts/boundaries also read `skill://software-architecture`.
 - **Comments.** Only non-obvious *why* or external constraints; no phase-narrating comments.
 - **Long/step-away work** → decision trail via **show-me-your-work** (`references/techniques/show-me-your-work.md`).
+- **Show, don't tell, automatically.** Every task beyond a one-line answer uses **live-view** (`references/techniques/live-view.md`): plan, diagrams, proof cards, and questions answered in the page. It starts by itself; never wait for a command.
 - **PR & gate layer.** Self-review (**pr-review**) before opening; run **pr-agent** + local checks once open; land own PRs via **pr-conversation**; incoming PRs use `/deepmodebot:review-pr <PR>`. No CI/hosted bots. Run **security-audit** on merge head when opted in or touching auth, permissions, parsing, or secrets (blocking = P0).
 
 ## Autonomy

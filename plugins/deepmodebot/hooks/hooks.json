@@ -1,5 +1,5 @@
 {
-  "description": "Claude Code containment guard: once a /deepmodebot: command runs in a session, Write, Edit and NotebookEdit outside the project root are denied for the rest of that session, resumes included (shell commands, natural-language triggers, and Codex apply_patch are not intercepted by this hook). Without Python 3.8+ on PATH the guard fails closed and denies those writes in active sessions.",
+  "description": "Claude Code containment guard: once a /deepmodebot: command runs in a session, Write, Edit and NotebookEdit outside the project root are denied for the rest of that session, resumes included (shell commands, natural-language triggers, and Codex apply_patch are not intercepted by this hook). Without Python 3.8+ on PATH the guard fails closed and denies those writes in active sessions. A second UserPromptSubmit hook starts deepmodebot's local AG-UI live view on the first real prompt in a project (browser opens once) and tells the agent to use it; DEEPMODE_LIVE_VIEW=off or a .scratch/live-view/off file turns it off.",
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -7,6 +7,15 @@
           {
             "type": "command",
             "command": "d=\"${CLAUDE_PLUGIN_DATA:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/deepmodebot-guard}\"; for f in \"${CLAUDE_PLUGIN_ROOT:-/nonexistent}/skills/deepmodebot/assets/contain/claude-guard.sh\" \"${CLAUDE_PROJECT_DIR:-.}/.claude/skills/deepmodebot/assets/contain/claude-guard.sh\"; do [ -f \"$f\" ] && exec \"${BASH:-bash}\" \"$f\" activate \"$d\"; done; exit 0"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "for f in \"${CLAUDE_PLUGIN_ROOT:-/nonexistent}/skills/deepmodebot/assets/live-view/autostart.mjs\" \"${CLAUDE_PROJECT_DIR:-.}/.claude/skills/deepmodebot/assets/live-view/autostart.mjs\"; do [ -f \"$f\" ] && command -v node >/dev/null 2>&1 && exec node \"$f\"; done; exit 0",
+            "timeout": 15
           }
         ]
       }
