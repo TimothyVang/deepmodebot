@@ -1,14 +1,15 @@
 # live-view
 
-**Use when:** the human should *see* the work, not read a wall of text: an L task or a plan of 4+ steps, an architecture or data-flow explanation, a choice between options, a long run they will check on, or proof that something works. Also when they say "show me", "explain visually", "walk me through", or "prove it".
+**Use when:** by default, on every task beyond a one-line answer: the human should *see* the work, not read a wall of text. It is automatic: never wait for a command or for the human to ask.
 Skip it for a short answer, a one-line fix, or when no browser is available; plain Markdown is better there.
 
-The live view is a local AG-UI 1.0 server (`assets/live-view/agui.mjs`) and a viewer page: plan checklist, progress, messages, diagrams, tables, screenshots, proof cards, and questions the human answers in the page.
+The live view is a local AG-UI 1.0 server (`assets/live-view/agui.mjs`) and a viewer page built from shadcn/ui's agent components (dark by default): plan checklist, progress, activity trace, messages, diagrams, tables, screenshots, proof lines with evidence, and questions the human answers in the page.
 Everything stays on `127.0.0.1` behind a session token; it sends nothing anywhere else. Run every command from the project root: the session lives in `.scratch/live-view/` there.
 
-1. **Open it.** Start `node "<this skill>/assets/live-view/agui.mjs" serve --open` as a background service and give the human the printed URL.
-   With a browser tool, open that URL for them (`skill://deepmodebot` browsing rules apply); never paste the token into chat beyond the URL itself.
-   Done when the human can see the page (they confirm, or you saw it render).
+1. **It opens itself.** In Claude Code the plugin's prompt hook (`assets/live-view/autostart.mjs`) starts the view on the first real prompt in a project, opens the browser once, and adds "deepmode live view is running: <url>" to your context. Then just use it.
+   Elsewhere (omp, Codex, Antigravity), when real work starts and `.scratch/live-view/session.json` is missing or its `/health` fails, start `node "<this skill>/assets/live-view/agui.mjs" serve --open` as a background service yourself.
+   The human turns it off with `DEEPMODE_LIVE_VIEW=off` or a `.scratch/live-view/off` file; respect both. It stops by itself after 12 idle hours.
+   Done when the view is running and the human has its URL (from the hook or from you).
 2. **Set the goal and plan.** `agui.mjs plan --goal "<one line>" "<step>" "<step>" …` (or a JSON file of `{id,title,status}`), then `agui.mjs status <id> active|done|blocked "<note>"` as you go.
    Steps are the plan the human approved or the one you chose; keep titles to outcomes ("Login works on mobile"), not actions ("edit auth.ts").
    Done when every step's status matches reality at each report point.

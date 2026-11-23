@@ -86,7 +86,7 @@ For **S**, only one-line restate, single-item scope check, real-artifact proof, 
 - **Name data shape first** (`references/principles/model-the-domain.md`); new domains/DBs/layouts/boundaries also read `skill://software-architecture`.
 - **Comments.** Only non-obvious *why* or external constraints; no phase-narrating comments.
 - **Long/step-away work** → decision trail via **show-me-your-work** (`references/techniques/show-me-your-work.md`).
-- **Show, don't tell.** L tasks, 4+ step plans, architecture, option choices, or "show me / prove it" → **live-view** (`references/techniques/live-view.md`): an AG-UI view with the plan, diagrams, proof cards, and questions answered in the page.
+- **Show, don't tell, automatically.** Every task beyond a one-line answer uses **live-view** (`references/techniques/live-view.md`): plan, diagrams, proof cards, and questions answered in the page. It starts by itself; never wait for a command.
 - **PR & gate layer.** Self-review (**pr-review**) before opening; run **pr-agent** + local checks once open; land own PRs via **pr-conversation**; incoming PRs use `/deepmodebot:review-pr <PR>`. No CI/hosted bots. Run **security-audit** on merge head when opted in or touching auth, permissions, parsing, or secrets (blocking = P0).
 
 ## Autonomy

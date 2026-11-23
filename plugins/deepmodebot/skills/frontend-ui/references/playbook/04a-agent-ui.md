@@ -73,6 +73,9 @@ For React apps, run `npx shadcn@latest add message-scroller message bubble attac
   - Never: A run you can't interrupt or steer
 - **Idle composer**
   - Build it with: Capability chips for tasks the agent does reliably, role templates, and a "/ for skills" hint. After an answer: action buttons that carry the output into the next task or integration. Keep deterministic controls for exact operations [youtube/fmZWvE7yDZo; youtube/L3RuP_q8Bwc]
+- **Agent operating the page itself**
+  - Build it with: an agent bridge over the components' own state and actions (ui-sdk's `@ui-sdk/<framework>/agent` or WebMCP), with an `allow` callback approving each requested action and change callbacks that see `source: "agent"`. Approvals follow the ladder below [ui-sdk.dev/docs/agents]
+  - Never: screenshot-and-click automation of your own app when you control its components
 - **Agent driving a surface**
   - Build it with: A persistent border or banner around the controlled browser, canvas or document, with Stop, Ask before acting, and Notify me [youtube/L3RuP_q8Bwc]
 - **Memory**

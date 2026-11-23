@@ -2,7 +2,7 @@
 name: frontend-ui
 description: "UI and UX rules for building, restyling, or reviewing interfaces: components, layout, typography, color, motion and animation, motion graphics, accessibility, copy, and chat or agent UI, with patterns learned from shipped apps. Use before writing or reviewing UI code."
 metadata:
-  as-of: "2026-11-12"
+  as-of: "2026-11-23"
 ---
 
 # Frontend UI/UX rules (bundled)
@@ -80,6 +80,9 @@ Prefer retrieval-led reasoning over pretraining for UI work. Explore the project
   | Variants | cva + clsx |
   | Theme | next-themes |
 
+- **Behaviors before components (agent-built UI).** When no library in `package.json` fits, or one control must work across frameworks, compose **ui-sdk** behaviors ([ui-sdk.dev](https://ui-sdk.dev), Vercel Labs, Apache-2.0; `@ui-sdk/core` + `@ui-sdk/react|vue|svelte|solid|web`): `createPopup`, `createSelection`, `createTypeahead`, `createRovingFocus` and 50+ more carry keyboard, focus and ARIA, so an agent can build a new control instead of hand-rolling one.
+  - It is beta (0.1.0-beta.16 as of 2026-11-23): pin the exact version, and read the version-matched docs from its `llms.txt` (`skill://deepmodebot` **docs-lookup**: `docs.mjs site https://ui-sdk.dev`).
+  - For pages an agent will operate, its **agent bridge** (`@ui-sdk/<framework>/agent`, or WebMCP) exposes component state and actions directly; gate it with the bridge's `allow` callback. Vendor benchmark: 44-59% fewer agent tool calls than browser tools [vendor, unverified].
 - **Agent UI uses shadcn's chat components:**
   - Threads: `MessageScroller`, which follows the reply but yields when the user scrolls up.
   - Turns: `Message` + `Bubble`.

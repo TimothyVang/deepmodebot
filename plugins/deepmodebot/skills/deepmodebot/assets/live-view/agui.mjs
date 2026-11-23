@@ -2,7 +2,8 @@
 // deepmodebot live view: an AG-UI 1.0 server the agent drives from the command line, and a viewer page that shows
 // the human the plan, progress, messages, visuals and proof, and lets them answer the agent's questions.
 //
-//   node agui.mjs serve [--port N] [--open]          start (prints the viewer URL); one per project folder
+//   node agui.mjs serve [--port N] [--open] [--idle-hours 12]   start (prints the viewer URL); one per project folder;
+//                                                    stops by itself after the idle hours with no viewer or question
 //   node agui.mjs say "<markdown>"                    a message from the agent
 //   node agui.mjs plan <file.json|-> | --goal "<g>" "<step>"...   the plan (state snapshot)
 //   node agui.mjs status <stepId> <pending|active|done|blocked> ["note"]   one step's status (state delta)
@@ -46,7 +47,8 @@ export function createLiveView({ token = randomBytes(18).toString('base64url'), 
     const threadId = `thread_${randomUUID()}`;
     const viewerHtml = readFileSync(join(HERE, 'viewer.html'), 'utf8');
     /** Everything the agent has shown, so a viewer that (re)connects gets snapshots. */
-    const history = { messages: [], state: { goal: null, plan: [] }, activities: new Map() };
+    const history = { messages: [], state: { goal: null, plan: [] }, activities: new Map(), timeline: [], steps: [] };
+    let lastActivity = now();
     let current = null; // { runId, res } — the open SSE run, if a viewer is connected
     let pendingAsk = null; // { interrupt, resolve } — a question waiting for the human
 
@@ -75,6 +77,7 @@ export function createLiveView({ token = randomBytes(18).toString('base64url'), 
             const body = String(text ?? '').trim();
             if (!body) throw httpError(400, 'say needs text');
             history.messages.push({ id: messageId, role: 'assistant', content: body });
+            history.timeline.push(messageId);
             send({ type: 'TEXT_MESSAGE_START', messageId, role: 'assistant' });
             for (const chunk of body.match(/[\s\S]{1,2000}/g)) send({ type: 'TEXT_MESSAGE_CONTENT', messageId, delta: chunk });
             send({ type: 'TEXT_MESSAGE_END', messageId });
@@ -104,7 +107,11 @@ export function createLiveView({ token = randomBytes(18).toString('base64url'), 
         },
         step({ phase, name }) {
             if (!['start', 'finish'].includes(phase) || !name) throw httpError(400, 'step needs start|finish and a name');
-            send({ type: phase === 'start' ? 'STEP_STARTED' : 'STEP_FINISHED', stepName: String(name).slice(0, 200) });
+            const stepName = String(name).slice(0, 200);
+            const ev = send({ type: phase === 'start' ? 'STEP_STARTED' : 'STEP_FINISHED', stepName });
+            if (phase === 'start') history.steps.push({ name: stepName, start: ev.timestamp });
+            else { const open = history.steps.findLast((x) => x.name === stepName && !x.end); if (open) open.end = ev.timestamp; else history.steps.push({ name: stepName, start: ev.timestamp, end: ev.timestamp }); }
+            if (history.steps.length > 200) history.steps.splice(0, history.steps.length - 200);
             return { ok: true };
         },
         visual({ kind, title = null, body = null, src = null, activityType = 'deepmode.visual', claim = null, cmd = null }) {
@@ -113,6 +120,7 @@ export function createLiveView({ token = randomBytes(18).toString('base64url'), 
             const messageId = `act_${randomUUID()}`;
             const content = { kind, title: title ? String(title).slice(0, 200) : null, body: body == null ? null : String(body), src, claim, cmd, at: new Date(now()).toISOString() };
             history.activities.set(messageId, { activityType, content });
+            history.timeline.push(messageId);
             send({ type: 'ACTIVITY_SNAPSHOT', messageId, activityType, content, replace: true });
             return { messageId };
         },
@@ -152,7 +160,10 @@ export function createLiveView({ token = randomBytes(18).toString('base64url'), 
                 const p = pendingAsk;
                 pendingAsk = null;
                 const answered = r.status === 'resolved'; // AG-UI 1.0 ResumeEntry.status: resolved | cancelled
-                if (answered && r.payload?.answer != null) history.messages.push({ id: `you_${p.interrupt.id}`, role: 'user', content: String(r.payload.answer).slice(0, 4000) });
+                if (answered && r.payload?.answer != null) {
+                    history.messages.push({ id: `you_${p.interrupt.id}`, role: 'user', content: String(r.payload.answer).slice(0, 4000) });
+                    history.timeline.push(`you_${p.interrupt.id}`);
+                }
                 p.resolve(answered ? { status: 'resolved', payload: r.payload ?? null } : { status: 'cancelled' });
             }
         }
@@ -165,6 +176,8 @@ export function createLiveView({ token = randomBytes(18).toString('base64url'), 
         send({ type: 'MESSAGES_SNAPSHOT', messages: history.messages });
         send({ type: 'STATE_SNAPSHOT', snapshot: history.state });
         for (const [messageId, a] of history.activities) send({ type: 'ACTIVITY_SNAPSHOT', messageId, activityType: a.activityType, content: a.content, replace: true });
+        send({ type: 'CUSTOM', name: 'deepmode.timeline', value: history.timeline }); // arrival order of messages and visuals
+        if (history.steps.length) send({ type: 'CUSTOM', name: 'deepmode.steps', value: history.steps }); // the activity trace, for a late viewer
         if (pendingAsk) finishRun({ type: 'interrupt', interrupts: [pendingAsk.interrupt] });
     }
 
@@ -175,7 +188,7 @@ export function createLiveView({ token = randomBytes(18).toString('base64url'), 
             if (req.method === 'GET' && url.pathname === '/') {
                 if (!authed) throw httpError(401, 'open the viewer with the URL printed by `agui.mjs serve`');
                 res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer',
-                    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'" });
+                    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'" });
                 return res.end(viewerHtml);
             }
             if (!authed) throw httpError(401, 'missing or wrong session token');
@@ -186,11 +199,23 @@ export function createLiveView({ token = randomBytes(18).toString('base64url'), 
                 if (input.threadId && input.threadId !== threadId) throw httpError(409, `this view serves ${threadId}`);
                 return startRun(input, res);
             }
+            if (req.method === 'POST' && (url.pathname.startsWith('/act/') || url.pathname === '/agui')) lastActivity = now();
             if (req.method === 'POST' && url.pathname.startsWith('/act/')) {
                 const name = url.pathname.slice('/act/'.length);
                 if (!Object.hasOwn(actions, name)) throw httpError(404, `unknown action ${name}`);
-                const out = await actions[name](await readJson(req));
-                return json(res, 200, out ?? { ok: true });
+                const pending = Promise.resolve().then(async () => actions[name](await readJson(req)));
+                const SLOW = Symbol('slow');
+                const first = await Promise.race([pending, new Promise((r) => setTimeout(r, 1000, SLOW))]);
+                if (first !== SLOW) return json(res, 200, first ?? { ok: true });
+                // A long action (a question the human has not answered yet): send headers now and a whitespace heartbeat
+                // every 20 s, so HTTP clients never hit an idle timeout (Node's fetch gives up after 300 s by default).
+                // JSON ignores leading whitespace, so the body still parses as the action's result.
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                const beat = setInterval(() => res.write(' '), 20_000);
+                try { res.end(JSON.stringify((await pending) ?? { ok: true })); }
+                catch (err) { res.end(JSON.stringify({ error: err.status ? err.message : 'internal error' })); }
+                finally { clearInterval(beat); }
+                return;
             }
             throw httpError(404, 'not found');
         } catch (err) {
@@ -198,7 +223,9 @@ export function createLiveView({ token = randomBytes(18).toString('base64url'), 
             else res.end();
         }
     });
-    return { server, token, threadId, actions };
+    /** True when nothing happened for `ms` and no viewer or question is open (the CLI exits then). */
+    const idleFor = (ms) => !current && !pendingAsk && now() - lastActivity > ms;
+    return { server, token, threadId, actions, idleFor };
 }
 
 function httpError(status, message) { return Object.assign(new Error(message), { status }); }
@@ -222,7 +249,7 @@ async function call(action, body) {
     if (!s) throw new Error('no live view running here: start one with `node agui.mjs serve`');
     const res = await fetch(`http://127.0.0.1:${s.port}/act/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Live-View-Token': s.token }, body: JSON.stringify(body) });
     const out = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(out.error ?? `HTTP ${res.status}`);
+    if (!res.ok || out.error) throw new Error(out.error ?? `HTTP ${res.status}`);
     return out;
 }
 
@@ -238,12 +265,14 @@ export async function main(argv) {
             const port = Number(arg(args, '--port', '0'));
             const open = args.includes('--open');
             mkdirSync(sessionDir(), { recursive: true });
-            const { server, token, threadId } = createLiveView({ logFile: join(sessionDir(), 'events.jsonl') });
+            const idleHours = Number(arg(args, '--idle-hours', '12'));
+            const { server, token, threadId, idleFor } = createLiveView({ logFile: join(sessionDir(), 'events.jsonl') });
             await new Promise((r) => server.listen(port, '127.0.0.1', r));
             const url = `http://127.0.0.1:${server.address().port}/?t=${token}`;
             writeFileSync(sessionFile(), JSON.stringify({ port: server.address().port, token, threadId, pid: process.pid, url }), { mode: 0o600 });
             const stop = () => { try { rmSync(sessionFile(), { force: true }); } catch {} process.exit(0); };
             process.on('SIGINT', stop); process.on('SIGTERM', stop);
+            setInterval(() => { if (idleFor(idleHours * 3600_000)) stop(); }, 60_000).unref();
             console.log(JSON.stringify({ url, threadId, events: join(sessionDir(), 'events.jsonl') }));
             if (open) openBrowser(url);
             return; // keep serving
