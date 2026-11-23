@@ -36,6 +36,7 @@ const WRITE_TOOLS = new Set([
 const SLASH_PREFIX = "/deepmodebot:";
 const SLASH_COMMANDS = [
   "/deep",
+  "/show",
   "/deepmodebot",
   "/tournament",
   "/review-pr",

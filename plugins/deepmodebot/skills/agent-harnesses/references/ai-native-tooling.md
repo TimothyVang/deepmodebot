@@ -131,7 +131,7 @@ Claude-format plugins: `<plugin>/.claude-plugin/plugin.json` plus `skills/`, `co
 
 - `llms.txt`: at `/llms.txt` or any subpath (`/docs/llms.txt`); the most specific file wins. Only an H1 is required; then a blockquote summary and H2 link lists. `## Optional` links are skippable. Pages may offer `page.md` or `page.html.md` twins ([llmstxt.org](https://llmstxt.org)).
 - Observed 2026-11-11: agentskills.io, opencode.ai, code.claude.com and code.visualstudio.com serve `.md` page twins; cursor.com returns Markdown for `Accept: text/markdown`; ampcode.com serves `/docs/markdown/<page>`.
-- Context7: remote MCP `https://mcp.context7.com/mcp` with `Authorization: Bearer <key>`; tools `resolve-library-id` then `query-docs`. CLI: `ctx7 library <name> <query>`, `ctx7 docs <libraryId> <query>`. `npx ctx7 setup` edits agent config ([context7](https://github.com/upstash/context7)).
+- Context7: remote MCP `https://mcp.context7.com/mcp` with `Authorization: Bearer <key>`; tools `resolve-library-id` then `query-docs`. CLI: `ctx7 library <name> <query>`, `ctx7 docs <libraryId> <query>`. `npx ctx7 setup` edits agent config ([context7](https://github.com/upstash/context7)). Needs a key; the free, keyless alternative is deepmodebot's **docs-lookup** (`skill://deepmodebot` `references/techniques/docs-lookup.md`: llms.txt, `.md` pages, npm registry, raw GitHub).
 - Prefer the vendor's own docs or changelog over a docs MCP when they disagree; cite the vendor page.
 
 ## Isolation and orchestration

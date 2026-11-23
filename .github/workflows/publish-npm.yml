@@ -51,6 +51,8 @@ jobs:
         if: steps.version.outputs.publish == 'true'
         run: |
           python scripts/check.py
+          # The live view's tests validate every event against AG-UI's own schemas; the package itself stays dependency-free.
+          npm install --no-save --no-audit --no-fund @ag-ui/core@1.0.5 zod@3.25.76
           npm test
 
       - name: Publish

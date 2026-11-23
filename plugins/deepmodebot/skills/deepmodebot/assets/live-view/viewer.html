@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>deepmode live</title>
+<style>
+  :root { --bg:#f6f7f9; --panel:#fff; --fg:#111827; --muted:#6b7280; --line:#e5e7eb; --accent:#4f46e5; --ok:#059669; --warn:#d97706; --bad:#dc2626; --code:#f3f4f6; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0b0f17; --panel:#111827; --fg:#e5e7eb; --muted:#9ca3af; --line:#1f2937; --accent:#818cf8; --ok:#34d399; --warn:#fbbf24; --bad:#f87171; --code:#0f172a; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display:flex; align-items:center; gap:12px; padding:12px 20px; border-bottom:1px solid var(--line); background:var(--panel); position:sticky; top:0; z-index:5; }
+  header h1 { font-size:16px; margin:0; } header .goal { color:var(--muted); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .dot { width:10px; height:10px; border-radius:50%; background:var(--muted); } .dot.live { background:var(--ok); } .dot.wait { background:var(--warn); } .dot.down { background:var(--bad); }
+  main { display:grid; grid-template-columns: 300px minmax(0,1fr) minmax(0,1.1fr); gap:16px; padding:16px 20px; max-width:1600px; margin:0 auto; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+  section.card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px; min-width:0; }
+  section.card > h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 10px; }
+  .plan li { list-style:none; display:flex; gap:8px; padding:6px 0; border-bottom:1px dashed var(--line); } .plan ul { padding:0; margin:0; }
+  .plan .ic { width:20px; text-align:center; } .plan .note { color:var(--muted); font-size:13px; }
+  .s-done .t { text-decoration: line-through; color:var(--muted); } .s-active .t { font-weight:600; } .s-blocked .t { color:var(--bad); }
+  .bar { height:6px; background:var(--line); border-radius:4px; overflow:hidden; margin:4px 0 10px; } .bar > i { display:block; height:100%; background:var(--ok); width:0; transition:width .3s; }
+  .steps { font-size:13px; color:var(--muted); max-height:240px; overflow:auto; } .steps div { padding:2px 0; }
+  .msg { padding:10px 12px; border-radius:10px; background:var(--code); margin:0 0 10px; overflow-wrap:anywhere; } .msg p { margin:.3em 0; }
+  .msg pre, .vis pre { background:var(--bg); padding:10px; border-radius:8px; overflow:auto; font-size:13px; }
+  code { font-family: ui-monospace, "JetBrains Mono", Consolas, monospace; font-size:.92em; }
+  .ask { border:2px solid var(--warn); border-radius:12px; padding:14px; margin-bottom:12px; background:color-mix(in srgb, var(--warn) 8%, var(--panel)); }
+  .ask h3 { margin:0 0 8px; font-size:15px; } .ask .choices { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0; }
+  button { font:inherit; border:1px solid var(--line); background:var(--panel); color:var(--fg); padding:7px 14px; border-radius:8px; cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); } button:disabled { opacity:.5; cursor:default; }
+  textarea { width:100%; min-height:70px; font:inherit; padding:8px; border-radius:8px; border:1px solid var(--line); background:var(--panel); color:var(--fg); }
+  .vis { border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin:0 0 12px; overflow:auto; }
+  .vis h3 { margin:0 0 6px; font-size:14px; } .vis img { max-width:100%; border-radius:6px; border:1px solid var(--line); }
+  .vis table { border-collapse:collapse; width:100%; font-size:13px; } .vis th, .vis td { border:1px solid var(--line); padding:5px 8px; text-align:left; }
+  .proof { border-color:var(--ok); } .proof .claim { font-weight:600; } .badge { display:inline-block; font-size:11px; padding:1px 8px; border-radius:999px; background:var(--ok); color:#fff; margin-right:6px; }
+  .meta { color:var(--muted); font-size:12px; } .empty { color:var(--muted); font-style:italic; }
+</style>
+</head>
+<body>
+<header><span class="dot" id="dot"></span><h1>deepmode live</h1><span class="goal" id="goal">Connecting…</span><span class="meta" id="conn"></span></header>
+<main>
+  <section class="card plan"><h2>Plan</h2><div class="bar"><i id="bar"></i></div><ul id="plan"><li class="empty">No plan yet.</li></ul>
+    <h2 style="margin-top:14px">Progress</h2><div class="steps" id="steps"><div class="empty">Nothing started yet.</div></div></section>
+  <section class="card"><h2>Conversation</h2><div id="ask"></div><div id="msgs"><div class="empty">The agent hasn't said anything yet.</div></div></section>
+  <section class="card"><h2>Visuals &amp; proof</h2><div id="vis"><div class="empty">Diagrams, tables, screenshots and evidence appear here.</div></div></section>
+</main>
+<script type="module">
+// AG-UI 1.0 client, no framework: POST RunAgentInput to /agui, read `data:` frames, render, answer interrupts with `resume`.
+const token = new URLSearchParams(location.search).get('t') || sessionStorage.getItem('liveViewToken');
+if (token) sessionStorage.setItem('liveViewToken', token); // this tab only; survives a reload
+history.replaceState(null, '', location.pathname); // keep the token out of history and screenshots
+const H = { 'Content-Type': 'application/json', 'Accept': 'text/event-stream', 'X-Live-View-Token': token };
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let threadId = null;
+let state = { goal: null, plan: [] };
+const messages = new Map(); // messageId -> { role, content }
+const activities = new Map(); // messageId -> { activityType, content }
+let pending = null; // interrupt waiting for the human
+
+// ---- minimal, escape-first markdown
+function md(src) {
+  const blocks = String(src ?? '').split(/```/);
+  return blocks.map((b, i) => {
+    if (i % 2) { const nl = b.indexOf('\n'); return `<pre><code>${esc(nl >= 0 ? b.slice(nl + 1) : b)}</code></pre>`; }
+    let h = esc(b);
+    h = h.replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+         .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    const lines = h.split('\n'); let out = ''; let inList = false;
+    for (const l of lines) {
+      const m = /^\s*[-*]\s+(.*)$/.exec(l) || /^\s*\d+\.\s+(.*)$/.exec(l);
+      if (m) { if (!inList) { out += '<ul>'; inList = true; } out += `<li>${m[1]}</li>`; continue; }
+      if (inList) { out += '</ul>'; inList = false; }
+      if (l.trim()) out += `<p>${l.replace(/^#{1,4}\s+(.*)$/, '<strong>$1</strong>')}</p>`;
+    }
+    return out + (inList ? '</ul>' : '');
+  }).join('');
+}
+
+// ---- JSON Patch (RFC 6902) for the ops this view receives
+function applyPatch(doc, ops) {
+  const next = structuredClone(doc);
+  for (const op of ops) {
+    const parts = op.path.split('/').slice(1).map((p) => p.replace(/~1/g, '/').replace(/~0/g, '~'));
+    const key = parts.pop(); let tgt = next;
+    for (const p of parts) tgt = tgt[Array.isArray(tgt) ? Number(p) : p];
+    const k = Array.isArray(tgt) ? (key === '-' ? tgt.length : Number(key)) : key;
+    if (op.op === 'remove') Array.isArray(tgt) ? tgt.splice(k, 1) : delete tgt[k];
+    else if (op.op === 'add' && Array.isArray(tgt)) tgt.splice(k, 0, op.value);
+    else tgt[k] = op.value;
+  }
+  return next;
+}
+
+// ---- rendering
+const ICON = { pending: '○', active: '◐', done: '✓', blocked: '✕' };
+function renderPlan() {
+  $('goal').textContent = state.goal || 'No goal set';
+  const plan = state.plan || [];
+  $('plan').innerHTML = plan.length ? plan.map((s) => `<li class="s-${esc(s.status)}"><span class="ic">${ICON[s.status] ?? '○'}</span><span><span class="t">${esc(s.title)}</span>${s.note ? `<div class="note">${esc(s.note)}</div>` : ''}</span></li>`).join('') : '<li class="empty">No plan yet.</li>';
+  const done = plan.filter((s) => s.status === 'done').length;
+  $('bar').style.width = plan.length ? `${Math.round((done / plan.length) * 100)}%` : '0';
+}
+function renderMsgs() {
+  const list = [...messages.values()].filter((m) => m.role === 'assistant' || m.role === 'user');
+  $('msgs').innerHTML = list.length ? list.map((m) => `<div class="msg">${m.role === 'user' ? '<span class="badge" style="background:var(--accent)">you</span>' : ''}${md(m.content)}</div>`).join('') : '<div class="empty">The agent hasn\'t said anything yet.</div>';
+}
+let mermaidMod = null;
+async function mermaid() {
+  if (mermaidMod !== null) return mermaidMod;
+  try { mermaidMod = (await import('https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs')).default; mermaidMod.initialize({ startOnLoad: false, securityLevel: 'strict', theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default' }); }
+  catch { mermaidMod = false; }
+  return mermaidMod;
+}
+function table(body) {
+  let rows;
+  try { rows = JSON.parse(body); } catch { rows = String(body).trim().split(/\r?\n/).map((l) => l.split(',')); }
+  if (Array.isArray(rows) && rows.length && !Array.isArray(rows[0]) && typeof rows[0] === 'object') { const cols = Object.keys(rows[0]); rows = [cols, ...rows.map((r) => cols.map((c) => r[c]))]; }
+  if (!Array.isArray(rows) || !rows.length) return '<div class="empty">empty table</div>';
+  const [head, ...rest] = rows;
+  return `<table><thead><tr>${head.map((c) => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rest.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+async function renderVis() {
+  const list = [...activities.entries()].reverse();
+  if (!list.length) { $('vis').innerHTML = '<div class="empty">Diagrams, tables, screenshots and evidence appear here.</div>'; return; }
+  const parts = []; const pendingMermaid = [];
+  for (const [id, a] of list) {
+    const c = a.content || {}; const proof = a.activityType === 'deepmode.proof';
+    let inner = '';
+    if (c.kind === 'image' && c.src && /^data:image\//.test(c.src)) inner = `<img alt="${esc(c.title || 'image')}" src="${esc(c.src)}">`;
+    else if (c.kind === 'mermaid') { inner = `<div class="mm" id="mm_${esc(id)}"><pre><code>${esc(c.body)}</code></pre></div>`; pendingMermaid.push([`mm_${id}`, c.body]); }
+    else if (c.kind === 'table') inner = table(c.body);
+    else if (c.kind === 'markdown') inner = md(c.body);
+    else inner = `<pre><code>${esc(c.body)}</code></pre>`;
+    parts.push(`<div class="vis ${proof ? 'proof' : ''}">${proof ? `<div class="claim"><span class="badge">proof</span>${esc(c.claim || c.title)}</div>` : (c.title ? `<h3>${esc(c.title)}</h3>` : '')}${inner}${proof && c.cmd ? `<div class="meta">from: <code>${esc(c.cmd)}</code></div>` : ''}<div class="meta">${esc(c.at || '')}</div></div>`);
+  }
+  $('vis').innerHTML = parts.join('');
+  if (pendingMermaid.length) {
+    const m = await mermaid();
+    if (m) for (const [el, src] of pendingMermaid) {
+      try { const { svg } = await m.render(`svg_${el}`, String(src)); const node = document.getElementById(el); if (node) node.innerHTML = svg; }
+      catch (e) { const node = document.getElementById(el); if (node) node.insertAdjacentHTML('beforeend', `<div class="meta">diagram error: ${esc(e.message)}</div>`); }
+    }
+  }
+}
+function renderAsk() {
+  if (!pending) { $('ask').innerHTML = ''; return; }
+  const opts = pending.responseSchema?.properties?.answer?.enum || [];
+  $('ask').innerHTML = `<div class="ask"><h3>The agent needs your input</h3>${md(pending.message)}
+    ${opts.length ? `<div class="choices">${opts.map((o, i) => `<button class="primary" data-i="${i}">${esc(o)}</button>`).join('')}</div>` : '<textarea id="free" placeholder="Type your answer…"></textarea><div class="choices"><button class="primary" id="send">Send answer</button></div>'}
+    <button id="skip">Skip this question</button><div class="meta">Asked by the agent · expires ${esc(pending.expiresAt || 'never')}</div></div>`;
+  $('ask').querySelectorAll('[data-i]').forEach((b) => b.onclick = () => answer({ answer: opts[Number(b.dataset.i)] }));
+  const send = $('send'); if (send) send.onclick = () => { const v = $('free').value.trim(); if (v) answer({ answer: v }); };
+  $('skip').onclick = () => answer(null, 'cancelled');
+}
+function setConn(kind, text) { $('dot').className = `dot ${kind}`; $('conn').textContent = text; }
+
+// ---- events
+function onEvent(e) {
+  switch (e.type) {
+    case 'MESSAGES_SNAPSHOT': messages.clear(); for (const m of e.messages) messages.set(m.id, { role: m.role, content: m.content ?? '' }); renderMsgs(); break;
+    case 'TEXT_MESSAGE_START': messages.set(e.messageId, { role: e.role, content: '' }); break;
+    case 'TEXT_MESSAGE_CONTENT': { const m = messages.get(e.messageId); if (m) m.content += e.delta; renderMsgs(); break; }
+    case 'TEXT_MESSAGE_END': renderMsgs(); break;
+    case 'STATE_SNAPSHOT': state = e.snapshot || { goal: null, plan: [] }; renderPlan(); break;
+    case 'STATE_DELTA': state = applyPatch(state, e.delta); renderPlan(); break;
+    case 'STEP_STARTED': case 'STEP_FINISHED': {
+      const s = $('steps'); if (s.querySelector('.empty')) s.innerHTML = '';
+      s.insertAdjacentHTML('afterbegin', `<div>${e.type === 'STEP_STARTED' ? '▶' : '✓'} ${esc(e.stepName)} <span class="meta">${new Date(e.timestamp || Date.now()).toLocaleTimeString()}</span></div>`); break; }
+    case 'ACTIVITY_SNAPSHOT': activities.set(e.messageId, { activityType: e.activityType, content: e.content }); renderVis(); break;
+    case 'RUN_ERROR': setConn('down', `error: ${e.message}`); break;
+  }
+}
+
+async function run(resume) {
+  const body = { threadId, runId: crypto.randomUUID(), messages: [], state: {}, tools: [], context: [], forwardedProps: {} };
+  if (resume) body.resume = resume;
+  const res = await fetch('/agui', { method: 'POST', headers: H, body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  setConn(pending ? 'wait' : 'live', 'live');
+  const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = ''; let finished = null;
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf('\n\n')) >= 0) {
+      const frame = buf.slice(0, i); buf = buf.slice(i + 2);
+      const data = frame.split('\n').filter((l) => l.startsWith('data:')).map((l) => l.slice(5).trimStart()).join('\n');
+      if (!data) continue;
+      const e = JSON.parse(data);
+      if (e.type === 'RUN_FINISHED') finished = e;
+      onEvent(e);
+    }
+  }
+  return finished;
+}
+
+async function loop(resume) {
+  for (let backoff = 500; ; ) {
+    try {
+      const fin = await run(resume); resume = undefined; backoff = 500;
+      if (fin?.outcome?.type === 'interrupt') { pending = fin.outcome.interrupts[0]; renderAsk(); setConn('wait', 'waiting for you'); return; }
+      pending = null; renderAsk(); // success or a newer tab took over: listen again
+    } catch (e) { setConn('down', `reconnecting… (${e.message})`); }
+    await new Promise((r) => setTimeout(r, backoff)); backoff = Math.min(backoff * 2, 8000);
+  }
+}
+
+async function answer(payload, status = 'resolved') { // AG-UI 1.0 ResumeEntry.status
+  const it = pending; pending = null; renderAsk();
+  if (status === 'resolved') { messages.set(`you_${it.id}`, { role: 'user', content: String(payload.answer) }); renderMsgs(); } // the server records it too
+  loop([{ interruptId: it.id, status, ...(payload ? { payload } : {}) }]);
+}
+
+(async () => {
+  const h = await fetch('/health', { headers: H }).then((r) => r.json());
+  threadId = h.threadId;
+  loop();
+})().catch((e) => setConn('down', e.message));
+</script>
+</body>
+</html>

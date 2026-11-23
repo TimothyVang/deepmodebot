@@ -9,3 +9,4 @@ plugins/deepmodebot/skills/deepmodebot/assets/github-app/brand.local.json
 # design-skill working files (local only)
 docs/.taste-skill/
 docs/shots/
+node_modules/
