@@ -63,6 +63,8 @@ Checked 2026-11-11 against codex-cli 0.163.0 (local `--help` reconciled against 
 | Images | `-i/--image FILE` on launch; view-image tool | codex 0.163.0 --help |
 | Subagents | `spawn_agent`, `followup_task`, `send_message`, `wait_agent`, `interrupt_agent`, `list_agents` | codex 0.163.0 `debug prompt-input` |
 
+- Desktop Appshots can include accessibility-tree text beyond the visible screenshot, as shown in `View Text`. Use a redacted screenshot when offscreen text is outside the approved scope (reported 2026-11-17 in [New Ways of Working with Codex](https://www.youtube.com/watch?v=IPh9YsWvDQk), 13:05-14:29).
+
 - Subagents spawn only on explicit request from the user, AGENTS.md, or a skill ([subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)). So a skill saying "spawn a read-only explorer" is enough to trigger them.
 - Built-in agents: `default`, `worker`, `explorer` (read-heavy) ([subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)).
 - Custom agents: one TOML per agent in `~/.codex/agents/` or `.codex/agents/`; required `name`, `description`, `developer_instructions`; optional `model`, `model_reasoning_effort`, `model_reasoning_summary`, `model_verbosity`, `features.shell_tool = false` etc., `skills.config` ([subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)).

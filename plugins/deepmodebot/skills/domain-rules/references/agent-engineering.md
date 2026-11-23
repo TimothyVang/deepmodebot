@@ -65,6 +65,7 @@ Audit every agent against all seven. Each names the failure it prevents.
 - Log one trace per run under a shared request ID: model inputs, tool calls and arguments, outputs, latency, token cost. (AI-COURSE)
 - Grade the path too: safety steps followed, only authorized tools used. (LAWS)
 - Keep a versioned golden dataset of realistic edge cases and past production failures. Run it before every release. (AI-COURSE)
+- When vendor demos cover the same task family as a public benchmark, validate model choice on private, representative tasks beyond cosmetic prompt variants. (WILLISON-2026, 04:02-05:02)
 - Run cheap deterministic checks (schema, status codes, test pass rate) first, then an LLM judge for subjective quality. (AI-COURSE)
 - Track your most expensive failure (wrongly denied refund, deleted account) as its own alerted metric, never folded into overall accuracy. (AI-COURSE)
 

@@ -90,6 +90,7 @@ Exact names from [tools-reference](https://code.claude.com/docs/en/tools-referen
 - Settings precedence, high to low: managed (`managed-settings.json`, MDM, server) > `--settings` > `.claude/settings.local.json` > `.claude/settings.json` > `~/.claude/settings.json` ([settings](https://code.claude.com/docs/en/settings)).
 - `--setting-sources user,project,local` picks which files load; `--safe-mode` disables all customizations; `--bare` skips hooks, plugins, MCP, CLAUDE.md discovery (claude 2.1.322 --help).
 - Sandbox: `/sandbox` or `sandbox.enabled: true`. Runs on macOS (Seatbelt), Linux, WSL2. Native Windows runs commands unsandboxed ([sandboxing](https://code.claude.com/docs/en/sandboxing)).
+- The local shell sandbox covers commands and their child processes, not Claude Code itself, hooks, or MCP servers. Verify those paths separately (reported 2026-11-12 in [Rethinking Claude Code Best Practices](https://www.youtube.com/watch?v=vlfCjWuv4es), 07:18-09:26).
 
 ## Headless and SDK
 
