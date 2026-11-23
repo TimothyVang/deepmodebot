@@ -2,7 +2,7 @@
 name: agent-harnesses
 description: "Cited, dated facts for omp, Claude Code, Codex and Antigravity SDKs; harness installation, embedding, configuration, hooks, permissions and delegation; MCP, ACP, A2A and WebMCP; LangChain, LangGraph, Deep Agents and LangSmith. Use for SDK or framework selection, agent applications, middleware routing, checkpoint/replay, memory, evals, deployment and bounded loops."
 metadata:
-  as-of: "2026-11-13"
+  as-of: "2026-11-23"
 ---
 
 # Harnesses, protocols, and AI-native tooling

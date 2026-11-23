@@ -2,12 +2,12 @@
 name: domain-rules
 description: "Engineering rules by domain: AI agents and LLMs, AWS networking, backend system design, language ecosystems and their traps, DevOps and computer-science fundamentals, and engineering practice (debugging, legacy code, incidents, estimates). Use when designing or reviewing work in one of those areas."
 metadata:
-  as-of: "2026-11-11"
+  as-of: "2026-11-23"
 ---
 
 # Engineering domain rules
 
-Rules distilled from 102 public engineering explainer videos published in 2026 (listed in the Sources table below) and 450+ server implementations across the Million Users, $12 Server, and Multicore benchmarks (`high-scale-server-optimization.md`, `data-structures-and-cache-optimization.md`), current as of 2026-11-20. Rules are paraphrased; transcripts are not shipped. Each video rule carries a source key from the table below. Upload dates are approximate and may be off by a few days.
+Rules distilled from 103 public engineering explainer videos published in 2026 (listed in the Sources table below) and 450+ server implementations across the Million Users, $12 Server, and Multicore benchmarks (`high-scale-server-optimization.md`, `data-structures-and-cache-optimization.md`), current as of 2026-11-20. Rules are paraphrased; transcripts are not shipped. Each video rule carries a source key from the table below. Upload dates are approximate and may be off by a few days.
 
 | File | Read when |
 |---|---|
@@ -128,4 +128,5 @@ Deepmodebot's principles, gates, and playbooks win any conflict. These files sup
 | VECTOR-DB | 2026-09-11 | [Vector Database Will Finally Makes Sense After This](https://youtu.be/-n4DglZ7Afc) |
 | WATERMARK | 2026-09-11 | [Claude Can Now Watermark Its Text. But How? (Explained Clearly)](https://youtu.be/vU3QK7kxvAc) |
 | WEBMCP | 2026-10-14 | [WebMCP Will Finally Make Sense After This Video](https://youtu.be/wwSeLs0daEc) |
+| WILLISON-2026 | 2026-11-17 | [2026 in LLMs — Simon Willison](https://www.youtube.com/watch?v=9RKrSF9d2SE) |
 | X-DESIGN | 2026-10-11 | [X (Twitter) System Design Architecture Explained for Absolute Beginners](https://youtu.be/OnhaOGbLP-o) |
