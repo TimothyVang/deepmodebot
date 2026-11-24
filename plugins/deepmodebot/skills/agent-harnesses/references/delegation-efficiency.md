@@ -37,6 +37,7 @@ Bundled omp agent frontmatter was read from the embedded definitions inside omp.
 ### Google Antigravity / Gemini
 - Subagent model tiers: `flash_lite` (small/fast scans), `flash` (balanced mid tier), `pro` (frontier reasoning/review), or `inherit` (default); CLI `agy models` lists available slugs and `--effort low|medium|high|xhigh|max` tunes reasoning ([subagents](https://antigravity.google/docs/subagents), [reference](https://antigravity.google/docs/cli/reference)).
 - Gemini CLI transitioned Pro, Ultra, and free users to `agy` on 2026-06-18 ([migration](https://antigravity.google/docs/cli/gcli-migration)).
+- Gemini 4 series (as of 2026-11-18, Google DeepMind CODE Summit talk): Gemini 4 Carbon is the frontier reasoning model; Gemini 4 Hydrogen is the fast everyday execution model (reported ~60% on Terminal Bench 4 vs ~20% for 3.8 Flash and 3x faster), available on Antigravity and the Gemini API ([talk](https://www.youtube.com/watch?v=fTHByDwTxGM), 03:48-05:20).
 
 ## 2. Subscription metering
 
