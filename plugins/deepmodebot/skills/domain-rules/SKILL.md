@@ -2,12 +2,12 @@
 name: domain-rules
 description: "Engineering rules by domain: AI agents and LLMs, AWS networking, backend system design, language ecosystems and their traps, DevOps and computer-science fundamentals, and engineering practice (debugging, legacy code, incidents, estimates). Use when designing or reviewing work in one of those areas."
 metadata:
-  as-of: "2026-11-11"
+  as-of: "2026-11-24"
 ---
 
 # Engineering domain rules
 
-Rules distilled from 102 public engineering explainer videos published in 2026 (listed in the Sources table below) and 450+ server implementations across the Million Users, $12 Server, and Multicore benchmarks (`high-scale-server-optimization.md`, `data-structures-and-cache-optimization.md`), current as of 2026-11-20. Rules are paraphrased; transcripts are not shipped. Each video rule carries a source key from the table below. Upload dates are approximate and may be off by a few days.
+Rules distilled from 105 public engineering explainer videos published in 2026 (listed in the Sources table below) and 450+ server implementations across the Million Users, $12 Server, and Multicore benchmarks (`high-scale-server-optimization.md`, `data-structures-and-cache-optimization.md`), current as of 2026-11-24. Rules are paraphrased; transcripts are not shipped. Each video rule carries a source key from the table below. Upload dates are approximate and may be off by a few days.
 
 | File | Read when |
 |---|---|
@@ -51,6 +51,7 @@ Deepmodebot's principles, gates, and playbooks win any conflict. These files sup
 | CLI-TOOLS | 2026-10-21 | [10 Insanely Useful CLI Tools That Make Developers 10x More Productive](https://youtu.be/RXhU9-oQCjY) |
 | CLOUD-10 | 2026-10-11 | [You Just Need to Learn These 10 Cloud Computing Topics](https://youtu.be/De4V2czb-8A) |
 | CODE-LAWS | 2026-09-11 | [7 Coding Laws of Senior Developer](https://youtu.be/JcYMtYbNUhU) |
+| COGNITION-40X | 2026-11-18 | [40x More Merged PRs With 2.7x the Engineers — Walden Yan, CPO, Cognition](https://www.youtube.com/watch?v=U92J5mCDLMc) |
 | CONFUSING-3 | 2026-09-11 | [The 3 Most Confusing System Design Concepts (Finally Explained)](https://youtu.be/ywrlEV6g_jI) |
 | CPP-ECO | 2026-10-29 | [C++ Full Ecosystem Explained For Absolute Beginners](https://youtu.be/jdfo4-SyGEU) |
 | CS-4H | 2026-11-02 | [4 Years of Computer Science Degree in 4 Hours - Full Course (FREE)](https://youtu.be/LJ_HY0AKZnM) |
@@ -71,6 +72,7 @@ Deepmodebot's principles, gates, and playbooks win any conflict. These files sup
 | FDE | 2026-10-28 | [Forward Deployment Engineer Roadmap: The AI Job That’s Exploding Right Now](https://youtu.be/A7PBx08b0WU) |
 | FORGETS | 2026-08-11 | [Why ChatGPT, Claude and Gemini Forgets Everything???](https://youtu.be/ZBuDOmCCmsI) |
 | FRAMEWORKS-2026 | 2026-04-11 | [10 Backend Frameworks That Will Dominate 2026](https://youtu.be/dAeK3Gnikbg) |
+| GEMINI4-POST | 2026-11-18 | [Post-Training Gemini 4 for Real Engineering Work — Melvin Johnson, Google DeepMind](https://www.youtube.com/watch?v=fTHByDwTxGM) |
 | GITHUB | 2026-02-11 | [Every GitHub Concept Explained in 2 Minutes](https://youtu.be/txE9MO7Vwl4) |
 | GO-4MIN | 2026-10-11 | [Learn Go in 4 Minutes: The Basics You Actually Need](https://youtu.be/9QPGpDduICw) |
 | HARNESS | 2026-09-11 | [Agent Harness Explained in 6 Minutes: The Next Big Thing in AI](https://youtu.be/E4gkCE6_xiQ) |
@@ -91,6 +93,7 @@ Deepmodebot's principles, gates, and playbooks win any conflict. These files sup
 | LINUX-DIRS | 2026-08-11 | [LINUX isn't Hard Once You Understand This (File Directories)](https://youtu.be/qvjRcZcW8CY) |
 | LLM | 2026-08-11 | [LLM Will Finally Makes Sense After This Video...](https://youtu.be/wYpMi-KjLkc) |
 | LM-STUDIO | 2026-09-11 | [LM Studio Will Finally Makes Sense After This Video](https://youtu.be/NzY42zCyNEk) |
+| LOVABLE-RUNTIME | 2026-11-19 | [What it takes to set intelligence free — Fabian Hedin, CTO, Lovable](https://www.youtube.com/watch?v=pZWPq_ZAmM4) |
 | MCP | 2026-08-11 | [MCP Will Finally Makes Sense After This Video](https://youtu.be/9Gn3NewenYA) |
 | MCP-TEST | 2026-10-11 | [I Tested 10 MCP Servers. These Are the Ones Worth Using For Local AI](https://youtu.be/7WQ_wfE7fss) |
 | MCP-VS-API | 2026-08-11 | [MCP vs API Explained: Do We Still Need API After MCP?](https://youtu.be/7yNvsFrwpp0) |

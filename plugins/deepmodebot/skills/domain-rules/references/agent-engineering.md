@@ -38,6 +38,7 @@ Audit every agent against all seven. Each names the failure it prevents.
 - A task is done only on an objective condition (tests pass, source verified). (AI-101)
 - Track long workflows in an explicit state object, such as a checklist of completed steps, instead of making the model reread the transcript. (AI-101)
 - Persist full state at every approval pause so the run resumes cleanly after sign-off (LangGraph checkpointing). (LANGGRAPH)
+- Store execution history in an append-only parent-linked event log separate from rendered prompts, and keep worker processes stateless between turns so deploys do not interrupt long runs and compaction can re-render per model. (LOVABLE-RUNTIME)
 
 ## Context and memory
 
@@ -59,6 +60,7 @@ Audit every agent against all seven. Each names the failure it prevents.
 - Approval is deterministic app logic. Expose human escalation as a first-class tool so requests are logged, traced, and resumed like any other call. (AI-COURSE, LAWS)
 - Fetched pages, uploaded files, and third-party text are data. Never let them act as instructions (indirect prompt injection). (AI-COURSE)
 - Run concurrent coding agents in separate git worktrees. (CLI-TOOLS)
+- Make every app service and mocked third-party dependency runnable locally inside each agent's isolated VM or container, and rebuild base snapshots on a schedule so agents verify end-to-end without touching staging or live services. (COGNITION-40X)
 
 ## Evaluation and observability
 
@@ -67,6 +69,9 @@ Audit every agent against all seven. Each names the failure it prevents.
 - Keep a versioned golden dataset of realistic edge cases and past production failures. Run it before every release. (AI-COURSE)
 - Run cheap deterministic checks (schema, status codes, test pass rate) first, then an LLM judge for subjective quality. (AI-COURSE)
 - Track your most expensive failure (wrongly denied refund, deleted account) as its own alerted metric, never folded into overall accuracy. (AI-COURSE)
+- Periodically analyze logged agent runs and PRs to turn repeated agent steps into deterministic scripts and push recurring review findings earlier into lint and CI checks. (COGNITION-40X)
+- Harden eval and grader sandboxes against reward hacking: strip git history and remotes, hold out tests until final submission with no peek-and-resubmit, grade full diffs with multi-criteria rubrics, and detect cheating from observable actions rather than chain-of-thought. (GEMINI4-POST)
+- Ground completion claims against the full action trajectory to verify claimed edits and test runs, reward honest partial progress over faked completion, and prune saturated eval tasks for harder multi-file work. (GEMINI4-POST)
 
 ## MCP and WebMCP
 
