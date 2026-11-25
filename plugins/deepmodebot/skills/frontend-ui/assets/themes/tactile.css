@@ -1,0 +1,41 @@
+/* Tactile Consumer — mobile-first, media, commerce, social */
+:root, [data-theme="light"] {
+  color-scheme: light;
+  --bg-canvas: oklch(0.978 0.006 75);
+  --bg-surface: oklch(0.998 0.002 75);
+  --bg-raised: oklch(0.96 0.008 75);
+  --bg-sunken: oklch(0.94 0.009 75);
+  --fg-primary: oklch(0.18 0.012 45);
+  --fg-secondary: oklch(0.41 0.012 50);
+  --fg-muted: oklch(0.55 0.010 55);
+  --border-subtle: oklch(0.18 0.012 45 / 0.08);
+  --border-strong: oklch(0.18 0.012 45 / 0.16);
+  --rim-light: inset 0 1px 0 oklch(1 0 0 / 0.85);
+  --shadow-surface: 0 1px 2px oklch(0 0 0 / 0.03), 0 6px 20px oklch(0 0 0 / 0.05);
+  --accent: oklch(0.55 0.17 34);
+  --accent-fg: oklch(0.99 0.004 75);
+  --accent-soft: oklch(0.55 0.17 34 / 0.11);
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --font-display: "DM Sans", "Outfit", -apple-system, sans-serif;
+  --font-sans: "DM Sans", -apple-system, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, Menlo, monospace;
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-canvas: oklch(0.13 0.008 45);
+  --bg-surface: oklch(0.18 0.009 45);
+  --bg-raised: oklch(0.225 0.010 45);
+  --bg-sunken: oklch(0.105 0.007 45);
+  --fg-primary: oklch(0.955 0.006 75);
+  --fg-secondary: oklch(0.76 0.008 65);
+  --fg-muted: oklch(0.59 0.009 60);
+  --border-subtle: oklch(0.96 0.006 75 / 0.09);
+  --border-strong: oklch(0.96 0.006 75 / 0.18);
+  --rim-light: inset 0 1px 0 oklch(1 0 0 / 0.12);
+  --shadow-surface: 0 2px 6px oklch(0 0 0 / 0.32), 0 12px 28px oklch(0 0 0 / 0.24);
+  --accent: oklch(0.73 0.16 38);
+  --accent-fg: oklch(0.14 0.012 38);
+  --accent-soft: oklch(0.73 0.16 38 / 0.15);
+}

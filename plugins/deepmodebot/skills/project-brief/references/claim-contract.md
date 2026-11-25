@@ -21,7 +21,7 @@ Expires: <YYYY-MM-DD, 7 days after posting>
 ```
 
 - `<login>`: `gh api user -q .login`
-- `Expires`: `python -c "import datetime as d;print(d.datetime.now(d.timezone.utc).date()+d.timedelta(days=7))"` (UTC).
+- `Expires`: `python -B -c "import datetime as d;print(d.datetime.now(d.timezone.utc).date()+d.timedelta(days=7))"` (UTC; `py -3 -B` on Windows).
 - Your newest claim comment on an open issue is your claim: it replaces earlier ones and never changes anyone else's. To renew or change `Files`, post a new claim comment; don't edit the old one.
 
 ## Unclaim comment
@@ -43,13 +43,13 @@ Released by @<login>: <one-line reason>
 
 Two path sets overlap when a path is equal or one is a directory prefix (`dir/`) of the other. Paths are repo-relative with forward slashes.
 
-Use the repo's `scripts/pr-overlap.py` when it exists, else the plugin's copy (`skill://project-brief/assets/pr-overlap.py`, or `<contribute base dir>/../project-brief/assets/pr-overlap.py` in Claude Code):
+Use the repo's `scripts/pr-overlap.py` when present, else the plugin's copy (omp: `skill://project-brief/assets/pr-overlap.py`; Claude Code: `<this skill dir>/../project-brief/assets/pr-overlap.py`; Antigravity: `~/.gemini/config/plugins/deepmodebot/skills/project-brief/assets/pr-overlap.py`; Codex: sibling `project-brief/assets/pr-overlap.py`):
 
 ```bash
-OVERLAP=scripts/pr-overlap.py; [ -f "$OVERLAP" ] || OVERLAP="skill://project-brief/assets/pr-overlap.py"
-python "$OVERLAP" claims --repo R --json
-python "$OVERLAP" check --repo R --files a,b,dir/ --exclude-issue N
+python -B "$OVERLAP" claims --repo R --json
+python -B "$OVERLAP" check --repo R --files a,b,dir/ --exclude-issue N
 ```
+(Windows PowerShell: `py -3 -B $OVERLAP ...`.)
 
 - `check` exit codes: `0` no overlap, `3` overlap (read the table), `2` usage or `gh` error (fix it; an error is not a pass).
 - Say which copy you used. Every `check` after claiming must pass `--exclude-issue N` (and `--exclude-pr <your PR>` once your PR exists), otherwise your own claim reports as overlap.

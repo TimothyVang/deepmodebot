@@ -1,6 +1,6 @@
 ---
 name: pr-thread
-description: "Show what the deepmodebot bots said on a PR or issue: a short text digest, 8-bit frames of the turns right here, or the live 8-bit battle screen in your terminal. Use when invoked via /pr-thread."
+description: "Show deepmodebot bot turns on a PR/issue (/pr-thread): text digest, inline 8-bit frames, or live terminal arena."
 ---
 
 # /pr-thread

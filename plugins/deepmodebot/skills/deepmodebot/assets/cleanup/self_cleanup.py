@@ -16,6 +16,8 @@ import sys
 import time
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 ASSETS_DIR = Path(__file__).resolve().parent.parent
 _CANDIDATE_REPO_ROOT = Path(__file__).resolve().parents[5]

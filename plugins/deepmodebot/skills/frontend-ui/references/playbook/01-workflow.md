@@ -1,31 +1,24 @@
-## 1. Workflow: job → plan → diverge → build → motion pass → verify live → critique
+## 1. Workflow: job → art direction → build → audit & declutter → motion pass → real-browser polish
 
-1. **Start with the job.** Name who acts, what they're trying to do, the object, and what the system will change. List the reachable states before drawing pixels. [vercel-agents-design-guidance]
-2. **Write a token plan before any code** [anthropic frontend-design skill]:
-   - Color: OKLCH seeds (brand, neutral tint, each status) on one shared lightness scale, named by role (`bg-subtle`, `fg-muted`, `border-strong`), not by hue. Hex is only an sRGB fallback; see §6a. [youtube/_batch-visual-design]
-   - Type: typefaces and the role of each.
-   - Layout: a one-line concept plus an ASCII wireframe, including alignment.
-   - Principles: what makes this UI specific.
-3. **Check the plan against the brief.** For any part you would produce for *any* similar page, revise it and say what changed. [anthropic frontend-design skill]
-4. **Extract reference style, bootstrap smartly, then diverge** [`aistudio.google.com/learn/ai-ui-design-google-ai-studio`]:
-   - Before generating, answer emotional territory, anti-goals, references, and audience [youtube/v42opQpCy60]. Pull real shipped mobile & web references from `references/patterns/mobbin-shipped-apps.md` and `references/patterns/mobbin-animations.md`; when referencing a website or web app from Mobbin, **visit the live site directly at `1440×900` and `390×844`** to inspect its real computed CSS curves, typography scale, OKLCH tokens, and mobile touch UX rather than guessing from a static thumbnail. Upload 1+ screenshots (or extract a 5–6 sentence design-system spec first and map hex approximations into OKLCH role tokens) [youtube/AApjEHsMkTU].
-   - For complex multimodal UIs facing a blank canvas, remix/clone a proven working reference applet first to inherit tested layout and state structure before adapting domain copy and tokens.
-   - When an app works functionally but feels visually flat, generate 2–4 logic-preserving **Design Variations** behind a live picker along named axes (*Editorial & Refined*, *Technical & Systematic*, *Warm & Approachable*), strictly preserving forms, state, and handlers [.claude/skills/prototype; youtube/r2P1v64pM28].
-   - Test-drive real Google Fonts pairings (`Space Grotesk`, `Playfair Display`, `DM Sans`, etc.) live on rendered headings and body copy before locking global typography tokens.
-   - For agent features, prototype the agent's *behavior* in working code (sliders for tone, proactiveness, caution, and concision on the real system prompt) before polishing visuals [youtube/CiMVKnX-CNI].
-5. **Build with real content and cohesive bespoke imagery.** Real copy and real data shapes [anthropic frontend-design skill]; never ship grey placeholder boxes or broken stock image URLs. Generate cohesive high-res hero/card assets upfront (`generate_image` / Nano Banana or project asset pipeline) with matched lighting and framing, then retouch lighting/backdrops or swap in local brand assets in place rather than regenerating the whole app [`aistudio.google.com/learn/ai-ui-design-google-ai-studio`].
-6. **Separate the passes: build → direct DOM spacing pass → Annotate declutter pass → motion pass (`animate`) → critique** [youtube/Ysr7oNDajJI; `aistudio.google.com/learn/ai-ui-design-google-ai-studio`]:
-   - Inspect individual DOM elements directly to dial in padding, margins, dimensions, and container proportions (e.g., `"70% width split"`) instead of guessing pixel tweaks in blind chat prompts.
-   - Run a visual **Annotate declutter pass**: circle non-essential chips, redundant status badges, and overlapping boxes on a screenshot and strip them cleanly without breaking layout.
-7. **Verify the rendered surface** in a browser, in two tiers [youtube/xOO8Wt_i72s]:
-   - **After every UI change:** open each changed view, check it against the brief, take a 1440 px screenshot, read the console.
-   - **Before a PR or a large refactor:** a phased review:
-     - the live flow and every reachable state at 1440 / 768 / 375 px;
-     - keyboard, focus, labels and contrast;
-     - overflow and loading / empty / error;
-     - the console.
-   - Also check on a phone or at throttled frame rates.
-   - Prefer the browser tool's accessibility snapshot to coordinate clicking; a poor snapshot is itself a finding.
-   - Never claim visual quality from reading code. [vercel; anthropic harness; youtube/r2P1v64pM28]
-   - **Agent UI is verified against scripted streams first:** `@shadcn/helpers/ai-sdk` `createChat()` replays approve, deny, error, preliminary, long-output and stopped states through the real `useChat`, with no model or network. Only then try a real model. [github/ai-ui/shadcn-ui-chatbot-template]
-8. **Critique with a separate pass** that is told to be skeptical, scoring the §2 rubric. Self-grading skews positive. Motion reviews end in an explicit **Block** or **Approve**. [anthropic harness; .claude/skills/review-animations] Rendered video is critiqued with timestamped notes instead of scores (§5a).
+1. **Start with the job.** Name who acts, the user goal, the primary object, and what changes. List every reachable state (loading, empty, error, populated, destructive) before drawing pixels.
+2. **Write a concrete Art Direction Brief (`references/playbook/00-art-direction.md`) before any code:**
+   - **Archetype & mood:** pick one positive archetype (Precision Workbench, Warm Editorial, High-Density Swiss, Tactile Consumer, or Spatial Canvas) and name two concrete anti-goals.
+   - **Color formula:** 4 OKLCH surface tiers (`canvas`, `surface`, `raised`, `sunken`) tinted with the brand hue, 3 text tones, equal-L/C status tokens, and one primary accent — all named by role (`--bg-surface`, `--fg-muted`), never hex or raw Tailwind grays (`references/playbook/06a-color.md`).
+   - **Type pairing:** curated display/body/mono pairing with intentional scale, tight display tracking (`-0.02em` to `-0.03em`), and `tabular-nums` for numbers.
+   - **Composition:** pick a non-generic layout (asymmetric split, master-detail workbench, borderless KPI strip + flat ruled rows, or editorial hero + live proof) with an ASCII wireframe.
+3. **Diverge deliberately (works in plain code, no external design tool required):**
+   - Check shipped references in `references/patterns/mobbin-shipped-apps.md` and `mobbin-animations.md` (or inspect live reference URLs at `1440×900` and `390×844` when browsing).
+   - If a working UI feels visually flat, explore 2–3 logic-preserving style directions along clear axes (*Precision Workbench*, *Warm Editorial*, *High-Density Swiss*) before locking global tokens.
+   - For agent features, prototype real streaming/approval/error behavior with scripted fixtures before polishing visuals.
+4. **Build with real content and surface finish:** Use realistic domain copy and real data shapes — never grey placeholder boxes, lorem ipsum, or invented `99.99%` metrics. Enforce the border budget (`<= 1` bordered container depth), directional dark top-rim lighting or layered light ambient shadows, and frosted sticky chrome.
+5. **Separate polish passes (never ship round 1):**
+   - **Mechanical audit:** run `python -B <frontend-ui skill>/scripts/ui_audit.py <target>` on CSS/HTML/TSX and run its browser JS audit in the live page to catch overflow, missing fonts, `transition: all`, raw hex/Tailwind grays, border soup, contrast gaps, and missing focus/reduced-motion rules.
+   - **Spacing & declutter pass:** strip unrequested chips, redundant badges, nested box borders, and dead chrome; tighten container proportions directly on the rendered DOM.
+   - **Motion pass (`references/playbook/05-motion.md`):** add purposeful transform/opacity transitions and springs; verify zero animation on Escape/⌘K/100+/day actions.
+6. **Verify live in a real browser at `1440×900` and `390×844` (and record full E2E video for flows/motion):**
+   - Capture desktop and mobile screenshots, run a keyboard-only Tab/Escape pass, inspect the accessibility tree, check every reachable state, and read the browser console for zero errors.
+   - For any multi-step flow or animated UI, record the **complete continuous video** and watch the entire video together (never judge from isolated single frames alone) to catch digit pop-ins, font-load jumps, awkward pacing, and seam flicker; track versions `v1..v25` via `skill://deepmodebot/assets/e2e/rehearsal_gate.py`.
+   - Never claim visual quality from code alone. For agent UI, replay scripted streams (`approve`, `deny`, `error`, `preliminary`, `stopped`) through the real UI before testing a live model.
+7. **Clean-context visual critique & Round 2+ polish (`references/playbook/02-review-rubric.md`):**
+   - Self-grading anchors on your own draft. Spawn a clean-context visual critic subagent with *only* the brief, the `1440×900` and `390×844` screenshots (plus full recorded video for E2E/motion), and `ui_audit.py` JSON (never your implementation code or excuses), returning <= 5 ranked visual fixes.
+   - Fix every P0/P1, contrast, overflow, transition, and visual-flatness finding, then re-record/re-capture until `rehearsal_gate.py verdict --strict` passes.

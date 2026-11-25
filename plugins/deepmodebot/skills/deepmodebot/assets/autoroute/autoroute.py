@@ -17,6 +17,8 @@ import sys
 from pathlib import Path
 from typing import Callable
 
+sys.dont_write_bytecode = True
+
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 SKILL_DIR = Path(__file__).resolve().parents[2]
 PLUGINS_SKILLS_DIR = SKILL_DIR.parent

@@ -57,6 +57,8 @@ Verify every claim against the code before acting. Not every comment is a requir
 - A finding already fixed at the tip is stale only if the guard runs before the side effect and covers the principal in question.
 - Don't widen a deliberately narrow error condition (e.g. fallback gated on `ENOENT`) into a catch-all that masks the real error, unless it misses a same-category case.
 - Findings against manual reimplementations of native platform behavior (scroll, sticky, hit-testing, event forwarding) have been consistently real: default to fix.
+- **Dependabot PRs (`app/dependabot`):** treat dependency/security bumps as real code changes (inspect release notes, lockfile diff, and breaking changes; run `.deepmodebot/ci.yml` locally).
+  Control Dependabot via PR comments (`@dependabot rebase`, `@dependabot recreate`, `@dependabot ignore this minor version` / `ignore this major version`, `@dependabot close`) instead of manual branch surgery; configure `.github/dependabot.yml` with grouped minor/patch updates and a 7-day `cooldown`.
 
 ## Gates
 

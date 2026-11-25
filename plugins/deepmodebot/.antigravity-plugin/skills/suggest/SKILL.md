@@ -1,6 +1,6 @@
 ---
 name: suggest
-description: "Scan the repo (/suggest) for real gaps, overclaims, missing tests, lying comments, and workaround smells, then suggest ranked full-scope /deep prompts backed by file:line evidence. Use when invoked via /suggest or when the user asks for prompt suggestions or a gap/overclaim audit."
+description: "Scan the repo (/suggest) for gaps, overclaims, missing tests, and smells; output ranked file:line-backed /deep prompts."
 ---
 
 # /suggest

@@ -31,6 +31,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
+sys.dont_write_bytecode = True
+
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"

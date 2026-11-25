@@ -29,9 +29,18 @@
     ".claude-plugin",
     ".omp-plugin",
     "plugins/deepmodebot",
+    "native/dmb-gate/Cargo.toml",
+    "native/dmb-gate/src",
+    "native/dmb-net/go.mod",
+    "native/dmb-net/main.go",
+    "native/dmb-net/main_test.go",
     "!**/__pycache__",
     "!**/*.pyc",
-    "!**/.pytest_cache"
+    "!**/.pytest_cache",
+    "!**/test_*.py",
+    "!**/*_test.py",
+    "!**/bun.lock",
+    "!**/*.bak*"
   ],
   "engines": {
     "node": ">=20"

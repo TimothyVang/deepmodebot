@@ -1,147 +1,45 @@
 ---
 name: frontend-ui
-description: "UI and UX rules for building, restyling, or reviewing interfaces: components, layout, typography, color, motion and animation, motion graphics, accessibility, copy, and chat or agent UI, with patterns learned from shipped apps. Use before writing or reviewing UI code."
+description: "UI/UX rules before writing or reviewing interfaces: components, layout, typography, OKLCH color, motion, motion graphics, a11y, copy, and agent/chat UI."
 metadata:
   as-of: "2026-11-12"
 ---
 
-# Frontend UI/UX rules (bundled)
+# Frontend UI/UX rules
 
-Distilled from the optional private reference repo `TimothyVang/frontend` (`7c57c43`). The bundled playbook and pattern files under `references/` stand on their own for general UI/UX work; optional deep-dive paths prefixed `TimothyVang/frontend:` below exist only when you have access to that private repo.
+Explore the project first (`package.json`, existing components, tokens), then load the routed `references/` file below. Optional citations prefixed `TimothyVang/frontend:` point at a private archive (skip if inaccessible; if cloning for evidence, shallow-clone into gitignored `.scratch/refs/frontend` and never commit from it).
 
-Paths written `TimothyVang/frontend:<path>` and bracketed citations like `[youtube/...]` point at that repo's evidence (transcripts, clips, screenshots, vendored skills). If `gh` can read it, shallow-clone it into the project's self-ignored scratch folder (`gh repo clone TimothyVang/frontend .scratch/refs/frontend -- --depth 1`, about 300 MB) and never commit from it: deepmodebot keeps every write inside the project root, and `.scratch/` holds a `.gitignore` of `*`. Otherwise skip the evidence; the rules below stand alone.
+## Core principles
 
-## Playbook sections (read the one the task routes to)
+- **Commit to a positive aesthetic first (`references/playbook/00-art-direction.md`).** Banning clichés without picking an archetype produces sterile grey wireframes. Choose one concrete archetype (Precision Workbench, Warm Editorial, High-Density Swiss, Tactile Consumer, or Spatial Canvas), one non-generic layout composition, and one OKLCH surface/lighting formula before writing CSS.
+- **Defaults are tells; bans are defaults, not laws.** Every visible choice serves this brief; explicit brief words override §3 tells.
+- **Surface mode first:** **Operate** (app UI, dashboards, settings, agent console — most surfaces) uses precision, hierarchy, and restraint; **Persuade** (landing, pricing, onboarding hero) gets bold display scale and one standout moment.
 
-- `references/playbook/01-workflow.md`
-- `references/playbook/02-review-rubric.md`
-- `references/playbook/03-ai-tells.md`
-- `references/playbook/04-components.md`
-- `references/playbook/04a-agent-ui.md`
-- `references/playbook/05-motion.md`
-- `references/playbook/05a-motion-graphics.md`
-- `references/playbook/06-typography-layout.md`
-- `references/playbook/06a-color.md`
-- `references/playbook/07-copy.md`
-- `references/playbook/08-quality-floor.md`
-- `references/playbook/09-steering-agents.md`
+## Always apply
 
-## What the images and motion clips taught (text)
-
-- `references/patterns/mobbin-shipped-apps.md`: layout patterns and 59-component selection matrix from shipped apps
-- `references/patterns/mobbin-animations.md`: mobile & web motion techniques (86 Mobbin clips and 24 live-site CSS audits)
-- `references/patterns/pinterest-patterns.md`: patterns and AI tells from 341 popular UI pins
-- `references/patterns/pinterest-animations.md`: 193 animated pins as motion techniques, by type
-- `references/patterns/motion-clips.md`: what every reference-talk clip shows, as motion vocabulary
-- `references/patterns/live-demos.md`: Sonner, Vaul, cmdk, NumberFlow behaviour
-- `references/patterns/motion-graphics.md`: engines, stack, lessons for rendered video
-
-## Playbook intro
-
-General UI/UX rules distilled from shipped-app patterns and design references. Use the bundled `references/` files directly; optional `TimothyVang/frontend:*` citations link deeper evidence when that private repo is available.
-
-Leading idea: **defaults are tells.** Every unexamined default (library styling, stock layout, generic motion) reads as AI-generated. Every visible choice must be one made *for this brief*.
-
-**Bans are defaults, not laws.** The brief's explicit words always win, even when they ask for something listed in §3. [github/INDEX tensions; anthropic frontend-design]
-
-**Decide the surface mode first; ambition follows from it.** [github/pbakaus-impeccable; github/Leonxlnx-taste-skill]
-
-| Mode | Surfaces | How it expresses the brand |
-| --- | --- | --- |
-| Operate | App UI, dashboards, settings, the agent console | Precision and restraint |
-| Persuade | Landing, pricing, onboarding hero | Bold work, including the one standout moment |
-
-Most application and agent-console surfaces are *Operate*.
-
----
-
-## Rules (always apply)
-
-Every visible UI choice must be made for this brief. Defaults are tells: unmodified library styling, stock layouts and generic motion read as AI-generated.
-
-Prefer retrieval-led reasoning over pretraining for UI work. Explore the project first (`package.json`, existing components, tokens), then load the routed source below.
-
-## Always
-- **Pick the surface mode.** Operate surfaces (the app, the agent console, settings) express the brand through precision and restraint. Persuade surfaces (landing, pricing) get the bold work. The brief's explicit words override any rule here.
-- **Plan before code.** Write a token plan: OKLCH seed colors with role names, typefaces and their roles, and a layout concept with an ASCII wireframe. Revise any part that would fit any similar page. Where `frontend-design` says hex, `references/playbook/06a-color.md` overrides it.
-- **Compose, don't hand-roll.** Use the library already in `package.json` first. For React apps, use shadcn/ui restyled on Base UI or Radix (for SvelteKit — `skill://deep-stack`'s default — use `shadcn-svelte` or equivalent accessible primitives with the same token and quality rules), plus:
-
-  | Need | Library |
-  | --- | --- |
-  | Toasts | Sonner |
-  | Drawers | Vaul |
-  | ⌘K | cmdk |
-  | Animated numbers | NumberFlow |
-  | OTP inputs | input-otp |
-  | Long lists | Virtuoso |
-  | Drag and drop | dnd kit |
-  | Animation | motion |
-  | Charts | recharts |
-  | State | zustand |
-  | Variants | cva + clsx |
-  | Theme | next-themes |
-
-- **Agent UI uses shadcn's chat components:**
-  - Threads: `MessageScroller`, which follows the reply but yields when the user scrolls up.
-  - Turns: `Message` + `Bubble`.
-  - Agent activity: one `TraceLine` per action inside a `Trace`.
-  - Status words match the state (Running → Ran / Failed to run).
-  - Tool approvals: a prompt *outside* the trace, tiered by risk (read-only tools run unprompted), phrased as a proposal stating target, effect and reversibility. One decision per prompt.
-  - Stop stays visible for the whole run, beside a working Send (messages sent mid-run steer the agent). A dropped connection reconnects; it never acts as a stop.
-  - Delegated work gets a task list with per-task status and a jump to whatever is awaiting the user.
-  - Streaming Markdown goes through a renderer that heals unterminated syntax (Streamdown).
-  - Never hand-roll "Thinking..." collapsibles or a stick-to-bottom div.
-
-- **Retheme shadcn.** Change radius, palette and type before shipping anything.
-- **Color through tokens:**
-  - Author in OKLCH. Components use only role tokens (`--bg-subtle`, `--fg-muted`, `--border-strong`); no raw `bg-zinc-*` or hex.
-  - Neutrals are tinted with the brand hue.
-  - Status colors share lightness and chroma.
-  - Text on a colored fill uses that fill's hue.
-  - Dark mode is a token remap.
-- **Hierarchy:**
-  - Three text tones; weight and color before size.
-  - One solid primary per view.
-  - Separate things with spacing before borders.
-  - Lay components out with `@container`, not viewport breakpoints.
-- **One standout moment per page.** Keep everything around it quiet.
-- **Motion:**
-  - Easing: ease-out to enter or exit; ease-in-out to move on screen; never ease-in. Anything draggable or reversible uses a spring (duration + bounce; bounce 0 by default, never above 0.4).
-  - View Transitions only for discrete changes (routes, filters, add/remove), because they can't be interrupted. Animate layout with Motion `layout`, never `width`/`height`.
-  - Duration: 100–300 ms by size. Exits run about 20% faster.
-  - Press: `scale(0.97)`. Enter from `scale(0.95)`. Origin-aware popovers.
-  - Animate `transform` and `opacity` only, with no `transition: all`. Reduced motion means a fade, not nothing.
-  - Gate motion by frequency. Anything keyboard-initiated (⌘K, shortcuts, Escape-to-close) or used 100+ times a day gets no animation.
-- **Motion graphics (anything rendered to video)** follow `references/playbook/05a-motion-graphics.md`, not §5's UI timings:
-  - Every frame is a pure function of `t`, with one timeline file.
-  - Write a director's brief with a Banned list, and gate on a beat map plus stills before the full render.
-  - Text holds 0.3 s/word + 0.5 s; landed titles stay still.
-  - Cuts land on the beat; sound is mastered to −14 LUFS.
-  - Show real product UI only.
-  - Critique with timestamped notes, not scores.
-- **Copy:**
-  - Sentence case, the user's vocabulary.
-  - A CTA names its result. Destructive actions use Verb + Noun.
-  - Errors say what happened and how to fix it. In-progress labels end in `…`.
-- **Quality floor:**
-  - Responsive to mobile; visible focus; WCAG AA contrast.
-  - Accessible names; 44 px hit areas.
-  - Every reachable state: loading, empty, error, permission, disabled, optimistic, destructive.
-- **Verify in a real browser.** Screenshots at compact and wide widths, a keyboard pass, every changed state. Never claim visual quality from code alone. Then run a skeptical critique against the `references/playbook/02-review-rubric.md` rubric (design quality, originality, craft, functionality).
+- **Art-direction & starter CSS kits before code:** Pick an archetype from `00-art-direction.md` and seed tokens from `assets/themes/{workbench,editorial,swiss,tactile,canvas}.css` + `assets/themes/layouts.css` (4 OKLCH surface tiers, 3 text tones, semantic roles, curated font pairing, non-generic layout).
+- **Border budget, lighting & optical craft:** Max 1 bordered container depth per region; separate groups with spacing, alignment, or hairline dividers. Dark surfaces get top-edge light (`inset 0 1px 0 oklch(1 0 0 / 0.07)`); light surfaces get layered OKLCH shadows; sticky bars get frosted translucency. Enforce optical micro-craft (no near-tangents, `text-box: trim-both cap alphabetic`, exact concentric radii, deliberate product-shot bleeds) per `06b-media-icons-charts.md` and `06c-product-shots-craft.md`.
+- **Specialists:** `Sonner` (toasts), `Vaul` (drawers), `cmdk` (⌘K), `NumberFlow` (animated digits), `input-otp` (OTP), `Virtuoso` (long lists), `dnd kit` (drag/drop), `motion` (animation), `recharts` (charts), `zustand` (state), `cva + clsx` (variants), `next-themes` (theme).
+- **Agent UI (shadcn chat contracts):** `MessageScroller` (yields on scroll-up; never hand-roll stick-to-bottom), `Message` + `Bubble`, one `TraceLine` per action inside `Trace` (never hand-roll "Thinking..." collapsibles), state-matched verbs (`Running` → `Ran` / `Failed to run`), risk-tiered approval prompts *outside* the trace (proposal naming target, effect, reversibility; one decision per prompt), persistent `Stop` beside live steering `Send` (disconnect reconnects, never stops), task list for delegated work, streaming Markdown healer (`Streamdown`).
+- **OKLCH color & hierarchy:** Tinted brand neutrals, role tokens only (no raw `bg-zinc-*` or hex), equal-lightness/chroma status colors, fill-hue text on colored fills, dark mode as compensated token remap. Three text tones (weight/color before size), one solid primary per view, `@container` over viewport breakpoints, max one standout moment per page.
+- **UI motion:** `ease-out` enter/exit, `ease-in-out` on-screen moves, never `ease-in`; springs (`visualDuration` + `bounce`, default `0`, max `0.4`) for draggable/reversible controls; View Transitions for discrete changes only; Motion `layout` instead of `width`/`height`; 100–300 ms by size (exits ~20% faster); `scale(0.97)` press, `scale(0.95)` enter, origin-aware popovers; `transform`/`opacity` only (no `transition: all`); reduced motion = fade (progress indicators keep moving); zero animation for keyboard-initiated (⌘K, Escape) or 100+/day actions.
+- **Motion graphics (rendered video):** Follow `references/playbook/05a-motion-graphics.md` (not UI caps): pure function of `t` + single timeline file, director's brief with Banned list + beat-map/stills gate, holds `0.3 s/word + 0.5 s` (landed text still), beat cuts, −14 LUFS audio, real product UI only, timestamped critique notes.
+- **Copy & quality floor:** Sentence case, user vocabulary, result-naming CTAs, `Verb + Noun` destructive actions, actionable errors, `…` for in-progress. Responsive (`1440 px` & `390 px`, zero overflow), visible `:focus-visible`, WCAG AA contrast, accessible names, 44 px touch targets (`(pointer: coarse)`), all reachable states (loading, empty, error, permission, disabled, optimistic, destructive).
+- **Audit, capture, clean-context critique (2-round gate):** Never ship round 1. Run `python -B <this skill>/scripts/ui_audit.py <target>` + `--browser-snippet` (WCAG AA contrast, overflow, webfonts, border depth) at `1440×900` and `390×844`, pass screenshots to a clean-context visual critic against `02-review-rubric.md`, fix top findings, and re-verify.
 
 ## Route by task
-Read the bundled `references/` file first. Paths prefixed `TimothyVang/frontend:` are optional private-repo deep dives available only if you have access to that repo.
 
-| Task | Read (bundled first; optional private-repo deep dive) |
+| Task | Read |
 | --- | --- |
-| Full workflow, AI-tell list, review rubric | `references/playbook/01-workflow.md`, `references/playbook/02-review-rubric.md`, `references/playbook/03-ai-tells.md` |
-| New page, visual direction, color, typography | `references/playbook/06-typography-layout.md`, `references/playbook/06a-color.md`, `references/playbook/03-ai-tells.md` |
-| Picking a component library or shadcn theming | `references/playbook/04-components.md`, `references/patterns/live-demos.md` (optional: `TimothyVang/frontend:.claude/skills/shadcn/SKILL.md`) |
-| Chat, agent activity, tool calls, A2UI v1.0, approvals, AI UX | `references/playbook/04a-agent-ui.md`, `skill://deepmodebot/references/techniques/gen-ui.md` |
-| Seeing shipped layouts or motion vocabulary | `references/patterns/mobbin-shipped-apps.md`, `references/patterns/mobbin-animations.md`, `references/patterns/pinterest-patterns.md`, `references/patterns/pinterest-animations.md`, `references/patterns/motion-clips.md` |
-| Building UI animation, choreography, gestures, perf | `references/playbook/05-motion.md`, `references/patterns/mobbin-animations.md`, `references/patterns/motion-clips.md` |
-| Motion graphics, launch/promo videos, Remotion/HyperFrames/rea-video | `references/playbook/05a-motion-graphics.md`, `references/patterns/motion-graphics.md`, `skill://deepmodebot/references/techniques/video-forensics.md` |
-| Copy, microcopy, CTAs, error messages | `references/playbook/07-copy.md` |
-| Reviewing UI, accessibility, keyboard, ARIA, mobile, edge cases | `references/playbook/02-review-rubric.md`, `references/playbook/08-quality-floor.md`, `references/playbook/03-ai-tells.md` |
+| Art direction, archetypes, starter CSS theme/layout kits | `references/playbook/00-art-direction.md`, `assets/themes/layouts.css`, `references/playbook/06-typography-layout.md`, `references/playbook/06a-color.md` |
+| Icons, imagery, SVG restraint & data visualization | `references/playbook/06b-media-icons-charts.md` |
+| Product UI shots, hero framing, optical micro-craft & visual fault fixes | `references/playbook/06c-product-shots-craft.md` |
+| Full workflow, review rubric, AI-tell audit | `references/playbook/01-workflow.md`, `references/playbook/02-review-rubric.md`, `references/playbook/03-ai-tells.md` |
+| Component picks, shadcn theming, specialist behavior | `references/playbook/04-components.md`, `references/patterns/live-demos.md` |
+| Chat, agent activity, tool calls, A2UI v1.0, approvals | `references/playbook/04a-agent-ui.md`, `skill://deepmodebot/references/techniques/gen-ui.md` |
+| Shipped app layouts & component selection matrix | `references/patterns/mobbin-shipped-apps.md`, `references/patterns/pinterest-patterns.md` |
+| UI animation, choreography, gestures, perf, motion vocabulary | `references/playbook/05-motion.md`, `references/patterns/mobbin-animations.md`, `references/patterns/pinterest-animations.md`, `references/patterns/motion-clips.md` |
+| Motion graphics, launch/promo video, Remotion/HyperFrames | `references/playbook/05a-motion-graphics.md`, `references/patterns/motion-graphics.md`, `skill://deepmodebot/references/techniques/video-forensics.md` |
+| Copy, microcopy, CTAs, errors | `references/playbook/07-copy.md` |
+| Accessibility, ARIA, forms, mobile baseline, edge cases | `references/playbook/08-quality-floor.md`, `references/playbook/02-review-rubric.md` |
 | Steering UI agents and revision passes | `references/playbook/09-steering-agents.md`, `references/playbook/01-workflow.md` |
-| Optional private evidence archive (if accessible) | `TimothyVang/frontend:reference/INDEX.md` (vendored skills, WAI-ARIA APG notes, Mobbin screenshots, channel transcripts) |

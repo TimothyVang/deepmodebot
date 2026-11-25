@@ -23,6 +23,8 @@ import re
 import subprocess
 import sys
 
+sys.dont_write_bytecode = True
+
 MAX_LINE = 2000
 CONTROLS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
 ROLES = r"(?:author|reviewer|verifier \d|panel|coordinator|trunk check)"

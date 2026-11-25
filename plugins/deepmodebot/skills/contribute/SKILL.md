@@ -1,6 +1,6 @@
 ---
 name: contribute
-description: "Join someone else's project as a contributor: learn it from the maintainer's brief, pick an unclaimed `help wanted` issue that doesn't overlap open PRs or claims, claim it, build and prove it the deepmodebot way, and open a PR. Use for /deepmodebot:contribute, \"help out on this repo\", or \"find me something to work on\"."
+description: "Contribute to another repo: read PROJECT_BRIEF, claim an unclaimed help-wanted issue, prove it, open a PR."
 ---
 
 # Contribute
@@ -15,41 +15,9 @@ All deepmodebot rules apply (`skill://deepmodebot`). Three matter most here:
 
 Shell notes: all work stays inside the project's clone (deepmodebot's "Contain the work" section). Scratch files go in its git-excluded `.scratch/` (`f=$(mktemp -p .scratch)` in bash; `New-Item -ItemType Directory -Force .scratch | Out-Null; $f = ".scratch/claim.md"` in PowerShell), never `/tmp`, system temp, or your home folder. Run Python with `-B` (`python3 -B` or `py -3 -B` on Windows). Below, `R` is `owner/name` and `N` is the issue number.
 
-## Overlap tool
+## Claim & overlap contract
 
-Use `scripts/pr-overlap.py` when the repo ships it, else the plugin's copy (omp: `skill://project-brief/assets/pr-overlap.py`; Claude Code: `<this skill dir>/../project-brief/assets/pr-overlap.py`; Antigravity: `~/.gemini/config/plugins/deepmodebot/skills/project-brief/assets/pr-overlap.py`; Codex: sibling `project-brief/assets/pr-overlap.py` from the skill list):
-
-```bash
-# Set OVERLAP to scripts/pr-overlap.py if present, else the plugin path for your harness above
-python -B "$OVERLAP" claims --repo R --json
-python -B "$OVERLAP" check --repo R --files a,b,dir/ --exclude-issue N
-```
-(On Windows PowerShell, use `py -3 -B $OVERLAP ...`.)
-
-`check` exit codes: `0` no overlap, `3` overlap (read the table), `2` usage or `gh` error (fix it; an error is not a pass). Paths are repo-relative with forward slashes; a trailing `/` means a whole directory. Say which copy you used. Every `check` you run after claiming must pass `--exclude-issue N` (and `--exclude-pr <your PR>` once your PR exists), otherwise your own claim is reported as overlap.
-
-## Claim format
-
-The claim is one issue comment in exactly this shape (the marker line first, nothing else in the comment):
-
-```
-<!-- deepmodebot:claim -->
-Claimed by @<login> via /contribute
-Plan: <one line>
-Files: <comma-separated repo paths; a trailing "/" means a whole directory>
-Expires: <YYYY-MM-DD, 7 days after posting>
-```
-
-- `<login>`: `gh api user -q .login`.
-- `Expires`: `python -B -c "import datetime as d;print(d.datetime.now(d.timezone.utc).date()+d.timedelta(days=7))"` (UTC; `py -3 -B` on Windows).
-- Your newest claim comment is your claim: it replaces your earlier ones and never changes anyone else's. To renew or change `Files`, post a new claim comment; don't edit the old one.
-- To release, post a comment from the same account that contains `<!-- deepmodebot:unclaim -->`:
-
-```
-<!-- deepmodebot:unclaim -->
-Released by @<login>: <one-line reason>
-```
-
+Read `skill://project-brief/references/claim-contract.md` for the exact `<!-- deepmodebot:claim -->` / `unclaim` formats, expiry rules, cross-harness `$OVERLAP` (`pr-overlap.py`) path, and exit codes (`0` clean, `3` overlap, `2` error). Every `check` after claiming must pass `--exclude-issue N` (plus `--exclude-pr <PR>` once open).
 ## Steps
 
 1. **Find the repo.**

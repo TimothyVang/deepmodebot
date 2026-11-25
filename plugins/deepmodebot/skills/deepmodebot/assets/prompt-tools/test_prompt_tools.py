@@ -89,6 +89,10 @@ class PromptToolsTests(unittest.TestCase):
             "}\n",
             encoding="utf-8",
         )
+        (self.repo / "SAMPLE.template.md").write_text(
+            "See [Roadmap](../ROADMAP.md) and [Issues]({{REPO_URL}}/issues).\n",
+            encoding="utf-8",
+        )
 
         code, out = self.run_cli("suggest", "--root", str(self.repo), "--limit", "10", "--json")
         self.assertEqual(code, 0)

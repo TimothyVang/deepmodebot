@@ -1,5 +1,4 @@
 ## 6a. Color
-[youtube/_batch-visual-design: kfVUlR9BnYQ, pQ0asU6mB1I, vGfTyHPWZLE, u5okJ0VvQwk]
 1. **OKLCH for everything.** HSL lightness lies about perceived brightness. Derive every state with relative color syntax rather than hand-picking swatches:
    - Hover: `oklch(from var(--c) calc(l + 0.1) c h)`.
    - Tint: `oklch(from var(--c) 90% calc(c / 2) h)`.

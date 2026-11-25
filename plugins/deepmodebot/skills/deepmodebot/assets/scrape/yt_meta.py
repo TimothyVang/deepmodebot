@@ -16,6 +16,8 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
+sys.dont_write_bytecode = True
+
 import requests
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"

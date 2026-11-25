@@ -25,6 +25,8 @@ import time
 import urllib.parse
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+
 LENSES = (
     ("seam-archaeologist", "pod-a", "architecture",
      "Audit module depth, coupling seams, and git churn hotspots for structural blind spots."),

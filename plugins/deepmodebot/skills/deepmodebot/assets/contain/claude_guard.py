@@ -22,6 +22,8 @@ import subprocess
 import sys
 import time
 
+sys.dont_write_bytecode = True
+
 MARK_MAX_AGE_SECONDS = 30 * 24 * 3600
 
 

@@ -12,6 +12,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+
 REF = re.compile(r"(?<![\w/])((?:references|scripts)/[\w./-]+\.(?:md|py|sh|json|txt))")
 LINK = re.compile(r"skill://([\w-]+(?:/[\w-]+)?)(?![\w<-])")
 FILE_LINK = re.compile(r"skill://([\w-]+)/([\w./-]+\.(?:md|py|sh|json|txt|ts|cjs))")

@@ -1,6 +1,6 @@
 ---
 name: deep
-description: "One command (/deep) for fixing, building, reviewing, planning and shipping. deepmodebot routes and sizes the task, proves it on the real artifact, and reports. Use when invoked via /deep."
+description: "One command (/deep) for fixing, building, reviewing, planning, and shipping with real-artifact proof."
 ---
 
 # /deep

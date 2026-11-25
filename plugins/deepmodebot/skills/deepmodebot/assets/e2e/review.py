@@ -12,6 +12,8 @@ import struct
 import subprocess
 import sys
 
+sys.dont_write_bytecode = True
+
 import evidence
 
 ASSETS = Path(__file__).resolve().parents[1]

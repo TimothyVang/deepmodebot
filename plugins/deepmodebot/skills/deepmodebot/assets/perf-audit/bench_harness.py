@@ -17,6 +17,8 @@ import threading
 import time
 import urllib.parse
 
+sys.dont_write_bytecode = True
+
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 

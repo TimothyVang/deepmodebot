@@ -9,11 +9,12 @@ requiring an external review binary.
 """
 import argparse
 import json
-import os
 import re
 import subprocess
 import sys
 from pathlib import Path
+
+sys.dont_write_bytecode = True
 
 LOCKFILES = frozenset({
     "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "cargo.lock",

@@ -1,6 +1,6 @@
 ---
 name: deepmodebot
-description: "Model-invocable Hardcore Mode engineering orchestrator for /deep, Deepmodebot, or non-trivial engineering work: runs 3-stage LLM autoroute, Confession + Adaptive Prosecutor + Sieve, quota-safe delegation, and real-app proof."
+description: "Hardcore Mode engineering orchestrator (/deep, Deepmodebot, non-trivial engineering): LLM autoroute, Confession + Adaptive Prosecutor, quota-safe delegation, real-app proof."
 hooks:
   PreToolUse:
     - matcher: "Write|Edit|NotebookEdit"
@@ -13,138 +13,90 @@ hooks:
 
 Paths are relative to this skill (`skill://deepmodebot/...` in omp; elsewhere resolve on disk).
 
-**Cross-harness.** Guides/guards ship for omp, Claude Code, Codex, Antigravity (Cursor and others follow rules without shipped guards). Map omp names: `task` → subagents (or `acpx <agent> exec`); `todo` → tasks; `ask` → one question; `.omp/skills/` → `.claude/skills/` or `.agents/skills/`.
-Tool limits: `loop.py run` targets `omp|claude|codex`; `pr-agent` needs `omp`; `security-audit` needs `claude` on POSIX. Details: `skill://agent-harnesses`.
+**Cross-harness:** Guards ship for omp, Claude Code, Codex, Antigravity (`skill://agent-harnesses`). Map omp tools: `task` → subagents (or `acpx <agent> exec`), `todo` → tasks, `ask` → one question, `.omp/skills/` → `.claude/skills/` or `.agents/skills/`. Tool limits: `loop.py run` targets `omp|claude|codex`; `pr-agent` needs `omp`; `security-audit` needs `claude` on POSIX.
 
 ## Full-scope completion
 
-Applies to M/L and multi-item routes (Size S tracks its single item inline, no Scope Manifest or continuation loop). Slicing sequences verification; it never shrinks scope.
-
-1. **Total Scope vs. Active Sprint.** Keep 100% of deliverables/inventory in ONE Scope Manifest (`docs/specs/<slug>-manifest.json` or `.scratch/goals/<slug>-manifest.json`, `loop.py manifest`, mirrored in `todo`). Only the user removes scope; promises join it; an unqualified yes accepts offered options except hard stops. Rough ideas include real essentials (persistence, validation, error/empty states, wired entrypoints); complex/unclear domains clear via **sme-review** (`sme_gate`) before Sprint 2+.
-2. **Machine-checked inventory.** For "all/every/full set", classify candidates in `"inventory"` as `included`, `duplicate` (`representative`), `non_target` (`reason`), or `blocked` (`evidence` + `unblock`). Any `pending` item fails `loop.py manifest`; batch without shrinking.
-3. **Resolve reversible ambiguity.** Pick a scope-preserving structure from evidence, state assumptions, isolate uncertain groups. Ask only when evidence cannot settle a material choice, an `sme_gate` is required, or a safety/permission boundary applies. Finish independent work first.
-4. **Close against evidence.** Reconcile manifest, inventory, deliverables, and tasks before replying. Single-run builds drive `1/N` to `N/N`. Sprint mode (`active_sprint: 1` / `sme_gate: "required"`) lands Sprint 1 with proof and pauses ONLY at the sprint/SME checkpoint, reporting Sprint 2..N as remaining (`scope_complete: false`). Blockers name item, failure, attempts, and unblock path.
-5. **Zero-loss resume.** Arm one continuation mechanism (`references/playbooks/run-a-goal.md`) and record its ID/state. On quota/cost cap, `checkpoint_every` / `sme_gate` (`loop.py run` exit `6`), or passing Sprint 1 with deferred slices (`exit 0`, `scope_complete: false`), manifest + `latest-summary.json` is the resume ledger. A pause is never completion.
+Applies to M/L and multi-item routes (Size **S** tracks its single item inline). Slicing sequences verification; it never shrinks scope. Full manifest, inventory, sprint/SME checkpoint, and zero-loss resume rules: `references/full-scope.md`.
+- Keep 100% of deliverables/inventory in ONE Scope Manifest (`loop.py manifest`, mirrored in `todo`); any `pending` inventory item fails `loop.py manifest`. Only the user removes scope.
+- Single-run builds drive `1/N` to `N/N`; Sprint mode (`active_sprint: 1` / `sme_gate: "required"`) pauses ONLY at the explicit sprint/SME checkpoint (`scope_complete: false`, never done). A pause is never completion.
 
 ## Route (do this first)
 
 `/deep <anything>` routes and sizes without asking which mode to use.
 
-**1. Orient.** In git repos, use Antigravity's hook-injected offline git-only **workspace-map** overview if present; else run `python -B "<this skill>/assets/workspace-map/workspace_map.py" overview --fast --offline --no-orca` (`py -3 -B` on Windows; writes `<main-checkout>/.scratch/workspace-map.db`).
-Skip `overview` on strictly read-only routes (`investigation`, local `pr-review`, `pr-thread`, `suggest`) when no DB exists. Run `query <term>` before broad greps and `workspaces`/`prs` (`--global --all-repos` cross-repo); never ask the user to run map commands.
-Check `git remote`, `docs/PROJECT_BRIEF.md`, `STACK.md`, and verify skills (`.omp`/`.claude`/`.agents/skills/verify-*`). GitHub delivery checks `gh repo view --json nameWithOwner,viewerPermission,isEmpty` and `gh api user -q .login`. Outside/empty repo: Contain the work. Process conflicts: Setup (`references/playbooks/setup.md`, two owner yeses before rewriting rule files).
+**1. Orient & auto-bootstrap.** Use Antigravity's hook-injected offline **workspace-map** overview if present; else run `python -B "<this skill>/assets/workspace-map/workspace_map.py" overview --fast --offline --no-orca` (`py -3 -B` on Windows; writes `<main-checkout>/.scratch/workspace-map.db`).
+On non-read-only sessions in an uninitialized repo, auto-run `python -B "<this skill>/assets/setup/project_setup.py" --root "<root>"` to create missing `.deepmodebot/ci.yml`, `.deepmodebot/policy.xml`, `.scratch/deepmode-memory.db`, and managed `AGENTS.md`/`CLAUDE.md` blocks (preserves user text; rewriting conflicting rules needs two owner yeses).
+Recall top project memories via `project_memory.py recall --root "<root>" --format xml --budget-tokens 600`. Skip `overview` and bootstrap on strictly read-only routes (`investigation`, local `pr-review`, `pr-thread`, `suggest`) when no DB exists. Run `query <term>` before broad greps; check `git remote`, `docs/PROJECT_BRIEF.md`, `STACK.md`, verify skills, and `gh repo view`. Outside/empty repo: Contain the work.
 
-**2. Route semantically (`references/techniques/autoroute.md`).** Run the 3-stage LLM semantic router (`assets/autoroute/autoroute.py menu --root "<root>" --stdin --json` → LLM JSON decision → `autoroute.py verify --root "<root>" --prompt "<raw>" --decision-stdin --strict --json`, or `autoroute.py route`); deterministic `tournament.py route` stays an offline prior.
-Upgrade messy/compound asks via **prompt-upgrade** (`assets/prompt-tools/prompt_tools.py upgrade`), re-evaluate mid-flight via `autoroute.py reroute`, route draft plans to **grill**, doubts/gap hunts to **self-grill**, and open gaps/vague ambitions to **tournament** (`references/techniques/tournament.md`).
+**2. Route semantically (`references/techniques/autoroute.md`).** Run the 3-stage LLM router (`assets/autoroute/autoroute.py menu` → LLM JSON → `autoroute.py verify --strict`, or `autoroute.py route`); `tournament.py route` is an offline prior. Upgrade messy asks via **prompt-upgrade** (`assets/prompt-tools/prompt_tools.py upgrade`), re-route mid-flight via `autoroute.py reroute`, draft plans → **grill**, gap/overclaim hunts → **self-grill**, open/vague goals → **tournament**.
 
-**3. Size it** (re-size if scope grows).
+**3. Size & delivery** (re-size if scope grows; delivery != size).
 
-| Size | Looks like | How to run it |
+| Size | Scope | Execution |
 |---|---|---|
-| **S** | <= 30 changed lines in <= 2 files; no auth, secrets, permissions, trust-boundary parsing, migrations, CI, or agent config | One-line restate, fix, regression if behavioral, prove real artifact. **Local S** stays uncommitted. Publication: S lane (`references/playbooks/opening-a-pr.md`) + 3-reviewer, 2-of-3 panel. |
-| **M** | Few files, one feature or bug with a cause to find | Matched playbook; inline if one owner suffices. Local: uncommitted edit; publish: Opening a PR. |
-| **L** | Cross-cutting, new module, many files, risky, or long-running | Full playbook with subagents, **architect** if shapes differ, **show-me-your-work** trail. |
+| **S** | <= 30 lines in <= 2 files; no auth, secrets, permissions, trust-boundary parsing, migrations, CI, or agent config | One-line restate, fix, regression if behavioral, real-artifact proof. Local S stays uncommitted; publishing uses S lane + 3-seat 2-of-3 panel. |
+| **M** | Few files, one feature or bug with a cause to find | Matched playbook; inline if one owner suffices. Local: uncommitted; publish: Opening a PR. |
+| **L** | Cross-cutting, new module, many files, risky, or long-running | Full playbook + subagents, **architect** if shapes differ, **show-me-your-work** trail. |
 
-**Delivery != size.** No remote, local-review ask, or ordinary local S/M edit (no PR/commit/ship ask) → **local edit**: leave verified S/M uncommitted, review diff, prove real behavior, stop (no default-branch commit/PR/push). Explicit PR/ship/land/queue asks publish via Opening a PR + 3-reviewer panel.
-Worktree only for concurrent writers or dirty unrelated work. Local M skips shipping panels, new verify frameworks, design contests; auth/permissions/migrations/security/L keep full checks. Discovery/read-only = size `none` (no panel); business cases use `references/techniques/research.md`.
+No remote, local-review ask, or ordinary local S/M edit → **local edit** (uncommitted + diff review + real proof; skips shipping panels/contests unless touching auth/permissions/migrations/security/L). Explicit PR/ship/land/queue asks publish via Opening a PR + 3-seat panel. Worktree only for concurrent writers or dirty unrelated work. Discovery/read-only = size `none`.
 
-**4. Cadence, tier, Prosecutor & SME.**
-- **Model & effort (Opus-first, capped at `xhigh`):** Before turn 1 or kickoff, pick the smallest benchmark-proven tier (`skill://agent-harnesses/references/delegation-efficiency.md`): `S` (`low`/`medium`) for search/mechanical/local S, `M` (`medium`) for oracle-backed M, `L` (`high`/`xhigh`, never above `xhigh`) for planning, hard debug, security, and final review. Fable 5.2 outside panels runs only when named or after two `xhigh` failures on the same brief; skip Fast/Ultrafast.
-- **Self-grill, Prosecutor & SME:** Run `self_grill.py init --phase plan` before risky/ambiguous coding and `--phase both --refresh` + `self_grill.py bundle` (**Confession + Adaptive Hotspot Prosecutor + Sieve**, `references/techniques/self-grill.md`) on M/L or sensitive edits before replying. Complex/unclear domains → **sme-review** (+ **questionnaire** for unverified P0/P1 rules) before specs, loops, or Sprint 2+. Split multi-PR/customer specs into incremental sprints.
+**4. Tier, Prosecutor & SME.** Pick smallest benchmark-proven tier (`references/delegation.md`). Run `self_grill.py init --phase plan` before risky coding and `--phase both --refresh` + `self_grill.py bundle` (**Confession + Adaptive Hotspot Prosecutor + Sieve**, `references/techniques/self-grill.md`) on M/L or sensitive diffs before replying. Complex/unclear domains → **sme-review** (+ **questionnaire**) before specs, loops, or Sprint 2+.
 
-**5. Act, then report.** Follow Autonomy's gates and hard stops. Run `assets/cleanup/self_cleanup.py --apply` when disposables accumulated. Report result and proof.
+**5. Act, CI gate, clean, report.** Follow Autonomy gates/hard stops. When `.deepmodebot/ci.yml` exists, run `assets/local-ci/local_ci.py run --cached` before reporting done or opening a PR, record durable lessons in `project_memory.py`, and run `assets/cleanup/self_cleanup.py --apply` for disposables. Report result and proof.
 
 ## Reasoning gates
 
-Apply proportionally on M/L; S uses goal + real-artifact check directly.
-
-1. **Before planning:** name user, deliverable, acceptance evidence, sources. Inspect sources first; separate facts from assumptions, check if done/superseded, resolve contradictions, mark gaps unknown.
-2. **At phase boundaries & delivery:** check output against goal/evidence for missing items, stale facts, **gaps, and overclaims**, or drift (`self_grill.py check-diff --root "<root>" --json` on M/L or sensitive diffs; `verify_proof.py` on formal/math claims); replan if premise fails.
-3. **When stalled:** after two attempts without better evidence, repeated rewrites, or contradictions, pause. Inspect real artifacts, test premise, pivot or report blocker. Never drop scope.
-
-Business cases: prove one workflow on observable user success before scaling (`references/techniques/research.md`); label unproven market/revenue/exit claims as estimates.
+1. **Before planning:** name user, deliverable, acceptance evidence, sources; separate facts from assumptions, mark gaps unknown.
+2. **At phase boundaries & delivery:** check output against goal/evidence for missing items, stale facts, **gaps, and overclaims** (`self_grill.py check-diff` on M/L or sensitive diffs; `verify_proof.py` on formal/math claims); replan if premise fails.
+3. **When stalled:** after two attempts without better evidence, pause, inspect real artifacts, test premise, pivot or report blocker. Never drop scope.
 
 ## Contain the work
 
-One project root per task; every write stays inside it (code, scratch, temp, logs, clones, worktrees, evidence, delegates). Details: `references/contain.md`.
-
-- **Root.** `git rev-parse --show-toplevel` (including worktrees); name absolute path in restate. Outside/new project: create `<parent>/<kebab-case-name>/` (never nest repos) + `git init -b main`; if a write guard pins this session to an existing repo, reopen in the new root (`references/contain.md`).
-- **Scratch & worktrees.** Temp in `<root>/.scratch/tmp/`; worktrees in main checkout's `.worktrees/<branch>/` (`.gitignore` `*`). Run Python with `-B` or `PYTHONDONTWRITEBYTECODE=1`.
-- **No system temp/global installs.** Never write `/tmp`, `$TMPDIR`, `%TEMP%`, home files, or sibling dirs; scope `TMPDIR`/`TMP`/`TEMP` to `$ROOT/.scratch/tmp`. Install deps locally; global installs and user-config edits are hard stops.
-- **Reads free; writes fenced.** Outside writes allowed only for: new repo folder; tool-managed state (`local://`/`artifact://`, Antigravity `brain/`/artifacts, package/browser caches, Claude plan/memory); `.deepmodebot.json` `"extraWriteRoots"`; deepmodebot's own outside writes (`references/contain.md`). All else is a hard stop.
-- **Notes, delegates & guards.** Durable notes go in `.scratch/` or git common dir. Delegate briefs name absolute root and own subdir/worktree. Guards back file-edit tools (none covers shell commands; this rule still binds shell commands); on denial move inside root, never bypass.
-- **Cleanup.** Delete only this session's disposables (`assets/cleanup/self_cleanup.py --apply`) without disturbing originals, other sessions, active jobs, or unpushed work; `git status --porcelain` shows only intended changes and evidence stays in `.scratch/evidence/` or verify dir.
-
+One project root (`git rev-parse --show-toplevel`) per task; every write stays inside it (`references/contain.md`). Temp in `<root>/.scratch/tmp/` (scope `TMPDIR`/`TMP`/`TEMP` there; never system temp/home/siblings); worktrees in `<main>/.worktrees/<branch>/`; run Python with `-B` / `PYTHONDONTWRITEBYTECODE=1`. Global installs and user-config edits are hard stops.
+Outside writes allowed only for new repo folder, tool-managed state (`local://`/`artifact://`, Antigravity `brain/`, caches), `.deepmodebot.json` `"extraWriteRoots"`, and deepmodebot's own outside writes. Guards back file tools (rule still binds shell). Clean session disposables via `assets/cleanup/self_cleanup.py --apply`.
 ## Non-negotiables
 
 For **S**, only one-line restate, single-item scope check, real-artifact proof, and (if landing) S lane apply.
+- **Restate first** (goal, problem, smallest change) without waiting; track 100% scope (`references/full-scope.md`).
+- **Hardcore mode by default (`references/principles/hardcore-mode.md`):** build the first-principles architectural ceiling (real algorithms, solvers, parallelism, full integration) rather than stubs/toy MVPs unless asked.
+- **Name principles:** on M/L, add "Why I chose this" naming each read principle (`references/principles/`) that changed a decision.
+- **Prove on the real artifact (E2E Rehearsal Gate):** run the real app/CLI/service; tests alone are not proof. For E2E workflows (any app/tool/UI), grill & lock user intent first (`assets/e2e/rehearsal_gate.py init` + `approve`), record the full continuous video, watch the entire video together (never isolated frames alone), and iterate `v1..v25` until `rehearsal_gate.py verdict --strict` returns `REHEARSAL_PASSED`.
+- **Decide; don't ask:** fact → look up; observable fork → Prototype; product/design/preference → decide (Autonomy).
+- **Secrets/logins/auth** → read `skill://secrets-and-auth` first; never print/paste/commit secrets.
+- **Name data shape first** (`references/principles/model-the-domain.md`; new domains/DBs/layouts → `skill://software-architecture`).
+- **No lying comments:** zero narration/banner/workaround comments; run **no-comments** before review. Long work → **show-me-your-work**.
+- **PR & gate layer:** **pr-review** before opening; **pr-agent** + local checks once open; land own PRs via **pr-conversation**; incoming PRs via `/deepmodebot:review-pr <PR>`; **security-audit** on auth/permissions/parsing/secrets (blocking = P0). No hosted review bots.
 
-- **Restate first.** State goal, problem, and smallest change without waiting for confirmation (stop if premise fails).
-- **Scope ledger.** Track 100% of the request per Full-scope completion (M/L/multi-item use a Scope Manifest; Size S tracks its single item inline).
-- **Hardcore mode by default (`references/principles/hardcore-mode.md`).** On non-trivial tasks, build the true first-principles architectural ceiling (real algorithms, solvers, parallelism, native representations, full integration) rather than sandbagging into a toy MVP or stubbed shortcut unless the user explicitly asks for a minimal fix/prototype. Zero bloat, zero overclaims, real-artifact proof required.
-- **Name principles.** On M/L, add a "Why I chose this" line naming each read principle (`references/principles/`) that changed a decision.
-- **Prove on the real artifact.** Run the real app/CLI/service and capture evidence. Reuse an existing verify skill; else drive directly; create one only when requested or justified by repeated runs. Tests alone are not proof.
-- **Decide; don't ask.** Fact → look up. Observable fork → Prototype. Product/design/preference → decide (Autonomy). Investigation answers read-only from evidence.
-- **Secrets, logins, tokens, auth** → read `skill://secrets-and-auth` first. Never print, paste, or commit secrets; use scoped short-lived identities; rotate leaks.
-- **Name data shape first** (`references/principles/model-the-domain.md`); new domains/DBs/layouts/boundaries also read `skill://software-architecture`.
-- **No lying comments.** Write zero narration, banner, or workaround comments; keep only non-obvious external *why* constraints code cannot express, and run **no-comments** before review.
-- **Long/step-away work** → decision trail via **show-me-your-work** (`references/techniques/show-me-your-work.md`).
-- **PR & gate layer.** Self-review (**pr-review**) before opening; run **pr-agent** + local checks once open; land own PRs via **pr-conversation**; incoming PRs use `/deepmodebot:review-pr <PR>`. No CI/hosted bots. Run **security-audit** on merge head when opted in or touching auth, permissions, parsing, or secrets (blocking = P0).
+## Autonomy & Subagents
 
-## Autonomy
-
-- **Own PRs land on their own** when publishing/landing a PR (via **pr-conversation**) once findings resolve, linked issues are answered, panel passes, and required checks are green.
-- **Exact-head panel pass.** Nothing lands on default/shared branches until **panel** (`references/techniques/panel.md`) passes at that head: 3 independent verifiers, >=2 passes (including S lane). Merge via `gh pr merge --match-head-commit <sha>`, verify trunk, revert if red. Verified local S/M edits stay uncommitted.
-- **Decisions are yours.** Pick the smallest reversible codebase-consistent option for product/design/scope/preference calls; log trail rows and list under "Decisions I made". **Tournament** pauses at Champion + Runner-Up for discovery-only or choose-first asks; build asks continue with Champion within permissions. Others' repos keep their asks.
-- **Hard stops** (batch into one question at end unless asked): force-push/history rewrite on shared/default branch; deleting others' branches/data/resources; deploys/releases/publishing; external messages; bypassing forge protections; spending money/accounts; user-only credentials; outside-root writes; rewriting repo rule files (two owner yeses).
-- **Admin merge on own PRs.** Only on explicit land/merge ask or `"autonomousMerge": true` (`~/.config/deepmodebot/bot.json` or base-branch `.deepmodebot.json`; `false` stops and asks): `--admin` may bypass only a required review after an exact-head panel pass, never a failing/cancelled check or non-review rules (signed commits, linear history, CODEOWNERS, unresolved threads).
-- **Subscription, not API.** Logged-in subscriptions only (session, subagents, headless CLIs, `acpx`). Never set up API keys; unset `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `OPENAI_API_KEY`, `CODEX_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_API_KEY`, and `CLAUDE_CODE_USE_{BEDROCK,VERTEX,FOUNDRY}` in child envs.
-- **Finish line & candor.** Tick waypoints and start the next item in the same turn; never stop at slice 1 on single-run builds, and report deferred sprints as remaining scope. Say "no" when warranted.
-
-## Subagents
-
-- You run the playbook; delegates own exclusive files. Start every subagent brief with `Read <this installed skill>/worker.md before anything else.` followed by goal, absolute root, exact files, acceptance check, root-only writes, and applicable `references/principles/<name>.md` (omp omits `AGENTS.md`).
-- **Anti-stacking & quota cap (`assets/quota-guard/quota_guard.py plan`).** Never stack `/teamwork` or `/swarm` on top of multi-seat review/panel waves; if already inside an outer orchestrator or child subagent, run deterministic scripts and 4-lens review inline in 1 pass (`max_subagents=0`).
-- **Pin light models explicitly (never `inherit` on helpers).** Pass `Model: "flash_lite"` / `@smol` / `haiku` / `gpt-6-luna` for `scout`/`Explore`/`explorer` and `Model: "flash"` for `comment-sicko`/mechanical slices; reserve `inherit` for `reviewer`, `security-reviewer`, and `L` slice authors.
-- **Delegate only when it pays.** Multi-agent runs cost ~15x chat + cold cache. Keep `<=150`-line, 1-file, coupled, and hard reasoning inline; use 1 `prosecutor-bundle.md` reviewer for `M` (`151-600` lines), delta-only re-review (`git diff <last_sha>..HEAD`), `<=2` parallel worktrees, and `.scratch/quota-guard/` checkpoints to prevent `429` cold respawns.
-- **Model, effort & panel seats.** Reserve the 3-seat cross-family panel (`claude-fable-5-2-high`, `claude-opus-5-5-high-fast` or `gpt-6.1-sol`, `gemini-4-neon-xhigh`) strictly for the final green merge SHA. Check quota (`omp usage`/`/usage`/`/status`), `/clear` between tasks, switch models at clean boundaries, reuse warm reviewers, and rotate family on 429s. Inspect every delegate's diff yourself.
+- **Own PRs land on their own** via **pr-conversation** once findings resolve, linked issues are answered, exact-head **panel** (`references/techniques/panel.md`: 3 verifiers, >=2 passes, including S lane) passes, and checks are green. Merge via `gh pr merge --match-head-commit <sha>`, verify trunk, revert if red.
+- **Admin merge:** only on explicit land/merge ask or `"autonomousMerge": true`; `--admin` may bypass only a required review after exact-head panel pass, never failing checks or non-review rules.
+- **Decisions & hard stops:** pick smallest reversible codebase-consistent choice and log under "Decisions I made". Hard stops (batch once at end): force-push/history rewrite on shared/default branch; deleting others' branches/data; deploys/releases/publishing; external messages; bypassing forge protections; spending money; user-only credentials; outside-root writes; rewriting repo rule files (two owner yeses).
+- **Subscription, not API:** logged-in subscriptions only; unset all provider API key env vars in child processes. Tick waypoints and keep moving; say "no" when warranted.
+- **Subagents & quota (`references/delegation.md`, `assets/quota-guard/quota_guard.py`):** delegates own exclusive files and start briefs with `Read <this installed skill>/worker.md before anything else.`; never stack `/teamwork`/`/swarm` with multi-seat waves (`max_subagents=0` when nested); pin light models (`flash_lite`/`@smol`/`haiku`/`gpt-6-luna`) for helpers; keep `<=150`-line/coupled work inline; reserve 3-seat cross-family panel for final green merge SHA.
 
 ## Routes
 
-Step 2 of Route (semantic triggers + `autoroute.py`). Techniques: `references/techniques/<name>.md`; playbooks: `references/playbooks/<file>.md`. Full catalog (30 playbooks, 25 principles, 59 techniques): `references/catalog.md`.
+Techniques: `references/techniques/<name>.md`; playbooks: `references/playbooks/<file>.md`. Full 30-playbook / 59-technique / 25-principle catalog: `references/catalog.md`.
 
 - **PRs & issues:** review PR / "review since <ref>" → **pr-review**; land own PR → **pr-conversation**; bot issue work → **issue-conversation**; bots on own sub → **github-app**; check/get green → `babysit`; security gate → **security-audit**; run pr-agent → **pr-agent**.
-- **Contributing & repos:** contribute to read-only repo → `skill://contribute`; publish for helpers → `skill://project-brief`; repo setup → `setup`; triage → `triage`; spec → `spec`; tickets → `tickets`; implement spec / sprints → `phased-build`; build full project end-to-end → `end-to-end`.
-- **Queues, goals & orientation:** `factory.json` / board / PR queue → `work-a-queue`; session/program goal loop → `run-a-goal`; vague goal into milestones → **goal-review** → `self-authoring`; harden checks/anti-slop → **inner-loop**; index/map workspace, worktrees, open PRs, symbols → **workspace-map**; foggy multi-session route → `wayfinder`; handoff → `handoff`.
-- **Prompts, proofs, audits & checks:** LLM auto-route → **autoroute**; review/upgrade prompt → **prompt-upgrade**; scan repo gaps/overclaims & suggest prompts → **suggest**; grill plan / "grill it" → **grill**; "are you sure" / "what did you miss" / find gaps & overclaims / grill code or proofs → **self-grill** (`bundle` Prosecutor); stuck/struggling → `bug-fix` + **self-grill** (`attack-the-premise`); Lean 4 / Coq / TLA+ / SMT / proofs → **formal-verification** (`verify_proof.py`); blast radius → **blast-radius**; deepen prompt → **sharpen**.
-- **Design, stack & research:** open gaps / vague ambition → **tournament**; new app with concrete behaviors → **prior-art** → `skill://deep-stack` → `end-to-end`; stack choice only → `skill://deep-stack`; catch up → **recall**; glossary/ADR → **domain-model**; durable research → **research**; which flow → `references/flows.md`; SME check → **sme-review** / **questionnaire**.
-- **UI, backend perf, media & build:** A2UI (`a2ui.org`) or interactive UI → **gen-ui**; visual E2E video/image review → **visual-e2e**; Penpot/editable design evidence → **open-design-evidence**; backend/DB/API slowness, N+1, pools, or hot loops → `perf-issue` (`assets/perf-audit/perf_audit.py` + `skill://domain-rules`); video breakdown (`rea-video` / `VIDEO.md`) → **video-forensics**; TDD → **tdd**; strip comments → **no-comments**; garden → **correct**; scratch/memory cleanup → `assets/cleanup/self_cleanup.py`; fuzz release → **swarm**; port → `refactoring`.
-- **Skills, rules & meta:** edit `SKILL.md` → `authoring-a-skill` (**writing-for-agents** first); edit `AGENTS.md`/`CLAUDE.md`/brief → **writing-for-agents** (`assets/agents-md/agents_md.py`); prompt/loop → `self-authoring`; specialist (`tool-routing`, `agent-collaboration`, `git-guardrails`, `pre-commit`, `scrape`, `architecture-review`, `wizard`, `course`, `re-explain`, `reflect`, `retro`) → named technique or `## Playbooks`.
+- **Contributing & repos:** read-only repo → `skill://contribute`; publish for helpers → `skill://project-brief`; repo setup → `setup`; triage → `triage`; spec → `spec`; tickets → `tickets`; implement spec/sprints → `phased-build`; full project → `end-to-end`.
+- **Queues, goals & orientation:** `factory.json`/board/PR queue → `work-a-queue`; session/program goal → `run-a-goal`; vague goal → **goal-review** → `self-authoring`; harden checks/anti-slop → **inner-loop**; index repo/worktrees/PRs/symbols → **workspace-map**; foggy multi-session → `wayfinder`; handoff → `handoff`.
+- **Prompts, proofs, audits & checks:** LLM router → **autoroute**; upgrade prompt → **prompt-upgrade**; scan repo gaps/overclaims → **suggest**; grill plan → **grill**; "are you sure" / gaps / overclaims / grill code → **self-grill** (`bundle` Prosecutor); stuck → `bug-fix` + **self-grill** (`attack-the-premise`); Lean/Coq/TLA+/SMT/proofs → **formal-verification** (`verify_proof.py`); blast radius → **blast-radius**; deepen prompt → **sharpen**.
+- **Design, stack & research:** open gaps/vague ambition → **tournament**; 2+ shapes → **architect**; contested design → **interrogate**; new app → **prior-art** (`scripts/trending.py`) → `skill://deep-stack` → `end-to-end`; stack only → `skill://deep-stack`; catch up → **recall**; glossary/ADR → **domain-model**; durable research → **research**; which flow → `references/flows.md`; SME check → **sme-review** / **questionnaire**.
+- **UI, E2E, perf & media:** A2UI (`a2ui.org`) / cockpit → **gen-ui**; E2E full-video rehearsal gate (`v1..v25`, `REHEARSAL.md`) → `assets/e2e/rehearsal_gate.py` + **visual-e2e**; Penpot/editable design → **open-design-evidence**; backend/DB/API slowness, N+1, pools, hot loops → `perf-issue` (`assets/perf-audit/perf_audit.py` + **benchmark-checklist** + `skill://domain-rules`); video breakdown (`rea-video`/`VIDEO.md`) → **video-forensics**.
+- **Build, CI, slop & memory:** native parallel Rust/Go engines (`native/dmb-gate`: `slop|ci|perf|ui|cleanup|agents|skill-check|map|guard`; `native/dmb-net`: `trending|pr-overlap|fetch-papers|webhook`; `deepmodebot build-native`) with Python fallbacks (`local_ci.py`, `slop_gate.py`, `project_memory.py`, `project_setup.py --install-hooks`); TDD → **tdd**; comments → **no-comments**; prose → **unslop** + **technical-writing**; garden → **correct**; fan-out → **swarm**/**arena**; port → `refactoring`.
+- **Skills, rules & meta:** edit `SKILL.md` → `authoring-a-skill` (**writing-for-agents** first); edit `AGENTS.md`/`CLAUDE.md`/brief → **writing-for-agents** (`assets/agents-md/agents_md.py`); prompt/loop → `self-authoring`; specialist (`tool-routing`, `git-guardrails`, `pre-commit`, `scrape`, `architecture-review`, `wizard`, `course`, `re-explain`, `reflect`, `retro`, `tracker`, `agent-collaboration`) → named technique.
+## Playbooks & Principles
 
-## Playbooks
-
-List matched steps (`<n>. <short imperative>`) in `todo`; note skips. Full 30-playbook table: `references/catalog.md`.
+List matched playbook steps (`<n>. <short imperative>`) in `todo`; note skips. Read `references/principles/<name>.md` before citing. Full tables: `references/catalog.md`.
 
 - **Diagnose:** `investigation`, `bug-fix`, `perf-issue`, `hillclimb`, `runtime-forensics`, `trace-forensics`.
 - **Build & Meta:** `feature`, `end-to-end`, `refactoring`, `prototype`, `visual-parity`, `reference-rebuild`, `authoring-a-skill`, `self-authoring`, `eval`.
 - **Plan, Ship & Continuity:** `setup`, `spec`, `tickets`, `triage`, `phased-build`, `wayfinder`, `babysit`, `shipping`, `opening-a-pr`, `run-a-goal`, `work-a-queue`, `session-pickup`, `pause-safely`, `handoff`, `worktree-cleanup`. Bespoke large effort → **figure-it-out**.
-
-## Technique triggers
-
-M/L when a rule changes work; skip for S. All 59 techniques: `references/catalog.md`. Names = deepmodebot's files.
-
-- **Orient, route & design:** **workspace-map** (`workspace_map.py`); **autoroute** (3-stage LLM loop); **prior-art** (`scripts/trending.py`); 2+ shapes → **architect**; open gaps → **tournament**; messy prompt → **prompt-upgrade**; repo prompt ideas → **suggest**; interactive cockpit / A2UI → **gen-ui**; draft plan → **grill**; goal milestones → **goal-review**; complex domain → **sme-review** + **questionnaire**; contested design → **interrogate**; fan-out / sibling messaging → **swarm** / **arena** / **agent-collaboration**.
-- **Quality, proofs, loops & perf:** audit checks/diff/overclaims → **self-grill**; Lean/TLA+/SMT/math proof & Claim-DAG checks → **formal-verification** (`verify_proof.py`); harden loops/anti-slop → **inner-loop**; backend/systems perf & cache audit → `perf_audit.py` + **benchmark-checklist**; weekly quota / subagent cap / 429 checkpoint → `quota_guard.py` + `guard-the-context-window` + `delegation-efficiency.md`.
-- **Visual, media, prose & hygiene:** E2E recording → **visual-e2e** + **open-design-evidence**; video forensics (`rea-video` / `VIDEO.md`) → **video-forensics**; prose → **unslop** + **technical-writing**; pre-review → **no-comments**; repeated fix → **correct** + `self-authoring`; terms/ADRs → **domain-model**; research → **research**; issues → **tracker**; tool routing → **tool-routing**.
-
-## Principles
-
-Read `references/principles/<name>.md` before citing; all 25 definitions in `references/catalog.md`.
-
-- **Core:** `hardcore-mode`, `laziness-protocol`, `foundational-thinking`, `redesign-from-first-principles`, `attack-the-premise`, `subtract-before-you-add`, `minimize-reader-load`, `outcome-oriented-execution`, `experience-first`, `exhaust-the-design-space`, `build-the-lever`.
-- **Architecture:** `model-the-domain`, `boundary-discipline`, `type-system-discipline`, `make-operations-idempotent`, `migrate-callers-then-delete-legacy-apis`, `separate-before-serializing-shared-state`.
-- **Verification:** `prove-it-works`, `fix-root-causes`, `sequence-verifiable-units`, `test-behavior-not-implementation`, `explain-the-number`.
-- **Delegation & Meta:** `guard-the-context-window`, `never-block-on-the-human`, `encode-lessons-in-structure`.
+- **Principles (Core & Architecture):** `hardcore-mode`, `laziness-protocol`, `foundational-thinking`, `redesign-from-first-principles`, `attack-the-premise`, `subtract-before-you-add`, `minimize-reader-load`, `outcome-oriented-execution`, `experience-first`, `exhaust-the-design-space`, `build-the-lever`; `model-the-domain`, `boundary-discipline`, `type-system-discipline`, `make-operations-idempotent`, `migrate-callers-then-delete-legacy-apis`, `separate-before-serializing-shared-state`.
+- **Principles (Verification, Delegation & Meta):** `prove-it-works`, `fix-root-causes`, `sequence-verifiable-units`, `test-behavior-not-implementation`, `explain-the-number`; `guard-the-context-window`, `never-block-on-the-human`, `encode-lessons-in-structure`.
 
 ## Reference library
 
@@ -154,6 +106,7 @@ Read entry skill first; full index: `references/README.md`:
 - Secrets/logins/MFA/OAuth/auth → `skill://secrets-and-auth`; repo/domain/DB/pools/backend → `skill://software-architecture`
 - Agents/LLMs/AWS/high-scale backend/cache/languages/DevOps/debug → `skill://domain-rules`
 - Docker/K8s/cloud/IAM/policy/pipelines/IaC/emulators → `skill://cloud-devsecops`
+- Deep learning, RL, neural nets, world models, geometric/SciML & weight-space programming (`wsp.py`) → `skill://deep-learning`
 
 ## Writing the reply
 

@@ -1,5 +1,4 @@
 ## 6. Typography and layout
-[anthropic frontend-design skill; articles/emil-kowalski-*]
 - **Fonts:**
   - Choose typefaces deliberately for this brief.
   - Use one or two families; if two, make them clearly distinct.
@@ -12,7 +11,7 @@
   - Loosen tracking on any uppercase.
   - Fallback fonts with a metric match to avoid layout shift.
 - **Emphasis:** underlines only on links; bold for UI emphasis; italic for citation or stress.
-- **Hierarchy by de-emphasis** [youtube/EjEYTRD-W-M; youtube/7Z9rrryIOC4]:
+- **Hierarchy by de-emphasis:**
   - Exactly three text tones (primary / secondary / tertiary). Reach for weight and color before size.
   - Drop a label when the value's format already says what it is.
   - Group headings are small, bold and soft.
@@ -30,18 +29,18 @@
 - **Type scale:**
   - App surfaces use a fixed scale (12/14/16/18/20/24/30/36/48), with body at 16/1.5 and tighter leading as size grows.
   - Persuade surfaces may use a fluid `clamp()` scale, scaling desktop display `h1` (`48–80 px`, `-0.02em` to `-0.03em` tracking, `text-wrap: balance`) by **`0.50×–0.67×` at `390 px` mobile** (`28–44 px`, zero horizontal overflow — measured across 24 live Mobbin sites in `references/patterns/mobbin-shipped-apps.md`).
-- **Font mechanics** [youtube/n0iAYEpU0Fk]:
+- **Font mechanics:**
   - Re-tune size and weight when swapping families, because x-height differs.
   - `font-optical-sizing: auto`. Real italics only.
   - `text-box: trim-both cap alphabetic` for optically centered badges and buttons, as progressive enhancement.
   - If you use Inter: self-hosted 4.x, extra tracking below 14 px.
-- **Layout by container, not viewport** [youtube/_njUxg5UfR0]:
+- **Layout by container, not viewport:**
   - `@media` only for page chrome. Components use `container-type: inline-size` + `@container`; agent-console and IDE panes are user-resized.
   - Content-aware variants use scoped `:has()` (never `:root:has()`).
   - Logical properties for RTL.
   - `cqw` + `clamp()` for in-between sizes.
-- **Depth and finish** [github/pbakaus-impeccable; github/vercel-labs-web-interface-guidelines]:
-  - A 4–5 step elevation scale mapped to element type (input → dropdown → panel → modal): 3-layer OKLCH ambient shadows (`oklch(0 0 0 / 0.01..0.03)` as on `Attio`), plus optional `1 px` top inner rim highlights (`inset 0 1px 0 oklch(1 0 0 / 0.18)` as on `Superpower` and tactile mobile controls). Raised panels are lighter than the page (white on about 2% darker). [youtube/7Z9rrryIOC4]
+- **Depth and finish:**
+  - A 4–5 step elevation scale mapped to element type (input → dropdown → panel → modal): 3-layer OKLCH ambient shadows (`oklch(0 0 0 / 0.01..0.03)`), plus optional `1 px` top inner rim highlights (`inset 0 1px 0 oklch(1 0 0 / 0.18)`). Raised panels are lighter than the page (white on about 2% darker).
   - Semi-transparent `1 px` borders; sticky glass chrome uses `backdrop-filter: blur(12px–24px) saturate(1.6–1.8)`.
   - Concentric radii: a child's radius is no larger than its parent's.
   - Theme the browser surfaces too: `::selection`, caret, scrollbars, focus ring, `color-scheme`, `theme-color`.

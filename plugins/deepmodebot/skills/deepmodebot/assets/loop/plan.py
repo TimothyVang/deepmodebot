@@ -10,13 +10,14 @@ import hashlib
 import importlib.util
 import json
 import math
-import os
 from pathlib import Path
 import re
 import shlex
 import shutil
 import subprocess
 import sys
+
+sys.dont_write_bytecode = True
 
 import loop
 

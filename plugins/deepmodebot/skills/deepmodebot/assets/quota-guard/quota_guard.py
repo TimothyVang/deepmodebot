@@ -24,6 +24,8 @@ import re
 import sys
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+
 ASSETS_DIR = Path(__file__).resolve().parent.parent
 
 OUTER_HARNESS_ENV_KEYS = (

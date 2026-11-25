@@ -18,6 +18,8 @@ import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+
 SKIP_DIRS = {
     ".git",
     ".worktrees",

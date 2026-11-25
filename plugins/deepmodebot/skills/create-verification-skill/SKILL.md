@@ -1,6 +1,6 @@
 ---
 name: create-verification-skill
-description: "Generate a project-local verification skill (.omp/skills/verify-<app>/, .claude/skills/verify-<app>/, or .agents/skills/verify-<app>/) that drives the app the way a user does and captures proof: control CLI, launch/doctor/drive/evidence/cleanup, and a feature map. Any language or platform. Use for create-verification-skill, \"make a verify skill for this repo\", or when a repo has no scripted way to prove UI/CLI/service behavior."
+description: "Generate a project-local verify-<app> skill (control CLI, launch/doctor/drive/evidence/cleanup, feature map)."
 disable-model-invocation: true
 ---
 

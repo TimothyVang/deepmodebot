@@ -23,6 +23,8 @@ import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 ASSETS_DIR = Path(__file__).resolve().parent.parent
 

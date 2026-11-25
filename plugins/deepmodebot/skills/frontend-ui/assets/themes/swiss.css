@@ -1,0 +1,40 @@
+/* High-Density Swiss — fintech, telemetry, tables, admin */
+:root, [data-theme="light"] {
+  color-scheme: light;
+  --bg-canvas: oklch(0.985 0.004 95);
+  --bg-surface: oklch(1 0 0);
+  --bg-raised: oklch(0.965 0.005 95);
+  --bg-sunken: oklch(0.952 0.006 95);
+  --fg-primary: oklch(0.17 0.008 255);
+  --fg-secondary: oklch(0.40 0.009 255);
+  --fg-muted: oklch(0.54 0.008 255);
+  --border-subtle: oklch(0.17 0.008 255 / 0.10);
+  --border-strong: oklch(0.17 0.008 255 / 0.22);
+  --shadow-surface: 0 1px 2px oklch(0 0 0 / 0.025);
+  --accent: oklch(0.44 0.14 252);
+  --accent-fg: oklch(0.99 0.003 252);
+  --accent-soft: oklch(0.44 0.14 252 / 0.09);
+  --status-danger: oklch(0.46 0.15 24);
+  --status-warn: oklch(0.47 0.13 78);
+  --status-ok: oklch(0.44 0.13 152);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --font-display: "IBM Plex Sans", -apple-system, sans-serif;
+  --font-sans: "IBM Plex Sans", -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-canvas: oklch(0.155 0.006 255);
+  --bg-surface: oklch(0.195 0.007 255);
+  --bg-raised: oklch(0.235 0.008 255);
+  --bg-sunken: oklch(0.135 0.006 255);
+  --fg-primary: oklch(0.94 0.005 255);
+  --fg-secondary: oklch(0.75 0.007 255);
+  --fg-muted: oklch(0.58 0.008 255);
+  --border-subtle: oklch(0.94 0.005 255 / 0.09);
+  --border-strong: oklch(0.94 0.005 255 / 0.18);
+  --accent: oklch(0.72 0.13 248);
+  --accent-fg: oklch(0.15 0.01 255);
+  --accent-soft: oklch(0.72 0.13 248 / 0.14);
+}

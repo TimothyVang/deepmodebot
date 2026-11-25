@@ -16,6 +16,8 @@ import time
 import uuid
 import hashlib
 
+sys.dont_write_bytecode = True
+
 from evidence import (artifact, assertion_passes, assertion_specs, canonical, load_bundle,
                       origin, parse_json, seal_bundle, sha256, validate_scenario)
 

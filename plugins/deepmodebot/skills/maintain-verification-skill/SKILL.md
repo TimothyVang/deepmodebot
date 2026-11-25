@@ -1,6 +1,6 @@
 ---
 name: maintain-verification-skill
-description: "Periodic pass that keeps a project's verify-<app> skill and feature map honest: parallel read-only source readers per feature, one live session driving every feature, at most one change set of proven corrections. Use for maintain-verification-skill or \"audit the verify skill\"."
+description: "Audit and refresh an existing verify-<app> skill and feature map via source readers and one live pass."
 disable-model-invocation: true
 ---
 

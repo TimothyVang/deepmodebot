@@ -34,6 +34,8 @@ import sys
 import tempfile
 from typing import Any
 
+sys.dont_write_bytecode = True
+
 LABEL = "help wanted"
 LIVE_QUERY = "is%3Aissue+is%3Aopen+label%3A%22" + LABEL.replace(" ", "+") + "%22"
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)

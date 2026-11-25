@@ -1,6 +1,6 @@
 ---
 name: review-pr
-description: "Review a PR the deepmodebot way: parallel reviewer subagents, findings verified against the code, one comment-only review (asks first on someone else's repo). Use when invoked via /review-pr."
+description: "Review a PR (/review-pr) with parallel code-verified reviewers and one comment-only review."
 ---
 
 # /review-pr

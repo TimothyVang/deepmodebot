@@ -12,6 +12,8 @@ import re
 import sys
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+
 ASSETS_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -398,9 +400,12 @@ def _scan_docs_for_overclaims_and_broken_links(root: Path) -> tuple[list[dict], 
                             }
                         )
                         break
+            is_template_doc = md.name.endswith(".template.md")
             for raw_target in MD_LINK_RE.findall(prose_only):
                 target = raw_target.strip("<>").split("#", 1)[0].split("?", 1)[0].strip()
                 if not target or target.startswith("#") or URI_SCHEME_RE.match(target) or target.startswith("mailto:"):
+                    continue
+                if "{{" in target or "}}" in target or (is_template_doc and target.startswith("../")):
                     continue
                 bases = [md.parent, root]
                 if skill_dir is not None:

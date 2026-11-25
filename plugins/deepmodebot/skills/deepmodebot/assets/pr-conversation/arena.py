@@ -39,6 +39,8 @@ import webbrowser
 from collections import Counter
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import show_thread as st  # noqa: E402

@@ -52,6 +52,8 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
+sys.dont_write_bytecode = True
+
 CLAIM_MARKER = "<!-- deepmodebot:claim -->"
 UNCLAIM_MARKER = "<!-- deepmodebot:unclaim -->"
 OVERLAP_MARKER = "<!-- deepmodebot:overlap -->"

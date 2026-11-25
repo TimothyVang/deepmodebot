@@ -24,6 +24,8 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+
 SKILL_DIR = Path(__file__).resolve().parent.parent
 REFERENCE_FILE = SKILL_DIR / "assets" / "repo-references.json"
 REFERENCE_REVISION = hashlib.sha256(REFERENCE_FILE.read_text(encoding="utf-8").encode("utf-8")).hexdigest()

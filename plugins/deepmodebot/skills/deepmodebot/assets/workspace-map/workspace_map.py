@@ -27,6 +27,8 @@ import sys
 import time
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+
 SCHEMA_VERSION = 2
 MAX_FILE_BYTES = 256 * 1024
 MAX_SIGNATURE_CHARS = 120
@@ -929,6 +931,11 @@ def sync_files_and_symbols(conn, repo_info):
     files_indexed = 0
     files_skipped = 0
     files_filtered = 0
+    file_updates = []
+    delete_sym_ids = []
+    pending_existing_syms = []
+    file_inserts = []
+    pending_new_syms = []
 
     for rel_path, blob_sha in tracked:
         if should_skip_relpath(rel_path):
@@ -976,28 +983,50 @@ def sync_files_and_symbols(conn, repo_info):
 
         if prev is not None:
             file_id = prev[0]
-            conn.execute(
-                "UPDATE files SET mtime_ns = ?, size = ?, lang = ?, role = ?, blob_sha = ? WHERE id = ?",
-                (st.st_mtime_ns, st.st_size, lang, role, blob_sha, file_id),
-            )
-            conn.execute("DELETE FROM symbols WHERE file_id = ?", (file_id,))
+            file_updates.append((st.st_mtime_ns, st.st_size, lang, role, blob_sha, file_id))
+            delete_sym_ids.append((file_id,))
+            if symbols:
+                for name, kind, line, sig in symbols:
+                    pending_existing_syms.append((file_id, repo_key, target_wt, rel_path, name, kind, line, sig))
         else:
-            cur = conn.execute(
-                "INSERT INTO files(repo_key, worktree_key, rel_path, mtime_ns, size, lang, role, blob_sha) "
-                "VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
-                (repo_key, target_wt, rel_path, st.st_mtime_ns, st.st_size, lang, role, blob_sha),
-            )
-            file_id = cur.lastrowid
-
-        if symbols:
-            conn.executemany(
-                "INSERT INTO symbols(file_id, repo_key, worktree_key, rel_path, name, kind, line, signature) "
-                "VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
-                [(file_id, repo_key, target_wt, rel_path, name, kind, line, sig) for name, kind, line, sig in symbols],
-            )
+            file_inserts.append((repo_key, target_wt, rel_path, st.st_mtime_ns, st.st_size, lang, role, blob_sha))
+            if symbols:
+                pending_new_syms.append((rel_path, symbols))
         seen_target.add(rel_path)
         files_indexed += 1
 
+    if file_updates:
+        conn.executemany(
+            "UPDATE files SET mtime_ns = ?, size = ?, lang = ?, role = ?, blob_sha = ? WHERE id = ?",
+            file_updates,
+        )
+    if delete_sym_ids:
+        conn.executemany("DELETE FROM symbols WHERE file_id = ?", delete_sym_ids)
+    if file_inserts:
+        conn.executemany(
+            "INSERT INTO files(repo_key, worktree_key, rel_path, mtime_ns, size, lang, role, blob_sha) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
+            file_inserts,
+        )
+        if pending_new_syms:
+            new_id_map = {
+                r["rel_path"]: r["id"]
+                for r in conn.execute(
+                    "SELECT id, rel_path FROM files WHERE repo_key = ? AND worktree_key = ?",
+                    (repo_key, target_wt),
+                ).fetchall()
+            }
+            for rel_path, symbols in pending_new_syms:
+                fid = new_id_map.get(rel_path)
+                if fid is not None:
+                    for name, kind, line, sig in symbols:
+                        pending_existing_syms.append((fid, repo_key, target_wt, rel_path, name, kind, line, sig))
+    if pending_existing_syms:
+        conn.executemany(
+            "INSERT INTO symbols(file_id, repo_key, worktree_key, rel_path, name, kind, line, signature) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
+            pending_existing_syms,
+        )
     removed_ids = [file_id for rel_path, (file_id, _, _, _) in existing.items() if rel_path not in seen_target]
     if removed_ids:
         conn.executemany("DELETE FROM files WHERE id = ?", [(fid,) for fid in removed_ids])
@@ -1225,6 +1254,7 @@ def sync_workspaces(conn, repo_info, no_orca=False, include_foreign_orca=False, 
         if orca_rows is not None:
             orca_used = True
             main_prefix = repo_key + "/"
+            foreign_orca_rows = []
             for row in orca_rows:
                 wkey = row["worktree_key"]
                 if wkey in by_key:
@@ -1263,26 +1293,27 @@ def sync_workspaces(conn, repo_info, no_orca=False, include_foreign_orca=False, 
                     foreign = resolve_repo(row["raw_path"])
                     if foreign and foreign["repo_key"] != repo_key:
                         upsert_repo_row(conn, foreign, touch_sync=False)
-                        conn.execute(
-                            """INSERT INTO workspaces(
-                                worktree_key, repo_key, path, branch, head_sha, is_main, is_detached,
-                                is_dirty, dirty_count, source, orca_id, orca_name, orca_host, orca_status, updated_at
-                            ) VALUES(?, ?, ?, ?, '', ?, ?, ?, ?, 'orca', ?, ?, ?, ?, ?)
-                            ON CONFLICT(worktree_key) DO UPDATE SET
-                                repo_key=excluded.repo_key, path=excluded.path, branch=excluded.branch,
-                                source=CASE WHEN workspaces.source='git' THEN 'git+orca' ELSE excluded.source END,
-                                orca_id=excluded.orca_id, orca_name=excluded.orca_name,
-                                orca_host=excluded.orca_host, orca_status=excluded.orca_status,
-                                updated_at=excluded.updated_at""",
-                            (
-                                wkey, foreign["repo_key"], row["path"], row["branch"],
-                                1 if wkey == foreign["repo_key"] else 0,
-                                0 if row["branch"] else 1,
-                                row["is_dirty"], 1 if row["is_dirty"] else 0,
-                                row["orca_id"], row["orca_name"], row["orca_host"], row["orca_status"], now,
-                            ),
-                        )
-
+                        foreign_orca_rows.append((
+                            wkey, foreign["repo_key"], row["path"], row["branch"],
+                            1 if wkey == foreign["repo_key"] else 0,
+                            0 if row["branch"] else 1,
+                            row["is_dirty"], 1 if row["is_dirty"] else 0,
+                            row["orca_id"], row["orca_name"], row["orca_host"], row["orca_status"], now,
+                        ))
+            if foreign_orca_rows:
+                conn.executemany(
+                    """INSERT INTO workspaces(
+                        worktree_key, repo_key, path, branch, head_sha, is_main, is_detached,
+                        is_dirty, dirty_count, source, orca_id, orca_name, orca_host, orca_status, updated_at
+                    ) VALUES(?, ?, ?, ?, '', ?, ?, ?, ?, 'orca', ?, ?, ?, ?, ?)
+                    ON CONFLICT(worktree_key) DO UPDATE SET
+                        repo_key=excluded.repo_key, path=excluded.path, branch=excluded.branch,
+                        source=CASE WHEN workspaces.source='git' THEN 'git+orca' ELSE excluded.source END,
+                        orca_id=excluded.orca_id, orca_name=excluded.orca_name,
+                        orca_host=excluded.orca_host, orca_status=excluded.orca_status,
+                        updated_at=excluded.updated_at""",
+                    foreign_orca_rows,
+                )
     existing_keys = {
         r["worktree_key"]
         for r in conn.execute("SELECT worktree_key FROM workspaces WHERE repo_key = ?", (repo_key,))
@@ -1296,8 +1327,16 @@ def sync_workspaces(conn, repo_info, no_orca=False, include_foreign_orca=False, 
             [(repo_key, k) for k in stale_keys],
         )
 
-    for wt in by_key.values():
-        conn.execute(
+    wt_params = [
+        (
+            wt["worktree_key"], repo_key, wt["path"], wt["branch"], wt["head_sha"],
+            wt["is_main"], wt["is_detached"], wt["is_dirty"], wt["dirty_count"],
+            wt["source"], wt["orca_id"], wt["orca_name"], wt["orca_host"], wt["orca_status"], now,
+        )
+        for wt in by_key.values()
+    ]
+    if wt_params:
+        conn.executemany(
             """INSERT INTO workspaces(
                 worktree_key, repo_key, path, branch, head_sha, is_main, is_detached,
                 is_dirty, dirty_count, source, orca_id, orca_name, orca_host, orca_status, updated_at
@@ -1308,11 +1347,7 @@ def sync_workspaces(conn, repo_info, no_orca=False, include_foreign_orca=False, 
                 is_dirty=excluded.is_dirty, dirty_count=excluded.dirty_count, source=excluded.source,
                 orca_id=excluded.orca_id, orca_name=excluded.orca_name, orca_host=excluded.orca_host,
                 orca_status=excluded.orca_status, updated_at=excluded.updated_at""",
-            (
-                wt["worktree_key"], repo_key, wt["path"], wt["branch"], wt["head_sha"],
-                wt["is_main"], wt["is_detached"], wt["is_dirty"], wt["dirty_count"],
-                wt["source"], wt["orca_id"], wt["orca_name"], wt["orca_host"], wt["orca_status"], now,
-            ),
+            wt_params,
         )
     return len(by_key), orca_used
 
@@ -1380,12 +1415,29 @@ def sync_prs(conn, repo_info, offline=False, force_prs=False):
         return count, True
 
     seen_nums = set()
+    pr_params = []
     for pr in items:
         if not isinstance(pr, dict) or not isinstance(pr.get("number"), int):
             continue
         num = pr["number"]
         seen_nums.add(num)
-        conn.execute(
+        pr_params.append((
+            repo_key,
+            num,
+            cap_sig(str(pr.get("title") or ""), 120),
+            str(pr.get("headRefName") or ""),
+            str(pr.get("baseRefName") or ""),
+            str(pr.get("state") or "OPEN"),
+            1 if pr.get("isDraft") else 0,
+            str(pr.get("mergeStateStatus") or ""),
+            str(pr.get("reviewDecision") or ""),
+            summarize_checks(pr.get("statusCheckRollup")),
+            str(pr.get("url") or ""),
+            str(pr.get("updatedAt") or ""),
+            now,
+        ))
+    if pr_params:
+        conn.executemany(
             """INSERT INTO prs(
                 repo_key, number, title, head_branch, base_branch, state, is_draft,
                 merge_state, review_decision, checks_summary, url, updated_at, synced_at
@@ -1395,23 +1447,8 @@ def sync_prs(conn, repo_info, offline=False, force_prs=False):
                 state=excluded.state, is_draft=excluded.is_draft, merge_state=excluded.merge_state,
                 review_decision=excluded.review_decision, checks_summary=excluded.checks_summary,
                 url=excluded.url, updated_at=excluded.updated_at, synced_at=excluded.synced_at""",
-            (
-                repo_key,
-                num,
-                cap_sig(str(pr.get("title") or ""), 120),
-                str(pr.get("headRefName") or ""),
-                str(pr.get("baseRefName") or ""),
-                str(pr.get("state") or "OPEN"),
-                1 if pr.get("isDraft") else 0,
-                str(pr.get("mergeStateStatus") or ""),
-                str(pr.get("reviewDecision") or ""),
-                summarize_checks(pr.get("statusCheckRollup")),
-                str(pr.get("url") or ""),
-                str(pr.get("updatedAt") or ""),
-                now,
-            ),
+            pr_params,
         )
-
     existing_nums = {
         r["number"] for r in conn.execute("SELECT number FROM prs WHERE repo_key = ?", (repo_key,))
     }
@@ -1650,8 +1687,17 @@ def sync_project_state(conn, repo_info):
             [(repo_key, wkey, sk) for sk in stale],
         )
 
-    for rec in records.values():
-        conn.execute(
+    state_params = [
+        (
+            repo_key, wkey, rec["state_key"], rec["source_kind"], rec["source_path"], rec["product"],
+            rec["active_sprint"], rec["passed_slices"], rec["active_slices"], rec["total_slices"],
+            rec["deferred_count"], rec["pending_inventory"], rec["sme_gate_blocked"],
+            rec["last_exit_code"], rec["last_exit_reason"], now,
+        )
+        for rec in records.values()
+    ]
+    if state_params:
+        conn.executemany(
             """INSERT INTO project_state(
                 repo_key, worktree_key, state_key, source_kind, source_path, product,
                 active_sprint, passed_slices, active_slices, total_slices, deferred_count,
@@ -1664,12 +1710,7 @@ def sync_project_state(conn, repo_info):
                 deferred_count=excluded.deferred_count, pending_inventory=excluded.pending_inventory,
                 sme_gate_blocked=excluded.sme_gate_blocked, last_exit_code=excluded.last_exit_code,
                 last_exit_reason=excluded.last_exit_reason, updated_at=excluded.updated_at""",
-            (
-                repo_key, wkey, rec["state_key"], rec["source_kind"], rec["source_path"], rec["product"],
-                rec["active_sprint"], rec["passed_slices"], rec["active_slices"], rec["total_slices"],
-                rec["deferred_count"], rec["pending_inventory"], rec["sme_gate_blocked"],
-                rec["last_exit_code"], rec["last_exit_reason"], now,
-            ),
+            state_params,
         )
     return len(records)
 
@@ -2294,14 +2335,15 @@ def cmd_prune(opts):
     conn = connect_db(db_path)
     try:
         drop_repos = []
-        for row in conn.execute("SELECT repo_key, main_checkout, last_sync_ts FROM repos").fetchall():
+        wt_max_by_repo = {
+            r[0]: float(r[1] or 0.0)
+            for r in conn.execute("SELECT repo_key, MAX(updated_at) FROM workspaces GROUP BY repo_key").fetchall()
+        }
+        repo_rows = conn.execute("SELECT repo_key, main_checkout, last_sync_ts FROM repos").fetchall()
+        for row in repo_rows:
             last_ts = float(row["last_sync_ts"] or 0.0)
             if last_ts <= 0.0:
-                wt_ts = conn.execute(
-                    "SELECT MAX(updated_at) FROM workspaces WHERE repo_key = ?",
-                    (row["repo_key"],),
-                ).fetchone()[0]
-                last_ts = float(wt_ts or 0.0)
+                last_ts = wt_max_by_repo.get(row["repo_key"], 0.0)
             stale = (last_ts <= 0.0 and float(opts.days) >= 0.0) or (last_ts > 0.0 and last_ts < cutoff)
             if not os.path.isdir(row["main_checkout"]) or stale:
                 drop_repos.append(row["repo_key"])
@@ -2309,7 +2351,8 @@ def cmd_prune(opts):
             conn.executemany("DELETE FROM repos WHERE repo_key = ?", [(k,) for k in drop_repos])
 
         drop_wts = []
-        for row in conn.execute("SELECT repo_key, worktree_key, path, updated_at FROM workspaces").fetchall():
+        wt_rows = conn.execute("SELECT repo_key, worktree_key, path, updated_at FROM workspaces").fetchall()
+        for row in wt_rows:
             stale = row["updated_at"] and row["updated_at"] < cutoff
             if not os.path.isdir(row["path"]) or stale:
                 drop_wts.append((row["repo_key"], row["worktree_key"]))

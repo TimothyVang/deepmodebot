@@ -2,6 +2,9 @@
 import asyncio
 from importlib.metadata import distribution
 from pathlib import Path
+import sys
+
+sys.dont_write_bytecode = True
 
 from google.antigravity import CapabilitiesConfig, LocalAgentConfig
 from google.antigravity.tools.tool_runner import ToolRunner

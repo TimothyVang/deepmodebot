@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { tmpdir } from "node:os";
-import { resolve } from "node:path";
-import { clientById, PLUGIN_ID } from "../lib/clients.mjs";
-
+import { join, resolve } from "node:path";
+import { clientById, PLUGIN_ID, pruneStaleOmpShadows } from "../lib/clients.mjs";
 // An OS-native absolute path: a Windows path is relative on Linux CI and never matches.
 const PKG_ROOT = resolve(tmpdir(), "npm", "node_modules", "deepmodebot");
 
@@ -104,4 +104,18 @@ test("codex: adds the local marketplace and the plugin", () => {
   const res = clientById("codex").ensure({ run, pkgRoot: PKG_ROOT, version: "0.9.0" });
   assert.equal(res.ok, true, res.detail);
   assert.deepEqual(calls.filter((c) => !c.endsWith("--json")), [`plugin marketplace add ${PKG_ROOT}`, `plugin add ${PLUGIN_ID}`]);
+});
+
+test("omp: pruneStaleOmpShadows removes stale manual deepmodebot shadow folder so plugin always wins", () => {
+  const dir = mkdtempSync(join(tmpdir(), "omp-shadow-test-"));
+  try {
+    const shadow = join(dir, "deepmodebot");
+    mkdirSync(shadow, { recursive: true });
+    writeFileSync(join(shadow, "SKILL.md"), "stale");
+    const removed = pruneStaleOmpShadows(dir);
+    assert.deepEqual(removed, ["deepmodebot"]);
+    assert.equal(existsSync(shadow), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
