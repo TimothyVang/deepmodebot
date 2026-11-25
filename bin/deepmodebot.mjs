@@ -29,13 +29,22 @@ const HELP = `deepmodebot ${version}: install and auto-update the deepmodebot pl
 
 Usage: deepmodebot <command>
 
-  setup      Install the plugin into every detected tool and turn on hourly auto-update
+  setup      Install the plugin into every detected tool, turn on auto-update, and bootstrap current git repo
              --clients claude,omp,codex,agy   only these tools
              --dry-run                        show the plan, change nothing
              --no-auto-update                 skip the hourly task
+             --no-init                        skip bootstrapping current git repo (AGENTS.md/CLAUDE.md/CI/memory)
              --yes                            do not ask before changing anything
-  update     Upgrade this npm package, then re-sync the tools setup configured (--quiet for the hourly task)
-  doctor     Show each tool's installed version next to this package's version
+  init       Bootstrap a project with .deepmodebot/ci.yml, policy.xml, memory DB, and AGENTS.md/CLAUDE.md
+             [dir]                            target repo directory (default: current directory)
+             --check                          exit 1 if project setup is incomplete
+    --install-hooks  install <1s .git/hooks/pre-commit running zero-token slop gate
+    --dependabot     also generate .github/dependabot.yml with 7-day cooldown
+  gate [sub]         Run native parallel Rust engine (slop|ci|perf|ui|cleanup|agents|skill-check|map|guard)
+  net [sub]          Run native concurrent Go engine (trending|pr-overlap|fetch-papers|webhook)
+  build-native       Compile zero-dep Rust (dmb-gate) and Go (dmb-net) release binaries
+  update             Upgrade this npm package, then re-sync the tools setup configured (--quiet for the hourly task)
+  doctor             Show each tool's installed version next to this package's version
   uninstall  Remove the plugin from the configured tools and stop auto-update
   version    Print the package version
 
@@ -115,11 +124,14 @@ async function setup() {
     console.log("No supported tool found on PATH (claude, omp, codex, agy).");
     return 1;
   }
+  const gitRoot = findGitRoot(process.cwd());
+  const doInit = Boolean(gitRoot) && !flag("no-init");
   say(`deepmodebot ${version} from ${pkgRoot}`);
   say("Plan:");
   for (const c of clients) say(`  - ${c.label}: install or update the deepmodebot plugin from this package`);
   const auto = !flag("no-auto-update");
   if (auto) say("  - turn on hourly auto-update (deepmodebot update --quiet)");
+  if (doInit) say(`  - bootstrap ${gitRoot} (.deepmodebot/ci.yml, policy.xml, memory DB, AGENTS.md, CLAUDE.md)`);
   if (flag("dry-run")) return 0;
   if (!(await confirm("Apply?"))) return 1;
 
@@ -132,8 +144,127 @@ async function setup() {
     state.autoUpdate = r.ok;
   }
   writeState(state);
+  if (doInit) {
+    const ir = runProjectInit(gitRoot, false);
+    say(`  ${ir.code === 0 ? "ok  " : "FAIL"} project-init: ${ir.out.trim() || "done"}`);
+  }
   say(ok ? "Done. Restart open tools to load the new version." : "Some tools failed; the hourly update retries them.");
   return ok ? 0 : 1;
+}
+
+function findGitRoot(startDir) {
+  let cur = resolve(startDir);
+  while (true) {
+    if (existsSync(join(cur, ".git"))) return cur;
+    const parent = dirname(cur);
+    if (parent === cur) return null;
+    cur = parent;
+  }
+}
+
+function findPython() {
+  if (process.platform === "win32" && which("py")) return ["py", ["-3", "-B"]];
+  if (which("python3")) return ["python3", ["-B"]];
+  if (which("python")) return ["python", ["-B"]];
+  return null;
+}
+
+function runProjectInit(targetDir, checkOnly, extraFlags = []) {
+  const py = findPython();
+  if (!py) return { code: 1, out: "python 3 not found on PATH" };
+  const script = join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "setup", "project_setup.py");
+  if (!existsSync(script)) return { code: 1, out: `project_setup.py missing at ${script}` };
+  const [exe, prefix] = py;
+  const cliArgs = [...prefix, script, "--root", resolve(targetDir), ...(checkOnly ? ["--check"] : []), ...extraFlags];
+  return run(exe, cliArgs);
+}
+
+function init() {
+  const pos = args.filter((a) => !a.startsWith("-"));
+  const targetDir = pos[1] || process.cwd();
+  const extra = [];
+  if (flag("install-hooks")) extra.push("--install-hooks");
+  if (flag("dependabot")) extra.push("--dependabot");
+  const res = runProjectInit(targetDir, flag("check"), extra);
+  if (res.out.trim()) console.log(res.out.trim());
+  return res.code;
+}
+
+function findNativeGate() {
+  const ext = process.platform === "win32" ? ".exe" : "";
+  const localBin = join(pkgRoot, "native", "dmb-gate", "target", "release", `dmb-gate${ext}`);
+  if (existsSync(localBin)) return localBin;
+  if (which(`dmb-gate${ext}`)) return `dmb-gate${ext}`;
+  return null;
+}
+
+function gate() {
+  const passArgs = args.slice(1);
+  const nativeBin = findNativeGate();
+  if (nativeBin) {
+    const res = run(nativeBin, passArgs);
+    if (res.out.trim()) console.log(res.out.trim());
+    return res.code;
+  }
+  const py = findPython();
+  if (!py) {
+    console.error("Neither native dmb-gate nor python 3 found.");
+    return 1;
+  }
+  const sub = passArgs[0] && !passArgs[0].startsWith("-") ? passArgs[0] : "slop";
+  const rest = passArgs[0] === sub ? passArgs.slice(1) : passArgs;
+  const map = {
+    slop: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "local-ci", "slop_gate.py"),
+    ci: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "local-ci", "local_ci.py"),
+    perf: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "perf-audit", "perf_audit.py"),
+    ui: join(pkgRoot, "plugins", "deepmodebot", "skills", "frontend-ui", "scripts", "ui_audit.py"),
+    cleanup: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "cleanup", "self_cleanup.py"),
+    agents: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "agents-md", "agents_md.py"),
+  };
+  const script = map[sub] || map.slop;
+  const [exe, prefix] = py;
+  const res = run(exe, [...prefix, script, ...rest]);
+  if (res.out.trim()) console.log(res.out.trim());
+  return res.code;
+}
+
+function findNativeNet() {
+  const ext = process.platform === "win32" ? ".exe" : "";
+  const localBin = join(pkgRoot, "native", "dmb-net", "bin", `dmb-net${ext}`);
+  if (existsSync(localBin)) return localBin;
+  if (which(`dmb-net${ext}`)) return `dmb-net${ext}`;
+  return null;
+}
+
+function net() {
+  const passArgs = args.slice(1);
+  const bin = findNativeNet();
+  if (!bin) {
+    console.error("dmb-net binary not built yet. Run: deepmodebot build-native");
+    return 1;
+  }
+  const res = run(bin, passArgs);
+  if (res.out.trim()) console.log(res.out.trim());
+  return res.code;
+}
+
+function buildNative() {
+  const ext = process.platform === "win32" ? ".exe" : "";
+  let code = 0;
+  const cargoManifest = join(pkgRoot, "native", "dmb-gate", "Cargo.toml");
+  if (existsSync(cargoManifest) && which("cargo")) {
+    const r = run("cargo", ["build", "--release", "--manifest-path", cargoManifest]);
+    if (r.out.trim()) console.log(r.out.trim());
+    if (r.code !== 0) code = r.code;
+  }
+  const goDir = join(pkgRoot, "native", "dmb-net");
+  if (existsSync(join(goDir, "go.mod")) && which("go")) {
+    const outBin = join(goDir, "bin", `dmb-net${ext}`);
+    const r = run("go", ["build", "-C", goDir, "-ldflags=-s -w", "-o", outBin, "."]);
+    if (r.out.trim()) console.log(r.out.trim());
+    if (r.code !== 0) code = r.code;
+  }
+  return code;
 }
 
 function update() {
@@ -213,7 +344,7 @@ function uninstall() {
   return 0;
 }
 
-const commands = { setup, update, doctor, uninstall, version: () => (console.log(version), 0), help: () => (console.log(HELP), 0) };
+const commands = { setup, init, gate, net, "build-native": buildNative, update, doctor, uninstall, version: () => (console.log(version), 0), help: () => (console.log(HELP), 0) };
 const handler = flag("version") ? commands.version : flag("help") || flag("h") ? commands.help : commands[cmd];
 if (!handler) {
   console.error(`Unknown command: ${cmd}\n\n${HELP}`);

@@ -141,6 +141,19 @@ class AgentsMdCase(unittest.TestCase):
         self.assertIn("## Finish line", text)
         self.assertNotIn("npm", text)
 
+    def test_enforces_local_ci_policy_and_memory_when_deepmodebot_dir_exists(self):
+        dm = self.repo / ".deepmodebot"
+        dm.mkdir()
+        (dm / "ci.yml").write_text("name: test\njobs:\n  ok:\n    steps:\n      - run: echo ok\n", encoding="utf-8")
+        (dm / "policy.xml").write_text('<deepmode-policy version="1.0"/>\n', encoding="utf-8")
+        run = self.run_tool("build", ".")
+        self.assertEqual(run.returncode, 0, run.stderr)
+        agents = self.read("AGENTS.md")
+        self.assertIn(".deepmodebot/ci.yml", agents)
+        self.assertIn(".deepmodebot/policy.xml", agents)
+        self.assertIn("deepmode-memory.db", agents)
+        self.assertIn("@AGENTS.md", self.read("CLAUDE.md"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,98 @@
+name: deepmodebot-local-ci
+on: [local-edit, pre-pr, pre-merge]
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+
+jobs:
+  skill-integrity:
+    timeout-minutes: 3
+    inputs:
+      - "plugins/deepmodebot/skills/**/SKILL.md"
+      - "plugins/deepmodebot/.antigravity-plugin/skills/**/SKILL.md"
+      - "plugins/deepmodebot/skills/deepmodebot/scripts/check_skill.py"
+      - "AGENTS.md"
+      - "CLAUDE.md"
+    steps:
+      - name: Validate all 18 skills and references
+        run: python -B -c "import glob, subprocess, sys; dirs=sorted(glob.glob('plugins/deepmodebot/skills/*') + glob.glob('plugins/deepmodebot/.antigravity-plugin/skills/*')); sys.exit(subprocess.call([sys.executable, '-B', 'plugins/deepmodebot/skills/deepmodebot/scripts/check_skill.py', *dirs]))"
+      - name: Verify AGENTS.md and CLAUDE.md managed blocks
+        run: python -B plugins/deepmodebot/skills/deepmodebot/assets/agents-md/agents_md.py check .
+      - name: Validate Node ESM scripts
+        run: node --check plugins/deepmodebot/scripts/omp-mcp-server.mjs && node --check plugins/deepmodebot/scripts/antigravity-guard.mjs
+
+  js-installer:
+    timeout-minutes: 3
+    inputs:
+      - "bin/*.mjs"
+      - "lib/*.mjs"
+      - "test/*.test.mjs"
+      - "package.json"
+      - ".claude-plugin/*.json"
+      - ".omp-plugin/*.json"
+      - "plugins/deepmodebot/.claude-plugin/*.json"
+      - "plugins/deepmodebot/.omp-plugin/*.json"
+      - "plugins/deepmodebot/.antigravity-plugin/*.json"
+    steps:
+      - name: Run npm installer and manifest tests
+        run: npm test
+
+  python-core:
+    timeout-minutes: 5
+    inputs:
+      - "scripts/*.py"
+      - "plugins/deepmodebot/skills/frontend-ui/scripts/*.py"
+      - "plugins/deepmodebot/skills/deepmodebot/assets/memory/*.py"
+      - "plugins/deepmodebot/skills/deepmodebot/assets/local-ci/*.py"
+      - "plugins/deepmodebot/skills/deepmodebot/assets/agents-md/*.py"
+      - "plugins/deepmodebot/skills/deepmodebot/assets/setup/*.py"
+      - "plugins/deepmodebot/skills/deepmodebot/assets/e2e/*.py"
+      - "plugins/deepmodebot/skills/deepmodebot/assets/workspace-map/*.py"
+      - "plugins/deepmodebot/skills/deepmodebot/assets/prompt-tools/*.py"
+      - "plugins/deepmodebot/skills/deepmodebot/assets/cleanup/*.py"
+      - "plugins/deepmodebot/skills/deepmodebot/assets/gen-ui/*.py"
+    steps:
+      - name: Run repo scripts and UI audit tests
+        run: python -B -m unittest discover -s scripts -p "test_*.py"
+      - name: Run core asset tests (memory, local-ci, setup, e2e, workspace-map, prompt-tools, agents-md, cleanup, gen-ui)
+        run: python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/memory -p "test_*.py" && python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/local-ci -p "test_*.py" && python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/setup -p "test_*.py" && python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/e2e -p "test_*.py" && python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/workspace-map -p "test_*.py" && python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/prompt-tools -p "test_*.py" && python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/agents-md -p "test_*.py" && python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/cleanup -p "test_*.py" && python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/gen-ui -p "test_*.py"
+
+  anti-slop:
+    timeout-minutes: 2
+    steps:
+      - name: Zero-token diff-only anti-slop, secret, linter, boundary & budget gate
+        run: python -B plugins/deepmodebot/skills/deepmodebot/assets/local-ci/slop_gate.py --root . --allow-config-change
+
+  rust-gate:
+    timeout-minutes: 3
+    inputs:
+      - "native/dmb-gate/Cargo.toml"
+      - "native/dmb-gate/src/*.rs"
+    steps:
+      - name: Run zero-dependency parallel Rust dmb-gate unit tests
+        run: cargo test --manifest-path native/dmb-gate/Cargo.toml
+
+  go-net:
+    timeout-minutes: 3
+    inputs:
+      - "native/dmb-net/go.mod"
+      - "native/dmb-net/*.go"
+    steps:
+      - name: Run zero-dependency concurrent Go dmb-net tests
+        run: go test -C native/dmb-net ./...
+
+  ui-gate:
+    timeout-minutes: 3
+    inputs:
+      - "plugins/deepmodebot/skills/frontend-ui/assets/themes/*.css"
+      - "plugins/deepmodebot/skills/frontend-ui/scripts/ui_audit.py"
+    steps:
+      - name: Audit starter CSS themes with ui_audit.py
+        run: python -B plugins/deepmodebot/skills/frontend-ui/scripts/ui_audit.py plugins/deepmodebot/skills/frontend-ui/assets/themes --json
+
+  gate-summary:
+    needs: [anti-slop, rust-gate, go-net, skill-integrity, js-installer, python-core, ui-gate]
+    timeout-minutes: 1
+    steps:
+      - name: Confirm zero stray bytecode caches in tracked plugin tree
+        run: python -B -c "import pathlib, sys; p=[x for x in pathlib.Path('plugins').rglob('*.pyc')]; sys.exit(1 if p else 0)"

@@ -22,6 +22,8 @@ import shutil
 import sys
 import time
 
+sys.dont_write_bytecode = True
+
 
 def load_loop():
     """loop.py is a sibling asset, not an installed package; load it by path for its repo audit."""
@@ -55,9 +57,14 @@ def code_list(commands):
     return ", ".join(f"`{cmd}`" for cmd in commands)
 
 
-def repo_block(report):
+def repo_block(report, root=None):
     layers = report["layers"]
     lines = [FINISH_LINE, "## Checks", ""]
+    has_ci = bool(root and os.path.isfile(os.path.join(root, ".deepmodebot", "ci.yml")))
+    has_policy = bool(root and os.path.isfile(os.path.join(root, ".deepmodebot", "policy.xml")))
+    if has_ci:
+        lines.append("- Local CI gate (mandatory before reporting done or opening a PR): run `.deepmodebot/ci.yml` via "
+                     "`python -B <deepmodebot skill>/assets/local-ci/local_ci.py run --cached`.")
     static, tests = layers["static_checks"], layers["test_checks"]
     if static and not tests:
         lines.append(f"- Checks, after every edit and before calling a part done: {code_list(static)}. No separate "
@@ -71,11 +78,15 @@ def repo_block(report):
         lines.append(f"- Live proof: the {code_list(layers['runtime_verify'])} skill. Tests alone are not proof.")
     else:
         lines.append("- Live proof: run the real app, CLI, or service path. Tests alone are not proof.")
-    lines += ["", "## Work area", "",
-              "- Scratch, temp files, logs, and evidence go in `.scratch/` (git-ignored), never system temp.", ""]
+    lines += ["", "## Work area & memory", "",
+              "- Scratch, temp files, logs, and evidence go in `.scratch/` (git-ignored), never system temp."]
+    if has_policy:
+        lines.append("- Governance policy: `.deepmodebot/policy.xml` (containment, CI gate, UI gate, hard stops).")
+    if has_ci or has_policy:
+        lines.append("- Project memory DB: `.scratch/deepmode-memory.db` (SQLite WAL+FTS5); recall compact XML via "
+                     "`project_memory.py recall --format xml --budget-tokens 800`.")
+    lines.append("")
     return "\n".join(lines)
-
-
 def wrap(body):
     return f"{BEGIN}\n{body.rstrip()}\n{END}\n"
 
@@ -113,7 +124,7 @@ def write(path, text):
 
 def planned(root, overwrite):
     """Return {file name: (path, current text, wanted text)} for AGENTS.md and CLAUDE.md."""
-    agents_block = wrap(repo_block(audit_repo(root)))
+    agents_block = wrap(repo_block(audit_repo(root), root=root))
     claude_block = wrap("@AGENTS.md")
     plan = {}
     for name, block, title in (("AGENTS.md", agents_block, "# Agent instructions"),
