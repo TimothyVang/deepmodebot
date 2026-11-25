@@ -1,15 +1,13 @@
 ---
 name: agent-harnesses
-description: "Cited, dated facts for omp, Claude Code, Codex and Antigravity SDKs; harness installation, embedding, configuration, hooks, permissions and delegation; MCP, ACP, A2A and WebMCP; LangChain, LangGraph, Deep Agents and LangSmith. Use for SDK or framework selection, agent applications, middleware routing, checkpoint/replay, memory, evals, deployment and bounded loops."
+description: "Cited facts for omp, Claude Code, Codex, Antigravity SDKs/harnesses, hooks, permissions, delegation tiers, MCP/ACP/A2A/WebMCP, and LangChain/LangGraph/Deep Agents."
 metadata:
-  as-of: "2026-11-13"
+  as-of: "2026-11-24"
 ---
 
 # Harnesses, protocols, and AI-native tooling
 
-Read when deepmodebot runs outside omp, when a task uses, configures, or scripts omp, Claude Code, Codex, or Google Antigravity (`agy`, App, IDE), or when it touches MCP, ACP, A2A, WebMCP, skills, plugins, `AGENTS.md`, hooks, or sandboxes. deepmodebot's text names omp tools; this skill translates them and carries the cited facts.
-
-Checked 2026-11-11 against primary docs and local `--help` of omp 18.18.9, Claude Code 2.1.322, and codex-cli 0.163.0, and 2026-11-13 against primary Google Antigravity docs (`antigravity.google/docs`). Every cell below is cited in the file for that harness. Versions move fast: recheck a flag or path before you build on it. `[inference]` and `[unverified]` marks in the files mean what they say.
+Read when configuring or scripting omp, Claude Code, Codex, or Antigravity (`agy`), translating omp tool names, or touching MCP/ACP/A2A/WebMCP, SDKs, hooks, sandboxes, or delegation tiers. Checked 2026-11-11 (omp 18.18.9, Claude Code 2.1.322, codex-cli 0.163.0) and 2026-11-13 (Antigravity docs). Recheck flags/paths before building; `[inference]` and `[unverified]` mean what they say.
 
 | File | Read when |
 |---|---|
