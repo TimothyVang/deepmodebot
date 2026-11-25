@@ -5,7 +5,8 @@ import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { disableAutoUpdate, enableAutoUpdate } from "../lib/autoupdate.mjs";
 import { CLIENTS, clientById } from "../lib/clients.mjs";
-import { run, which } from "../lib/run.mjs";
+import { parseJson, run, which } from "../lib/run.mjs";
+import { upgradeDecision } from "../lib/version.mjs";
 import { clearState, log, readState, withLock, writeState } from "../lib/state.mjs";
 
 const PKG = "deepmodebot";
@@ -273,12 +274,28 @@ function update() {
     console.log("Nothing configured yet. Run: npx deepmodebot@latest setup");
     return 1;
   }
-  const outcome = withLock(() => {
+  // The hand-off child runs while its parent holds the lock; it must not wait on that lock.
+  const lockHeld = flag("no-self-update") && process.env.DEEPMODEBOT_LOCK_HELD === "1";
+  const outcome = (lockHeld ? (fn) => fn() : withLock)(() => {
     if (!flag("no-self-update")) {
-      const r = npm(["install", "-g", `${PKG}@latest`]);
-      if (r.code !== 0) {
-        log(`npm install -g ${PKG}@latest failed: ${r.out.slice(-300)}`);
-        say(`npm upgrade failed; re-syncing ${version} anyway`);
+      // Read the registry's latest manifest first and install only a stable, newer release that ships
+      // the command: npm's first-publish placeholder (0.0.0-stage, no bin) once replaced a working install.
+      const view = npm(["view", `${PKG}@latest`, "name", "version", "bin", "--json"]);
+      const latest = view.code === 0 ? parseJson(view.stdout) : undefined;
+      const decision = latest ? upgradeDecision(version, latest) : { install: false, reason: "registry unreachable" };
+      if (decision.install) {
+        const r = npm(["install", "-g", `${PKG}@${latest.version}`]);
+        const root = globalRoot();
+        const installedBin = root && join(root, PKG, "bin", "deepmodebot.mjs");
+        if (r.code !== 0 || !installedBin || !existsSync(installedBin) || readInstalledVersion(root) !== latest.version) {
+          log(`upgrade to ${latest.version} failed or left no command; restoring ${version}: ${r.out.slice(-200)}`);
+          npm(["install", "-g", `${PKG}@${version}`]);
+          say(`npm upgrade failed; kept ${version}`);
+        } else {
+          log(`upgraded ${decision.reason}`);
+        }
+      } else {
+        say(`no upgrade: ${decision.reason}`);
       }
       // Hand off to the freshly installed copy so new client logic runs this sync.
       const root = globalRoot();
@@ -287,6 +304,7 @@ function update() {
       const isOtherCopy = fresh && resolve(fresh).toLowerCase() !== resolve(here, "deepmodebot.mjs").toLowerCase();
       const wasUpgraded = fresh && readInstalledVersion(root) !== version;
       if (isOtherCopy || wasUpgraded) {
+        process.env.DEEPMODEBOT_LOCK_HELD = "1";
         const r2 = run(process.execPath, [fresh, "update", "--no-self-update", ...(quiet ? ["--quiet"] : [])]);
         if (!quiet) console.log(r2.out);
         return { code: r2.code };
