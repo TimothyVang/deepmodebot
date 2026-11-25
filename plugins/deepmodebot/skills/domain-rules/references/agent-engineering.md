@@ -30,6 +30,7 @@ Audit every agent against all seven. Each names the failure it prevents.
 - Database tools (SQLite, Postgres MCP servers) default to read-only. (MCP-TEST)
 - Mutating tools take an idempotency key so a timeout or retry cannot double-charge or double-create. Same idea as principle `make-operations-idempotent`. (AI-COURSE)
 - Turn raw tool errors into a short, actionable failure message the agent can act on. (AI-COURSE)
+- Wire web or doc search into local coding agents before blaming model capability; bare local models often fail on post-cutoff tools or hardware simply because cloud harnesses bundle search. (LOCAL-AI-PROD)
 
 ## Planning loop
 
@@ -38,6 +39,7 @@ Audit every agent against all seven. Each names the failure it prevents.
 - A task is done only on an objective condition (tests pass, source verified). (AI-101)
 - Track long workflows in an explicit state object, such as a checklist of completed steps, instead of making the model reread the transcript. (AI-101)
 - Persist full state at every approval pause so the run resumes cleanly after sign-off (LangGraph checkpointing). (LANGGRAPH)
+- Calibrate planning depth to expected rework pain (likelihood of later change times cost to change): skip heavy specs for cheap UI tweaks and invest upfront design in hard-to-change boundaries such as database schemas. (ANTI-SLOP)
 
 ## Context and memory
 
@@ -45,6 +47,7 @@ Audit every agent against all seven. Each names the failure it prevents.
 - Models attend best to the start and end of a long prompt. Put critical instructions and the primary document at the edges, never buried mid-prompt ("lost in the middle"). (AI-COURSE)
 - Before each call, prune stale tool outputs, intermediate reasoning, and redundant logs ("context rot"). (AI-COURSE, LAWS)
 - Load skill headers first and full instructions only when a task matches (progressive disclosure). (AI-COURSE)
+- Agents resist deleting outdated notes and treat user remarks as permanent law, turning append-only memory and rule files into contradictory bloat or over-fenced paralysis; run explicit pruning passes to delete superseded rules and notes. (TRASH-MOUNTAIN)
 
 ## Multi-agent
 
@@ -67,6 +70,7 @@ Audit every agent against all seven. Each names the failure it prevents.
 - Keep a versioned golden dataset of realistic edge cases and past production failures. Run it before every release. (AI-COURSE)
 - Run cheap deterministic checks (schema, status codes, test pass rate) first, then an LLM judge for subjective quality. (AI-COURSE)
 - Track your most expensive failure (wrongly denied refund, deleted account) as its own alerted metric, never folded into overall accuracy. (AI-COURSE)
+- Replay real tasks from your own repo to benchmark model, harness, and skill changes—including ablating skills to verify they help—and score agent-specific regressions such as redundant tests. (WARP-FACTORY)
 
 ## MCP and WebMCP
 
@@ -103,3 +107,4 @@ Beyond those four, include only build and test commands and non-obvious conventi
 - Test generated validation against real data. For example, email regexes that reject `+` addressing. (DEV-LIFE)
 - Never paste customer PII, credentials, or connection strings into an AI tool. (DEV-LIFE)
 - The human's job moves to scoping requirements and edge cases up front and reviewing diffs hard. (DEV-LIFE, AI-ERA)
+- Sequential codebase evolution fails far more often than one-shot generation (top models score ~15–16% on Slop Code Bench), and uncleaned slop compounds because later agents read and imitate it; schedule explicit cleanup passes on long-lived repos. (ANTI-SLOP)

@@ -2,12 +2,12 @@
 name: domain-rules
 description: "Engineering rules by domain: AI agents and LLMs, AWS networking, backend system design, language ecosystems and their traps, DevOps and computer-science fundamentals, and engineering practice (debugging, legacy code, incidents, estimates). Use when designing or reviewing work in one of those areas."
 metadata:
-  as-of: "2026-11-11"
+  as-of: "2026-11-25"
 ---
 
 # Engineering domain rules
 
-Rules distilled from 102 public engineering explainer videos published in 2026 (listed in the Sources table below) and 450+ server implementations across the Million Users, $12 Server, and Multicore benchmarks (`high-scale-server-optimization.md`, `data-structures-and-cache-optimization.md`), current as of 2026-11-20. Rules are paraphrased; transcripts are not shipped. Each video rule carries a source key from the table below. Upload dates are approximate and may be off by a few days.
+Rules distilled from 106 public engineering videos published in 2026 (listed in the Sources table below) and 450+ server implementations across the Million Users, $12 Server, and Multicore benchmarks (`high-scale-server-optimization.md`, `data-structures-and-cache-optimization.md`), current as of 2026-11-25. Rules are paraphrased; transcripts are not shipped. Each video rule carries a source key from the table below. Upload dates are approximate and may be off by a few days.
 
 | File | Read when |
 |---|---|
@@ -33,6 +33,7 @@ Deepmodebot's principles, gates, and playbooks win any conflict. These files sup
 | AI-ERA | 2026-11-01 | [6 Skills That Will Make You Irreplaceable in the AI Era](https://youtu.be/s6OllgyglJE) |
 | AIRFLOW | 2026-08-11 | [Learn Apache Airflow in 8 Minutes (Explained Clearly)](https://youtu.be/Cnxrb7d8RKw) |
 | ANSIBLE | 2026-09-11 | [What is Ansible? (Finally Makes Sense)](https://youtu.be/0w07kacfIso) |
+| ANTI-SLOP | 2026-11-23 | [12 Rules for a Software Factory That Doesn't Ship Slop — Dex Horthy, Factory](https://www.youtube.com/watch?v=-NFMsM2y0Vk) |
 | API-AUTH | 2026-04-11 | [Every API Authentication Method Explained (Don’t Choose the Wrong One)](https://youtu.be/_lTECv25N2U) |
 | API-LAWS | 2026-09-11 | [8 API Laws of Senior Backend Developer](https://youtu.be/-40xErgJIBg) |
 | API-TYPES | 2026-02-11 | [Every API Type Explained in 4 Minutes](https://youtu.be/Z4_Cikopizw) |
@@ -91,6 +92,7 @@ Deepmodebot's principles, gates, and playbooks win any conflict. These files sup
 | LINUX-DIRS | 2026-08-11 | [LINUX isn't Hard Once You Understand This (File Directories)](https://youtu.be/qvjRcZcW8CY) |
 | LLM | 2026-08-11 | [LLM Will Finally Makes Sense After This Video...](https://youtu.be/wYpMi-KjLkc) |
 | LM-STUDIO | 2026-09-11 | [LM Studio Will Finally Makes Sense After This Video](https://youtu.be/NzY42zCyNEk) |
+| LOCAL-AI-PROD | 2026-11-21 | [What Runs Where? Local AI in Production — Ahmad Osman, Osmantic](https://www.youtube.com/watch?v=GKSQYbELDzw) |
 | MCP | 2026-08-11 | [MCP Will Finally Makes Sense After This Video](https://youtu.be/9Gn3NewenYA) |
 | MCP-TEST | 2026-10-11 | [I Tested 10 MCP Servers. These Are the Ones Worth Using For Local AI](https://youtu.be/7WQ_wfE7fss) |
 | MCP-VS-API | 2026-08-11 | [MCP vs API Explained: Do We Still Need API After MCP?](https://youtu.be/7yNvsFrwpp0) |
@@ -123,9 +125,11 @@ Deepmodebot's principles, gates, and playbooks win any conflict. These files sup
 | TERRAFORM | 2026-08-11 | [Terraform in 5 Minutes (Explained Clearly)](https://youtu.be/7S9HKPwfxDM) |
 | TOP10-AWS | 2026-04-11 | [Top 10 AWS Services Explained in 7 Minutes](https://youtu.be/OgoXhRTrXzk) |
 | TRANSFORMERS | 2026-10-11 | [Transformers Explained: The "God" Architecture Behind LLM's](https://youtu.be/A_5XNd7_3to) |
+| TRASH-MOUNTAIN | 2026-11-24 | [Software Factories: Escape from Trash Mountain — Steve Yegge, Gas Town](https://www.youtube.com/watch?v=SRhXgeNluIk) |
 | UNIX-LINUX | 2026-09-11 | [UNIX vs LINUX Explained: The Most Confused Topic Finally Makes Sense](https://youtu.be/LAQywjdmM6U) |
 | UUID | 2026-10-11 | [Auto Increment vs UUID: The Most Confused Topic Finally Makes Sense](https://youtu.be/NrqScxAqz44) |
 | VECTOR-DB | 2026-09-11 | [Vector Database Will Finally Makes Sense After This](https://youtu.be/-n4DglZ7Afc) |
+| WARP-FACTORY | 2026-11-20 | [Engineer Your Coding Agents Like Any Other System — Zach Lloyd, Warp](https://www.youtube.com/watch?v=0LeT996Hz3E) |
 | WATERMARK | 2026-09-11 | [Claude Can Now Watermark Its Text. But How? (Explained Clearly)](https://youtu.be/vU3QK7kxvAc) |
 | WEBMCP | 2026-10-14 | [WebMCP Will Finally Make Sense After This Video](https://youtu.be/wwSeLs0daEc) |
 | X-DESIGN | 2026-10-11 | [X (Twitter) System Design Architecture Explained for Absolute Beginners](https://youtu.be/OnhaOGbLP-o) |
