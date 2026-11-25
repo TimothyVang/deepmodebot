@@ -79,6 +79,7 @@
 }
 .ruled-list__row:last-child { border-bottom: 0; }
 .ruled-list__row:hover { background: var(--bg-raised); }
+.ruled-list__row:focus-visible { outline: 2px solid var(--accent-primary, currentColor); outline-offset: -2px; background: var(--bg-raised); }
 .ruled-list__row > * { min-width: 0; overflow-wrap: anywhere; }
 
 /* 5. Frosted floating bar / sticky action dock */

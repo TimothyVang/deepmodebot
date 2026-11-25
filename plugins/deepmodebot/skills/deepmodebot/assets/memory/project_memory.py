@@ -32,7 +32,7 @@ from xml.sax.saxutils import escape as xml_escape
 sys.dont_write_bytecode = True
 
 SCHEMA_VERSION = 1
-MMAP_BYTES = 64 * 1024 * 1024
+MMAP_BYTES = 0
 MAX_CONTENT_CHARS = 2048
 VALID_KINDS = frozenset({"fact", "decision", "gotcha", "convention", "ci_result", "hotspot", "handoff"})
 PRIORITY_WEIGHT = {0: 4.0, 1: 2.4, 2: 1.4, 3: 0.7}

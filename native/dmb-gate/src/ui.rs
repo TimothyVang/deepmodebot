@@ -77,7 +77,7 @@ pub fn scan_ui(rel: &str, text: &str) -> Vec<UiFinding> {
                 message: "Heavy generic black shadow; prefer tinted layered elevation tokens.",
             });
         }
-        if low.contains("<img") && !low.contains("alt=") {
+        if !matches!(ext.as_str(), "css" | "scss") && low.contains("<img") && !low.contains("alt=") {
             out.push(UiFinding {
                 severity: "P1",
                 rule: "ui-img-missing-alt",

@@ -80,7 +80,14 @@ pub fn scan_text(rel: &str, text: &str) -> Vec<PerfFinding> {
                 message: "GZipStream without leaveOpen: true closes backing MemoryStream.",
             });
         }
-        if low.contains("pragma") && low.contains("mmap_size") && !low.contains("mmap_size = 0") && !low.contains("mmap_size=0") {
+        let is_pattern_def = trim.contains("re.compile(") || trim.contains("low.contains(");
+        if !is_pattern_def
+            && low.contains("pragma")
+            && low.contains("mmap_size")
+            && !low.contains("mmap_size = 0")
+            && !low.contains("mmap_size=0")
+            && !low.contains("mmap_size={")
+        {
             out.push(PerfFinding {
                 rule_id: "PERF-SQLITE-001",
                 severity: "high",
@@ -89,7 +96,7 @@ pub fn scan_text(rel: &str, text: &str) -> Vec<PerfFinding> {
                 message: "SQLite mmap_size > 0 adds WAL-index probe overhead; prefer mmap_size=0.",
             });
         }
-        if low.contains("pragma") && low.contains("synchronous") && low.contains("full") {
+        if !is_pattern_def && low.contains("pragma") && low.contains("synchronous") && low.contains("full") {
             out.push(PerfFinding {
                 rule_id: "PERF-SQLITE-002",
                 severity: "medium",
@@ -98,7 +105,7 @@ pub fn scan_text(rel: &str, text: &str) -> Vec<PerfFinding> {
                 message: "SQLite synchronous=FULL fsyncs every commit; use synchronous=NORMAL in WAL mode.",
             });
         }
-        if low.contains("select ") && low.contains(" limit ") && low.contains(" offset ") {
+        if !is_pattern_def && low.contains("select ") && low.contains(" limit ") && low.contains(" offset ") {
             out.push(PerfFinding {
                 rule_id: "PERF-DB-002",
                 severity: "medium",
@@ -143,17 +150,19 @@ pub fn scan_text(rel: &str, text: &str) -> Vec<PerfFinding> {
                     message: "Blocking sync call inside `async def` stalls the event loop.",
                 });
             }
-            if loop_indent.is_some()
-                && (trim.contains("cursor.execute(") || trim.contains("conn.execute("))
-                && !trim.contains("executemany(")
-            {
-                out.push(PerfFinding {
-                    rule_id: "PERF-DB-001",
-                    severity: "high",
-                    file: rel.to_string(),
-                    line: ln,
-                    message: "Database `.execute()` inside a loop risks N+1 query overhead; batch with `executemany` or `IN (...)`.",
-                });
+            if let Some(li) = loop_indent {
+                if indent > li
+                    && (trim.contains("cursor.execute(") || trim.contains("conn.execute("))
+                    && !trim.contains("executemany(")
+                {
+                    out.push(PerfFinding {
+                        rule_id: "PERF-DB-001",
+                        severity: "high",
+                        file: rel.to_string(),
+                        line: ln,
+                        message: "Database `.execute()` inside a loop risks N+1 query overhead; batch with `executemany` or `IN (...)`.",
+                    });
+                }
             }
         }
     }
