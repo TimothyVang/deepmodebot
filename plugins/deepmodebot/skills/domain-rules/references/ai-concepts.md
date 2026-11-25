@@ -69,6 +69,7 @@ Read when a task involves LLM fundamentals, RAG or retrieval, fine-tuning, infer
 - **KV cache**: keeps past tokens' attention keys and values in GPU memory so each new token does not recompute them. (AI-COURSE)
 - **Prompt caching**: reuse the processed state of an identical static prefix to skip its prefill. Put static content first. (AI-COURSE)
 - **Quantization**: store weights in 8, 5, or 4 bits (Q8, Q4) instead of 16. Much less memory for a small quality loss. (LM-STUDIO)
+- **Dynamic quantization and agent batching**: uniform 4-bit quantization degrades accuracy compared to layer-aware quantization that keeps high-usage layers at higher precision; parallel multi-agent workloads also require high-bandwidth GPUs with batching engines rather than sequential unified-memory setups. (LOCAL-AI-PROD)
 - **Mixture of Experts**: routes each token to a few expert sub-networks, so only part of the parameters run per token (for example Qwen 3 Coder 480B). (OPEN-MODELS)
 - **Local runtimes**: Ollama and LM Studio run quantized GGUF models on your own CPU or GPU with no data leaving the machine. (OLLAMA, LM-STUDIO)
 - **Model routing**: easy tasks to small models, hard ones to big reasoning models. (AI-COURSE)
