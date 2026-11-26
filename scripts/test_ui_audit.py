@@ -61,6 +61,26 @@ class UiAuditTests(unittest.TestCase):
         self.assertEqual(css_by_rule.get("no-pure-black-surface"), "P1")
         self.assertEqual(css_by_rule.get("no-scale-zero-entry"), "P1")
 
+    def test_legitimate_buttons_styles_and_comments_do_not_false_positive(self):
+        legit_tsx = """/* never use transition: width 200ms; background: #000000; transform: scale(0); */
+export function SelectRow({ x, y }: { x: number; y: number }) {
+  return (
+    <div>
+      <button type="button"><svg viewBox="0 0 16 16"></svg> English (US) <svg viewBox="0 0 12 12"></svg></button>
+      <label><input type="checkbox" className="rounded-sm" /><span className="rounded-full">12</span></label>
+      <div style={{ transition: "transform 150ms ease-out", width: 260, top: y, left: x }}>Menu</div>
+    </div>
+  );
+}"""
+        self.assertEqual(ui_audit.audit_source(legit_tsx, "SelectRow.tsx", ".tsx"), [])
+
+        legit_css = """.badge-light { background: #ffffff; color: #000000; }
+.avatar:hover { filter: grayscale(0); transform: scale(0.98); }
+.btn { transition: transform 150ms ease-out } .card { padding: 16px; }
+:focus-visible { outline: 2px solid var(--accent); }
+@media (prefers-reduced-motion: reduce) { .btn { transition: none; } }"""
+        self.assertEqual(ui_audit.audit_source(legit_css, "legit.css", ".css"), [])
+
     def test_clean_oklch_document_passes(self):
         good_html = """<!doctype html>
 <html lang="en">

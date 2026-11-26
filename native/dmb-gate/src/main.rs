@@ -89,7 +89,7 @@ mod tests {
             &[
                 (1, fake_aws),
                 (2, "x = 1  # noqa".to_string()),
-                (3, "re.compile(r'-----BEGIN PRIVATE KEY-----')".to_string()),
+                (3, format!("re.compile(r'{}PRIVATE KEY-----')", "-----BEGIN ")),
             ],
             &mut out,
         );
@@ -101,7 +101,7 @@ mod tests {
         slop::scan_added_lines(
             "src/lib.rs",
             &[
-                (1, "let v = opt.unwrap();".to_string()),
+                (1, format!("let v = opt.{}();", "unwrap")),
                 (2, "if line.contains(\".unwrap()\") {}".to_string()),
             ],
             &mut rs_out,
@@ -147,7 +147,7 @@ jobs:
 
         let ui_hits = ui::scan_ui(
             "web/app.css",
-            ".card { transition: all 200ms ease-in; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }\n.drawer { transition: width 180ms ease-out; background: #000000; transform: scale(0); }\n",
+            ".card { transition: all 200ms ease-in; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }\n.drawer { transition: margin-top 180ms ease-out; background: #000000 } .scale0 { transform: scale(0); }\n",
         );
         assert!(ui_hits.iter().any(|f| f.rule == "ui-transition-all"));
         assert!(ui_hits.iter().any(|f| f.rule == "ui-ease-in"));
@@ -158,10 +158,23 @@ jobs:
 
         let tsx_hits = ui::scan_ui(
             "web/Toolbar.tsx",
-            "<input type=\"checkbox\" className=\"rounded-full\" />\n<button className=\"icon\"><svg viewBox=\"0 0 16 16\"></svg></button>\n",
+            "<div className=\"bg-black\">\n<input type=\"checkbox\" className=\"rounded-full\" />\n<button className=\"icon\"><i className=\"lucide-x\"></i></button>\n<button aria-label=\"\"><svg viewBox=\"0 0 16 16\"></svg></button>\n</div>\n",
         );
-        assert!(tsx_hits.iter().any(|f| f.rule == "ui-circular-checkbox" && f.severity == "P1"));
-        assert!(tsx_hits.iter().any(|f| f.rule == "ui-icon-button-unlabeled" && f.severity == "P1"));
+        assert!(tsx_hits.iter().any(|f| f.rule == "ui-pure-black-surface" && f.line == 1));
+        assert!(tsx_hits.iter().any(|f| f.rule == "ui-circular-checkbox" && f.line == 2));
+        assert_eq!(tsx_hits.iter().filter(|f| f.rule == "ui-icon-button-unlabeled").count(), 2);
+
+        let legit_tsx = ui::scan_ui(
+            "web/Legit.tsx",
+            "/* never use transition: width 200ms; background: #000000; transform: scale(0); */\n<button type=\"button\"><svg viewBox=\"0 0 16 16\"></svg> English (US) <svg viewBox=\"0 0 12 12\"></svg></button>\n<label><input type=\"checkbox\" className=\"rounded-sm\" /><span className=\"rounded-full\">12</span></label>\n<div style={{ transition: \"transform 150ms ease-out\", width: 260, top: 10 }}>Menu</div>\n",
+        );
+        assert!(legit_tsx.is_empty(), "unexpected findings: {:?}", legit_tsx);
+
+        let legit_css = ui::scan_ui(
+            "web/legit.css",
+            ".badge-light { background: #ffffff; color: #000000; }\n.avatar:hover { filter: grayscale(0); transform: scale(0.98); }\n.btn { transition: transform 150ms ease-out } .card { padding: 16px; }\n",
+        );
+        assert!(legit_css.is_empty(), "unexpected css findings: {:?}", legit_css);
     }
 
     #[test]
