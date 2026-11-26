@@ -35,7 +35,7 @@ Roles come from `~/.config/deepmodebot/bot.json`. Each is `{"agent": "<acpx agen
 | panel | none (the coordinator) | none | the tally and the head it covers |
 | coordinator | none | none | the kickoff, status, the merge note |
 
-Give the reviewer a different model family than the author, by agent or by model. Agreement across families is high signal.
+Pin `reviewer` and `verifiers` to fast low-tier models (`Model: "flash"` in Antigravity session runs, `@smol` / `haiku` / `gpt-6-luna` across ACP harnesses, `2–4` batched turns each) so multi-round PR review and 3-seat panels do not burn flagship weekly quota (`author` keeps the main coding tier); give the reviewer a different model family than the author when available.
 
 ## Show the user
 

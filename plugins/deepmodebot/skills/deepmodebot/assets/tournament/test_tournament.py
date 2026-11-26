@@ -184,8 +184,8 @@ class AutoRouterTests(unittest.TestCase):
         self.assertEqual(stripe_l["size"], "L")
         self.assertEqual(stripe_l["self_grill"], "both")
         self.assertEqual(stripe_l["effort"], "xhigh")
-        self.assertIn("gemini-4-neon-xhigh", stripe_l["panel_seats"])
-
+        self.assertIn("gemini-4-flash", stripe_l["panel_seats"])
+        self.assertIn("claude-haiku-5-5-high", stripe_l["panel_seats"])
         typo_s = tournament.classify_prompt("The quickstart in README.md says `npm run devv`. It should be `npm run dev`. Fix it.")
         self.assertEqual(typo_s["size"], "S")
         self.assertEqual(typo_s["self_grill"], "none")

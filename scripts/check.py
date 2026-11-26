@@ -356,7 +356,10 @@ def _run_test_file(item):
     idx, test_file = item
     sub_tmp = test_tmp / f"t{idx}"
     sub_tmp.mkdir(parents=True, exist_ok=True)
-    env = {**NO_PYC_ENV, "TMP": str(sub_tmp), "TEMP": str(sub_tmp), "TMPDIR": str(sub_tmp)}
+    env = {k: v for k, v in NO_PYC_ENV.items() if os.name != "nt" or k != "TMPDIR"}
+    env.update({"TMP": str(sub_tmp), "TEMP": str(sub_tmp)})
+    if os.name != "nt":
+        env["TMPDIR"] = str(sub_tmp)
     run = subprocess.run([sys.executable, "-B", "-m", "unittest", "discover", "-s", str(test_file.parent), "-p", test_file.name],
                          env=env, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
     return test_file, run

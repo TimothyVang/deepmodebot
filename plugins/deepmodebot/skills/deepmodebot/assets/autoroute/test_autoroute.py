@@ -407,7 +407,9 @@ class AutoRouteLoopTests(unittest.TestCase):
         self.assertEqual(lean_ver["locked_plan"]["panel_seats"], [])
         self.assertEqual(qb["subagent_models"]["scout"], "flash_lite")
         self.assertEqual(qb["subagent_models"]["comment-sicko"], "flash")
-
+        self.assertEqual(qb["subagent_models"]["reviewer"], "flash")
+        self.assertEqual(qb["subagent_models"]["security-reviewer"], "flash")
+        self.assertEqual(qb["subagent_models"]["panel_verifier"], "flash")
         with unittest.mock.patch.dict("os.environ", {"TEAMWORK_RUN_ID": "tw-777"}):
             nested_ver = autoroute.verify_decision(ok_dec, prompt="Implement caching layer", root=self.repo)
         self.assertEqual(nested_ver["status"], "APPROVED")
