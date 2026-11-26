@@ -172,7 +172,7 @@ jobs:
 
         let legit_css = ui::scan_ui(
             "web/legit.css",
-            ".badge-light { background: #ffffff; color: #000000; }\n.avatar:hover { filter: grayscale(0); transform: scale(0.98); }\n.btn { transition: transform 150ms ease-out } .card { padding: 16px; }\n",
+            ".badge-light { background: #ffffff; color: #000000; }\n.avatar:hover { filter: grayscale(0); transform: scale(0.98); }\n.btn { transition: transform 150ms ease-out } .card { padding: 16px; }\n.icon-mask { background: url(#⌘-gradient), url(#🚀-bg); }\n:focus-visible { outline: 2px solid var(--accent); }\n@media (prefers-reduced-motion: reduce) { .btn { transition: none; } }\n",
         );
         assert!(legit_css.is_empty(), "unexpected css findings: {:?}", legit_css);
     }

@@ -160,7 +160,7 @@ fn has_pure_black_bg_css(low: &str) -> bool {
             if (hex_len == 3 || hex_len == 6) && hex[..hex_len].iter().all(|b| *b == b'0') {
                 return true;
             }
-            from = pos + 1 + hex_len.max(1);
+            from = pos + 1 + hex_len;
         }
     }
     false
