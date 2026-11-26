@@ -475,6 +475,8 @@ class OmpMcpServerTests(unittest.TestCase):
         sec_inner = json.loads(sec_out["findings"])
         sec_tools_idx = sec_inner["args"].index("--tools")
         self.assertEqual(sec_inner["args"][sec_tools_idx + 1], "read,grep,glob")
+        sec_model_idx = sec_inner["args"].index("--model")
+        self.assertEqual(sec_inner["args"][sec_model_idx + 1], "@smol")
 
         rev_out = json.loads(by_id[3]["result"]["content"][0]["text"])
         self.assertEqual(rev_out["agent"], "reviewer")
@@ -482,8 +484,7 @@ class OmpMcpServerTests(unittest.TestCase):
         rev_tools_idx = rev_inner["args"].index("--tools")
         self.assertEqual(rev_inner["args"][rev_tools_idx + 1], "read,grep,glob")
         rev_model_idx = rev_inner["args"].index("--model")
-        self.assertEqual(rev_inner["args"][rev_model_idx + 1], "@slow")
-
+        self.assertEqual(rev_inner["args"][rev_model_idx + 1], "@smol")
         override_out = json.loads(by_id[4]["result"]["content"][0]["text"])
         override_inner = json.loads(override_out["findings"])
         ov_model_idx = override_inner["args"].index("--model")

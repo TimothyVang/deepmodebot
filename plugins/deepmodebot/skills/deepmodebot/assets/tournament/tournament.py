@@ -138,9 +138,9 @@ GREENFIELD_LEAD_RE = re.compile(
 )
 
 DEFAULT_PANEL_SEATS = (
-    "claude-fable-5-2-high",
-    "claude-opus-5-5-high-fast",
-    "gemini-4-neon-xhigh",
+    "claude-haiku-5-5-high",
+    "gpt-6-luna",
+    "gemini-4-flash",
 )
 
 SENSITIVE_PROMPT_RE = re.compile(

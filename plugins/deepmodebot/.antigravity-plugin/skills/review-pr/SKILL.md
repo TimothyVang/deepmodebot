@@ -8,7 +8,7 @@ description: "Review a PR (/review-pr) with parallel code-verified reviewers and
 Read `skill://deepmodebot` (`../../../skills/deepmodebot/SKILL.md` or `~/.gemini/config/plugins/deepmodebot/skills/deepmodebot/SKILL.md` for **Contain the work**, **Autonomy**, **Secrets**, and subscription rules) and `skill://deepmodebot/references/techniques/pr-review.md` (`../../../skills/deepmodebot/references/techniques/pr-review.md`) in full, then follow them to review the requested PR in PR mode on this repo.
 In Antigravity, `skill://<name>/<path>` means `<path>` inside `../../../skills/<name>/` (`~/.gemini/config/plugins/deepmodebot/skills/<name>/`).
 
-Run every step yourself, including the parallel `reviewer` subagents (`invoke_subagent`, or `omp_task` when using the `omp` MCP server) and the verification checks.
+Run every step yourself, pinning any `reviewer` subagents (`invoke_subagent` with `Model: "flash"`, or `omp_task` `@smol` when using the `omp` MCP server) to fast low-tier models (`2-4` batched turns; never `inherit` Carbon/Pro unless requested) and running verification checks directly.
 Don't ask which lenses or models to use.
 Post the review as a comment on the user's repo's PR without asking; on someone else's repo, show the body and ask first.
 Never approve or request changes. Fix-ups and merges follow deepmodebot's Autonomy section: merge only on a panel pass.

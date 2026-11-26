@@ -56,7 +56,7 @@ def resolve_main_root(start: Path) -> Path:
                     rel_parts = resolved.relative_to(parent_repo).parts
                 except ValueError:
                     rel_parts = ()
-                if rel_parts and rel_parts[0] == ".scratch":
+                if ".scratch" in rel_parts:
                     return resolved
                 return parent_repo
     except OSError:

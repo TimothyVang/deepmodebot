@@ -1,11 +1,11 @@
 """Unit tests for assets/memory/project_memory.py."""
 
 import importlib.util
+import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
-
 sys.dont_write_bytecode = True
 
 MOD_PATH = Path(__file__).resolve().parent / "project_memory.py"
@@ -20,7 +20,7 @@ class ProjectMemoryTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory(prefix="pm-test-")
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
-
+        subprocess.run(["git", "-C", str(self.root), "init", "-q"], check=True, capture_output=True)
     def test_put_dedups_identical_content_and_recalls_within_token_budget(self):
         r1 = pm.put_memory(self.root, key="inv:root", kind="convention", content="Keep all writes inside project root.", priority=0, tags="contain")
         self.assertEqual(r1["status"], "inserted")

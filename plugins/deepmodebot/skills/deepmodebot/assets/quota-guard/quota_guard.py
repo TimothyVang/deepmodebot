@@ -80,8 +80,9 @@ def compute_quota_plan(
         "comment-sicko": "flash",
         "mechanical": "flash",
         "slice_worker": "flash" if (norm_size in ("S", "M") or lean_mode) else "inherit",
-        "reviewer": "inherit",
-        "security-reviewer": "inherit",
+        "reviewer": "flash",
+        "security-reviewer": "flash",
+        "panel_verifier": "flash",
     }
 
     if nested:
@@ -243,13 +244,17 @@ def audit_transcripts(brain_dir: Path, root_conv_id: str | None = None) -> dict:
     coding_spawns = 0
     overhead_spawns = 0
     respawn_suffix_hits = 0
+    heavy_reviewer_spawns = 0
 
     overhead_role_re = re.compile(
         r"(?<![A-Za-z0-9])(?:orchestrator|explorer|scout|reviewer|challenger|auditor|verifier|judge|sentinel|interviewer|monitor|heartbeat)(?![A-Za-z0-9])",
         re.I,
     )
+    review_or_panel_re = re.compile(
+        r"(?<![A-Za-z0-9])(?:reviewer|security-reviewer|verifier|panel|prosecutor|auditor|judge)(?![A-Za-z0-9])",
+        re.I,
+    )
     respawn_re = re.compile(r"(?:_[rR][2-9](?![A-Za-z0-9])|(?<![A-Za-z0-9])round\s*[2-9](?![A-Za-z0-9]))", re.I)
-
     for d in target_dirs:
         tfile = d / ".system_generated" / "logs" / "transcript.jsonl"
         if not tfile.is_file():
@@ -280,6 +285,9 @@ def audit_transcripts(brain_dir: Path, root_conv_id: str | None = None) -> dict:
                     light_spawns += 1
                 else:
                     inherit_spawns += 1
+                is_review_or_panel = bool(review_or_panel_re.search(role)) or tname in {"reviewer", "security-reviewer"}
+                if is_review_or_panel and model not in {"flash", "flash_lite"}:
+                    heavy_reviewer_spawns += 1
                 if overhead_role_re.search(role) or tname in {"scout", "reviewer", "security-reviewer", "research", "teamwork"}:
                     overhead_spawns += 1
                 else:
@@ -295,7 +303,9 @@ def audit_transcripts(brain_dir: Path, root_conv_id: str | None = None) -> dict:
     if subagent_spawns >= 4 and overhead_pct > 75.0:
         warnings.append(f"OVERHEAD_DOMINATED: {overhead_pct}% ({overhead_spawns}/{subagent_spawns}) of spawns are orchestrator/scout/review overhead rather than coding workers.")
     if subagent_spawns >= 3 and inherit_pct > 70.0:
-        warnings.append(f"HEAVY_MODEL_INHERITANCE: {inherit_pct}% ({inherit_spawns}/{subagent_spawns}) of subagents inherited the primary model; pin scouts/mechanical helpers to flash_lite/flash.")
+        warnings.append(f"HEAVY_MODEL_INHERITANCE: {inherit_pct}% ({inherit_spawns}/{subagent_spawns}) of subagents inherited the primary model; pin scouts, reviewers, and verifiers to flash_lite/flash.")
+    if heavy_reviewer_spawns > 0:
+        warnings.append(f"HEAVY_REVIEWER_BURN: {heavy_reviewer_spawns} reviewer/verifier subagent(s) ran on inherit/pro instead of flash/flash_lite.")
     if respawn_suffix_hits > 0:
         warnings.append(f"RESPAWN_TAX: {respawn_suffix_hits} _r2/_r3 retry/recovery spawns detected; write .scratch/quota-guard checkpoints and cap parallel worktrees at <=2.")
 
@@ -310,6 +320,7 @@ def audit_transcripts(brain_dir: Path, root_conv_id: str | None = None) -> dict:
         "inherit_model_spawns": inherit_spawns,
         "light_model_spawns": light_spawns,
         "inherit_pct": inherit_pct,
+        "heavy_reviewer_spawns": heavy_reviewer_spawns,
         "respawn_hits": respawn_suffix_hits,
         "warnings": warnings,
     }
