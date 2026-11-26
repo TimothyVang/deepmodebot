@@ -27,14 +27,24 @@ sys.dont_write_bytecode = True
 SCAN_EXTS = frozenset({".html", ".htm", ".css", ".scss", ".jsx", ".tsx", ".vue", ".svelte"})
 SKIP_DIRS = frozenset({".git", ".scratch", ".worktrees", "node_modules", "__pycache__", "dist", "build", ".next"})
 
-TRANSITION_ALL_RE = re.compile(r"\btransition\s*:\s*[^;{}]*\ball\b", re.I)
+_LAYOUT_PROP = r"(?:width|height|top|left|right|bottom|margin(?:-(?:top|right|bottom|left))?|padding(?:-(?:top|right|bottom|left))?)"
+TRANSITION_ALL_RE = re.compile(
+    r"\btransition(?:-property)?\s*:\s*(?:['\"][^'\"]*\ball\b[^'\"]*['\"]|[^;{}\"'<>]*\ball\b)",
+    re.I,
+)
 LAYOUT_TRANSITION_RE = re.compile(
-    r"\btransition(?:-property)?\s*:\s*[^;{}]*\b(?:width|height|top|left|right|bottom|margin(?:-(?:top|right|bottom|left))?|padding(?:-(?:top|right|bottom|left))?)\b",
+    rf"\btransition(?:-property)?\s*:\s*(?:['\"][^'\"]*\b{_LAYOUT_PROP}\b[^'\"]*['\"]|[^;{{}}\"'<>]*\b{_LAYOUT_PROP}\b)",
     re.I,
 )
 EASE_IN_ONLY_RE = re.compile(r"\bease-in\b(?!-out)", re.I)
-SCALE_ZERO_CSS_RE = re.compile(r"\btransform\s*:\s*[^;{}]*\bscale\(\s*0(?:\.0+)?\s*\)", re.I)
-PURE_BLACK_BG_CSS_RE = re.compile(r"\bbackground(?:-color)?\s*:\s*#000(?:000)?\b(?![0-9a-f])", re.I)
+SCALE_ZERO_CSS_RE = re.compile(
+    r"\btransform\s*:\s*(?:['\"][^'\"]*(?<![a-z0-9_-])scale\(\s*0(?:\.0+)?\s*\)[^'\"]*['\"]|[^;{}\"'<>]*(?<![a-z0-9_-])scale\(\s*0(?:\.0+)?\s*\))",
+    re.I,
+)
+PURE_BLACK_BG_CSS_RE = re.compile(
+    r"\bbackground(?:-color)?\s*:\s*(?:['\"][^'\"]*#000(?:000)?\b(?![0-9a-f])[^'\"]*['\"]|[^;{}\"'<>]*#000(?:000)?\b(?![0-9a-f]))",
+    re.I,
+)
 RAW_TW_GRAY_RE = re.compile(r"\b(?:bg|text|border)-(?:zinc|slate|gray|neutral|stone)-\d{2,3}\b")
 TW_BG_BLACK_RE = re.compile(r"""(?<=[\s"'`])bg-black(?=[\s"'`])""")
 HEAVY_RGBA_SHADOW_RE = re.compile(r"box-shadow\s*:[^;{}]*rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0?\.[1-9]\d*\s*\)", re.I)
@@ -46,11 +56,14 @@ CIRCULAR_CHECKBOX_TAG_RE = re.compile(
     re.I,
 )
 ROUNDED_FULL_CLASS_RE = re.compile(r"\brounded-full\b|border-radius\s*:\s*(?:50%|9999px)", re.I)
-ICON_ONLY_BUTTON_RE = re.compile(
-    r"<button\b(?P<attrs>[^>]*)>\s*<(?:svg|i)\b[^>]*>.*?</(?:svg|i)>\s*</button>",
+BUTTON_TAG_RE = re.compile(r"<button\b(?P<attrs>[^>]*)>(?P<body>(?:(?!</button>).)*)</button>", re.I)
+ICON_ELEMENT_RE = re.compile(r"<(?:svg|i)(?=[\s>/])", re.I)
+STRIP_ICON_BLOCK_RE = re.compile(r"<(?P<tag>svg|i)\b[^>]*(?:/>|>.*?</(?P=tag)>)", re.I)
+STRIP_ANY_TAG_RE = re.compile(r"<[^>]+>")
+A11Y_NAME_ATTR_RE = re.compile(
+    r"\b(?:aria-label|aria-labelledby|title)\s*=\s*(?:['\"][^'\"]*\S[^'\"]*['\"]|\{\s*(?!['\"]\s*['\"]\s*\})[^}]+\})",
     re.I,
 )
-A11Y_NAME_ATTR_RE = re.compile(r"\b(?:aria-label|aria-labelledby|title)\s*=\s*['\"][^'\"]+['\"]", re.I)
 
 BROWSER_AUDIT_SNIPPET = r"""(() => {
   const vw = window.innerWidth;
@@ -227,7 +240,7 @@ def audit_source(text: str, rel: str, suffix: str) -> list[dict]:
     is_html = suffix in {".html", ".htm"}
     is_style = suffix in {".css", ".scss"} or (is_html and "<style" in text.lower())
     is_markup = suffix in {".html", ".htm", ".jsx", ".tsx", ".vue", ".svelte"}
-    scan_text = CSS_COMMENT_RE.sub(lambda m: "\n" * m.group(0).count("\n"), text) if is_style else text
+    scan_text = CSS_COMMENT_RE.sub(lambda m: "\n" * m.group(0).count("\n"), text)
     allows_intrinsic_size = "interpolate-size" in scan_text.lower()
 
     for idx, line in enumerate(scan_text.splitlines(), 1):
@@ -240,10 +253,10 @@ def audit_source(text: str, rel: str, suffix: str) -> list[dict]:
         if EASE_IN_ONLY_RE.search(line):
             findings.append({"severity": "P2", "rule": "no-ease-in-ui", "file": rel, "line": idx,
                              "message": "Avoid `ease-in` on UI transitions; use `ease-out` (enter/exit) or `ease-in-out` (moves)."})
-        if is_style and SCALE_ZERO_CSS_RE.search(line):
+        if SCALE_ZERO_CSS_RE.search(line):
             findings.append({"severity": "P1", "rule": "no-scale-zero-entry", "file": rel, "line": idx,
                              "message": "Avoid `scale(0)` UI entries; start popovers/menus at `scale(0.95)` with trigger-directional `transform-origin`."})
-        if is_style and PURE_BLACK_BG_CSS_RE.search(line):
+        if PURE_BLACK_BG_CSS_RE.search(line):
             findings.append({"severity": "P1", "rule": "no-pure-black-surface", "file": rel, "line": idx,
                              "message": "Avoid `#000000` dark surfaces (causes OLED scroll smearing); use brand-tinted dark tokens (`>= #09090b`)."})
         if is_markup:
@@ -258,8 +271,12 @@ def audit_source(text: str, rel: str, suffix: str) -> list[dict]:
                 if ROUNDED_FULL_CLASS_RE.search(m_cb.group(0)):
                     findings.append({"severity": "P1", "rule": "checkbox-not-circular", "file": rel, "line": idx,
                                      "message": "Checkboxes must stay rectangular/squircle (`rounded-sm`/`4–6px`); circles (`rounded-full`/`50%`) signify single-select radios."})
-            for m_btn in ICON_ONLY_BUTTON_RE.finditer(line):
-                if not A11Y_NAME_ATTR_RE.search(m_btn.group("attrs")):
+            for m_btn in BUTTON_TAG_RE.finditer(line):
+                body = m_btn.group("body")
+                if not ICON_ELEMENT_RE.search(body):
+                    continue
+                visible = STRIP_ANY_TAG_RE.sub("", STRIP_ICON_BLOCK_RE.sub("", body)).strip()
+                if not visible and not A11Y_NAME_ATTR_RE.search(m_btn.group("attrs")):
                     findings.append({"severity": "P1", "rule": "icon-button-label", "file": rel, "line": idx,
                                      "message": "Icon-only `<button>` is missing `aria-label`/`aria-labelledby` (and should expose a tooltip + shortcut)."})
             for m_img in IMG_TAG_RE.finditer(line):

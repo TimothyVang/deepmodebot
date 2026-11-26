@@ -657,6 +657,27 @@ pub fn run(args: &[String]) -> ExitCode {
         if !added.is_empty() {
             scan_added_lines(rel, &added, &mut local);
         }
+        let is_ui = Path::new(rel)
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(|s| crate::ui::UI_EXTS.contains(&s.to_ascii_lowercase().as_str()))
+            .unwrap_or(false);
+        if is_ui {
+            if let Ok(txt) = fs::read_to_string(root.join(rel)) {
+                for uf in crate::ui::scan_ui(rel, &txt) {
+                    if uf.severity == "P0" || uf.severity == "P1" {
+                        local.push(Finding {
+                            severity: uf.severity,
+                            rule: uf.rule,
+                            file: uf.file,
+                            line: uf.line,
+                            message: uf.message.to_string(),
+                            fix: "Fix UI token/a11y/motion violation per frontend-ui.",
+                        });
+                    }
+                }
+            }
+        }
         local
     });
 
