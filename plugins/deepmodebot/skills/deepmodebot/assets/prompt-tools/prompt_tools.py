@@ -102,6 +102,85 @@ URI_SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://")
 DEBT_MARKER_RE = re.compile(r"\b(TODO|FIXME|HACK|XXX)\b[:\s]*(.*)")
 DEFECT_WORD_RE = re.compile(r"\b(?:bug|broken|crash|error|fail|failing|fix|regression|leak|hang)\b", re.I)
 
+NO_CLARIFY_OVERRIDE_RE = re.compile(
+    r"\b(?:don'?t\s+ask|no\s+questions|just\s+do\s+it|do\s+everything\s+on\s+your\s+own|autonomous(?:ly)?|decide\s+yourself)\b",
+    re.I,
+)
+CONCRETE_TARGET_RE = re.compile(
+    r"(?:[A-Za-z0-9_./\\-]+\.(?:py|ts|tsx|js|jsx|mjs|cjs|rs|go|luau|lean|tla|md|json|yml|yaml|toml|sql|sh)\b"
+    r"|https?://\S+|\borgs/[A-Za-z0-9_.-]+|#\d+\b|\bPR\s*#?\d+\b|`[^`]+`"
+    r"|\b(?:postgres|sqlite|redis|stripe|oauth|jwt|cloudflare|vercel|workers|nextjs|react|tailwind|rust|golang|dmb-gate|dmb-net|gap_audit|slop_gate)\b)",
+    re.I,
+)
+VAGUE_GOAL_RE = re.compile(
+    r"^(?:please\s+|plz\s+|can\s+you\s+)?(?:improve|fix|upgrade|clean(?:\s+up)?|refactor|build|make|update|check|help(?:\s+with)?)"
+    r"(?:\s+(?:it|this|things|stuff|everything|something|the\s+(?:app|repo|code|project|system)|an?\s+(?:app|tool|website|saas)))?"
+    r"(?:\s+(?:better|faster|cleaner|good|now|please|plz))*[?!.]*$",
+    re.I,
+)
+HUMAN_FORK_RE = re.compile(
+    r"\b(?:not\s+sure\s+(?:whether|if)|should\s+(?:i|we)\b[^?!.]{1,80}\bor\b|either\b[^?!.]{1,60}\bor\b.*\bwhich\b)\b",
+    re.I,
+)
+IRREVERSIBLE_GATE_RE = re.compile(
+    r"\b(?:deploy\s+to\s+prod(?:uction)?|publish\s+(?:to\s+)?(?:npm|pypi|crates)|drop\s+table|delete\s+prod(?:uction)?|force[- ]push)\b",
+    re.I,
+)
+HARNESS_QUESTION_TOOLS = {
+    "agy": "ask_question",
+    "claude": "AskUserQuestion",
+    "omp": "ask",
+    "codex": "request_user_input",
+}
+
+
+def analyze_ambiguity(raw_prompt: str, root: Path | None = None) -> dict:
+    stripped = re.sub(r"^\s*(?:/(?:deepmodebot:)?deep\b|\$deepmodebot:(?:deepmodebot|deep)\b)\s*", "", raw_prompt or "", flags=re.I)
+    cleaned = " ".join(stripped.strip().split())
+    signals: list[str] = []
+    questions: list[dict] = []
+
+    if cleaned and not NO_CLARIFY_OVERRIDE_RE.search(cleaned):
+        has_anchor = bool(CONCRETE_TARGET_RE.search(cleaned))
+        word_count = len(re.findall(r"[A-Za-z0-9_]+", cleaned))
+        if not has_anchor and (word_count <= 4 or VAGUE_GOAL_RE.match(cleaned)):
+            signals.append("underspecified_scope")
+            questions.append({
+                "question": "What outcome should /deep prioritize in this run?",
+                "options": [
+                    "(Recommended) Full repo gap, drift & bug audit followed by Hardcore Mode fixes and verification",
+                    "Build a new end-to-end feature or subsystem (specify target workflow)",
+                    "Optimize performance, reliability, and test coverage across core modules",
+                ],
+            })
+        if HUMAN_FORK_RE.search(cleaned):
+            signals.append("explicit_human_choice_fork")
+            questions.append({
+                "question": "Which direction should /deep lock in before full-scope execution?",
+                "options": [
+                    "(Recommended) Prototype/benchmark the leading first-principles architecture and ship the winner",
+                    "Keep the smallest backwards-compatible change in the existing module layout",
+                ],
+            })
+        if IRREVERSIBLE_GATE_RE.search(cleaned):
+            signals.append("irreversible_or_external_action")
+            questions.append({
+                "question": "This prompt touches an external/irreversible boundary; how far should /deep proceed?",
+                "options": [
+                    "(Recommended) Build, test, and prove everything locally/on a branch, pausing right before external publish/deploy",
+                    "Execute the external publish/deploy step in this run as well",
+                ],
+            })
+
+    return {
+        "needs_clarification": bool(signals),
+        "signals": signals,
+        "max_rounds": 1 if signals else 0,
+        "never_ask_repo_or_doc_facts": True,
+        "headless_fallback": "select_recommended_and_log",
+        "harness_question_tools": HARNESS_QUESTION_TOOLS,
+        "questions": questions[:3],
+    }
 
 def _has_verify_skill(root: Path) -> list[str]:
     found = []
@@ -324,6 +403,7 @@ def upgrade_prompt(raw_prompt: str, root: Path | None = None) -> dict:
     if diff_note:
         upgraded_lines.insert(6, diff_note)
 
+    clarification = analyze_ambiguity(raw_prompt, root=root)
     return {
         "original_prompt": raw_prompt.strip(),
         "hardcore_mode": hardcore_mode,
@@ -331,6 +411,7 @@ def upgrade_prompt(raw_prompt: str, root: Path | None = None) -> dict:
         "decoded_deliverables": deliverables,
         "weaknesses": weaknesses,
         "needs_upgrade": bool(weaknesses),
+        "clarification": clarification,
         "route": route,
         "verify_skills": verify_skills,
         "upgraded_prompt": "\n".join(upgraded_lines),
@@ -781,6 +862,21 @@ def cmd_upgrade(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_clarify(args: argparse.Namespace) -> int:
+    raw = sys.stdin.read() if args.stdin else (args.prompt or "")
+    root = Path(args.root) if args.root else None
+    res = analyze_ambiguity(raw, root=root)
+    if args.json:
+        print(json.dumps(res, indent=2))
+    elif res["needs_clarification"]:
+        print(f"clarify [ASK_ONCE_UPFRONT]: {', '.join(res['signals'])}")
+        for idx, q in enumerate(res["questions"], 1):
+            print(f"  Q{idx}: {q['question']} -> {'; '.join(q['options'])}")
+    else:
+        print("clarify [CLEAR_RUN_AUTONOMOUSLY]: 0 questions needed")
+    return 0
+
+
 def cmd_suggest(args: argparse.Namespace) -> int:
     result = suggest_prompts(Path(args.root), limit=args.limit)
     if getattr(args, "ui", False) or getattr(args, "open", False):
@@ -816,6 +912,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_up.add_argument("--root", default=None)
     p_up.add_argument("--json", action="store_true")
     p_up.set_defaults(func=cmd_upgrade)
+
+    p_cl = sub.add_parser("clarify", help="Check whether /deep should ask 1 upfront clarification round or run immediately.")
+    p_cl.add_argument("--stdin", action="store_true")
+    p_cl.add_argument("--prompt", default="")
+    p_cl.add_argument("--root", default=None)
+    p_cl.add_argument("--json", action="store_true")
+    p_cl.set_defaults(func=cmd_clarify)
 
     p_sug = sub.add_parser("suggest", help="Scan a repo for gaps and overclaims and suggest full-scope /deep prompts.")
     p_sug.add_argument("--root", required=True)

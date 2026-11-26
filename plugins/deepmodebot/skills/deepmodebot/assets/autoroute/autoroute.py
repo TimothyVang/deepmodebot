@@ -350,7 +350,8 @@ def build_menu_packet(prompt: str, root: Path | None = None) -> dict:
     )
     ref_hints = detect_expected_reference_skills(cleaned, catalog["sibling_skills"])
     spec_hints = detect_specialized_signals(cleaned)
-
+    prompt_tools = _load_sibling("ar_prompt_tools", "prompt-tools/prompt_tools.py")
+    clarification = prompt_tools.analyze_ambiguity(cleaned, root=safe_root)
     compact_playbooks = [f"{k} (route_file: {v['file']}): {v['summary']}" for k, v in catalog["playbooks"].items()]
     compact_techniques = [f"{k} (route_file: {v['file']}): {v['summary']}" for k, v in catalog["techniques"].items()]
     compact_ref_skills = [f"{k} (route_file: {v['file']}): {v['summary']}" for k, v in catalog["sibling_skills"].items()]
@@ -411,6 +412,7 @@ def build_menu_packet(prompt: str, root: Path | None = None) -> dict:
         "repo_facts": repo_facts,
         "advisory_only": True,
         "hardcore_mode": hardcore_default,
+        "pre_flight_clarification": clarification,
         "advisory_prior": {
             "deprecated_offline_only": True,
             "mode": prior["mode"],

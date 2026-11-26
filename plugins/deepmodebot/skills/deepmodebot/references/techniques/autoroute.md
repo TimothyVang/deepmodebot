@@ -13,8 +13,9 @@ Regex cannot understand human phrasing, tone, frustration, skepticism, or compou
    EOF
    ```
    *(Headless / CLI callers without an active chat LLM can run `autoroute.py route --root "<project-root>" --stdin --harness auto --json` to invoke the user's logged-in subscription LLM `agy`/`claude`/`codex` directly through Stages 1–3, stripping API keys and never spending `omp` tokens.)*
-   `menu` discovers every playbook, technique (all 52, including `gen-ui` and `video-forensics`), plugin sibling skill, and project-local skill directly from disk, collects live repo facts, and emits `llm_router_prompt` with **no regex mode guess** so the LLM judges purely from the user's words.
-   Done when the live catalog and repo facts are in hand.
+   `menu` discovers every playbook, technique, plugin sibling skill, and project-local skill from disk, collects live repo facts plus `pre_flight_clarification` (`prompt_tools.py clarify`), and emits `llm_router_prompt` with **no regex mode guess**.
+   If `pre_flight_clarification.needs_clarification` is `true` (and repo/docs cannot settle it), ask `1-3` `(Recommended)`-first choices once upfront via `ask_question` / `AskUserQuestion` / `ask` / `request_user_input` (pick `(Recommended)` in `-p` mode), then run 100% autonomously.
+   Done when the live catalog, repo facts, and upfront intent check are settled.
 
 2. **Stage 2: Ask the LLM to decide semantically.** Using the full menu and repo facts (inline structured reasoning, or a fast read-only `scout` subagent on large/ambiguous asks), output a single JSON route decision:
    - `decoded_intent` and numbered `deliverables` (full scope; never drop compound clauses)

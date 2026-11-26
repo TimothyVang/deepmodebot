@@ -23,13 +23,16 @@ Applies to M/L and multi-item routes (Size **S** tracks its single item inline).
 
 ## Route (do this first)
 
-`/deep <anything>` routes and sizes without asking which mode to use.
+`/deep <anything>` is the zero-human-thought autopilot across `agy`, `omp`, Claude Code, and Codex: the user never needs to pick subcommands (`/research`, `/suggest`, `/tournament`, `/grill`) or engineer prompts.
+
+**0. Decode intent & 1-shot pre-flight clarify (`assets/prompt-tools/prompt_tools.py clarify`).** Decode typos, shorthand, URLs/orgs, and compound asks automatically, and look up repo/doc/runtime facts yourself (never ask what tools can answer).
+Only when human intent has `2+` materially different product/scope outcomes or hits an irreversible boundary, ask **once upfront** (`1-3` `(Recommended)`-first choices via `ask_question` / `AskUserQuestion` / `ask` / `request_user_input`; pick `(Recommended)` in `-p` mode), then execute 100% end-to-end without mid-run hand-holding.
 
 **1. Orient & auto-bootstrap.** Use Antigravity's hook-injected offline **workspace-map** overview if present; else run `python -B "<this skill>/assets/workspace-map/workspace_map.py" overview --fast --offline --no-orca` (`py -3 -B` on Windows; writes `<main-checkout>/.scratch/workspace-map.db`).
 On non-read-only sessions in an uninitialized repo, auto-run `python -B "<this skill>/assets/setup/project_setup.py" --root "<root>"` to create missing `.deepmodebot/ci.yml`, `.deepmodebot/policy.xml`, `.scratch/deepmode-memory.db`, and managed `AGENTS.md`/`CLAUDE.md` blocks (preserves user text; rewriting conflicting rules needs two owner yeses).
 Recall top project memories via `project_memory.py recall --root "<root>" --format xml --budget-tokens 600`. Skip `overview` and bootstrap on strictly read-only routes (`investigation`, local `pr-review`, `pr-thread`, `suggest`) when no DB exists. Run `query <term>` before broad greps; check `git remote`, `docs/PROJECT_BRIEF.md`, `STACK.md`, verify skills, and `gh repo view`. Outside/empty repo: Contain the work.
 
-**2. Route semantically (`references/techniques/autoroute.md`).** Run the 3-stage LLM router (`assets/autoroute/autoroute.py menu` → LLM JSON → `autoroute.py verify --strict`, or `autoroute.py route`); `tournament.py route` is an offline prior. Upgrade messy asks via **prompt-upgrade** (`assets/prompt-tools/prompt_tools.py upgrade`), re-route mid-flight via `autoroute.py reroute`, draft plans → **grill**, gap/overclaim hunts → **self-grill**, open/vague goals → **tournament**.
+**2. Route semantically & chain research/gaps (`references/techniques/autoroute.md`).** Run the 3-stage LLM router (`assets/autoroute/autoroute.py menu` → LLM JSON → `autoroute.py verify --strict`, or `autoroute.py route`) and `prompt_tools.py upgrade` on messy asks. Automatically chain **research** / **prior-art** (`gap_audit.py` + `trending.py` + `dmb-net`) when external SOTA/orgs/APIs apply and `deepmodebot gate gap` for repo drift/stubs; re-route mid-flight via `autoroute.py reroute`.
 
 **3. Size & delivery** (re-size if scope grows; delivery != size).
 
@@ -62,7 +65,7 @@ For **S**, only one-line restate, single-item scope check, real-artifact proof, 
 - **Hardcore mode by default (`references/principles/hardcore-mode.md`):** build the first-principles architectural ceiling (real algorithms, solvers, parallelism, full integration) rather than stubs/toy MVPs unless asked.
 - **Name principles:** on M/L, add "Why I chose this" naming each read principle (`references/principles/`) that changed a decision.
 - **Prove on the real artifact (E2E Rehearsal Gate):** run the real app/CLI/service; tests alone are not proof. For E2E workflows (any app/tool/UI), grill & lock user intent first (`assets/e2e/rehearsal_gate.py init` + `approve`), record the full continuous video, watch the entire video together (never isolated frames alone), and iterate `v1..v25` until `rehearsal_gate.py verdict --strict` returns `REHEARSAL_PASSED`.
-- **Decide; don't ask:** fact → look up; observable fork → Prototype; product/design/preference → decide (Autonomy).
+- **Clarify once upfront, then decide autonomously:** repo/doc/code fact → look up yourself; empirical engineering fork → Prototype; genuine human-intent ambiguity (`2+` distinct user outcomes) → ask `1-3` `(Recommended)`-first choices once before coding, then drive to 100% completion with zero interruptions.
 - **Secrets/logins/auth** → read `skill://secrets-and-auth` first; never print/paste/commit secrets.
 - **Name data shape first** (`references/principles/model-the-domain.md`; new domains/DBs/layouts → `skill://software-architecture`).
 - **No lying comments:** zero narration/banner/workaround comments; run **no-comments** before review. Long work → **show-me-your-work**.
