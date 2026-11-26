@@ -1,0 +1,39 @@
+/* Warm Editorial — docs, reading, brand, launch pages */
+:root, [data-theme="dark"] {
+  color-scheme: dark;
+  --bg-canvas: oklch(0.20 0.013 165);
+  --bg-surface: oklch(0.245 0.014 165);
+  --bg-raised: oklch(0.285 0.015 165);
+  --bg-sunken: oklch(0.165 0.011 165);
+  --bg-inverted: oklch(0.91 0.010 92);
+  --fg-primary: oklch(0.91 0.010 92);
+  --fg-secondary: oklch(0.74 0.010 120);
+  --fg-muted: oklch(0.61 0.009 145);
+  --fg-inverted: oklch(0.20 0.013 165);
+  --border-subtle: oklch(0.91 0.010 92 / 0.12);
+  --border-strong: oklch(0.91 0.010 92 / 0.24);
+  --accent: oklch(0.79 0.055 162);
+  --accent-fg: oklch(0.19 0.014 165);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --font-display: "Newsreader", "Gabarito", Georgia, serif;
+  --font-sans: "Figtree", "Source Sans 3", -apple-system, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, Menlo, monospace;
+  --display-tracking: -0.03em;
+}
+[data-theme="light"] {
+  color-scheme: light;
+  --bg-canvas: oklch(0.955 0.010 92);
+  --bg-surface: oklch(0.985 0.006 92);
+  --bg-raised: oklch(0.935 0.012 92);
+  --bg-sunken: oklch(0.92 0.012 92);
+  --bg-inverted: oklch(0.20 0.013 165);
+  --fg-primary: oklch(0.20 0.013 165);
+  --fg-secondary: oklch(0.40 0.012 160);
+  --fg-muted: oklch(0.53 0.010 155);
+  --fg-inverted: oklch(0.94 0.008 92);
+  --border-subtle: oklch(0.20 0.013 165 / 0.12);
+  --border-strong: oklch(0.20 0.013 165 / 0.24);
+  --accent: oklch(0.40 0.075 162);
+  --accent-fg: oklch(0.985 0.005 92);
+}

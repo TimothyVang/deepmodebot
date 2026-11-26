@@ -39,8 +39,9 @@ An AI SME lens never invents missing business or regulatory rules. Unverified P0
 > Evaluate whether the customer specification and implementation make sense in the real domain:
 > 1. Do the user stories, state transitions, and Done when items contradict each other or leave impossible domain states?
 > 2. What domain invariants or edge cases (units, rounding, cancellations, permissions, compliance, failure recovery) are missing or wrong?
-> 3. If this is an incremental sprint slice, can a real SME or customer meaningfully test and give feedback on it?
-> 4. Which open questions cannot be answered from the repo and must go to a human SME before building further?
+> 3. On mathematical or formal specs (`Challenge.lean`, `.tla`, `.smt2`, formulas), does the formal statement match the natural-language theorem 1-to-1 without semantic drift (quantifier order $\forall\exists$ vs $\exists\forall$, domain/regularity bounds, strict vs weak inequalities, or vacuous truth on empty/zero cases)?
+> 4. If this is an incremental sprint slice, can a real SME or customer meaningfully test and give feedback on it?
+> 5. Which open questions cannot be answered from the repo and must go to a human SME before building further?
 >
 > Return each finding with **severity** (P0/P1/P2), **location**, **domain risk** (one sentence), and **how to resolve** (code/doc fix, prototype, or human SME question). Do not guess undocumented domain rules.
 

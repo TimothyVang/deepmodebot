@@ -1,6 +1,6 @@
 ---
 name: tournament
-description: "Run a 12-agent evidence-backed tournament bracket (/tournament) across orthogonal architecture and research lenses, judged with receipt verification and grafting, proposing Champion + Runner-Up before coding. Use when invoked via /tournament, or when hunting architecture/research gaps on an open or vague goal."
+description: "12-agent receipt-verified tournament bracket (/tournament) proposing Champion + Runner-Up for open/vague goals."
 ---
 
 # /tournament

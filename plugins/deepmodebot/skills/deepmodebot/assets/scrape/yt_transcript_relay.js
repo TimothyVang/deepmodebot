@@ -6,10 +6,10 @@
 // Status per id: ok:<items>:last=<timestamp> | no_transcript_button (no captions) | no_segments | cached | error:...
 // Check "last" against the video duration; it should land within a few seconds of the end.
 globalThis.ytFetchTranscript = async (id, dir, tabName = "ytr") => {
-  const fs = require("fs");
-  fs.mkdirSync(dir, { recursive: true });
+  const fsp = require("fs/promises");
+  await fsp.mkdir(dir, { recursive: true });
   const out = `${dir}/${id}.json`;
-  if (fs.existsSync(out)) return "cached";
+  if (await fsp.access(out).then(() => true, () => false)) return "cached";
   const r = await browser.tab(tabName).run(async ({ page }, id) => {
     await page.goto(`https://www.youtube.com/watch?v=${id}`, { waitUntil: "domcontentloaded", timeout: 45000 });
     const btn = await page.waitForSelector("ytd-video-description-transcript-section-renderer button", { timeout: 20000 }).catch(() => null);
@@ -39,16 +39,19 @@ globalThis.ytFetchTranscript = async (id, dir, tabName = "ytr") => {
       return { id, status: "ok", ui: "classic", items };
     }, id);
   }, { args: [id], timeout: 90 });
-  if (r.status === "ok") fs.writeFileSync(out, JSON.stringify(r));
+  if (r.status === "ok") await fsp.writeFile(out, JSON.stringify(r));
   return r.status + (r.items ? `:${r.items.length}:last=${r.items.filter((i) => i.t).at(-1)?.t}` : "");
 };
 
 // Sequential on purpose: one page load every 3-5 s keeps a signed-in account below abuse heuristics.
-globalThis.ytRunBatch = async (ids, dir, tabName = "ytr") => {
+globalThis.ytRunBatch = (ids, dir, tabName = "ytr") => {
   const res = {};
-  for (const id of ids) {
-    try { res[id] = await ytFetchTranscript(id, dir, tabName); } catch (e) { res[id] = "error:" + e.message.slice(0, 80); }
-    if (res[id] !== "cached") await new Promise((r) => setTimeout(r, 3000 + Math.random() * 2000));
-  }
-  return res;
+  return ids.reduce(
+    (chain, id) =>
+      chain.then(async () => {
+        try { res[id] = await ytFetchTranscript(id, dir, tabName); } catch (e) { res[id] = "error:" + e.message.slice(0, 80); }
+        if (res[id] !== "cached") await new Promise((r) => setTimeout(r, 3000 + Math.random() * 2000));
+      }),
+    Promise.resolve(),
+  ).then(() => res);
 };

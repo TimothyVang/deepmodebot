@@ -52,6 +52,8 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
+sys.dont_write_bytecode = True
+
 CLAIM_MARKER = "<!-- deepmodebot:claim -->"
 UNCLAIM_MARKER = "<!-- deepmodebot:unclaim -->"
 OVERLAP_MARKER = "<!-- deepmodebot:overlap -->"
@@ -64,6 +66,7 @@ FIELD_RE = re.compile(r"^\s*(plan|files|expires)\s*:\s*(.*?)\s*$", re.IGNORECASE
 REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 
 MAX_WORKERS = 8
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 OPEN_PRS_QUERY = " ".join("""
 query($owner: String!, $name: String!, $cursor: String) {
@@ -111,6 +114,7 @@ def run_gh(args: list[str], input_text: str | None = None) -> str:
             errors="replace",
             env={**os.environ, "GH_PROMPT_DISABLED": "1", "NO_COLOR": "1"},
             check=False,
+            creationflags=NO_WINDOW,
         )
     except OSError as exc:
         raise GhError(f"could not run gh: {exc}") from exc

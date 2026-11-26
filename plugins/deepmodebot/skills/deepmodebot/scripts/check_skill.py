@@ -12,16 +12,22 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+
 REF = re.compile(r"(?<![\w/])((?:references|scripts)/[\w./-]+\.(?:md|py|sh|json|txt))")
 LINK = re.compile(r"skill://([\w-]+(?:/[\w-]+)?)(?![\w<-])")
 FILE_LINK = re.compile(r"skill://([\w-]+)/([\w./-]+\.(?:md|py|sh|json|txt|ts|cjs))")
 EXPORTED = {"frontend-ui"}  # skills exported from another repo; a scripts/ path there names that repo's file
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
 def installed_skills(skill_dir: Path) -> tuple[dict[str, Path], bool]:
     """The skills a link may name: this skill's siblings, plus what `omp skill list` reports. The flag says whether
     that list was read; without it a link to a global skill (skill://tdd) can't be judged, so it isn't."""
     found = {p.parent.name: p.parent for p in skill_dir.parent.glob("*/SKILL.md")}
+    if skill_dir.parent.name == "skills" and skill_dir.parent.parent.name == ".antigravity-plugin":
+        for p in (skill_dir.parents[2] / "skills").glob("*/SKILL.md"):
+            found.setdefault(p.parent.name, p.parent)
     omp = shutil.which("omp")
     if not omp:
         return found, False
@@ -33,6 +39,7 @@ def installed_skills(skill_dir: Path) -> tuple[dict[str, Path], bool]:
             encoding="utf-8",
             errors="replace",
             timeout=60,
+            creationflags=NO_WINDOW,
         ).stdout
         data = json.loads(out)
         for skill in data if isinstance(data, list) else data.get("skills", []):

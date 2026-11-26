@@ -1,5 +1,4 @@
 ## 6. Typography and layout
-[anthropic frontend-design skill; articles/emil-kowalski-*]
 - **Fonts:**
   - Choose typefaces deliberately for this brief.
   - Use one or two families; if two, make them clearly distinct.
@@ -7,12 +6,14 @@
 - **Text:**
   - Body text about 65ch (never more than 80).
   - Serif body gets slightly more line-height.
-  - `tabular-nums` for numeric columns.
-  - `…`, not `...`.
+  - `tabular-nums` for numeric columns, numbered list markers (`9.` → `10.`), live video/audio timers, and dynamic counters so digits never jitter horizontally.
+  - `…`, not `...`. Use grapheme-cluster segmentation (`Intl.Segmenter`) for character limits, truncation, and backspace stepping so multi-codepoint ZWJ emojis never split (`7DN3Ectm6UY`). Use dynamic **middle-truncation** on versioned filenames, paths, and IDs so `v1`/`v2` suffixes stay visible (`FQVRfadJkJk`).
+  - Maintain a sticky horizontal `preferredCaretX` across consecutive `ArrowUp`/`ArrowDown` moves in custom editors so crossing a short line never drifts the cursor column left.
+  - Match **input-box geometry** to desired writing density: compact comment-sized boxes produce concise updates; tall document canvases invite essays (`icRjQePEa_A`). Keep multi-select **checkboxes rectangular/squircle** (`4–6 px` radius) — circular controls (`rounded-full`) signify single-select radios (`FQVRfadJkJk`).
   - Loosen tracking on any uppercase.
   - Fallback fonts with a metric match to avoid layout shift.
 - **Emphasis:** underlines only on links; bold for UI emphasis; italic for citation or stress.
-- **Hierarchy by de-emphasis** [youtube/EjEYTRD-W-M; youtube/7Z9rrryIOC4]:
+- **Hierarchy by de-emphasis:**
   - Exactly three text tones (primary / secondary / tertiary). Reach for weight and color before size.
   - Drop a label when the value's format already says what it is.
   - Group headings are small, bold and soft.
@@ -29,20 +30,20 @@
   - Spacing on a 4 px grid. Schoger's 6/30 px steps are rejected.
 - **Type scale:**
   - App surfaces use a fixed scale (12/14/16/18/20/24/30/36/48), with body at 16/1.5 and tighter leading as size grows.
-  - Persuade surfaces may use a fluid `clamp()` scale.
-- **Font mechanics** [youtube/n0iAYEpU0Fk]:
+  - Persuade surfaces may use a fluid `clamp()` scale, scaling desktop display `h1` (`48–80 px`, `-0.02em` to `-0.03em` tracking, `text-wrap: balance`) by **`0.50×–0.67×` at `390 px` mobile** (`28–44 px`, zero horizontal overflow — measured across 24 live Mobbin sites in `references/patterns/mobbin-shipped-apps.md`).
+- **Font mechanics:**
   - Re-tune size and weight when swapping families, because x-height differs.
   - `font-optical-sizing: auto`. Real italics only.
   - `text-box: trim-both cap alphabetic` for optically centered badges and buttons, as progressive enhancement.
   - If you use Inter: self-hosted 4.x, extra tracking below 14 px.
-- **Layout by container, not viewport** [youtube/_njUxg5UfR0]:
+- **Layout by container, not viewport:**
   - `@media` only for page chrome. Components use `container-type: inline-size` + `@container`; agent-console and IDE panes are user-resized.
   - Content-aware variants use scoped `:has()` (never `:root:has()`).
   - Logical properties for RTL.
   - `cqw` + `clamp()` for in-between sizes.
-- **Depth and finish** [github/pbakaus-impeccable; github/vercel-labs-web-interface-guidelines]:
-  - A 4–5 step elevation scale mapped to element type (input → dropdown → panel → modal): a tight ambient shadow plus a larger downward-offset direct shadow, alpha around .08, tinted toward the background hue. Raised panels are lighter than the page (white on about 2% darker). [youtube/7Z9rrryIOC4]
-  - Semi-transparent borders.
+- **Depth and finish:**
+  - A 4–5 step elevation scale mapped to element type (input → dropdown → panel → modal): 3-layer OKLCH ambient shadows (`oklch(0 0 0 / 0.01..0.03)`), plus optional `1 px` top inner rim highlights (`inset 0 1px 0 oklch(1 0 0 / 0.18)`). Raised panels are lighter than the page (white on about 2% darker).
+  - Semi-transparent `1 px` borders; sticky glass chrome uses `backdrop-filter: blur(12px–24px) saturate(1.6–1.8)`.
   - Concentric radii: a child's radius is no larger than its parent's.
   - Theme the browser surfaces too: `::selection`, caret, scrollbars, focus ring, `color-scheme`, `theme-color`.
 - **More type hygiene:** `text-wrap: balance` on headings; about −0.02em tracking on large headings; no weight change on hover; `Intl.*` for numbers and dates; a non-breaking space in `10 MB` and `⌘ K`.

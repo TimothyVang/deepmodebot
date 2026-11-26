@@ -37,6 +37,7 @@ const SLASH_PREFIX = "/deepmodebot:";
 const SLASH_COMMANDS = [
   "/deep",
   "/deepmodebot",
+  "/suggest",
   "/tournament",
   "/review-pr",
   "/land-pr",

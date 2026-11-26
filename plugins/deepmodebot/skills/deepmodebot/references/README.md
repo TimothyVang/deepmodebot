@@ -43,6 +43,15 @@ For vague intent, quantitative milestones and independent two-of-three goal revi
 
 Frontend evidence and media live in the private `TimothyVang/frontend` (skip if inaccessible). When you need them, shallow-clone read-only to gitignored `.scratch/refs/frontend` (reference-only exception to the no-nested-project-repos rule) and never commit from it.
 
+
+**Technical SEO, GEO/AEO, Schema.org & Agentic Web readiness** (auditing or shipping indexable HTML, Core Web Vitals, JSON-LD, `robots.txt` AI crawler rules, `sitemap.xml`, `/llms.txt`, and browser-agent-ready forms) → `skill://seo-and-geo` (`scripts/seo_audit.py`).
+
+**Office & document engineering** (creating, editing, extracting, or verifying `.xlsx` financial/formula spreadsheets, `.pptx` widescreen decks, `.docx` reports/redlines, and `.pdf` documents/forms) → `skill://office-documents` (`scripts/doc_audit.py`).
+
+**Deep learning, RL, neural networks & weight-space programming** (non-LLM neural architectures, reinforcement learning, world models, geometric/scientific ML, training optimization, and gradient-free `READ`/`FIX`/`WRITE` weight-space edits via `scripts/wsp.py`) → `skill://deep-learning`, then only the reference file the task touches (`weight-space-programming.md`, `reinforcement-learning.md`, `neural-architectures.md`, `training-optimization.md`, `papers-and-repos.md`).
+
+**App automation relay:** for revision-checked `observe → act → wait` over native app interfaces, see `skill://app-automation-relay`. Its `assets/relay_server.ts` is a runnable Bun HTTP/stdio starter.
+
 **Cloud security and DevSecOps rules** come from `skill://cloud-devsecops` (cited reports in `TimothyVang/cloud-devsecops`, private — skip direct repo cloning if inaccessible; its `SKILL.md` lists them). They cover securing and wiring up a cloud, where `skill://domain-rules/references/aws-networking.md` covers how AWS networking works. Read the file the task touches before designing, reviewing, or changing cloud access, policy, or pipelines:
 
 - AWS accounts, Organizations, SCP/RCP, IAM, GuardDuty or Security Hub, KMS, or CI access to AWS → `skill://cloud-devsecops/references/aws.md`.
@@ -57,5 +66,8 @@ Frontend evidence and media live in the private `TimothyVang/frontend` (skip if 
 **Verification and contributor sibling skills** bundled alongside deepmodebot:
 - Creating a repo `verify-<app>` skill when repeated journeys justify one → `skill://create-verification-skill`.
 - Auditing or updating an existing `verify-<app>` skill as features drift → `skill://maintain-verification-skill`.
+- Creating a project-local formal verification skill (TLA+, proof assistant, SMT, or bounded code verifier) → `skill://create-formal-verification-skill`.
+- Bringing formal models/harnesses back in sync after code changes without weakening properties → `skill://maintain-formal-verification-skill`.
+- Checking a TLA+ state model and rendering shortest-counterexample Mermaid statecharts → `skill://statechart`.
 - Picking unclaimed non-overlapping work in someone else's repo → `skill://contribute`.
 - Publishing a newcomer `PROJECT_BRIEF.md`, task board, and overlap guardrails for contributors → `skill://project-brief`.

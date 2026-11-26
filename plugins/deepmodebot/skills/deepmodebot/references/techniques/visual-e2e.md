@@ -19,7 +19,16 @@ Use for a visible UI workflow whose outcome needs recorded evidence, per-step sc
 7. Publish a discoverable, repository-local evidence index after checking every retained file for secrets and private data. Link the original scenario, manifests and hashes, both recording and replay, step PNGs, snapshots, frame sampling metadata, deterministic checks, three reviews, minority report, and any design diagrams.
    Record the tested app revision separately from the recorder's source revision. A supplied app revision is not an observed revision. Apply the normal PR review and shipping gates separately. Keep private native events and OAuth metadata out of public artifacts.
 
-Completion means every original scenario step is represented in a validated bundle and three valid visual reviews, with deterministic outcomes and dissent preserved. If any gate fails, report the failed gate and its evidence rather than saying the UI passed.
+## Collective full-video review & rehearsal gate (`assets/e2e/rehearsal_gate.py`)
+
+A single pretty frame can hide mid-flight pops, flicker, layout jumps, dead pauses, or broken transitions between beats. For every E2E workflow (any web app, desktop app, CLI/TUI, or interactive demo):
+
+1. **Grill & lock user intent first:** confirm the exact beats, inputs, state transitions, and visual/UX bar with the user, then run `rehearsal_gate.py init` and `rehearsal_gate.py approve`.
+2. **Record the entire continuous flow as one video** (`.mp4`/`.webm`, SHA-256 hashed, covering 100% of approved beats). Isolated screenshots fail the gate.
+3. **Watch the whole video collectively** from start to settled payoff (plus sampled keyframes for micro-detail), checking continuity, transitions, pacing, and responsive layouts.
+4. **Iterate `v1..v25` internally under strict gates:** log every rehearsal round with `rehearsal_gate.py record-run` and require a fresh-eye critic approval with `0` open P0/P1 findings. Never tell the user the E2E workflow is complete until `python -B "<this skill>/assets/e2e/rehearsal_gate.py" verdict --root "<root>" --slug "<slug>" --strict` exits `0` (`REHEARSAL_PASSED`) and `REHEARSAL.md` records the version history.
+
+Completion means every original scenario step is represented in a validated bundle, the full video was watched collectively, three valid visual reviews (or fresh-eye critic + strict rehearsal verdict) passed, and deterministic outcomes and dissent remain preserved. If any gate fails, report the failed gate and its evidence rather than saying the workflow passed.
 
 ## Native image-review command
 

@@ -1,0 +1,23 @@
+<deepmode-policy version="1.0" repo="deepmodebot">
+  <enforcement>
+    <ci file=".deepmodebot/ci.yml" runner="plugins/deepmodebot/skills/deepmodebot/assets/local-ci/local_ci.py" mode="local-only" required="true">
+      Run `python -B plugins/deepmodebot/skills/deepmodebot/assets/local-ci/local_ci.py run --cached` before reporting done or opening a PR.
+    </ci>
+    <slop-gate runner="plugins/deepmodebot/skills/deepmodebot/assets/local-ci/slop_gate.py" native="native/dmb-gate/target/release/dmb-gate" tokens="0"/>
+    <instructions source="AGENTS.md" claude="CLAUDE.md" sync="plugins/deepmodebot/skills/deepmodebot/assets/agents-md/agents_md.py"/>
+    <ui-gate audit="plugins/deepmodebot/skills/frontend-ui/scripts/ui_audit.py" viewports="1440x900,390x844" rounds="2"/>
+  </enforcement>
+  <budgets>
+    <file path="plugins/deepmodebot/skills/deepmodebot/SKILL.md" max-bytes="24000"/>
+    <file path="AGENTS.md" max-lines="200"/>
+  </budgets>
+  <boundaries/>
+  <containment scratch=".scratch" temp=".scratch/tmp" worktrees=".worktrees" bytecode="off"/>
+  <memory engine="sqlite-wal-fts5" db=".scratch/deepmode-memory.db" max-records="500" recall-budget-tokens="800" format="xml"/>
+  <hard-stops>
+    <stop>force-push or history rewrite on shared/default branch</stop>
+    <stop>writes outside project root</stop>
+    <stop>hosted GitHub Actions CI or billing API keys</stop>
+    <stop>deleting other users branches, worktrees, or data</stop>
+  </hard-stops>
+</deepmode-policy>

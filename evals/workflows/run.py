@@ -71,6 +71,7 @@ def scenarios():
 def inventory_paths(source):
     return {f['path'] for f in source['files'] if f['path'].endswith('/SKILL.md')
             or f['path'].startswith('skills/poteto-mode/playbooks/') and f['path'].endswith('.md')
+            or f['path'] == 'skills/poteto-mode/worker.md'
             or f['path'].startswith('agents/') and f['path'].endswith('.md')
             or f['path'] == 'automations/benny/README.md'}
 
@@ -110,6 +111,8 @@ def validate():
             raise ValueError(f'wrong source URL: {row["id"]}')
         if row['disposition'] not in ('mapped', 'missing', 'not-applicable') or not row['limits'].strip():
             raise ValueError(f'invalid disposition/limits: {row["id"]}')
+        if row['upstream'] == 'pstack' and row.get('distribution') == 'shipped' and row['disposition'] != 'mapped':
+            raise ValueError(f'shipped pstack workflow must be mapped, not {row["disposition"]}: {row["id"]}')
         if row['disposition'] == 'mapped' and not row['routes']:
             raise ValueError(f'mapped item has no route: {row["id"]}')
         for route in row['routes']:

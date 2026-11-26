@@ -4,7 +4,7 @@
 
 Proof ladder. Push each load-bearing fact as far as is cheap and say where it stopped: (1) you said so, which is worthless; (2) pointed at a real `file:line` or library source; (3) walked the failure and showed it can't reach; (4) ran a script/test calling the real code that fails loud if wrong; (5) reproduced in the running app.
 
-1. Read the change: diff, symbols added/changed/deleted, what it now does differently incl. what the diff doesn't spell out (pull PR/commits as in **why** step 2).
+1. Read the change: diff, symbols added/changed/deleted, what it now does differently incl. what the diff doesn't spell out (check PR/commit history as in **why**).
    Done when every added, changed, and deleted symbol is listed with its new behavior.
 2. Find the one fact it's safe because of (e.g. "this call only drops already-dead cache entries"). Spend time here, not on a list of maybes. Done when the fact is one written sentence.
 3. Look where grep stops: library source at the pinned version plus local patches; timing (microtasks, teardown, framework semantics); JSON an API returns, DB columns, wire formats, other languages reading the same bytes, feature flags, code three hops downstream.

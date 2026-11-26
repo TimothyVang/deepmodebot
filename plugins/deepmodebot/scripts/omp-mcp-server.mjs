@@ -11,8 +11,13 @@ import { fileURLToPath } from "node:url";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_PLUGIN_ROOT = path.resolve(SCRIPT_DIR, "..");
-const SERVER_INFO = { name: "deepmodebot-omp", version: "1.0.0" };
-const SUPPORTED_PROTOCOLS = ["2025-03-26", "2024-11-05"];
+const SERVER_INFO = { name: "deepmodebot-omp", version: "2.0.0" };
+const MODERN_PROTOCOLS = ["2026-07-28"];
+const LEGACY_PROTOCOLS = ["2025-11-25", "2025-03-26", "2024-11-05"];
+const SUPPORTED_PROTOCOLS = [...MODERN_PROTOCOLS, ...LEGACY_PROTOCOLS];
+const SERVER_INSTRUCTIONS =
+  "Bridge to local `omp`: use `omp_run` or `omp_task` for OAuth-backed `omp -p` calls, " +
+  "and `omp_resolve` to read `skill://` files or inspect installed `omp` skills and MCP names.";
 const caseless = process.platform === "win32" || process.platform === "darwin";
 
 const STRIPPED_API_KEYS = new Set([
@@ -323,26 +328,37 @@ function spawnOmpProcess(exe, args, cwd, env) {
   });
 }
 
-function parseNdjsonOutput(stdout) {
+const MAX_STDERR_CHARS = 64 * 1024;
+const MAX_NON_JSON_CHARS = 256 * 1024;
+const BUFFER_COMPACT_OFFSET = 64 * 1024;
+
+function createNdjsonParser() {
   let assistantText = "";
   let stopReason = null;
   let errorMessage = null;
   let model = null;
   let provider = null;
   let usage = null;
+  let remainder = "";
   const nonJsonLines = [];
+  let nonJsonChars = 0;
 
-  for (const rawLine of stdout.split(/\r?\n/)) {
+  const processLine = (rawLine) => {
     const line = rawLine.trim();
-    if (!line) continue;
+    if (!line) return;
     let event;
     try {
       event = JSON.parse(line);
     } catch {
-      nonJsonLines.push(rawLine);
-      continue;
+      if (nonJsonChars < MAX_NON_JSON_CHARS) {
+        const room = MAX_NON_JSON_CHARS - nonJsonChars;
+        const slice = rawLine.length > room ? rawLine.slice(0, room) : rawLine;
+        nonJsonLines.push(slice);
+        nonJsonChars += slice.length;
+      }
+      return;
     }
-    if (!event || typeof event !== "object") continue;
+    if (!event || typeof event !== "object") return;
 
     if (event.type === "message_end" && event.message && typeof event.message === "object") {
       const msg = event.message;
@@ -364,13 +380,40 @@ function parseNdjsonOutput(stdout) {
     } else if (event.type === "result" && typeof event.result === "string" && !assistantText) {
       assistantText = event.result;
     }
-  }
+  };
 
-  if (!assistantText && nonJsonLines.length > 0) {
-    assistantText = nonJsonLines.join("\n").trim();
-  }
+  return {
+    push(chunk) {
+      remainder += chunk;
+      let start = 0;
+      while (true) {
+        const idx = remainder.indexOf("\n", start);
+        if (idx === -1) break;
+        const rawLine = idx > start && remainder.charCodeAt(idx - 1) === 0x0d
+          ? remainder.slice(start, idx - 1)
+          : remainder.slice(start, idx);
+        processLine(rawLine);
+        start = idx + 1;
+      }
+      remainder = start > 0 ? remainder.slice(start) : remainder;
+    },
+    finish() {
+      if (remainder) {
+        processLine(remainder.replace(/\r$/, ""));
+        remainder = "";
+      }
+      if (!assistantText && nonJsonLines.length > 0) {
+        assistantText = nonJsonLines.join("\n").trim();
+      }
+      return { assistantText, stopReason, errorMessage, model, provider, usage };
+    },
+  };
+}
 
-  return { assistantText, stopReason, errorMessage, model, provider, usage };
+function parseNdjsonOutput(stdout) {
+  const parser = createNdjsonParser();
+  parser.push(stdout);
+  return parser.finish();
 }
 
 function executeOmp(args, cwd, { useSubscription = true, promptStdin = "", timeoutSeconds = DEFAULT_TIMEOUT_SECONDS } = {}) {
@@ -398,8 +441,9 @@ function executeOmp(args, cwd, { useSubscription = true, promptStdin = "", timeo
       return;
     }
 
-    let stdout = "";
+    const parser = createNdjsonParser();
     let stderr = "";
+    let stderrTruncated = false;
     let child;
     try {
       child = spawnOmpProcess(exe, args, cwd, env);
@@ -438,8 +482,14 @@ function executeOmp(args, cwd, { useSubscription = true, promptStdin = "", timeo
 
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
-    child.stdout.on("data", chunk => { stdout += chunk; });
-    child.stderr.on("data", chunk => { stderr += chunk; });
+    child.stdout.on("data", chunk => { parser.push(chunk); });
+    child.stderr.on("data", chunk => {
+      stderr += chunk;
+      if (stderr.length > MAX_STDERR_CHARS) {
+        stderr = stderr.slice(-MAX_STDERR_CHARS);
+        stderrTruncated = true;
+      }
+    });
     child.on("error", err => {
       finish({
         ok: false,
@@ -450,7 +500,8 @@ function executeOmp(args, cwd, { useSubscription = true, promptStdin = "", timeo
       });
     });
     child.on("close", code => {
-      const parsed = parseNdjsonOutput(stdout);
+      const parsed = parser.finish();
+      const cleanStderr = (stderrTruncated ? "[stderr truncated]\n" : "") + stderr.trim();
       if (timedOut) {
         const timeoutMsg = `omp timed out after ${timeoutSeconds}s and its process tree was terminated.`;
         finish({
@@ -463,7 +514,7 @@ function executeOmp(args, cwd, { useSubscription = true, promptStdin = "", timeo
           model: parsed.model,
           provider: parsed.provider,
           usage: parsed.usage,
-          stderr: stderr.trim() ? `${stderr.trim()}\n${timeoutMsg}` : timeoutMsg,
+          stderr: cleanStderr ? `${cleanStderr}\n${timeoutMsg}` : timeoutMsg,
         });
         return;
       }
@@ -479,7 +530,7 @@ function executeOmp(args, cwd, { useSubscription = true, promptStdin = "", timeo
         model: parsed.model,
         provider: parsed.provider,
         usage: parsed.usage,
-        stderr: stderr.trim(),
+        stderr: cleanStderr,
       });
     });
   });
@@ -925,42 +976,90 @@ function sendResponse(framing, payload) {
   }
 }
 
+function detectModernProtocol(params) {
+  const meta = params && typeof params._meta === "object" && params._meta ? params._meta : null;
+  const claimed = meta && typeof meta["io.modelcontextprotocol/protocolVersion"] === "string"
+    ? meta["io.modelcontextprotocol/protocolVersion"]
+    : null;
+  if (!claimed) return { modern: false, version: null, unsupported: null };
+  if (MODERN_PROTOCOLS.includes(claimed)) return { modern: true, version: claimed, unsupported: null };
+  return { modern: true, version: null, unsupported: claimed };
+}
+
+function wrapResult(result, modern) {
+  if (!modern) return { result };
+  return {
+    result: {
+      resultType: "result",
+      ...result,
+      _meta: {
+        ...(result && typeof result._meta === "object" ? result._meta : {}),
+        "io.modelcontextprotocol/serverInfo": SERVER_INFO,
+      },
+    },
+  };
+}
+
 async function dispatchRequest(msg) {
   const method = msg.method;
   const params = msg.params && typeof msg.params === "object" ? msg.params : {};
+  const proto = detectModernProtocol(params);
 
+  if (proto.unsupported) {
+    return {
+      error: {
+        code: -32022,
+        message: `Unsupported protocol version: ${proto.unsupported}`,
+        data: { supportedProtocolVersions: SUPPORTED_PROTOCOLS },
+      },
+    };
+  }
+
+  if (method === "server/discover") {
+    return wrapResult(
+      {
+        protocolVersion: MODERN_PROTOCOLS[0],
+        supportedProtocolVersions: SUPPORTED_PROTOCOLS,
+        capabilities: { tools: {} },
+        serverInfo: SERVER_INFO,
+        instructions: SERVER_INSTRUCTIONS,
+      },
+      true,
+    );
+  }
   if (method === "initialize") {
     const requested = typeof params.protocolVersion === "string" ? params.protocolVersion : "";
-    const protocolVersion = SUPPORTED_PROTOCOLS.includes(requested) ? requested : SUPPORTED_PROTOCOLS[0];
+    const protocolVersion = SUPPORTED_PROTOCOLS.includes(requested) ? requested : LEGACY_PROTOCOLS[0];
     return {
       result: {
         protocolVersion,
         capabilities: { tools: {} },
         serverInfo: SERVER_INFO,
-        instructions:
-          "Bridge to local `omp`: use `omp_run` or `omp_task` for OAuth-backed `omp -p` calls, " +
-          "and `omp_resolve` to read `skill://` files or inspect installed `omp` skills and MCP names.",
+        instructions: SERVER_INSTRUCTIONS,
       },
     };
   }
   if (method === "ping") {
-    return { result: {} };
+    return wrapResult({}, proto.modern);
   }
   if (method === "resources/list") {
-    return { result: { resources: [] } };
+    return wrapResult({ resources: [] }, proto.modern);
   }
   if (method === "prompts/list") {
-    return { result: { prompts: [] } };
+    return wrapResult({ prompts: [] }, proto.modern);
   }
   if (method === "tools/list") {
-    return { result: { tools: TOOLS } };
+    const payload = proto.modern
+      ? { tools: TOOLS, ttlMs: 300_000, cacheScope: "global" }
+      : { tools: TOOLS };
+    return wrapResult(payload, proto.modern);
   }
   if (method === "tools/call") {
     const toolName = typeof params.name === "string" ? params.name : "";
     const toolArgs = params.arguments && typeof params.arguments === "object" ? params.arguments : {};
-    if (toolName === "omp_run") return { result: await handleOmpRun(toolArgs) };
-    if (toolName === "omp_task") return { result: await handleOmpTask(toolArgs) };
-    if (toolName === "omp_resolve") return { result: handleOmpResolve(toolArgs) };
+    if (toolName === "omp_run") return wrapResult(await handleOmpRun(toolArgs), proto.modern);
+    if (toolName === "omp_task") return wrapResult(await handleOmpTask(toolArgs), proto.modern);
+    if (toolName === "omp_resolve") return wrapResult(handleOmpResolve(toolArgs), proto.modern);
     return {
       error: { code: -32602, message: `Unknown tool: ${toolName}` },
     };
@@ -1021,6 +1120,17 @@ function handleRawMessage(rawText, framing) {
 
 let buffer = Buffer.alloc(0);
 
+function consumeBuffer(offset) {
+  if (offset >= buffer.length) {
+    buffer = Buffer.alloc(0);
+    return;
+  }
+  buffer = buffer.subarray(offset);
+  if (buffer.byteOffset > BUFFER_COMPACT_OFFSET) {
+    buffer = Buffer.from(buffer);
+  }
+}
+
 function drainBuffer(flushRemainder = false) {
   while (buffer.length > 0) {
     // Strip leading CR/LF between frames.
@@ -1029,7 +1139,7 @@ function drainBuffer(flushRemainder = false) {
       start += 1;
     }
     if (start > 0) {
-      buffer = buffer.subarray(start);
+      consumeBuffer(start);
       if (buffer.length === 0) break;
     }
 
@@ -1051,15 +1161,18 @@ function drainBuffer(flushRemainder = false) {
       const headerBlock = buffer.subarray(0, sepIdx).toString("ascii");
       const match = /content-length:\s*(\d+)/i.exec(headerBlock);
       if (!match) {
-        buffer = buffer.subarray(sepIdx + sepLen);
+        consumeBuffer(sepIdx + sepLen);
         continue;
       }
       const contentLen = Number.parseInt(match[1], 10);
+      if (!Number.isFinite(contentLen) || contentLen < 0 || contentLen > 16 * 1024 * 1024) {
+        buffer = Buffer.alloc(0);
+        break;
+      }
       const totalLen = sepIdx + sepLen + contentLen;
       if (buffer.length < totalLen) break;
-
       const body = buffer.subarray(sepIdx + sepLen, totalLen).toString("utf8");
-      buffer = buffer.subarray(totalLen);
+      consumeBuffer(totalLen);
       handleRawMessage(body, "content-length");
       continue;
     }
@@ -1074,16 +1187,21 @@ function drainBuffer(flushRemainder = false) {
       break;
     }
     const line = buffer.subarray(0, nlIdx).toString("utf8").replace(/\r$/, "").trim();
-    buffer = buffer.subarray(nlIdx + 1);
+    consumeBuffer(nlIdx + 1);
     if (line) handleRawMessage(line, "line");
   }
 }
 
+const MAX_STDIN_BUFFER_BYTES = 16 * 1024 * 1024;
 process.stdin.on("data", chunk => {
-  buffer = Buffer.concat([buffer, Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)]);
+  const bufChunk = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+  if (buffer.length + bufChunk.length > MAX_STDIN_BUFFER_BYTES) {
+    buffer = Buffer.alloc(0);
+    return;
+  }
+  buffer = Buffer.concat([buffer, bufChunk]);
   drainBuffer(false);
 });
-
 process.stdin.on("end", () => {
   stdinEnded = true;
   drainBuffer(true);

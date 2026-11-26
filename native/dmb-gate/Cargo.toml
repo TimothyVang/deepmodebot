@@ -1,0 +1,13 @@
+[package]
+name = "dmb-gate"
+version = "0.3.0"
+edition = "2021"
+license = "MIT"
+description = "Zero-dependency parallel multi-threaded Rust gate, local CI, perf, UI, cleanup & agents engine for deepmodebot."
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

@@ -57,7 +57,7 @@ The S lane skips step 5's implementation-review subagents and step 12 (PR-Agent)
    Done when the title matches `type(scope): subject` with an allowed type and no trailing period.
 8. Body: a one-minute briefing for a reviewer who has the diff; short sentences, few identifiers; under ~40 lines (it becomes the squash body). `##` headings in this order, dropping empty ones:
    - `## Why`: problem and approach, 1 to 3 sentences. No SHAs, rebase genealogy, "based on main".
-   - `## What changed`: 1 to 3 bullets; name both sides of a rename or retarget.
+   - `## What changed`: 1 to 3 bullets ordered by thematic intent (`auth/security` → `core domain` → `UI` → `config/tests`, never an alphabetical file dump); name both sides of a rename or retarget, and state `Meaningful code +X -Y · Total +A -B` (from `diff_coverage.py plan`) when tests, snapshots, or generated files inflate total line count.
    - `## Scope`: always; 1 to 3 items on what it covers and deliberately leaves out.
    - `## Tradeoffs`: only rejected alternatives a reviewer would ask about.
    - `## Blast Radius`: 1 to 2 sentences on who/what it touches and why safe or risky; if main is red, the cost of leaving it red.

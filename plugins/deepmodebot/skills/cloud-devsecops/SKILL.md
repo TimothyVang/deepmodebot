@@ -1,6 +1,6 @@
 ---
 name: cloud-devsecops
-description: "Docker, Compose, container images and runtimes, Kubernetes operations and ecosystem tooling; security and DevSecOps rules for AWS, Azure and Google Cloud, IAM, policy, pipelines, supply chain and IaC. Use when building or debugging containers, operating workloads, choosing container tools, or changing cloud access and deployment infrastructure."
+description: "Containers (Docker/Compose/Podman), Kubernetes, local cloud emulators, and DevSecOps security rules for AWS/Azure/GCP, IAM, pipelines, supply chain, and IaC."
 metadata:
   as-of: "2026-11-13"
 ---

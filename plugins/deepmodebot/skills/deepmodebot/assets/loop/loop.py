@@ -69,11 +69,12 @@ import re
 import shlex
 import shutil
 import signal
-import stat
 import subprocess
 import sys
 import time
 import tokenize
+
+sys.dont_write_bytecode = True
 
 try:
     import tomllib

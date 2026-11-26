@@ -7,9 +7,12 @@ Single-run builds drive `1/N` to `N/N` without stopping early. Incremental Sprin
 
 ## Steps
 
+0. **Grill user intent & lock the E2E Rehearsal Standard (mandatory before building/recording E2E workflows).** For any app, tool, UI, or CLI end-to-end workflow, grill the user first on the exact intended user journey: ordered beats, inputs, state transitions, visual/UX bar, and failure criteria so the recorded workflow matches their true intention.
+   - Initialize the versioned rehearsal ledger in `.scratch/e2e/<slug>/rehearsal.db` (`REHEARSAL.md`): `python -B "<this skill>/assets/e2e/rehearsal_gate.py" init --root "<root>" --slug "<slug>" --app "<name>" --kind web|cli|desktop|tool|demo --intent "<intent>" --beats b1,b2,... --max-rounds 25` (`py -3 -B` on Windows).
+   - Once the user approves the workflow standard, lock it with `rehearsal_gate.py approve --root "<root>" --slug "<slug>" --note "<user approval>"`. Without approval, `rehearsal_gate.py verdict --strict` stays blocked.
+   Done when the user-approved workflow intent, ordered beats, and rehearsal standard are locked in `rehearsal.db` (`approved_by_user: true`).
 1. **Expand the prompt into a complete Scope Manifest.** Before writing feature code, turn 100% of the request into ONE machine-checked JSON manifest (`docs/specs/<slug>-manifest.json`, or `.scratch/goals/<slug>-manifest.json` for uncommitted local delivery):
    - Cover every capability a finished product needs: all user workflows (full lifecycle or CRUD, not create-only), persistent state across restarts (SQLite, files, or database unless ephemeral is requested), input validation, actionable error states, empty states, and complete CLI/API/UI entrypoints.
-   - Decide reversible product details yourself and record each decision in a **show-me-your-work** trail (`references/techniques/show-me-your-work.md`). In complex or unclear domains, run **sme-review** (`references/techniques/sme-review.md`) and set `"sme_gate": "required"` on the manifest or Sprint 2+ slices until SME/user confirmation clears it (`"sme_gate": "cleared"`).
    - On greenfield work, run **prior-art** (`references/techniques/prior-art.md`) and `skill://deep-stack` (`references/any-app-stack.md`) to pick the stack, then continue straight into step 2 instead of stopping at `STACK.md`.
    - Format the manifest with `"product"` and `"slices"` (`[{"id", "title", "check", "sprint"?, "sme_gate"?}, ...]`, 3 to 8 vertical slices from core domain/persistence through full workflows and cold-start proof). Tag `"sprint": 1, 2, ...` when running incremental sprints.
    - For "all", "every", or "full set" work, record every candidate in `"inventory"` with `"id"` and `"status"` in `included` (optional `"slice"`), `duplicate` (`"representative"`), `non_target` (`"reason"`), `blocked` (`"evidence"` + `"unblock"`), or `pending`. Unclassified `pending` items fail `loop.py manifest`.
@@ -26,13 +29,13 @@ Single-run builds drive `1/N` to `N/N` without stopping early. Incremental Sprin
    - In-session when remaining slices fit the context window: implement slice `k`, run `python -B "<this skill>/assets/loop/loop.py" check .scratch/goals/<slug>.md` (runs `fast_check`, slop guard against `HEAD`, all active manifest slices with `sprint <= active_sprint` plus inventory/SME status, then `check`), and immediately start slice `k + 1` in the same turn.
    - Across fresh context windows or unattended runs (`omp|claude|codex`): `python -B "<this skill>/assets/loop/loop.py" run .scratch/goals/<slug>.md`. On quota/cost cap, `checkpoint_every` / `sme_gate: "required"` (exit `6`), or passing Sprint 1 with deferred slices (exit `0`, `scope_complete: false`), the Scope Manifest + `latest-summary.json` form the exact zero-loss resume ledger.
    Done when `python -B "<this skill>/assets/loop/loop.py" check .scratch/goals/<slug>.md` (`py -3 -B` on Windows) prints `check exit 0 (pass)` with zero `pending` inventory items, zero slop findings, and either `N/N` slices green (`scope_complete: true`) or the active sprint gate cleanly met with Sprint `n+1..N` recorded as deferred remaining scope (`scope_complete: false`).
-5. **Prove the finished product from a cold start.** Run the built CLI, service, or UI from scratch against fresh persisted state (`references/principles/prove-it-works.md`):
-   - Exercise the full primary workflow (or the active sprint's end-to-end journey), restart or re-invoke the process to prove state persisted, trigger invalid-input handling, and check the empty state.
-   - Save command transcripts, outputs, or UI captures under `.scratch/evidence/<slug>/`.
-   Done when the cold-start end-to-end run passes and its artifacts sit under `.scratch/evidence/<slug>/`.
+5. **Rehearse, record full video, watch collectively, and pass hard gates (`v1..v25`).** Prove the finished app/tool/UI from a cold start against fresh persisted state (`references/principles/prove-it-works.md`):
+   - Exercise EVERY approved beat from start to settled payoff, restart/re-invoke to confirm persistence, test invalid input and empty states, and record a **complete continuous end-to-end video** (`.mp4`/`.webm` via `assets/e2e/record.py`, browser/terminal recorder, or ffmpeg) — isolated still frames alone fail the gate.
+   - **Watch the entire video together** (not just single keyframes): inspect continuity, transitions between beats, pacing, flicker, layout jumps, digit rolls, and reset seams end-to-end, plus keyframes at desktop (`1440×900`) and mobile (`390×844`) for UI apps.
+   - Log each iteration `v1..vN` in `rehearsal_gate.py record-run` and run a fresh-eye critic against the full video and approved intent. Iterate internally (`v1..v25`) until `python -B "<this skill>/assets/e2e/rehearsal_gate.py" verdict --root "<root>" --slug "<slug>" --strict` exits `0` (`REHEARSAL_PASSED`). Never report an E2E workflow done while any gate is red.
+   Done when `rehearsal_gate.py verdict --strict` returns `REHEARSAL_PASSED` (exit 0) and the verified video + `REHEARSAL.md` sit under `.scratch/e2e/<slug>/`.
 6. **Self-review against the full manifest and deliver.** Run **no-comments** (`references/techniques/no-comments.md`) and **pr-review** in local mode (`references/techniques/pr-review.md`) with the Scope Manifest as the spec claim so any missing workflow, unwired flag, unclassified inventory item, or stubbed edge case is caught before delivery. Follow `SKILL.md` for local delivery versus Opening a PR (`references/playbooks/opening-a-pr.md`).
-   Done when local `pr-review` has no open P0/P1 findings, active/all slices and the cold-start check pass, any deferred sprints are explicitly reported as remaining scope (incomplete), and the requested delivery target holds.
-
+   Done when local `pr-review` has no open P0/P1 findings, active/all slices and `rehearsal_gate.py verdict --strict` pass, any deferred sprints are explicitly reported as remaining scope (incomplete), and the requested delivery target holds.
 ## Gates
 
 - Single-run mode: slice `1` passing is `1/N`, never completion. Stopping with unchecked slices requires a real hard stop (`SKILL.md` Autonomy) or three documented dead-end attempts, never convenience.
@@ -40,11 +43,11 @@ Single-run builds drive `1/N` to `N/N` without stopping early. Incremental Sprin
 - Zero unclassified `"pending"` inventory items may remain when closing; `loop.py manifest` rejects `pending` items and missing proof fields (`representative`, `reason`, `evidence`/`unblock`).
 - No `TODO`, `FIXME`, `NotImplementedError`, `todo!()`, or `throw new Error("not implemented")` stubs in delivered code.
 - Every slice check with `sprint <= active_sprint` re-runs on later slices so finishing slice `N` cannot silently break slice `1`.
-- Passing unit tests never waive the step 5 cold-start end-to-end run on the real artifact.
+- Passing unit tests or cherry-picked single screenshots never waive the Step 5 full-video E2E rehearsal gate (`rehearsal_gate.py verdict --strict`).
 
 ## Evidence
 
 - The Scope Manifest path and `python -B "<this skill>/assets/loop/loop.py" manifest <manifest.json>` (`py -3 -B` on Windows) scoreboard (slice pass ratio, `scope_complete`, `deferred_slices`, and inventory classification counts when used).
 - Inner-loop check output (`fast_check`, anti-slop status, and `sme_gate` state).
-- Cold-start end-to-end proof artifacts under `.scratch/evidence/<slug>/` (plus `latest-summary.json` resume ledger if paused at a sprint, SME, or quota gate).
+- Rehearsal gate verdict (`rehearsal_gate.py verdict --strict` -> `REHEARSAL_PASSED`), `.scratch/e2e/<slug>/REHEARSAL.md`, full recorded video path + SHA-256, and cold-start proof artifacts.
 - Product decisions made when expanding the prompt, each with how to override it.

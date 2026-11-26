@@ -597,6 +597,51 @@ class OmpMcpServerTests(unittest.TestCase):
         self.assertEqual(inner["stdin"], tricky)
         self.assertFalse(any("INJECTED" in arg or len(arg) > 500 for arg in inner["args"]))
 
+    def test_mcp_2_0_stateless_discover_tools_and_version_mismatch(self):
+        meta_v2 = {"io.modelcontextprotocol/protocolVersion": "2026-07-28"}
+        batch = [
+            {"jsonrpc": "2.0", "id": 1, "method": "server/discover", "params": {"_meta": meta_v2}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {"_meta": meta_v2}},
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {
+                    "_meta": meta_v2,
+                    "name": "omp_resolve",
+                    "arguments": {"cwd": str(self.workspace)},
+                },
+            },
+            {
+                "jsonrpc": "2.0",
+                "id": 4,
+                "method": "tools/list",
+                "params": {"_meta": {"io.modelcontextprotocol/protocolVersion": "2099-01-01"}},
+            },
+        ]
+        responses = self.rpc_lines(batch)
+        by_id = {r["id"]: r for r in responses}
+        disc = by_id[1]["result"]
+        self.assertEqual(disc["resultType"], "result")
+        self.assertEqual(disc["protocolVersion"], "2026-07-28")
+        self.assertIn("2026-07-28", disc["supportedProtocolVersions"])
+        self.assertEqual(disc["serverInfo"]["version"], "2.0.0")
+
+        tl = by_id[2]["result"]
+        self.assertEqual(tl["resultType"], "result")
+        self.assertEqual(tl["cacheScope"], "global")
+        self.assertGreater(tl["ttlMs"], 0)
+        self.assertEqual([t["name"] for t in tl["tools"]], ["omp_run", "omp_task", "omp_resolve"])
+
+        call_res = by_id[3]["result"]
+        self.assertEqual(call_res["resultType"], "result")
+        self.assertFalse(call_res.get("isError"))
+        self.assertEqual(call_res["_meta"]["io.modelcontextprotocol/serverInfo"]["name"], "deepmodebot-omp")
+
+        err = by_id[4]["error"]
+        self.assertEqual(err["code"], -32022)
+        self.assertIn("2026-07-28", err["data"]["supportedProtocolVersions"])
+
 
 if __name__ == "__main__":
     unittest.main()

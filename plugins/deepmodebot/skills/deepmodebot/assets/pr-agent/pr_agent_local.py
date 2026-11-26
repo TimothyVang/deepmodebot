@@ -29,6 +29,8 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+sys.dont_write_bytecode = True
+
 PR_AGENT = "pr-agent[github]==0.50.0"
 SYSTEM = ("You are the language model behind PR-Agent, a code review tool. The user message holds the "
           "tool's instructions and the pull request data. Follow those instructions exactly and reply with "

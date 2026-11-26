@@ -11,6 +11,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+NO_PYC_ENV = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+
 ROOT = Path(__file__).resolve().parent.parent
 MAX_LINE_BYTES = 760  # omp read truncates lines at 768 characters
 BANNED = re.compile(
@@ -22,6 +25,7 @@ BANNED = re.compile(
 WHITE_LABEL_EXEMPT = {
     Path("scripts/check.py"), Path("trending"), Path("evals/workflows"),
     Path("docs/evidence"), Path("docs/research/community-skills-review.md"),
+    Path("docs/research/popular-skills-gap-audit.md"),
     Path("plugins/deepmodebot/skills/deepmodebot/assets/repo-references.json"),
     Path("docs/research/youtube-learning/history-recovery.md"),
 }
@@ -30,8 +34,8 @@ RULES_WINDOW_BYTES = 20_000  # about 5,000 tokens at 4 bytes each: what Claude C
 SKILL_BODY_MAX_BYTES = 24_000  # Antigravity truncates skill bodies above 24 KB
 CORE_LINE_BYTES = 600  # deepmodebot's SKILL.md, sibling SKILL.md, playbooks and techniques: one instruction per line
 # Reference skills hold cited facts that go stale; each SKILL.md states the date they were true as of.
-LIBRARY_SKILLS = ("agent-harnesses", "cloud-devsecops", "domain-rules", "frontend-ui", "secrets-and-auth",
-                  "software-architecture")
+LIBRARY_SKILLS = ("agent-harnesses", "app-automation-relay", "cloud-devsecops", "deep-learning", "domain-rules",
+                  "frontend-ui", "office-documents", "secrets-and-auth", "seo-and-geo", "software-architecture")
 STALE_AFTER_DAYS = 120
 problems = []
 
@@ -267,21 +271,24 @@ if fresh != llms.read_text(encoding="utf-8"):
     else:
         problems.append("docs/llms-full.txt: embedded files are stale; run `python scripts/check.py --fix`")
 
-# SKILL.md puts the rules that must survive compaction first; the lookup tables start at "## Routes".
-skill_text = (skill_root / "SKILL.md").read_text(encoding="utf-8").replace("\r\n", "\n")
-skill_bytes = skill_text.encode("utf-8")
-fm_end = skill_text.find("\n---\n", 4)
-skill_body_bytes = len(skill_text[fm_end + 5:].encode("utf-8")) if skill_text.startswith("---\n") and fm_end >= 0 else len(skill_bytes)
-if skill_body_bytes > SKILL_BODY_MAX_BYTES:
-    problems.append(
-        f"plugins/deepmodebot/skills/deepmodebot/SKILL.md: body is {skill_body_bytes} bytes "
-        f"(max {SKILL_BODY_MAX_BYTES} under Antigravity's 24 KB limit)"
-    )
+# Every SKILL.md body must fit under Antigravity's 24 KB limit; deepmodebot keeps rules before "## Routes" <= 20 KB.
+for smd in sorted({*ROOT.glob("plugins/*/skills/*/SKILL.md"), *ROOT.glob("plugins/*/.antigravity-plugin/skills/*/SKILL.md")}):
+    stext = smd.read_text(encoding="utf-8").replace("\r\n", "\n")
+    sfm = stext.find("\n---\n", 4)
+    sbody = len(stext[sfm + 5:].encode("utf-8")) if stext.startswith("---\n") and sfm >= 0 else len(stext.encode("utf-8"))
+    if sbody > SKILL_BODY_MAX_BYTES:
+        problems.append(f"{smd.relative_to(ROOT)}: body is {sbody} bytes (max {SKILL_BODY_MAX_BYTES} under Antigravity's 24 KB limit)")
+skill_bytes = (skill_root / "SKILL.md").read_text(encoding="utf-8").replace("\r\n", "\n").encode("utf-8")
 window = skill_bytes.find(b"\n## Routes\n")
 if window < 0 or window > RULES_WINDOW_BYTES:
     problems.append(f"plugins/deepmodebot/skills/deepmodebot/SKILL.md: '## Routes' starts at byte {window}; the rules before it must fit in {RULES_WINDOW_BYTES} bytes")
+# Validate pinned upstream workflow coverage & enforce 100% mapped shipped pstack skills.
+wf_run = subprocess.run([sys.executable, "-B", str(ROOT / "evals/workflows/run.py"), "validate"],
+                        env=NO_PYC_ENV, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+if wf_run.returncode:
+    problems.append(f"evals/workflows/run.py validate failed:\n{(wf_run.stdout + wf_run.stderr).strip()[-2000:]}")
 
-# Every shipped Node ESM script parses cleanly when node is available.
+# Every shipped Node ESM script parses cleanly and statechart's deterministic TS suite passes when node is available.
 node_exe = shutil.which("node")
 if node_exe:
     for mjs in sorted(ROOT.glob("plugins/*/scripts/*.mjs")):
@@ -289,6 +296,13 @@ if node_exe:
                                     capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
         if node_check.returncode:
             problems.append(f"{mjs.relative_to(ROOT)}: node --check failed\n{(node_check.stdout + node_check.stderr).strip()}")
+    sc_test_dir = ROOT / "plugins/deepmodebot/skills/statechart/scripts/test"
+    if sc_test_dir.is_dir():
+        sc_tests = [str(sc_test_dir / name) for name in ("pipeline.test.ts", "messages.test.ts", "chart.test.ts")]
+        sc_run = subprocess.run([node_exe, "--disable-warning=ExperimentalWarning", "--test", *sc_tests],
+                                cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+        if sc_run.returncode:
+            problems.append(f"statechart TypeScript tests failed:\n{(sc_run.stdout + sc_run.stderr)[-3000:]}")
 
 # Validate Antigravity plugin manifests when agy is on PATH (0 errors, 0 truncation warnings).
 agy_exe = shutil.which("agy")
@@ -317,52 +331,51 @@ skill_dirs = sorted(str(p.parent) for p in [
     *ROOT.glob("plugins/*/skills/*/SKILL.md"),
     *ROOT.glob("plugins/*/.antigravity-plugin/skills/*/SKILL.md"),
 ])
-run = subprocess.run([sys.executable, str(skill_root / "scripts/check_skill.py"), *skill_dirs],
-                     capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+run = subprocess.run([sys.executable, "-B", str(skill_root / "scripts/check_skill.py"), *skill_dirs],
+                     env=NO_PYC_ENV, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
 if run.returncode:
     problems.append(f"check_skill.py found problems:\n{(run.stdout + run.stderr).strip()[-3000:]}")
 
 # Every shipped Python file parses, and every test folder passes.
-test_dirs = set()
+test_files = []
 for py in iter_files(".py"):
     try:
         ast.parse(py.read_text(encoding="utf-8"), filename=str(py))
     except SyntaxError as err:
         problems.append(f"{py.relative_to(ROOT)}:{err.lineno}: {err.msg}")
     if py.name.startswith("test_"):
-        test_dirs.add(py.parent)
-# Tests get a repo-local temp folder (Contain the work: never system temp); it is removed afterwards.
+        test_files.append(py)
 test_tmp = ROOT / ".scratch/tmp" / f"check-{os.getpid()}"
 test_tmp.mkdir(parents=True, exist_ok=True)
-sorted_dirs = sorted(test_dirs)
+scheduled_tests = sorted(test_files, key=lambda p: (-p.stat().st_size, str(p)))
 
 
-def _run_test_dir(item):
-    idx, test_dir = item
-    sub_tmp = test_tmp / f"d{idx}"
+def _run_test_file(item):
+    idx, test_file = item
+    sub_tmp = test_tmp / f"t{idx}"
     sub_tmp.mkdir(parents=True, exist_ok=True)
-    env = {**os.environ, "TMP": str(sub_tmp), "TEMP": str(sub_tmp), "TMPDIR": str(sub_tmp)}
-    run = subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", str(test_dir), "-p", "test_*.py"],
+    env = {**NO_PYC_ENV, "TMP": str(sub_tmp), "TEMP": str(sub_tmp), "TMPDIR": str(sub_tmp)}
+    run = subprocess.run([sys.executable, "-B", "-m", "unittest", "discover", "-s", str(test_file.parent), "-p", test_file.name],
                          env=env, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
-    return test_dir, run
+    return test_file, run
 
 
 try:
-    workers = min(4, len(sorted_dirs)) or 1
+    workers = min(8, max(4, os.cpu_count() or 4), len(scheduled_tests)) or 1
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
-        results = list(pool.map(_run_test_dir, enumerate(sorted_dirs)))
-    for test_dir, run in results:
+        results = list(pool.map(_run_test_file, enumerate(scheduled_tests)))
+    for test_file, run in results:
         if run.returncode:
-            problems.append(f"{test_dir.relative_to(ROOT)}: tests failed\n{run.stderr[-3000:]}")
+            problems.append(f"{test_file.relative_to(ROOT)}: tests failed\n{run.stderr[-3000:]}")
         elif run.stderr.splitlines() and "skipped" in run.stderr.splitlines()[-1]:
-            print(f"note: {test_dir.relative_to(ROOT)}: {run.stderr.splitlines()[-1]} ({'bun' if shutil.which('bun') else 'no bun'} on PATH)")
+            print(f"note: {test_file.relative_to(ROOT)}: {run.stderr.splitlines()[-1]} ({'bun' if shutil.which('bun') else 'no bun'} on PATH)")
 finally:
     shutil.rmtree(test_tmp, ignore_errors=True)
 
 # AGENTS.md and CLAUDE.md carry the current generated block (agents_md.py, writing-for-agents technique).
 agents_md = skill_root / "assets/agents-md/agents_md.py"
-run = subprocess.run([sys.executable, str(agents_md), "check", str(ROOT)],
-                     capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+run = subprocess.run([sys.executable, "-B", str(agents_md), "check", str(ROOT)],
+                     env=NO_PYC_ENV, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
 if run.returncode:
     problems.append(f"{run.stdout.strip()}\n  fix: python {agents_md.relative_to(ROOT).as_posix()} build .")
 

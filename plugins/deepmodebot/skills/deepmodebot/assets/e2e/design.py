@@ -11,6 +11,9 @@ from pathlib import Path
 import shutil
 import textwrap
 import xml.etree.ElementTree as ET
+import sys
+
+sys.dont_write_bytecode = True
 
 from evidence import load_bundle
 

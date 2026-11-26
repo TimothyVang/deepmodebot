@@ -9,11 +9,12 @@ requiring an external review binary.
 """
 import argparse
 import json
-import os
 import re
 import subprocess
 import sys
 from pathlib import Path
+
+sys.dont_write_bytecode = True
 
 LOCKFILES = frozenset({
     "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "cargo.lock",
@@ -32,6 +33,19 @@ CONFIG_CI_RE = re.compile(
 TEST_RE = re.compile(r"(?:^|/)(?:tests?/|__tests__/|spec/|test_[^/]+|[^/]+(?:\.test|_test|\.spec)\.[^/]+$)", re.I)
 DOCS_RE = re.compile(r"\.(?:md|mdx|rst|txt|adoc)$", re.I)
 UI_RE = re.compile(r"\.(?:tsx|jsx|vue|svelte|css|scss|html|svg)$", re.I)
+GENERATED_RE = re.compile(
+    r"(?:^|/)(?:__snapshots__/|generated/|gen/)|(?:\.snap|\.(?:pb\.go|g\.dart|generated\.[A-Za-z0-9]+))$",
+    re.I,
+)
+THEMATIC_GROUP_ORDER = ("auth_security", "backend_core", "ui", "config_ci", "docs", "tests")
+GUIDE_TITLES = {
+    "auth_security": "Security, auth & trust boundaries",
+    "backend_core": "Core domain & backend logic",
+    "ui": "UI, interaction & styling",
+    "config_ci": "Build, CI & configuration",
+    "docs": "Documentation & specifications",
+    "tests": "Verification & test suites",
+}
 CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
@@ -152,13 +166,44 @@ def collect_changes(repo: Path, base: str | None, head: str | None, include_untr
     return [records[k] for k in sorted(records)]
 
 
+def is_meaningful_code(rec: dict) -> bool:
+    if rec.get("binary") or rec.get("status", "").startswith("D"):
+        return False
+    rel_path = rec["path"]
+    name = Path(rel_path).name.lower()
+    if name in LOCKFILES or MINIFIED_RE.search(rel_path) or GENERATED_RE.search(rel_path):
+        return False
+    if TEST_RE.search(rel_path) or DOCS_RE.search(rel_path):
+        return False
+    return True
+
+
+def summarize_loc(changes: list[dict]) -> dict:
+    total_added = sum(int(r.get("added", 0)) for r in changes if not r.get("binary"))
+    total_deleted = sum(int(r.get("deleted", 0)) for r in changes if not r.get("binary"))
+    meaningful_added = sum(int(r.get("added", 0)) for r in changes if is_meaningful_code(r))
+    meaningful_deleted = sum(int(r.get("deleted", 0)) for r in changes if is_meaningful_code(r))
+    return {
+        "meaningful_added": meaningful_added,
+        "meaningful_deleted": meaningful_deleted,
+        "meaningful_lines": meaningful_added + meaningful_deleted,
+        "total_added": total_added,
+        "total_deleted": total_deleted,
+        "total_lines": total_added + total_deleted,
+        "badge": f"Meaningful code +{meaningful_added} -{meaningful_deleted} · Total +{total_added} -{total_deleted}",
+    }
+
+
 def build_batches(reviewable: list[dict], max_files: int, max_lines: int) -> list[dict]:
     grouped: dict[str, list[dict]] = {}
     for item in reviewable:
         grouped.setdefault(item["rule_group"], []).append(item)
 
+    ordered_groups = [g for g in THEMATIC_GROUP_ORDER if g in grouped] + sorted(
+        g for g in grouped if g not in THEMATIC_GROUP_ORDER
+    )
     batches: list[dict] = []
-    for group in sorted(grouped):
+    for group in ordered_groups:
         cur_items: list[dict] = []
         cur_lines = 0
         for item in grouped[group]:
@@ -167,6 +212,7 @@ def build_batches(reviewable: list[dict], max_files: int, max_lines: int) -> lis
                 batches.append({
                     "batch_id": len(batches) + 1,
                     "rule_group": group,
+                    "guide_title": GUIDE_TITLES.get(group, group),
                     "files": [x["path"] for x in cur_items],
                     "indices": [x["index"] for x in cur_items],
                     "changed_lines": cur_lines,
@@ -178,10 +224,14 @@ def build_batches(reviewable: list[dict], max_files: int, max_lines: int) -> lis
             batches.append({
                 "batch_id": len(batches) + 1,
                 "rule_group": group,
+                "guide_title": GUIDE_TITLES.get(group, group),
                 "files": [x["path"] for x in cur_items],
                 "indices": [x["index"] for x in cur_items],
                 "changed_lines": cur_lines,
             })
+    total_b = len(batches)
+    for b in batches:
+        b["guide_step"] = f"{b['batch_id']} of {total_b}"
     return batches
 
 
@@ -199,9 +249,11 @@ def cmd_plan(args: argparse.Namespace) -> int:
                 **rec,
                 "index": len(reviewable) + 1,
                 "rule_group": classify_rule_group(rec["path"]),
+                "meaningful_code": is_meaningful_code(rec),
             })
 
     batches = build_batches(reviewable, max(1, args.max_batch_files), max(0, args.max_batch_lines))
+    loc = summarize_loc(changes)
     payload = {
         "repo": str(repo),
         "base": args.base,
@@ -209,6 +261,7 @@ def cmd_plan(args: argparse.Namespace) -> int:
         "total_changed": len(changes),
         "reviewable_count": len(reviewable),
         "excluded_count": len(excluded),
+        "loc_summary": loc,
         "reviewable": reviewable,
         "excluded": excluded,
         "batches": batches,
@@ -221,9 +274,12 @@ def cmd_plan(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(payload, indent=2))
     else:
-        print(f"diff-plan: {len(reviewable)} reviewable, {len(excluded)} excluded, {len(batches)} batch(es)")
+        print(f"diff-plan: {len(reviewable)} reviewable, {len(excluded)} excluded, {len(batches)} guide section(s) — {loc['badge']}")
         for b in batches:
-            print(f"  batch {b['batch_id']} [{b['rule_group']}] ({len(b['files'])} files, {b['changed_lines']} lines): {', '.join(b['files'])}")
+            print(
+                f"  guide {b['guide_step']} [{b['rule_group']}: {b['guide_title']}] "
+                f"({len(b['files'])} files, {b['changed_lines']} lines): {', '.join(b['files'])}"
+            )
         for ex in excluded:
             print(f"  excluded: {ex['path']} ({ex['reason']})")
     return 0

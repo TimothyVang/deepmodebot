@@ -1,6 +1,6 @@
 ---
 name: secrets-and-auth
-description: "Rules and free-first tool picks for secrets and agent authentication: .env and secret sharing, password managers, logins and MFA for agents, OAuth delegation, MCP server auth, CI OIDC, secret scanning, and leak response. Use when a task touches secrets, credentials, tokens, logins, or auth."
+description: "Secrets and agent auth rules + free-first tools: .env/vaults, logins/MFA, credential brokers, OAuth/MCP auth, CI OIDC, secret scanning, and leak response."
 metadata:
   as-of: "2026-11-11"
 ---

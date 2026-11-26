@@ -24,6 +24,8 @@ import time
 import webbrowser
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import brand  # noqa: E402

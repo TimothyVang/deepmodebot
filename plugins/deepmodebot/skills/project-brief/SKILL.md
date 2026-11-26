@@ -1,6 +1,6 @@
 ---
 name: project-brief
-description: "Maintainer workflow that opens a repo to many contributors and their agents: writes docs/PROJECT_BRIEF.md, proposes claimable GitHub Issues, installs the overlap and roadmap scripts your agent runs, PR and issue templates, and CONTRIBUTING.md, so anyone can run /deepmodebot:contribute. Re-run to refresh the brief and roadmap, post overlap comments, and release expired claims. Use for /skill:project-brief, \"publish this project for contributors\", or \"set up the task board\"."
+description: "Publish docs/PROJECT_BRIEF.md, claimable task board, overlap/roadmap scripts, and CONTRIBUTING.md for contributors (re-run to refresh and release expired claims)."
 disable-model-invocation: true
 ---
 
@@ -27,24 +27,7 @@ Copy these into the target repo. Never overwrite a file that already exists; mer
 
 ## Shared contract
 
-Everything below must match what `skill://contribute`, `scripts/pr-overlap.py`, and `scripts/sync-roadmap.py` expect. Don't invent variants.
-
-- **Labels.** `help wanted` marks a claimable task. `good first issue` marks a small one. `claimed` is optional and maintainer-set.
-- **Claim comment.** A contributor's agent posts this on the issue, only after its human says yes:
-
-  ```text
-  <!-- deepmodebot:claim -->
-  Claimed by @<login> via /contribute
-  Plan: <one line>
-  Files: <comma-separated repo paths; a trailing "/" means a whole directory>
-  Expires: <YYYY-MM-DD, 7 days after posting>
-  ```
-
-- **Active claim.** Each author's newest claim comment on an open issue is their claim. It is active while `Expires` is today or later and that author has posted no later comment containing `<!-- deepmodebot:unclaim -->`. Every active claim counts: one person's claim, expiry or withdrawal never changes another person's.
-- **Assignees.** An assignee also counts as a claim on the issue (not on any files), unless they posted a claim comment on it. Then only that comment counts: once it expires or is released, the assignment stops counting.
-- **Overlap.** Two path sets overlap when a path is equal, or one is a directory prefix (`dir/`) of the other. Paths are repo-relative with forward slashes.
-- **One issue = one branch = one PR.** The PR body says `Closes #N`.
-
+Read `references/claim-contract.md` before posting or parsing claims, labels (`help wanted`, `good first issue`, `claimed`), overlap rules, or `pr-overlap.py` commands. Never invent variants; `skill://contribute`, `scripts/pr-overlap.py`, and `scripts/sync-roadmap.py` share that exact contract.
 ## Pass
 
 Detect the mode first: if `docs/PROJECT_BRIEF.md` exists, this is a re-run; jump to step 8 after step 1.

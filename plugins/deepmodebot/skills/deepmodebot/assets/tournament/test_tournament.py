@@ -36,6 +36,11 @@ class AutoRouterTests(unittest.TestCase):
                 case["route"],
                 f"case {case['id']} routed to {verdict['mode']} ({verdict['reason']}), expected {case['route']}",
             )
+            self.assertEqual(
+                verdict["size"],
+                case["size"],
+                f"case {case['id']} sized as {verdict['size']}, expected {case['size']}",
+            )
 
     def test_routes_readme_examples_and_near_miss_workflows_accurately(self):
         expected_pairs = [
@@ -79,6 +84,45 @@ class AutoRouterTests(unittest.TestCase):
             ("Set up git safety hooks here", {}, "git-guardrails"),
             ("Set up Stripe webhooks here", {}, "feature"),
             ("Explain the checkout workflow", {}, "investigation"),
+            ("self-grill my checks and diff", {}, "self-grill"),
+            ("grill my checks before opening a PR", {}, "self-grill"),
+            ("audit my checks for check theater", {}, "self-grill"),
+            ("sharpen this prompt before I run it", {}, "sharpen"),
+            ("reflect on this session", {}, "reflect"),
+            ("catch me up on auth refactors", {}, "recall"),
+            ("what could this break in checkout?", {}, "blast-radius"),
+            ("throw it in the arena", {}, "arena"),
+            ("run an adversarial review on this diff", {}, "interrogate"),
+            ("check domain invariants with SME review", {}, "sme-review"),
+            ("ship this stack", {}, "shipping"),
+            ("clean up merged worktrees", {}, "worktree-cleanup"),
+            ("run a blinded eval on this skill", {}, "eval"),
+            ("remove stale code comments from this diff", {}, "no-comments"),
+            ("run no-comments on my branch", {}, "no-comments"),
+            ("model-check our notification sync with TLA+ and draw a statechart", {}, "formal-verification"),
+            ("prove this invariant for our retry queue", {}, "formal-verification"),
+            ("run codebase gardening and ban this anti-pattern", {}, "correct"),
+            ("fuzz the release build like a real user", {}, "swarm"),
+            ("deepmode suggest", {}, "suggest"),
+            ("suggest prompts for gaps and overclaims in this repo", {}, "suggest"),
+            ("did we overclaim anything in our README?", {}, "suggest"),
+            ("what should i fix next in this repo?", {}, "suggest"),
+            ("review my prompt and convert it to a deepmode prompt", {}, "prompt-upgrade"),
+            ("make my prompt better before running: fix auth naetc", {}, "prompt-upgrade"),
+            ("upgrade my prompt to full scope", {}, "prompt-upgrade"),
+            ("my worker has a memory leak and idle cpu hits 100%", {}, "runtime-forensics"),
+            ("analyze this chrome cpuprofile and heap snapshot", {}, "trace-forensics"),
+            ("get our search latency from 400ms down below 80ms step by step", {}, "hillclimb"),
+            ("make the new checkout modal pixel-exact to the legacy CSS version", {}, "visual-parity"),
+            ("rebuild our dashboard UI to match Linear quality", {}, "reference-rebuild"),
+            ("quick throwaway prototype to test whether websockets beat SSE here", {}, "prototype"),
+            ("pick up where the previous agent left off on this branch", {}, "session-pickup"),
+            ("pause safely here so I can resume tomorrow", {}, "pause-safely"),
+            ("teach me how the scheduler works", {}, "teach"),
+            ("check if my tests are actually catching bugs or just mocking stuff", {}, "self-grill"),
+            ("strip all the dumb comments from my diff", {}, "no-comments"),
+            ("delete old merged worktrees", {}, "worktree-cleanup"),
+            ("deploy terraform iam policy for s3 bucket", {}, "feature"),
         ]
         for prompt, kwargs, expected in expected_pairs:
             verdict = tournament.classify_prompt(prompt, **kwargs)
@@ -130,6 +174,23 @@ class AutoRouterTests(unittest.TestCase):
         self.assertEqual(code, 0)
         parsed = json.loads(out_buf.getvalue())
         self.assertEqual(parsed["mode"], "bug-fix")
+        self.assertEqual(parsed["self_grill"], "both")
+        self.assertEqual(parsed["effort"], "high")
+
+        stripe_l = tournament.classify_prompt(
+            "Add annual billing. Create a yearly price in Stripe, store each subscription's billing interval "
+            "in Postgres with a migration, handle the webhook for plan changes, and show the interval on the account page."
+        )
+        self.assertEqual(stripe_l["size"], "L")
+        self.assertEqual(stripe_l["self_grill"], "both")
+        self.assertEqual(stripe_l["effort"], "xhigh")
+        self.assertIn("gemini-4-neon-xhigh", stripe_l["panel_seats"])
+
+        typo_s = tournament.classify_prompt("The quickstart in README.md says `npm run devv`. It should be `npm run dev`. Fix it.")
+        self.assertEqual(typo_s["size"], "S")
+        self.assertEqual(typo_s["self_grill"], "none")
+        self.assertEqual(typo_s["model_tier"], "S")
+        self.assertEqual(typo_s["effort"], "low")
 
     def test_tournament_delivery_constraints_override_default_checkpoint(self):
         cases = [

@@ -248,6 +248,118 @@
       "route": "perf-issue",
       "size": "M",
       "note": "Data structure and memory layout performance optimization."
+    },
+    {
+      "id": "self-grill-checks",
+      "request": "Self-grill my checks and diff before I ship this auth change.",
+      "route": "self-grill",
+      "size": "none",
+      "note": "Adversarial self-grill audit on checks, receipts, and diff blind spots."
+    },
+    {
+      "id": "sharpen-prompt",
+      "request": "Sharpen this prompt to make the benchmark task deeper and add prototype-settled choices.",
+      "route": "sharpen",
+      "size": "none",
+      "note": "Deepens a task prompt with external oracles and prototypes."
+    },
+    {
+      "id": "blast-radius-check",
+      "request": "What could this break? Check the blast radius of changing the session serializer.",
+      "route": "blast-radius",
+      "size": "none",
+      "note": "Targeted diff blast-radius audit beyond grep callers."
+    },
+    {
+      "id": "recall-work",
+      "request": "Catch me up on where I left off with the billing webhook fixes.",
+      "route": "recall",
+      "size": "none",
+      "note": "Read-only session and repo history recall."
+    },
+    {
+      "id": "strip-code-comments",
+      "request": "Remove stale code comments from our branch before review.",
+      "route": "no-comments",
+      "size": "M",
+      "note": "Runs comment-sicko / no-comments to delete lying narration and workaround comments."
+    },
+    {
+      "id": "formal-verification-statechart",
+      "request": "Model-check our multi-device notification sync with TLA+ and render a statechart.",
+      "route": "formal-verification",
+      "size": "none",
+      "note": "Formal verification and user-POV statechart modeling."
+    },
+    {
+      "id": "codebase-gardening",
+      "request": "Run codebase gardening on our pattern buffer and ban this anti-pattern with a lint rule.",
+      "route": "correct",
+      "size": "M",
+      "note": "Gardener loop: cluster recurring smells and encode a deterministic constraint."
+    },
+    {
+      "id": "release-fuzz-swarm",
+      "request": "Fuzz the release build with a verification swarm before cutting the release.",
+      "route": "swarm",
+      "size": "L",
+      "note": "Directed Feature-Map plus exploratory UI fuzzing swarm on the real build."
+    },
+    {
+      "id": "deepmode-suggest",
+      "request": "deepmode suggest: scan this repo for gaps and overclaims and suggest full-scope prompts.",
+      "route": "suggest",
+      "size": "none",
+      "note": "Scans real repo state for gaps and overclaims and emits ranked full-scope /deep prompts."
+    },
+    {
+      "id": "upgrade-user-prompt",
+      "request": "Review my prompt and convert it into a full-scope deepmode prompt before running it.",
+      "route": "prompt-upgrade",
+      "size": "none",
+      "note": "Reviews sloppy/shorthand user prompt and compiles a full-scope Deepmode prompt."
+    },
+    {
+      "id": "gen-ui-cockpit",
+      "request": "Generate an interactive A2UI cockpit UI to visualize our architectural decisions and talk to the human.",
+      "route": "gen-ui",
+      "size": "none",
+      "note": "Declarative Google A2UI v1.0 surface and interactive HTML cockpit."
+    },
+    {
+      "id": "video-forensics-breakdown",
+      "request": "Reverse-engineer this launch video into a shot-by-shot VIDEO.md breakdown so we can remake its motion.",
+      "route": "video-forensics",
+      "size": "none",
+      "note": "Shot-by-shot video forensics and VIDEO.md remake blueprint."
+    },
+    {
+      "id": "backend-perf-n-plus-one",
+      "request": "Optimize our FastAPI /orders backend endpoint: p99 jumped to 850ms from N+1 queries and slow JSON serialization.",
+      "route": "perf-issue",
+      "size": "M",
+      "note": "Backend hot-path latency optimization routes to perf-issue with measurement."
+    },
+    {
+      "id": "suggest-verb-not-hijacked",
+      "request": "Add a POST /tags/suggest endpoint in src/api/tags.py that returns top 5 matching tags.",
+      "route": "feature",
+      "size": "M",
+      "note": "English verb or route segment 'suggest' in a feature ask must not hijack into read-only suggest mode."
+    },
+    {
+      "id": "lean4-theorem-formalization",
+      "request": "Formalize this Erdős bound in Lean 4 against Challenge.lean and verify zero sorry or custom axioms with Comparator.",
+      "route": "formal-verification",
+      "size": "none",
+      "note": "Lean 4 theorem formalization and Comparator statement-alignment check route to formal-verification."
+    },
+    {
+      "id": "audit-sorry-stubbed-proof",
+      "request": "Self-grill our Solution.lean proof diff for hidden sorry stubs, native_decide escapes, and overclaimed bounds.",
+      "route": "self-grill",
+      "size": "none",
+      "note": "Adversarial audit of proof diff for sorry/native_decide escapes and overclaims routes to self-grill."
     }
   ]
 }

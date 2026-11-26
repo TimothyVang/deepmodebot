@@ -1,14 +1,15 @@
 # correct
 
-**Use when:** agents keep repeating the same mistakes in this repo, or each time the operator corrects you. Make each mistake impossible. Assume every contributor is an agent that sees only files it opened, copies the nearest example, takes the shortest path that compiles.
+**Use when:** agents keep repeating the same mistakes in this repo, each time the operator corrects you, or during codebase gardening ("garden the codebase", "pattern buffer", "ban this anti-pattern"). Make each mistake impossible. The codebase is an agent's largest input: any workaround, deprecated API, or anti-pattern left behind gets copied by every future agent as the established pattern.
 
-1. Read recent commits, reverts, review comments, agent instruction files (AGENTS.md, CLAUDE.md, `.omp/`), and workaround comments. Group mistakes into classes; a class counts once it happened twice.
+1. **Watch and buffer (the gardener loop).** Read recent commits, reverts, review comments, agent instruction files, and workaround comments. For recurring smells across many PRs, append findings to a lightweight pattern buffer before spawning fixes so you see the shared root cause instead of patching individual symptoms. A class counts once it happened twice; skip one-offs.
    Done when each class is listed with at least two cited occurrences.
-2. Fix each class at the highest level that works:
-   - **Architecture:** one owner per state, one supported way per task, hidden internals so the wrong import fails, one source of truth instead of hand-synced lists, delete old ways and dead code agents would copy.
-   - **Types** so the bad state can't be written; if it still compiles, a **lint/CI check** whose error names the file, type, or function to use instead; if the pattern is already common, fail only when a change adds more.
-   - **Tests** of behavior; fix or delete tests that pass when behavior breaks or fail when only internals change.
-   - **Docs/agent rules last**, only for judgment calls (nothing fails when skipped).
+2. **Change the bed at the highest level that works:**
+   - **Architecture & directory boundaries:** one owner per state, one supported way per task, explicit boundary directories (e.g. main vs renderer, server vs client) enforced by dependency-graph/lint rules so wrong imports fail; ban nuanced foot-gun APIs (such as raw `useEffect` or imperative timers `setTimeout`/`requestAnimationFrame`/`requestIdleCallback`) in product code and confine them to framework internals; delete old weed examples so agents stop copying them.
+   - **Types & deterministic lints:** make the bad state fail to compile; if it still compiles, add a lint/CI check whose error message tells the agent the exact file, type, or supported API to use instead; if legacy occurrences exist, ratchet CI to fail only when a change adds new ones.
+   - **Tests & formal checks:** behavioral tests (never tautological tests) or `references/techniques/formal-verification.md` for concurrency/state invariants.
+   - **Docs/agent rules last:** only for judgment calls that no deterministic check can express.
+   - **Sampling review at high PR volume:** when PR volume outgrows line-by-line review, rigorously sample recent merged PRs to find shared shortcuts and upgrade the environment constraints above, not just one PR.
    - Done when each class has a chosen level and a reason no higher level works.
 3. Fix the most frequent classes now, one unit per class (one commit each). Prove each new check fails on a real past mistake. Same command locally and in CI. Exceptions go on the offending line with reason, expiry, and a decision-trail row.
    Done when each fixed class has its own commit and a run showing its check failing on a past mistake.

@@ -83,6 +83,7 @@ Common split: REST or GraphQL at the edge, gRPC inside.
 - Composite indexes work left to right. `(last_name, first_name)` serves `last_name` alone or both, never `first_name` alone. (CS-4H)
 - Partial indexes (`WHERE status = 'pending'`) speed queries on a small hot subset of a big table. (SQL-10)
 - Run `EXPLAIN` or `EXPLAIN ANALYZE` before shipping a query to confirm the index is used. (CS-4H)
+- Postgres auto-indexes `PRIMARY KEY` and `UNIQUE`, never `REFERENCES` foreign keys: index every child FK column (`orders(customer_id)`) or parent `DELETE`/`UPDATE` locks and sequential-scans the child table, and lead composite indexes with `tenant_id` on pooled RLS tables.
 
 ### Transactions and IDs
 
@@ -91,12 +92,20 @@ Common split: REST or GraphQL at the edge, gRPC inside.
 - Keep transactions short. Never hold one open across a slow external API call; it pins pool connections and row locks. (JAVA-INT)
 - One database: sequential integer IDs (4–8 bytes, small indexes). Distributed key generation: UUIDs (16 bytes), preferably time-ordered UUIDv7. (UUID)
 
+### Query patterns, pagination & async hot paths
+
+- Eliminate N+1 queries (`SELECT` or ORM `.findUnique`/`.get` inside `for`/`while` loops): batch IDs with `WHERE id = ANY($1)`, `JOIN`, or DataLoader, and assert bounded SQL query counts in integration tests.
+- Replace `OFFSET` pagination with keyset/cursor pagination (`WHERE (created_at, id) < ($1, $2) ORDER BY created_at DESC, id DESC LIMIT 50`) so deep pages stay O(log N) instead of scanning skipped rows.
+- Never block an `async` event loop (FastAPI, Node, Tokio) with synchronous I/O (`requests.*`, `time.sleep`, `fs.readFileSync`, `bcrypt.hashSync`), and cap fan-out with `asyncio.Semaphore` / `p-limit` / `errgroup.SetLimit` instead of unbounded `Promise.all(items.map(...))` or serial `await`-in-loop waterfalls.
+- Reuse one process-level connection pool (`replicas * pool_size <= max_connections` or PgBouncer) and set explicit connect + read timeouts on every outbound HTTP/DB client.
+
 ## Caching
 
 - Cache-aside: read the cache; on a miss, read the DB, return, and fill the cache. (BACKEND-ECO)
 - A cache is never durable. A missing key must repopulate cleanly from the system of record. (DB-LAWS)
 - Every cache has a hard memory cap and an eviction policy. An unbounded cache is a slow memory leak. (CS-4H)
 - LRU is a hashmap (O(1) lookup) plus a doubly linked list (O(1) move-to-front and tail evict). (CS-4H)
+- Prevent cache stampede (thundering herd) on hot-key expiry with `singleflight` request coalescing, short lease locks, jittered TTLs (`ttl * (0.9 + 0.2 * rand)`), or `stale-while-revalidate`.
 
 ## Partitioning and sharding
 
@@ -111,6 +120,15 @@ Common split: REST or GraphQL at the edge, gRPC inside.
 - Task queue (RabbitMQ, SQS): competing consumers; a message is gone once acknowledged. Event log (Kafka): durable, partitioned, replayable. (DEVOPS)
 - Publish domain events (`OrderPlaced`) to a bus so other services react without coupling. (PATTERNS)
 - Bound every queue or apply backpressure, so a surge cannot exhaust memory. (CS-4H)
+- **Outbound notifications & OS AI summarizers:** schedule engagement notifications relative to the user's last active session (`~23.5 h` offset) with a local quiet-hours ceiling (`<= 22:00`), suppress mobile push while the user is active on desktop, rank by multi-signal context rather than `{name}` templates, and front-load unambiguous factual claims + structured priority metadata so OS-level LLM notification summarizers cannot invert meaning.
+
+## Local-first sync, collaborative state & product surfaces
+
+- **Local workspace replica for daily-use tools (Linear pattern):** request-wait-render navigation feels laggy on 8-hour/day tools; keep a normalized local client replica (IndexedDB/SQLite) for `0 ms` reads, apply mutations optimistically, and sync diffs asynchronously via dual persistence/retry queues (fast metadata separate from heavy media blobs) with explicit rollback/retry banners on failure.
+- **Property-granularity sync & actor-scoped undo (Figma/Notion pattern):** resolve concurrent collaborative edits at **property/field granularity** (LWW or CRDT/OT) rather than whole-object locks, preserve all edits in version history, and implement **per-actor `Ctrl/Cmd+Z` undo** (including non-destructive selection state, capped in a bounded ring buffer).
+- **Collapse overlapping flags into one orthogonal primitive:** before adding `pinned`, `starred`, `flagged`, `important`, and `folder` booleans, unify them into one composable tag/label/block primitive plus saved view queries; keep privacy/read-receipt toggles reciprocally symmetric.
+- **End-to-end latency budgets & perceptual algorithms:** decompose interactive AI/voice SLAs into hard per-stage budgets (e.g., `<= 700 ms` release-to-render = `200 ms` ASR + `200 ms` cleanup + `200 ms` RTT + `100 ms` buffer); use perceptual spread shuffling (grouped per-category spacing + `20–30%` jitter + random offset) when uniform Fisher-Yates clumping feels broken to humans.
+- **Tri-modal surface parity:** pair direct-manipulation GUIs (`<= 3` taps) and schema-validated GenUI widgets (for fuzzy middle-complexity queries) with **headless CLI/API/MCP parity** for bulk, administrative, and agentic operations.
 
 ## Scaling
 
@@ -123,7 +141,7 @@ Common split: REST or GraphQL at the edge, gRPC inside.
 
 ## Resilience
 
-- Circuit breaker (Resilience4j) around every third-party call. States: closed (normal), open (fail fast with a fallback), half-open (let trial calls through to test recovery). (PATTERNS)
+- Set connect + request timeouts on every outbound call and retry at one layer only with full jitter plus a retry-budget token bucket; add a circuit breaker (Resilience4j — closed, open, half-open) around third-party calls when a degraded fallback exists. (PATTERNS)
 - Idempotency keys on payments and other mutations. A duplicate retry returns the original response. Principle `make-operations-idempotent`. (BACKEND-INT)
 - Degrade gracefully: serve cached or partial data rather than failing the whole app. (SYS-FINALLY)
 

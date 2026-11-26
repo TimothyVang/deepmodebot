@@ -1,6 +1,6 @@
 ---
 name: deep-stack
-description: "2026 default software stack and decision rules for any app (web, CLI, desktop, mobile, AI agent, data/ML, security), plus agent UI design and a per-task ship loop (worktree, service layer, proof, reviewed PR). Use for 'what stack', picking/building a stack, agent UI design, or shipping one evidence-backed PR; issue queues use deepmodebot's Work a queue (factory)."
+description: "2026 default software stack and decision rules for any app, plus agent UI design and a single-PR evidence-backed ship loop. Use for 'what stack' or stack selection."
 ---
 
 # Stack picks and ship loop

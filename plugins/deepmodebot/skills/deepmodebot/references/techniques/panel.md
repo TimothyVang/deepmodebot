@@ -6,7 +6,8 @@ A local S fix lands on no branch, so it needs no panel (`references/playbooks/op
 
 1. **Freeze the subject.** The task's acceptance criteria (from its issue or card), the exact head SHA, the diff, and the author's evidence. A new push after this point means a new panel.
    Done when the criteria, the head SHA, the diff, and the author's evidence are written into the verifier brief.
-2. **Spawn three verifiers** in one `task` batch (or stagger / split across model families when rate limits are tight; keep briefs concise and pass file/diff paths rather than pasting full diffs). Use default agents, since they must run things. None of them is the author. Put each on a different model family when one is available; otherwise give each a different angle (behavior, edge cases, security and data). Each brief says:
+2. **Spawn three verifiers** in one `task` batch (or stagger across model families when rate limits are tight; start each brief with `Read <this installed skill>/worker.md before anything else.`, and pass file/diff paths rather than pasting full diffs). Use default agents, since they must run things; none is the author.
+   Default cross-family 3-seat lineup when available: `claude-fable-5-2-high`, `claude-opus-5-5-high-fast` (or `gpt-6.1-sol`), and `gemini-4-neon-xhigh` (Fable counts as Claude for vendor diversity); if a slug is rejected, fall back to the nearest valid slug of the same family or distinct angles (behavior, edge cases, security and data). Each brief says:
    - Be skeptical: the work is not done until you prove it is. Don't trust the author's evidence; reproduce it.
    - At `<SHA>`, run the repo's checks, prove each acceptance criterion on the real surface (the repo's `verify-<app>` skill first), and make one serious attempt to break it (the riskiest path in the diff, bad input, an edge case).
    - Never push, edit the branch, or comment on the PR.
@@ -22,10 +23,12 @@ A local S fix lands on no branch, so it needs no panel (`references/playbooks/op
 
 ## Gates
 
+- **Final-head & anti-stacking gate:** Run the 3-seat panel strictly once deterministic tests and `pr-review` have `0` open `P0`/`P1` at the candidate merge SHA (never mid-iteration). Skip `panel` when an outer `/teamwork` verifier wave already gates the PR (`assets/quota-guard/quota_guard.py`).
+- **Delta re-panel on minor fixes:** If an initial 3-seat panel fails and the fix touches `<=50` non-sensitive lines with green CI, re-verify the delta (`git diff <prev_sha>..<SHA>`) + open reproduction with **1** cross-family verifier instead of 3 cold spawns; run a fresh 3-seat panel on larger or sensitive rewrites.
 - Verifiers vote independently: none sees another's verdict before giving its own.
 - A panel covers one head SHA. Merge only that SHA (`gh pr merge --match-head-commit <SHA>`).
 - Majority does not waive a failing deterministic check, changed acceptance contract, ownership or permission gate, or stale evidence. Retain dissent; resolve blocking review findings before merge.
-- Three failed panels on one task → stop that task: mark it blocked with the findings and move on.
+- Two failed panels on one task (three only after a sensitive rewrite) → stop that task: mark it blocked with the findings and move on.
 
 **Done when** the panel line names one head SHA and its count, and every DONE vote counted in it has a receipt you checked.
 

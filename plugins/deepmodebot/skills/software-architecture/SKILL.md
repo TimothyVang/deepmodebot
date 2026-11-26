@@ -1,8 +1,8 @@
 ---
 name: software-architecture
-description: "Cited guidance on repo layout and monorepo tooling, domain vocabulary and typed models, knowledge graphs, choosing and migrating databases, multi-tenancy, queues and durable workflows, API style, reliability, observability, deployment, and IaC. Use when designing or changing structure, data models, databases, or backend infrastructure."
+description: "Repo layout/monorepos, domain ontology & typed models, databases/migrations/RLS, queues/workflows, APIs, observability, and deploy/IaC guidance."
 metadata:
-  as-of: "2026-11-11"
+  as-of: "2026-11-25"
 ---
 
 # Architecture: monorepos, ontology, databases, backend infrastructure

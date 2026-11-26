@@ -4,14 +4,16 @@ This directory separates **inventory coverage** from **observed agent outcomes**
 
 ## Pinned inventories
 
-Observed on 2026-11-12 from the primary GitHub APIs:
+Observed on 2026-11-25 from the primary GitHub APIs:
 
 | Source | Exact revision | Inventory |
 | --- | --- | --- |
-| [cursor/plugins, pstack](https://github.com/cursor/plugins/tree/ec569379616a4826b98f0f0a205dd3411b573611/pstack) | `ec569379616a4826b98f0f0a205dd3411b573611` | 61 `SKILL.md` files, 23 poteto-mode playbooks, 2 agent wrappers, 1 Benny automation pack |
-| [mattpocock/skills](https://github.com/mattpocock/skills/tree/5863806dd4e15c63174bee4e7515a4256792ecfa) | `5863806dd4e15c63174bee4e7515a4256792ecfa` | 39 skills: 27 plugin-listed, 8 in-progress, 4 unlisted misc |
+| [cursor/plugins, pstack](https://github.com/cursor/plugins/tree/b1fbf4b60ac6813b4583ccc356850dafcf492665/pstack) | `b1fbf4b60ac6813b4583ccc356850dafcf492665` | 62 `SKILL.md` files (59 shipped + 3 Benny), 22 poteto-mode playbooks, 1 `worker.md`, 2 agent wrappers, 1 Benny automation pack (`v0.15.48`) |
+| [mattpocock/skills](https://github.com/mattpocock/skills/tree/6f7f7831a625f040a8e06a0e7954826b87ce775a) | `6f7f7831a625f040a8e06a0e7954826b87ce775a` | 39 skills: 27 plugin-listed, 8 in-progress, 4 unlisted misc |
 
-[Source snapshots](sources/) retain complete file-name/blob-ID/size inventories and the source tree API URLs, not skill prose. [matrix.json](matrix.json) accounts for all 126 named items. Each row has its exact upstream source link, distribution, local repository-relative route, scenario links, limits and evidence state. The initial map has 110 related local routes and 16 explicit missing entries. These counts are bookkeeping, **not 110 equivalent or successful workflows**. Shared principles, wrappers, dormant automations and full journeys have different units and must not be pooled into a capability score.
+[Source snapshots](sources/) retain complete file-name/blob-ID/size inventories and the source tree API URLs, not skill prose. [matrix.json](matrix.json) accounts for all 127 named items, each with its upstream link, distribution, local route, scenario links, limits, and evidence state.
+The current map has **117 mapped local routes** (100% of the 84 shipped `pstack` skills, playbooks, `worker.md`, and agents), 4 `not-applicable` dormant Benny entries, and 6 explicit `missing` Matt Pocock in-progress/misc entries; `validate` rejects any unmapped shipped `pstack` workflow.
+These counts are bookkeeping, **not 117 equivalent or successful workflows**. Shared principles, wrappers, dormant automations and full journeys have different units and must not be pooled into a capability score.
 
 Scope includes every `SKILL.md` under either pinned source, every pstack poteto-mode playbook, both pstack agents and the Benny pack. Guide chapters, reference pages and source-maintenance GitHub Actions are not additional agent workflows. Generated harness copies outside `pstack/` are not counted twice. Cursor built-ins and companion-plugin integrations mentioned by pstack are dependencies, not skills shipped under that directory.
 
@@ -31,6 +33,7 @@ No empirical results are pre-populated. Matrix rows are never promoted automatic
 ```bash
 python evals/workflows/run.py validate
 python evals/workflows/run.py report
+python evals/workflows/sync_sources.py check-live --strict
 python -m unittest discover -s evals/workflows -p 'test_*.py'
 ```
 
@@ -139,7 +142,7 @@ Use `--task billsplit` and a fresh `--run-id` for bugfix. For optional model-ass
 ## Limits and missing capabilities
 
 - No replacement for Cursor IDE/custom-mode UX, Origin stack integration, Bugbot, native `/loop`, Cursor Automations, or separately installed `control-ui`/`control-cli` tooling. Benny's Slack ingestion, hosted triggers, setup and UI reproduction are blocked as an integration, even where local triage/bugfix concepts overlap.
-- No dedicated formal-verification authoring/maintenance, checked TLA+ statechart rendering, subtitled catch-up video, Grok Bot webhook/Tailscale UI or pstack per-role setup writer.
+- Formal-verification skill authoring/maintenance (`create-formal-verification-skill`, `maintain-formal-verification-skill`), checked TLA+ statechart rendering (`statechart`, POSIX and native Windows), subtitled catch-up video (`catchup-video`), Tailscale/local webhook bot UI (`webhook-ui`), expert vocabulary disambiguation (`reframe`), and per-role model/budget configuration (`model-setup`) are mapped to portable cross-harness counterparts rather than Cursor-proprietary `update_state`/`SendToUser`/`~/.cursor/rules/*.mdc` APIs.
 - Matt's TypeScript deep-module setup, Shoehorn migration, exercise scaffolding and three in-progress narrative-writing workflows have no dedicated local counterpart. In-progress and unlisted skills are counted but not presented as plugin-shipped.
 - Interview-heavy Matt flows and deepmodebot's autonomous reversible decisions differ deliberately. Generic architecture/TypeScript advice is not full upstream behavior parity. Multi-day chief-of-staff, persistent shared wiki, external factory triggers and remote merge workflows remain unmeasured here.
 - Ordinary filesystem/process execution is not a security sandbox. Candidate tools may still reach parent directories, hidden answers, other runs, global configuration or the network. Record any such access as failed/contaminated assessment evidence. The wrapper's path and hash checks protect its own files, not all agent tool actions. Timeout kills the immediate process; inspect possible descendants before starting another attempt.

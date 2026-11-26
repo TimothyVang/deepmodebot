@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -38,6 +38,17 @@ test("mirror makes the destination identical, deleting extra files", () => {
   assert.deepEqual(treeDiffs(src, dst), []);
 });
 
+test("mirror skips stray .pyc files and prunes empty stale directories", () => {
+  const src = join(tmp, "pyc-src");
+  const dst = join(tmp, "pyc-dst");
+  writeTree(src, { "a.md": "ok", "stray.pyc": "bad" });
+  writeTree(dst, { "a.md": "old", "obsolete/nested/old.md": "gone" });
+  mirror(src, dst);
+  assert.deepEqual(treeDiffs(src, dst), []);
+  assert.throws(() => statSync(join(dst, "stray.pyc")));
+  assert.throws(() => statSync(join(dst, "obsolete")));
+});
+
 test("mirror works when the source lives under node_modules (the real npm install path)", () => {
   const src = join(tmp, "nm", "node_modules", "deepmodebot", "plugins", "deepmodebot");
   const dst = join(tmp, "nm-dst");
@@ -45,6 +56,18 @@ test("mirror works when the source lives under node_modules (the real npm instal
   writeTree(dst, { "a.md": "old" });
   mirror(src, dst);
   assert.deepEqual(treeDiffs(src, dst), []);
+});
+
+test("mirror prunes stale test_*.py and bun.lock in dst while preserving dst node_modules", () => {
+  const src = join(tmp, "prune-src");
+  const dst = join(tmp, "prune-dst");
+  writeTree(src, { "a.md": "ok", "test_foo.py": "skip", "bun.lock": "skip" });
+  writeTree(dst, { "a.md": "old", "test_old.py": "stale", "bun.lock": "stale", "node_modules/pkg/index.js": "keep" });
+  mirror(src, dst);
+  assert.deepEqual(treeDiffs(src, dst), []);
+  assert.throws(() => statSync(join(dst, "test_old.py")));
+  assert.throws(() => statSync(join(dst, "bun.lock")));
+  assert.ok(statSync(join(dst, "node_modules/pkg/index.js")).isFile());
 });
 
 function agyFixture(name, installerResult) {

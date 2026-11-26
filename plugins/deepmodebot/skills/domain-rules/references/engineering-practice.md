@@ -98,3 +98,10 @@ Afterward, write down cause, fix, and how to recognize it next time.
 - Fundamentals (databases, networking, git) are what let you judge multi-file agent diffs.
 - Value moves to problem framing, taste, and owning production outcomes. (AI-ERA)
 - Reviewing AI-written changes: see `agent-engineering.md`, "Reviewing AI-written code".
+
+## Product craft, ownership & quality cadence
+
+- **Single accountable owner:** assign exactly one `owner`/`lead` per issue, project, and initiative so responsibility never diffuses across co-assignees.
+- **Progressive friction over cluttered forms or hard bans:** when an oft-requested field hurts 80% of workflows (e.g., ticket due dates), place it one submenu deeper (hidden until set) rather than cluttering creation forms or deleting it.
+- **Weekly paper-cut cadence & dogfooding:** run a standing weekly quality pass where every engineer ships at least one small UX/latency/bug paper-cut alongside roadmap work; everyday reliability retains users longer than headline features.
+- **Prototype interaction shifts in live code & kill sunk costs:** static mockups hide focus, scroll padding, latency, and diff density; build 3–5 working directions for novel workflows and scrap multi-week prototypes cleanly when dogfooding exposes scannability failure.

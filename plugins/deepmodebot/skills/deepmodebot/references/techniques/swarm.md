@@ -9,6 +9,13 @@
 5. **Aggregate.** Drop a result missing its SHAs/method and respawn once; second miss = recorded gap. A gap is not a pass. Coverage needs a result per required slice. Races apply the declared rule. No raw dumps. Done when every required slice has a result or a recorded gap.
 6. **Report.**
 
+## Release fuzzing swarm
+
+On a release cut or major build, spin up a mixed verification swarm against the real built artifact using the repo's `verify-<app>` skill and its feature map:
+- **Directed agents** walk mapped user journeys from the feature map and assert observable end states.
+- **Exploratory fuzzers** interact unpredictably (rapid clicks, reloads, cancel/retry races, empty/extreme inputs) and pair with property-based UI checks (`references/techniques/formal-verification.md`) when available.
+- Every finding must include a live repro command/artifact on the release build before opening a fix PR; group duplicate findings by shared root cause before dispatching fixes.
+
 **Output:** one in-chat report: result table, issue one-liners, gaps/dropouts, race rule if used.
 
 **Done when** the report has a row per slice or arm and names every gap and dropout.

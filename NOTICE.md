@@ -11,7 +11,12 @@ Some components derive from other MIT-licensed work. Each keeps its upstream cop
 | `plugins/deepmodebot/skills/deepmodebot/references/playbooks/wayfinder.md` | `wayfinder` skill, https://github.com/mattpocock/skills | MIT | Copyright (c) 2026 Matt Pocock | `plugins/deepmodebot/skills/deepmodebot/LICENSE` |
 | `plugins/deepmodebot/skills/create-verification-skill/` | pstack `create-verification-skill` | MIT | Copyright (c) 2026 Lauren Tan | `plugins/deepmodebot/skills/create-verification-skill/LICENSE` |
 | `plugins/deepmodebot/skills/maintain-verification-skill/` | pstack `maintain-verification-skill` | MIT | Copyright (c) 2026 Lauren Tan | `plugins/deepmodebot/skills/maintain-verification-skill/LICENSE` |
+| `plugins/deepmodebot/skills/create-formal-verification-skill/` | pstack `create-formal-verification-skill`, https://github.com/cursor/plugins/tree/main/pstack | MIT | Copyright (c) 2026 Lauren Tan | `plugins/deepmodebot/skills/create-formal-verification-skill/LICENSE` |
+| `plugins/deepmodebot/skills/maintain-formal-verification-skill/` | pstack `maintain-formal-verification-skill`, https://github.com/cursor/plugins/tree/main/pstack | MIT | Copyright (c) 2026 Lauren Tan | `plugins/deepmodebot/skills/maintain-formal-verification-skill/LICENSE` |
+| `plugins/deepmodebot/skills/statechart/` | pstack `statechart` skill and compiler, https://github.com/cursor/plugins/tree/main/pstack | MIT | Copyright (c) 2026 Lauren Tan | `plugins/deepmodebot/skills/statechart/LICENSE` |
+| `plugins/deepmodebot/skills/deepmodebot/references/techniques/reframe.md`, `catchup-video.md`, `webhook-ui.md`, `model-setup.md` | pstack `reframe`, `ketchup-video`, `make-bot-ui`, and `setup-pstack` skills, https://github.com/cursor/plugins/tree/main/pstack | MIT | Copyright (c) 2026 Lauren Tan | `plugins/deepmodebot/skills/deepmodebot/LICENSE` |
 | `plugins/deepmodebot/skills/deep-stack/references/unslop/` | pstack `unslop` skill | MIT | Copyright (c) 2026 Lauren Tan | `plugins/deepmodebot/skills/deep-stack/references/unslop/LICENSE` |
+| `plugins/deepmodebot/skills/deep-learning/scripts/wsp.py`, `hf_passes.py`, and distilled `references/weight-space-programming.md` | `weight-space-programming` skill, https://github.com/ulkuderner/weight-space-programming (implementing Takehi, Teoh, Zhang & Khattab, MIT CSAIL Nov 2026, logs CC BY 4.0) | MIT / CC BY 4.0 | Copyright (c) 2026 Caglar Ulkuderner | `plugins/deepmodebot/skills/deep-learning/LICENSE` |
 
 Public-domain components:
 

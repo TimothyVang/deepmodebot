@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/TimothyVang/deepmodebot/.deepmodebot/schema.json",
+  "title": "Deepmodebot Local CI & Project Memory Schema",
+  "type": "object",
+  "properties": {
+    "ci": {
+      "type": "object",
+      "required": ["name", "jobs"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "on": { "type": "array", "items": { "type": "string" } },
+        "env": { "type": "object", "additionalProperties": { "type": "string" } },
+        "jobs": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "required": ["steps"],
+            "properties": {
+              "needs": { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+              "timeout-minutes": { "type": "number", "minimum": 0.1, "maximum": 60 },
+              "inputs": { "type": "array", "items": { "type": "string" } },
+              "env": { "type": "object", "additionalProperties": { "type": "string" } },
+              "steps": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["run"],
+                  "properties": {
+                    "name": { "type": "string" },
+                    "run": { "type": "string", "minLength": 1 },
+                    "continue-on-error": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "memoryRecord": {
+      "type": "object",
+      "required": ["key", "kind", "priority", "content"],
+      "properties": {
+        "key": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["fact", "decision", "gotcha", "convention", "ci_result", "hotspot", "handoff"] },
+        "priority": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "content": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "source": { "type": "string" },
+        "tokens_est": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

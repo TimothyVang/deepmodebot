@@ -10,11 +10,14 @@
 
 ## Checks
 
+- Local CI gate (mandatory before reporting done or opening a PR): run `.deepmodebot/ci.yml` via `python -B <deepmodebot skill>/assets/local-ci/local_ci.py run --cached`.
 - Fast checks, after every edit: `python scripts/check.py`.
 - Tests, before calling a part done: `npm test`.
 - Live proof: the `.omp/skills/verify-deepmodebot`, `.agents/skills/verify-deepmodebot` skill. Tests alone are not proof.
 
-## Work area
+## Work area & memory
 
 - Scratch, temp files, logs, and evidence go in `.scratch/` (git-ignored), never system temp.
+- Governance policy: `.deepmodebot/policy.xml` (containment, CI gate, UI gate, hard stops).
+- Project memory DB: `.scratch/deepmode-memory.db` (SQLite WAL+FTS5); recall compact XML via `project_memory.py recall --format xml --budget-tokens 800`.
 <!-- deepmodebot:end -->

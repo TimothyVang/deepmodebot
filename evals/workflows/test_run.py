@@ -91,6 +91,15 @@ class EvidenceProtocolTests(unittest.TestCase):
         (self.root / route).unlink()
         self.assertEqual(self.cli('validate'), 2)
 
+    def test_unmapped_shipped_pstack_skill_fails(self):
+        matrix = runner.load(self.home / 'matrix.json')
+        row = next(r for r in matrix['entries'] if r['upstream'] == 'pstack' and r.get('distribution') == 'shipped')
+        row['disposition'] = 'missing'
+        row['routes'] = []
+        row['state'] = 'blocked'
+        self.rewrite(self.home / 'matrix.json', matrix)
+        self.assertEqual(self.cli('validate'), 2)
+
     def fixture_run(self, scenario_id='review'):
         scenario = runner.scenarios()[scenario_id]
         seed = runner.load(self.home / 'seeds' / (scenario['seed'] + '.json'))

@@ -14,6 +14,13 @@
    Done when the reviewer's flags, or "No flags", are in hand.
 7. Commit the log only when the work needs an auditable trail.
 
+## Verification artifacts and visuals
+
+At high PR velocity, human review shifts from reading raw diffs to inspecting verification artifacts: videos, screenshots, Mermaid statecharts, and repro traces.
+- Embed screenshots/videos or link real artifacts inline for every visible change; mark visible changes without one as "No screenshot yet" and state what changed on screen.
+- Draw a diagram when relationships, PR stacks, state transitions, or before/after flows are clearer visually than prose. Never draw status lists, action lists, or disconnected boxes, and never invent numbers.
+- Keep every diagram readable at a glance: at most 6 boxes, at most 8 plain words per box (no cryptic status tags), and never repeat the same fact across text and visuals.
+
 **Output:** every reply for a run with a trail ends with **Attention**: first line `reviewed by <model>`, then flags pointing at rows/moments, or "No flags". Other techniques route trails here and don't restate the format. Log text goes through **unslop**.
 
 **Done when** the trail passes the step 5 audit and the reply ends with **Attention**.

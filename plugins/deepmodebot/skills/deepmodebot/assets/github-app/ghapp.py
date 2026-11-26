@@ -32,6 +32,8 @@ import urllib.request
 import webbrowser
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+
 from brand import BRAND, CONFIG_DIR
 
 CONFIG_PATH = CONFIG_DIR / "github-app.json"

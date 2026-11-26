@@ -24,6 +24,8 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+
 SKILL_DIR = Path(__file__).resolve().parent.parent
 REFERENCE_FILE = SKILL_DIR / "assets" / "repo-references.json"
 REFERENCE_REVISION = hashlib.sha256(REFERENCE_FILE.read_text(encoding="utf-8").encode("utf-8")).hexdigest()
@@ -66,6 +68,7 @@ CATEGORIES = [
                                         "self-hosted", "rust", "typescript", "golang", "python"]),
 ]
 OTHER = "Everything else"
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
 def today():
@@ -77,7 +80,7 @@ def github_token():
     if token:
         return token
     try:
-        out = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True, timeout=10)
+        out = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True, timeout=10, creationflags=NO_WINDOW)
         return out.stdout.strip() or None
     except (OSError, subprocess.SubprocessError):
         return None
@@ -507,6 +510,7 @@ def project_cache() -> Path:
             encoding="utf-8",
             errors="replace",
             timeout=15,
+            creationflags=NO_WINDOW,
         )
         root = Path(proc.stdout.strip()) if proc.returncode == 0 and proc.stdout.strip() else Path.cwd()
     except (OSError, subprocess.SubprocessError):

@@ -37,7 +37,7 @@ The commands below are the **github** kind's. When the user keeps a GitHub Proje
    - Pass → `gh pr merge <pr> --match-head-commit <sha>` with the repo's merge method, then run the checks on the new trunk. Red trunk → open a revert PR at once (PR source step 11). Green → `board:done`.
    - Fail → the owner fixes the findings, pushes, and a fresh panel runs. The third failed panel → `board:blocked` with the findings in a comment.
    - Done when the task is `board:done` with a green trunk check, has a revert PR open, or is `board:blocked` with the findings commented.
-6. **Loop.** Run up to three tasks at once when they touch different files (raise only when provider rate limits and quotas allow; back off or rotate model families on 429s). After each merge, re-read the board. Re-plan tasks the merge changed, unblock dependents, and add the panel's dissent tasks.
+6. **Loop.** Run at most **2** non-overlapping tasks concurrently (drop to `1` immediately on any `429`, save `.scratch/quota-guard/<slug>-checkpoint.json`, and never wrap `work-a-queue` inside `/teamwork`; back off or rotate model families on 429s). After each merge, re-read the board. Re-plan tasks the merge changed, unblock dependents, and add the panel's dissent tasks.
    Done when no task is `board:todo`, `board:in-progress`, or `board:review`, or every one left is blocked on something only the user can supply.
 
 ### Gates
@@ -64,7 +64,9 @@ A queue of PRs is built and verified with full autonomy, one owner per PR. In mo
    Done when the trail's first row and the heartbeat-tick prompt both name the mode.
 2. Apply the operator's gates first. The grant covers only the queue's items. Items the operator names as theirs and PRs outside the queue stop at merge-ready. A request to state the plan is not a go.
    Done when the trail lists the queue's items and every item that stops at merge-ready.
-3. Spawn one owner per PR with `task`, each in its own `git worktree` with exclusive file ownership (shared-`.git` rules in Run a goal, Program scale step 3, `references/playbooks/run-a-goal.md`). Select each owner's model tier and effort per `skill://agent-harnesses/references/delegation-efficiency.md` (small/mid for routine or oracle-backed PRs; `L` for hard design, security, and final review), pace spawns to 3-5 per wave, and reuse owners across fix rounds so prompt caches stay warm. The request authorizes branches and PRs; merging only in `merge` mode.
+3. Spawn one owner per PR with `task`, each in its own `git worktree` with exclusive file ownership (shared-`.git` rules in Run a goal, Program scale step 3, `references/playbooks/run-a-goal.md`). Select each owner's model tier and effort per `skill://agent-harnesses/references/delegation-efficiency.md` (small/mid for routine or oracle-backed PRs; `L` for hard design, security, and final review).
+   Cap concurrent active owners at **1-2** per wave (never 4-5 in parallel, which triggers `429` cold-respawn storms), reuse owners across fix rounds, and save `.scratch/quota-guard/<slug>-checkpoint.json` (`assets/quota-guard/quota_guard.py`) before any rate-limit pause.
+   The request authorizes branches and PRs; merging only in `merge` mode.
    For complex or uncertain domains, clear the PR spec with **sme-review** (`references/techniques/sme-review.md`) before writing hidden tests or spawning owners.
    Each owner builds, opens its PR early (per `references/playbooks/opening-a-pr.md`) so CI and bots run alongside, proves the change on the real artifact, and babysits to green per `references/playbooks/babysit.md`.
    Before an owner starts, a different agent writes hidden acceptance tests from the PR's spec. They are stored in the root's store, outside every owner's worktree, and are black-box tests of the spec's public behavior.
