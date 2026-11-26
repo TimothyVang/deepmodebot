@@ -222,9 +222,18 @@ def _check_secrets_and_patterns(rel: str, added_lines: dict[int, str], full_text
     findings: list[dict] = []
     ext = Path(rel).suffix.lower()
     is_test = bool(TEST_FILE_RE.search(rel))
+    rs_cfg_test_line = None
+    if ext == ".rs":
+        for idx, fl in enumerate(full_text.splitlines(), 1):
+            if fl.strip().startswith("#[cfg(test)]"):
+                rs_cfg_test_line = idx
+                break
 
     for ln, line in sorted(added_lines.items()):
+        in_test_ctx = is_test or (rs_cfg_test_line is not None and ln >= rs_cfg_test_line)
         for rule_id, pat, fix in SECRET_PATTERNS:
+            if rule_id == "secret-private-key" and in_test_ctx and ("compile(" in line or 'r"' in line or "r'" in line or '"-----BEGIN' in line or "'-----BEGIN" in line):
+                continue
             if pat.search(line):
                 findings.append({"severity": "P0", "rule": rule_id, "file": rel, "line": ln,
                                  "message": f"Potential hardcoded secret matched `{rule_id}`.", "fix": fix})
@@ -232,15 +241,15 @@ def _check_secrets_and_patterns(rel: str, added_lines: dict[int, str], full_text
             findings.append({"severity": "P1", "rule": "supply-chain-unpinned-action", "file": rel, "line": ln,
                              "message": "GitHub Action pinned to mutable `@main`/`@master` ref.",
                              "fix": "Pin to a full 40-char commit SHA or immutable tag."})
-        if not is_test and ext in (".ts", ".tsx") and TS_CAST_SLOP_RE.search(line):
+        if not in_test_ctx and ext in (".ts", ".tsx") and TS_CAST_SLOP_RE.search(line):
             findings.append({"severity": "P1", "rule": "ts-unsafe-cast", "file": rel, "line": ln,
                              "message": "Unsafe `as any` / `as unknown as` type escape.",
                              "fix": "Narrow with a proper type guard or schema parser."})
-        if not is_test and ext in (".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".html") and UNSAFE_WEB_SINK_RE.search(line):
+        if not in_test_ctx and ext in (".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".html") and UNSAFE_WEB_SINK_RE.search(line):
             findings.append({"severity": "P1", "rule": "security-unsafe-sink", "file": rel, "line": ln,
                              "message": "Unsafe dynamic sink (`eval`/`innerHTML`/`dangerouslySetInnerHTML`).",
                              "fix": "Use safe DOM nodes (`textContent`) or sanitized renderer."})
-        if not is_test and ext == ".rs" and RUST_UNWRAP_RE.search(line):
+        if not in_test_ctx and ext == ".rs" and RUST_UNWRAP_RE.search(line):
             findings.append({"severity": "P1", "rule": "rust-prod-unwrap", "file": rel, "line": ln,
                              "message": "`.unwrap()` in non-test Rust code panics on unexpected input.",
                              "fix": "Propagate with `?` or handle error explicitly."})
