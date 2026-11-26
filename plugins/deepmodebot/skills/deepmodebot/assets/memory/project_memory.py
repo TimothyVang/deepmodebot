@@ -52,11 +52,7 @@ def resolve_main_root(start: Path) -> Path:
             cpath = Path(common.stdout.strip())
             if cpath.name == ".git":
                 parent_repo = cpath.parent
-                try:
-                    rel_parts = resolved.relative_to(parent_repo).parts
-                except ValueError:
-                    rel_parts = ()
-                if ".scratch" in rel_parts:
+                if ".scratch" in resolved.parts:
                     return resolved
                 return parent_repo
     except OSError:

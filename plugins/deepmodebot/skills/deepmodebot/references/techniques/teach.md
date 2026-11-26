@@ -1,6 +1,6 @@
 # teach
 
-**Use when:** "teach me this", "help me really understand X", explain a change or subsystem. Goal is understanding, not changes. Learning a topic over several sessions (a course, lessons, quizzes, a learning workspace) is the **course** technique (`references/techniques/course.md`) instead.
+**Use when:** "teach me this", "explain X", or "help me understand this subsystem/diff" as a direct explanation. **Intent guard:** if the user explicitly asks to be quizzed, tutored, or drilled to mastery ("tutor me", "quiz me", "drill me", "help me master X"), route to Socratic mode in **course** (`references/techniques/course.md`) instead; if ambiguous, ask one 1-line choice before starting a diagnostic quiz.
 
 1. Decide the few things they should walk away understanding, chosen from why they're asking (changing, reviewing, debugging, new) and what they know, read from the conversation, not quizzed. Depth goes where their question is.
    Done when the takeaways are listed, each tied to the reason they asked.

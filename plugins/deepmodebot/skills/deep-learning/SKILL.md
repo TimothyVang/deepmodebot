@@ -2,7 +2,7 @@
 name: deep-learning
 description: "Non-LLM deep learning, RL, neural architectures, world models, geometric/SciML, optimization, and gradient-free weight-space programming."
 metadata:
-  as-of: "2026-11-24"
+  as-of: "2026-11-25"
 ---
 
 # Deep Learning, RL, Neural Networks & Weight-Space Programming
@@ -26,7 +26,7 @@ Non-LLM deep learning reference: neural architectures, reinforcement learning, w
 
 ## Hard Engineering Rules
 
-1. **Measure before mutating.** Establish baseline metrics, parameter/FLOP/VRAM budgets, and a null control (random init, random orthogonal direction, or seeded baseline) before changing architecture, reward shaping, or weights.
+1. **Measure baseline & roofline ceiling before mutating.** Establish baseline metrics, a null control, and the measured hardware ceiling (device-copy GB/s and real `4096^3`/`8192^3` GEMM TFLOP/s — never spec sheets; for autoregressive/MoE serving, include `lm_head` bytes, `kv_bytes * ctx`, and routed-expert union `1 - (1 - top_k/n_experts)^(k+1)` under speculative decoding) before changing architecture, kernels, or weights.
 2. **Isolate causes.** Change one variable at a time (learning rate, architecture, reward term, or single targeted weight tensor) and confirm on held-out seeds/environments with paired standard error (`gain > 2 * SE`).
 3. **Never confuse LLM prompting with deep learning.** For LLM agent harnesses, RAG, or prompt orchestration, route to `skill://agent-harnesses` or `skill://domain-rules/references/ai-concepts.md`; this skill covers neural computation, RL, representation learning, and weight-space engineering.
 4. **Prevent silent numerical failure.** Log grad norms, activation variance, NaN/Inf counts, and effective rank; prefer BF16 over FP16 when hardware supports it; use deterministic seeds for ablations.

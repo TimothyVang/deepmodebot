@@ -1,0 +1,46 @@
+{
+  "name": "deepmodebot",
+  "version": "0.9.1",
+  "description": "Rigorous agent engineering mode (/deep) for Codex, Claude Code, omp, and Google Antigravity: routes tasks to playbooks, enforces Full-Scope Completion, SME-in-the-loop incremental sprints, model/rate-limit resilience, root containment, real-app proof, and verifier-gated PR review.",
+  "author": {
+    "name": "Timothy Vang",
+    "url": "https://github.com/TimothyVang"
+  },
+  "homepage": "https://timothyvang.github.io/deepmodebot/",
+  "repository": "https://github.com/TimothyVang/deepmodebot",
+  "license": "MIT",
+  "keywords": [
+    "deepmodebot",
+    "rigor",
+    "agent-playbooks",
+    "full-scope-completion",
+    "sme-review",
+    "verification",
+    "code-review",
+    "codex"
+  ],
+  "skills": "./skills/",
+  "requires_local_executor": true,
+  "interface": {
+    "displayName": "Deepmodebot",
+    "shortDescription": "Hardcore engineering mode, gates, and PR review",
+    "longDescription": "Routes tasks to 30 engineering playbooks and 70 techniques, enforces Full-Scope Completion, zero-token anti-slop and UI/security gates, real-artifact rehearsal proof, and verifier-gated PR review.",
+    "developerName": "Timothy Vang",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://timothyvang.github.io/deepmodebot/",
+    "defaultPrompt": [
+      "$deepmodebot:deepmodebot grill me on this plan, then write the spec and cut tickets",
+      "$deepmodebot:deepmodebot fix this bug and prove it on the running app",
+      "$deepmodebot:deepmodebot review this branch before opening a PR"
+    ],
+    "composerIcon": "./assets/logo.svg",
+    "logo": "./assets/logo.svg",
+    "brandColor": "#111111",
+    "screenshots": []
+  }
+}

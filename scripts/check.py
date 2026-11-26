@@ -64,7 +64,7 @@ def iter_files(suffix=None):
 
 
 marketplace_versions = {}
-for manifest in [ROOT / ".omp-plugin/marketplace.json", ROOT / ".claude-plugin/marketplace.json"]:
+for manifest in [ROOT / ".omp-plugin/marketplace.json", ROOT / ".claude-plugin/marketplace.json", ROOT / ".agents/plugins/marketplace.json"]:
     try:
         catalog = json.loads(manifest.read_text(encoding="utf-8"))
     except (OSError, ValueError) as err:
@@ -75,8 +75,9 @@ for manifest in [ROOT / ".omp-plugin/marketplace.json", ROOT / ".claude-plugin/m
     for plugin in catalog.get("plugins", []):
         pname = plugin.get("name")
         source = plugin.get("source")
-        if isinstance(source, str) and not (ROOT / source).is_dir():
-            problems.append(f"{rel_m}: plugin {pname} source {source} is missing")
+        src_path = source.get("path") if isinstance(source, dict) else source
+        if isinstance(src_path, str) and not (ROOT / src_path).is_dir():
+            problems.append(f"{rel_m}: plugin {pname} source {src_path} is missing")
         if isinstance(pname, str):
             if meta_ver:
                 marketplace_versions.setdefault(pname, []).append((f"{rel_m}#metadata.version", meta_ver))
@@ -84,6 +85,7 @@ for manifest in [ROOT / ".omp-plugin/marketplace.json", ROOT / ".claude-plugin/m
 
 for json_path in [*ROOT.glob("plugins/*/.claude-plugin/plugin.json"),
                   *ROOT.glob("plugins/*/.antigravity-plugin/plugin.json"),
+                  *ROOT.glob("plugins/*/.codex-plugin/plugin.json"),
                   *ROOT.glob("plugins/*/hooks/hooks.json"),
                   *ROOT.glob("plugins/*/hooks.json"),
                   *ROOT.glob("plugins/*/mcp_config.json")]:
@@ -102,7 +104,7 @@ for json_path in [*ROOT.glob("plugins/*/.claude-plugin/plugin.json"),
     elif json_path.name == "mcp_config.json":
         if not isinstance(data.get("mcpServers"), dict):
             problems.append(f"{rel_j}: mcpServers must be an object")
-    elif json_path.parent.name == ".antigravity-plugin":
+    elif json_path.parent.name in (".antigravity-plugin", ".codex-plugin"):
         plugin_dir = json_path.parent.parent
         pname = data.get("name")
         if not isinstance(pname, str) or not re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", pname):
@@ -127,7 +129,7 @@ for json_path in [*ROOT.glob("plugins/*/.claude-plugin/plugin.json"),
 
 for plugin_dir in sorted(p for p in (ROOT / "plugins").iterdir() if p.is_dir()):
     versions = list(marketplace_versions.get(plugin_dir.name, []))
-    for sub in (".claude-plugin/plugin.json", ".antigravity-plugin/plugin.json"):
+    for sub in (".claude-plugin/plugin.json", ".antigravity-plugin/plugin.json", ".codex-plugin/plugin.json"):
         mpath = plugin_dir / sub
         if mpath.is_file():
             try:
@@ -310,7 +312,7 @@ if agy_exe:
     for agy_manifest in sorted(ROOT.glob("plugins/*/.antigravity-plugin/plugin.json")):
         pdir = agy_manifest.parent.parent
         agy_run = subprocess.run([agy_exe, "plugin", "validate", str(pdir), "--json"],
-                                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
+                                 stdin=subprocess.DEVNULL, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
         if agy_run.returncode:
             problems.append(f"{pdir.relative_to(ROOT)}: agy plugin validate exited {agy_run.returncode}\n"
                             f"{(agy_run.stdout + agy_run.stderr).strip()[-2000:]}")

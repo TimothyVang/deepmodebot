@@ -1,0 +1,21 @@
+{
+  "name": "deepmodebot",
+  "interface": {
+    "displayName": "Deepmodebot"
+  },
+  "plugins": [
+    {
+      "name": "deepmodebot",
+      "version": "0.9.1",
+      "source": {
+        "source": "local",
+        "path": "./plugins/deepmodebot"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "NONE"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

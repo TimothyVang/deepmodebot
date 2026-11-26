@@ -47,6 +47,12 @@ PURE_BLACK_BG_CSS_RE = re.compile(
 )
 RAW_TW_GRAY_RE = re.compile(r"\b(?:bg|text|border)-(?:zinc|slate|gray|neutral|stone)-\d{2,3}\b")
 TW_BG_BLACK_RE = re.compile(r"""(?<=[\s"'`])bg-black(?=[\s"'`])""")
+WIDTH_100VW_CSS_RE = re.compile(r"(?:^|[;\s{])width\s*:\s*100vw\b", re.I)
+FAKE_LIVE_PULSE_RE = re.compile(
+    r"<span\b[^>]*\banimate-pulse\b[^>]*(?:/>|>.*?</span>)\s*(?:LIVE|ONLINE|SYNCED)\b",
+    re.I,
+)
+LIVE_STATUS_A11Y_RE = re.compile(r"\b(?:role\s*=\s*['\"]status['\"]|aria-live\s*=)", re.I)
 HEAVY_RGBA_SHADOW_RE = re.compile(r"box-shadow\s*:[^;{}]*rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0?\.[1-9]\d*\s*\)", re.I)
 BORDER_DECL_RE = re.compile(r"\bborder(?:-(?:top|right|bottom|left))?\s*:\s*[1-9]\d*px\s+solid\b", re.I)
 IMG_TAG_RE = re.compile(r"<img\b[^>]*>", re.I)
@@ -113,7 +119,7 @@ BROWSER_AUDIT_SNIPPET = r"""(() => {
   };
 
   let bordered = 0, maxBorderDepth = 0, transitionAll = 0, foldCoveredArea = 0;
-  const smallTargets = [], unlabeled = [], lowContrast = [], circularCheckboxes = [], pureBlackSurfaces = [], missingTabularNums = [], iconButtonsMissingTooltip = [], centerOriginMenus = [], unprefocusedFilterPopovers = [];
+  const smallTargets = [], unlabeled = [], lowContrast = [], circularCheckboxes = [], pureBlackSurfaces = [], missingTabularNums = [], iconButtonsMissingTooltip = [], centerOriginMenus = [], unprefocusedFilterPopovers = [], trackedCapsEyebrows = [], deadFormsOrHashLinks = [];
   const depthMap = new WeakMap();
 
   for (const el of document.querySelectorAll("body *")) {
@@ -192,6 +198,25 @@ BROWSER_AUDIT_SNIPPET = r"""(() => {
     }
   }
   const brokenImages = [...document.images].filter(i => !i.complete || i.naturalWidth === 0).map(i => i.src);
+  for (const h of document.querySelectorAll("h1, h2, h3")) {
+    const prev = h.previousElementSibling;
+    if (prev && prev.children.length === 0 && trackedCapsEyebrows.length < 6) {
+      const pcs = getComputedStyle(prev);
+      if (pcs.textTransform === "uppercase" && (parseFloat(pcs.letterSpacing) || 0) >= 1.2 && (prev.textContent || "").trim().length <= 40) {
+        trackedCapsEyebrows.push((prev.textContent || "").trim());
+      }
+    }
+  }
+  for (const f of document.querySelectorAll("form")) {
+    if (!f.getAttribute("action") && !f.onsubmit && deadFormsOrHashLinks.length < 6) deadFormsOrHashLinks.push("<form> missing action/handler");
+  }
+  for (const a of document.querySelectorAll("a[href='#']")) {
+    if (!a.onclick && !a.getAttribute("role") && deadFormsOrHashLinks.length < 6) deadFormsOrHashLinks.push(a.outerHTML.slice(0, 64));
+  }
+  const h1Rect = h1 ? h1.getBoundingClientRect() : null;
+  const heroClippedAboveFold = Boolean(vw >= 1280 && h1Rect && h1Rect.bottom > Math.max(vh, 800));
+  const rootOx = getComputedStyle(document.documentElement).overflowX;
+  const overflowHiddenBreaksSticky = (rootOx === "hidden" || bodyCs.overflowX === "hidden") && [...document.querySelectorAll("body *")].some(n => getComputedStyle(n).position === "sticky");
   return {
     viewport: `${vw}x${vh}`,
     overflowX,
@@ -213,6 +238,10 @@ BROWSER_AUDIT_SNIPPET = r"""(() => {
     iconButtonsMissingTooltip,
     centerOriginMenus,
     unprefocusedFilterPopovers,
+    trackedCapsEyebrows,
+    deadFormsOrHashLinks,
+    heroClippedAboveFold,
+    overflowHiddenBreaksSticky,
     brokenImages,
   };
 })()"""
@@ -259,6 +288,9 @@ def audit_source(text: str, rel: str, suffix: str) -> list[dict]:
         if PURE_BLACK_BG_CSS_RE.search(line):
             findings.append({"severity": "P1", "rule": "no-pure-black-surface", "file": rel, "line": idx,
                              "message": "Avoid `#000000` dark surfaces (causes OLED scroll smearing); use brand-tinted dark tokens (`>= #09090b`)."})
+        if is_style and WIDTH_100VW_CSS_RE.search(line):
+            findings.append({"severity": "P2", "rule": "no-100vw-overflow", "file": rel, "line": idx,
+                             "message": "Avoid `width: 100vw` (triggers horizontal scrollbar overflow); use `100%` with `overflow-x: clip`."})
         if is_markup:
             m_tw = RAW_TW_GRAY_RE.search(line)
             if m_tw:
@@ -279,6 +311,9 @@ def audit_source(text: str, rel: str, suffix: str) -> list[dict]:
                 if not visible and not A11Y_NAME_ATTR_RE.search(m_btn.group("attrs")):
                     findings.append({"severity": "P1", "rule": "icon-button-label", "file": rel, "line": idx,
                                      "message": "Icon-only `<button>` is missing `aria-label`/`aria-labelledby` (and should expose a tooltip + shortcut)."})
+            if FAKE_LIVE_PULSE_RE.search(line) and not LIVE_STATUS_A11Y_RE.search(line):
+                findings.append({"severity": "P2", "rule": "no-fake-live-pulse", "file": rel, "line": idx,
+                                 "message": "Avoid unwired `animate-pulse` decorative `LIVE/ONLINE/SYNCED` dots (`unslop-ui` U10); wire real state with `role='status'`."})
             for m_img in IMG_TAG_RE.finditer(line):
                 if not ALT_ATTR_RE.search(m_img.group(0)):
                     findings.append({"severity": "P0", "rule": "img-alt", "file": rel, "line": idx,

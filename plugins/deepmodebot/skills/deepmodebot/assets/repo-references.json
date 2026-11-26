@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "reviewed": "2026-11-14",
+  "reviewed": "2026-11-25",
   "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN",
   "scope": "Primary identities, README and license scopes inspected. Source code, benchmark performance, production security and medical suitability were not independently exercised. Reference tags are leads, not deployment approval.",
   "repos": {
@@ -632,6 +632,104 @@
         "https://www.youtube.com/watch?v=pnZh5PAF3VE&t=907s"
       ],
       "caution": "Not investment advice or accuracy proof; data/provider limits; screening subtree Apache2 while root MIT."
+    },
+    "erkamyaman/rust-anything": {
+      "github_id": 1459971684,
+      "topics": [
+        "rust migration",
+        "differential replay",
+        "strangler port",
+        "agent skills"
+      ],
+      "sources": [
+        "https://github.com/erkamyaman/rust-anything"
+      ],
+      "caution": "Dual-licensed MIT OR Apache-2.0. Recorded cases.jsonl replay proves covered inputs only; keep per-app target dirs isolated and forbid shipping while original:: fallback glue remains."
+    },
+    "felipebasurto/unslop-ui": {
+      "github_id": 1435735611,
+      "topics": [
+        "ui copy",
+        "anti slop",
+        "agent skills"
+      ],
+      "sources": [
+        "https://github.com/felipebasurto/unslop-ui"
+      ],
+      "caution": "MIT. Copy-removal rules (eyebrows, decorative numbering, unwired pulse dots) are defaults; explicit product brief requirements take precedence."
+    },
+    "haydenschmitty/floorplan": {
+      "github_id": 1435672472,
+      "topics": [
+        "codebase map",
+        "architecture visualization",
+        "codex plugin"
+      ],
+      "sources": [
+        "https://github.com/haydenschmitty/floorplan"
+      ],
+      "caution": "MIT. Generated plain-English architecture maps can drift after refactors; treat endpoint/key health checks as heuristics, not a complete security audit."
+    },
+    "janestreet/agent_skills": {
+      "github_id": 1444573070,
+      "topics": [
+        "socratic tutoring",
+        "agent skills",
+        "mastery learning"
+      ],
+      "sources": [
+        "https://github.com/janestreet/agent_skills"
+      ],
+      "caution": "MIT. Socratic quiz loops frustrate one-off explain-X questions; keep an explicit intent guard before launching multi-turn diagnostics."
+    },
+    "KKKKhazix/agent-autoloop": {
+      "github_id": 1443985070,
+      "topics": [
+        "background agent loop",
+        "decision cards",
+        "cli orchestration"
+      ],
+      "sources": [
+        "https://github.com/KKKKhazix/agent-autoloop"
+      ],
+      "caution": "MIT. Inspect upstream install scripts instead of piping remote scripts directly to shell; scope unattended CLI permissions and spend caps."
+    },
+    "NiazMorshed2007/reanimate": {
+      "github_id": 1438029127,
+      "topics": [
+        "animation reverse engineering",
+        "motion parity",
+        "agent skills"
+      ],
+      "sources": [
+        "https://github.com/NiazMorshed2007/reanimate"
+      ],
+      "caution": "MIT. Rebuild motion timing and easing in project-owned code; never copy third-party copyrighted brand assets, fonts, or proprietary copy."
+    },
+    "Nutlope/hallmark": {
+      "github_id": 1222917575,
+      "topics": [
+        "ui design",
+        "anti slop linter",
+        "agent skills"
+      ],
+      "sources": [
+        "https://github.com/Nutlope/hallmark"
+      ],
+      "caution": "MIT. Bundled photography carries individual open-license attribution requirements; use Floor/Render checks without copying theme showcase copy verbatim."
+    },
+    "sybil-solutions/inference-optimisation-skill": {
+      "github_id": 1460417668,
+      "topics": [
+        "llm inference",
+        "roofline hillclimbing",
+        "speculative decoding",
+        "agent skills"
+      ],
+      "sources": [
+        "https://github.com/sybil-solutions/inference-optimisation-skill"
+      ],
+      "caution": "MIT. Compute ceilings from measured device copy and GEMM throughput rather than vendor spec sheets; label lossy quantization tradeoffs explicitly."
     }
   }
 }

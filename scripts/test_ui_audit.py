@@ -43,6 +43,7 @@ class UiAuditTests(unittest.TestCase):
     <div className="bg-black">
       <input type="checkbox" className="w-4 h-4 rounded-full" />
       <button className="icon-btn"><svg viewBox="0 0 16 16"><path d="M0 0h16v16H0z"/></svg></button>
+      <div><span className="w-2 h-2 rounded-full animate-pulse"></span> LIVE</div>
     </div>
   );
 }"""
@@ -51,8 +52,9 @@ class UiAuditTests(unittest.TestCase):
         self.assertEqual(by_rule.get("no-pure-black-surface"), "P1")
         self.assertEqual(by_rule.get("checkbox-not-circular"), "P1")
         self.assertEqual(by_rule.get("icon-button-label"), "P1")
+        self.assertEqual(by_rule.get("no-fake-live-pulse"), "P2")
 
-        bad_css = """.drawer { transition: width 220ms ease-out; background: #000000; transform: scale(0); }
+        bad_css = """.drawer { width: 100vw; transition: width 220ms ease-out; background: #000000; transform: scale(0); }
 :focus-visible { outline: 2px solid var(--accent); }
 @media (prefers-reduced-motion: reduce) { .drawer { transition: none; } }"""
         css_findings = ui_audit.audit_source(bad_css, "drawer.css", ".css")
@@ -60,6 +62,9 @@ class UiAuditTests(unittest.TestCase):
         self.assertEqual(css_by_rule.get("no-layout-transition"), "P1")
         self.assertEqual(css_by_rule.get("no-pure-black-surface"), "P1")
         self.assertEqual(css_by_rule.get("no-scale-zero-entry"), "P1")
+        self.assertEqual(css_by_rule.get("no-100vw-overflow"), "P2")
+        self.assertIn("trackedCapsEyebrows", ui_audit.BROWSER_AUDIT_SNIPPET)
+        self.assertIn("overflowHiddenBreaksSticky", ui_audit.BROWSER_AUDIT_SNIPPET)
 
     def test_legitimate_buttons_styles_and_comments_do_not_false_positive(self):
         legit_tsx = """/* never use transition: width 200ms; background: #000000; transform: scale(0); */

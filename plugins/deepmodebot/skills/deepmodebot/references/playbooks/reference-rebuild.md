@@ -18,6 +18,7 @@ Method adapted from Nick Vasilescu's Grok Bot rebuild (T3 Code + Paper MCP, yout
 5. **Build from the canvas**, one screen per owner, shared tokens and primitives first (`references/playbooks/visual-parity.md` for the harness and per-component loop). Done when every canvas screen renders in the running app.
 6. **Prove it in the real app**, not a mock: screenshot each built screen in the running app at the canvas size and compare it frame by frame with the canvas; fix and reshoot until each matches.
    Add real-data and worst-case passes (long names, empty, every state, outages, narrow widths).
+   For animated interactions (menus, sheets, card entrances), record reference vs built clips and verify timing/easing parity with `python -B "<frontend-ui skill>/scripts/motion_diff.py" <ref.mp4> <built.mp4>` (`<= 0.08 s` start/duration delta, matching easing family, `<= 0.5%` rest jitter).
    Done when every screen has a matching canvas-vs-app screenshot pair and every worst-case pass has a result.
 
 Run steps 1 to 3 as parallel threads when they are independent (reference study, backend mapping, canvas), and settle each thread when its output is saved.

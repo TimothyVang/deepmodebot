@@ -1,6 +1,6 @@
 # course
 
-**Use when:** the user wants to learn a topic over several sessions: "teach me Rust over the next month", "make me a course on X", "I want to get good at Y", or they return to a folder that already has `MISSION.md`. One explanation of code or a change is the **teach** technique (`references/techniques/teach.md`). The topic need not be code.
+**Use when:** the user wants multi-session mastery or interactive Socratic tutoring/drilling ("teach me Rust over the next month", "make me a course on X", "tutor me / quiz me / drill me to mastery on Y", or a folder with `MISSION.md`). One-off explanations ("what is X", "explain this diff") use **teach** (`references/techniques/teach.md`) — never launch an unrequested diagnostic quiz on a one-off question.
 
 The current directory is the course workspace. Its files are the learner's memory between sessions:
 
@@ -20,6 +20,7 @@ Create files when first needed, not up front.
 1. **Mission first.** No `MISSION.md`, or one too vague to choose the next lesson ("understand X") → ask why they want this and what they will do with it, in one exchange. Push past abstract answers to an outcome ("ship a CLI to my team", "run a half marathon in October"). Write `MISSION.md`.
    A changed goal later: confirm with them, update the file, and add a learning record.
    Done when `MISSION.md` names a concrete outcome and three to five abilities.
+   - **Socratic live-drill mode** ("tutor/quiz/drill me" in chat without HTML files): decompose the topic into `4–10` subskills, run a `3–5` question calibrated diagnostic (easy → hard) *before* lecturing, render an ASCII **`0–5` mastery map** (`0 unaware · 1 heard · 2 follow · 3 assisted · 4 independent · 5 edge-cases/teach`), and ask **one question per turn** (ending the message immediately with zero hints until the learner answers).
 2. **Sources before lessons.** Search for high-trust primary sources (official docs, standard texts, recognized experts, well-moderated communities) and fill `RESOURCES.md`. Every factual claim in a lesson cites one. Do not teach from memory where a source exists.
    Done when `RESOURCES.md` has at least one source covering the next lesson's topic, or that topic is listed under **Gaps**.
 3. **Choose the next lesson.** If they named a target, teach it. Otherwise read `MISSION.md`, every learning record, and `NOTES.md`, then pick the smallest next step the mission needs that sits just past what they have shown they can do: hard enough to stretch, close enough to succeed.

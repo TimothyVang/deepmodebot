@@ -17,6 +17,8 @@ test("package.json and every plugin manifest carry the same version", () => {
     ".omp-plugin/marketplace.json plugin": read(".omp-plugin/marketplace.json").plugins[0].version,
     "plugins/deepmodebot/.claude-plugin/plugin.json": read("plugins/deepmodebot/.claude-plugin/plugin.json").version,
     "plugins/deepmodebot/.antigravity-plugin/plugin.json": read("plugins/deepmodebot/.antigravity-plugin/plugin.json").version,
+    ".agents/plugins/marketplace.json plugin": read(".agents/plugins/marketplace.json").plugins[0].version,
+    "plugins/deepmodebot/.codex-plugin/plugin.json": read("plugins/deepmodebot/.codex-plugin/plugin.json").version,
   };
   for (const [where, v] of Object.entries(found)) assert.equal(v, want, `${where} is ${v}, package.json is ${want}`);
 });
