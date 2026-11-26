@@ -107,6 +107,7 @@ Read entry skill first; full index: `references/README.md`:
 - Agents/LLMs/AWS/high-scale backend/cache/languages/DevOps/debug → `skill://domain-rules`
 - Docker/K8s/cloud/IAM/policy/pipelines/IaC/emulators → `skill://cloud-devsecops`
 - Deep learning, RL, neural nets, world models, geometric/SciML & weight-space programming (`wsp.py`) → `skill://deep-learning`
+- Build an agent control adapter for a desktop, terminal, mobile or headless app → `skill://app-automation-relay`
 
 ## Writing the reply
 

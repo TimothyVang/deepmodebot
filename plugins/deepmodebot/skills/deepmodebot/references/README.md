@@ -45,6 +45,9 @@ Frontend evidence and media live in the private `TimothyVang/frontend` (skip if 
 
 
 **Deep learning, RL, neural networks & weight-space programming** (non-LLM neural architectures, reinforcement learning, world models, geometric/scientific ML, training optimization, and gradient-free `READ`/`FIX`/`WRITE` weight-space edits via `scripts/wsp.py`) → `skill://deep-learning`, then only the reference file the task touches (`weight-space-programming.md`, `reinforcement-learning.md`, `neural-architectures.md`, `training-optimization.md`, `papers-and-repos.md`).
+
+**App automation relay:** for revision-checked `observe → act → wait` over native app interfaces, see `skill://app-automation-relay`. Its `assets/relay_server.ts` is a runnable Bun HTTP/stdio starter.
+
 **Cloud security and DevSecOps rules** come from `skill://cloud-devsecops` (cited reports in `TimothyVang/cloud-devsecops`, private — skip direct repo cloning if inaccessible; its `SKILL.md` lists them). They cover securing and wiring up a cloud, where `skill://domain-rules/references/aws-networking.md` covers how AWS networking works. Read the file the task touches before designing, reviewing, or changing cloud access, policy, or pipelines:
 
 - AWS accounts, Organizations, SCP/RCP, IAM, GuardDuty or Security Hub, KMS, or CI access to AWS → `skill://cloud-devsecops/references/aws.md`.

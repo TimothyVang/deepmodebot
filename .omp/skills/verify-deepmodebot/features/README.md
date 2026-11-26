@@ -72,3 +72,7 @@ Use focused real-Git regression tests for deletion safety. A local lifecycle smo
 Run doctor, then run `python -B -m unittest test_windows_job` from `assets/loop` with `TMP`, `TEMP` and `TMPDIR` pointing to a fresh repo-local scratch directory. The real Win32 probe checks both the command and supervisor have no console, while stderr, nonzero exits, stdin and process-tree deadlines remain intact.
 
 Drive `loop.run_limited` from a consoleless Python process against the source and installed helper copies; record `GetConsoleWindow` inside both the supervisor and command rather than inferring visibility from creation flags or failed `AttachConsole` calls. Check captured helper launch paths with the Windows background-process regression. Do not start a production watcher or invoke real authentication. Interactive setup and explicitly requested user interfaces must remain available.
+
+## App automation relay
+
+Run `bun plugins/deepmodebot/skills/app-automation-relay/assets/relay_server.ts --self-test`. The live loopback exchange must reject an unauthenticated read and a stale action; the bounded wait must see the submitted state. A separate `--mcp` process must negotiate `server/discover` and read that same revision. This proves the transport and demo adapter, not native app compatibility or a latency target.
