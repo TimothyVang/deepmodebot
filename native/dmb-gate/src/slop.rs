@@ -48,10 +48,16 @@ fn git(root: &Path, args: &[&str]) -> Option<(bool, String)> {
 fn changed_files(root: &Path, staged: bool, explicit: &[String]) -> Vec<String> {
     if !explicit.is_empty() {
         let mut set = BTreeSet::new();
-        for f in explicit {
-            let n = f.replace('\\', "/").trim_start_matches("./").to_string();
-            if !n.is_empty() {
-                set.insert(n);
+        for raw in explicit {
+            for part in raw.split(',') {
+                let mut n = part.trim().replace('\\', "/");
+                while let Some(rest) = n.strip_prefix("./") {
+                    n = rest.to_string();
+                }
+                let n = n.trim_start_matches('/').to_string();
+                if !n.is_empty() {
+                    set.insert(n);
+                }
             }
         }
         return set.into_iter().collect();
@@ -576,8 +582,17 @@ pub fn scan_added_lines(rel: &str, lines: &[(usize, String)], out: &mut Vec<Find
         let norm = rel.replace('\\', "/");
         if norm == ".github/dependabot.yml" || norm == ".github/dependabot.yaml" {
             for (ln, line) in lines {
-                if line.trim_start().starts_with("package-ecosystem:") {
-                    let full = lines.iter().map(|(_, s)| s.as_str()).collect::<Vec<_>>().join("\n");
+                let eco_line = line
+                    .trim_start()
+                    .trim_start_matches('-')
+                    .trim_start()
+                    .starts_with("package-ecosystem:");
+                if eco_line {
+                    let full = lines
+                        .iter()
+                        .map(|(_, s)| s.as_str())
+                        .collect::<Vec<_>>()
+                        .join("\n");
                     if !full.contains("cooldown:") {
                         out.push(Finding {
                             severity: "P2",
@@ -1056,6 +1071,22 @@ pub fn run(args: &[String]) -> ExitCode {
         if !added.is_empty() {
             scan_added_lines(rel, &added, &mut local);
         }
+        if (rel == ".github/dependabot.yml" || rel == ".github/dependabot.yaml") && !added.is_empty() {
+            if let Ok(dep_txt) = fs::read_to_string(root.join(rel)) {
+                if dep_txt.contains("cooldown:") {
+                    local.retain(|f| f.rule != "supply-chain-dependabot-cooldown");
+                } else if !local.iter().any(|f| f.rule == "supply-chain-dependabot-cooldown") {
+                    local.push(Finding {
+                        severity: "P2",
+                        rule: "supply-chain-dependabot-cooldown",
+                        file: rel.clone(),
+                        line: 1,
+                        message: "`.github/dependabot.yml` has no `cooldown:` window.".to_string(),
+                        fix: "Add `cooldown: { default-days: 7 }` to reduce zero-day supply-chain exposure.",
+                    });
+                }
+            }
+        }
         if rel.ends_with(".py") && !added.is_empty() {
             if let Ok(py_txt) = fs::read_to_string(root.join(rel)) {
                 scan_python_structural(rel, &py_txt, &added, &mut local);
@@ -1156,5 +1187,27 @@ pub fn run(args: &[String]) -> ExitCode {
         ExitCode::SUCCESS
     } else {
         ExitCode::from(1)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dependabot_yaml_list_item_and_dotfile_explicit_files() {
+        let mut out = Vec::new();
+        let lines = vec![
+            (1, "version: 2".to_string()),
+            (2, "updates:".to_string()),
+            (3, "  - package-ecosystem: \"npm\"".to_string()),
+        ];
+        scan_added_lines(".github/dependabot.yml", &lines, &mut out);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].rule, "supply-chain-dependabot-cooldown");
+
+        let explicit = vec![".github/dependabot.yml,./src/a.py".to_string()];
+        let norm = changed_files(Path::new("."), false, &explicit);
+        assert_eq!(norm, vec![".github/dependabot.yml", "src/a.py"]);
     }
 }

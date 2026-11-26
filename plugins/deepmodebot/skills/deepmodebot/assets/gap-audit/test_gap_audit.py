@@ -50,17 +50,24 @@ class GapAuditTests(unittest.TestCase):
         )
         (self.repo / "src").mkdir()
         (self.repo / "src" / "handlers.py").write_text(
-            "from abc import ABC, abstractmethod\n\n"
+            "from abc import ABC, abstractmethod\n"
+            "from typing import Protocol\n\n"
             "class Base(ABC):\n"
             "    @abstractmethod\n"
             "    def allowed_contract(self):\n"
             "        pass\n\n"
+            "class SubProto(Protocol):\n"
+            "    def proto_ok(self): ...\n"
+            "    class NestedConcrete:\n"
+            "        def nested_stub(self):\n"
+            "            pass\n\n"
+            "def oneliner(): pass\n\n"
             "def unbuilt_webhook(payload):\n"
             "    pass\n\n"
             "def silent_sync(items):\n"
             "    try:\n"
             "        return len(items)\n"
-            "    except Exception:\n"
+            "    except (ValueError, Exception):\n"
             "        pass\n",
             encoding="utf-8",
         )
@@ -94,7 +101,10 @@ class GapAuditTests(unittest.TestCase):
 
         stub_msgs = " ".join(f["message"] for f in res["findings"] if f["rule"] == "hollow-stub-body")
         self.assertIn("unbuilt_webhook", stub_msgs)
+        self.assertIn("oneliner", stub_msgs)
+        self.assertIn("nested_stub", stub_msgs)
         self.assertNotIn("allowed_contract", stub_msgs)
+        self.assertNotIn("proto_ok", stub_msgs)
 
     def test_research_ledger_enforces_disconfirmation_evidence_tiers_and_gap_matrix(self):
         (self.repo / "src").mkdir()

@@ -548,11 +548,160 @@ fn strip_py_comment(line: &str) -> &str {
     line.trim_end()
 }
 
+#[derive(Clone, Copy)]
+enum PyScope {
+    Class { is_abstract: bool },
+    Func,
+}
+
+fn is_py_abstract_class_header(rest: &str) -> bool {
+    let Some(open) = rest.find('(') else {
+        return false;
+    };
+    let Some(close) = rest[open + 1..].rfind(')') else {
+        return false;
+    };
+    let bases = &rest[open + 1..open + 1 + close];
+    for part in bases.split(',') {
+        let base_no_gen = part.split('[').next().unwrap_or("").trim();
+        let tail = base_no_gen.rsplit('.').next().unwrap_or("").trim();
+        if matches!(tail, "ABC" | "Protocol") {
+            return true;
+        }
+    }
+    false
+}
+
+fn find_py_def_header_colon(lines: &[&str], start: usize) -> Option<(usize, String)> {
+    let mut sig_end = start;
+    let mut paren_depth: i32 = 0;
+    let mut saw_open_paren = false;
+    let mut in_quote: Option<char> = None;
+    while sig_end < lines.len() {
+        let sc = strip_py_comment(lines[sig_end]);
+        let mut escaped = false;
+        for (bidx, ch) in sc.char_indices() {
+            if let Some(q) = in_quote {
+                if escaped {
+                    escaped = false;
+                } else if ch == '\\' {
+                    escaped = true;
+                } else if ch == q {
+                    in_quote = None;
+                }
+                continue;
+            }
+            match ch {
+                '\'' | '"' => in_quote = Some(ch),
+                '(' | '[' | '{' => {
+                    if ch == '(' {
+                        saw_open_paren = true;
+                    }
+                    paren_depth += 1;
+                }
+                ')' | ']' | '}' => {
+                    paren_depth -= 1;
+                }
+                ':' if saw_open_paren && paren_depth <= 0 => {
+                    let inline_tail = sc[bidx + 1..].trim().to_string();
+                    return Some((sig_end, inline_tail));
+                }
+                _ => {}
+            }
+        }
+        sig_end += 1;
+    }
+    None
+}
+
+fn split_py_inline_stmts(inline_tail: &str) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut cur = String::new();
+    let mut in_quote: Option<char> = None;
+    let mut escaped = false;
+    for ch in inline_tail.chars() {
+        if let Some(q) = in_quote {
+            cur.push(ch);
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == q {
+                in_quote = None;
+            }
+            continue;
+        }
+        match ch {
+            '\'' | '"' => {
+                in_quote = Some(ch);
+                cur.push(ch);
+            }
+            ';' => {
+                let t = cur.trim();
+                if !t.is_empty() {
+                    parts.push(t.to_string());
+                }
+                cur.clear();
+            }
+            _ => cur.push(ch),
+        }
+    }
+    let tail = cur.trim();
+    if !tail.is_empty() {
+        parts.push(tail.to_string());
+    }
+    if let Some(first) = parts.first() {
+        let is_str_doc = (first.starts_with('"') && first.ends_with('"') && first.len() >= 2)
+            || (first.starts_with('\'') && first.ends_with('\'') && first.len() >= 2);
+        if is_str_doc && first != "..." {
+            parts.remove(0);
+        }
+    }
+    parts
+}
+
+fn is_py_broad_except(clause: &str) -> bool {
+    let trimmed = clause.trim();
+    if trimmed == "except:" {
+        return true;
+    }
+    let Some(rest) = trimmed.strip_prefix("except") else {
+        return false;
+    };
+    if !rest.starts_with(char::is_whitespace) && !rest.starts_with('(') {
+        return false;
+    }
+    let Some(body) = rest.trim().strip_suffix(':') else {
+        return false;
+    };
+    let body = body.trim();
+    if body.is_empty() {
+        return true;
+    }
+    let expr = if let Some((before_as, after_as)) = body.rsplit_once(" as ") {
+        let ident = after_as.trim();
+        if !ident.is_empty() && ident.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+            before_as.trim()
+        } else {
+            body
+        }
+    } else {
+        body
+    };
+    let inner = expr
+        .strip_prefix('(')
+        .and_then(|s| s.strip_suffix(')'))
+        .unwrap_or(expr);
+    inner
+        .split(',')
+        .any(|item| matches!(item.trim(), "Exception" | "BaseException"))
+}
+
 fn scan_python_file_gaps(rel: &str, txt: &str, out: &mut Vec<GapFinding>) {
     let lines: Vec<&str> = txt.lines().collect();
     let n = lines.len();
 
-    let mut abstract_class_indents: Vec<usize> = Vec::new();
+    let mut scope_stack: Vec<(usize, PyScope)> = Vec::new();
     let mut pending_abstract_dec = false;
     let mut i = 0;
 
@@ -565,7 +714,7 @@ fn scan_python_file_gaps(rel: &str, txt: &str, out: &mut Vec<GapFinding>) {
             continue;
         }
         let ind = indent_width(raw);
-        abstract_class_indents.retain(|&ci| ci < ind);
+        scope_stack.retain(|(si, _)| *si < ind);
 
         if trimmed.starts_with('@') {
             if trimmed.contains("abstract") || trimmed.ends_with("overload") {
@@ -577,34 +726,36 @@ fn scan_python_file_gaps(rel: &str, txt: &str, out: &mut Vec<GapFinding>) {
 
         if let Some(rest) = trimmed.strip_prefix("class ") {
             pending_abstract_dec = false;
-            if rest.contains("(ABC")
-                || rest.contains(", ABC")
-                || rest.contains("(Protocol")
-                || rest.contains(", Protocol")
-            {
-                abstract_class_indents.push(ind);
-            }
+            let is_abs = is_py_abstract_class_header(rest);
+            scope_stack.push((ind, PyScope::Class { is_abstract: is_abs }));
             i += 1;
             continue;
         }
 
-        if trimmed == "except:" {
-            let mut j = i + 1;
-            let mut body_lines = Vec::new();
-            while j < n {
-                let b_clean = strip_py_comment(lines[j]);
-                let bt = b_clean.trim();
-                if bt.is_empty() {
+        if trimmed == "except:" || trimmed.starts_with("except:") {
+            let inline_after = trimmed.strip_prefix("except:").unwrap_or("").trim();
+            let bare_swallowed = if !inline_after.is_empty() {
+                let parts = split_py_inline_stmts(inline_after);
+                parts.len() == 1 && (parts[0] == "pass" || parts[0] == "...")
+            } else {
+                let mut j = i + 1;
+                let mut body_lines = Vec::new();
+                while j < n {
+                    let b_clean = strip_py_comment(lines[j]);
+                    let bt = b_clean.trim();
+                    if bt.is_empty() {
+                        j += 1;
+                        continue;
+                    }
+                    if indent_width(lines[j]) <= ind {
+                        break;
+                    }
+                    body_lines.push(bt);
                     j += 1;
-                    continue;
                 }
-                if indent_width(lines[j]) <= ind {
-                    break;
-                }
-                body_lines.push(bt);
-                j += 1;
-            }
-            if body_lines.len() == 1 && (body_lines[0] == "pass" || body_lines[0] == "...") {
+                body_lines.len() == 1 && (body_lines[0] == "pass" || body_lines[0] == "...")
+            };
+            if bare_swallowed {
                 out.push(GapFinding {
                     severity: "P1",
                     rule: "swallowed-exception",
@@ -620,8 +771,13 @@ fn scan_python_file_gaps(rel: &str, txt: &str, out: &mut Vec<GapFinding>) {
             .strip_prefix("def ")
             .or_else(|| trimmed.strip_prefix("async def "));
         if let Some(drest) = def_rest {
-            let is_abstract = pending_abstract_dec || !abstract_class_indents.is_empty();
+            let parent_is_abstract = matches!(
+                scope_stack.last(),
+                Some((_, PyScope::Class { is_abstract: true }))
+            );
+            let is_abstract = pending_abstract_dec || parent_is_abstract;
             pending_abstract_dec = false;
+            scope_stack.push((ind, PyScope::Func));
 
             let fname: String = drest
                 .chars()
@@ -629,58 +785,52 @@ fn scan_python_file_gaps(rel: &str, txt: &str, out: &mut Vec<GapFinding>) {
                 .collect();
             let def_line = i + 1;
 
-            let mut sig_end = i;
-            let mut paren_depth: i32 = 0;
-            while sig_end < n {
-                let sc = strip_py_comment(lines[sig_end]);
-                for ch in sc.chars() {
-                    if ch == '(' {
-                        paren_depth += 1;
-                    } else if ch == ')' {
-                        paren_depth -= 1;
-                    }
-                }
-                if paren_depth <= 0 && sc.trim_end().ends_with(':') {
-                    break;
-                }
-                sig_end += 1;
-            }
+            let Some((sig_end, inline_tail)) = find_py_def_header_colon(&lines, i) else {
+                i += 1;
+                continue;
+            };
 
-            let mut j = sig_end + 1;
-            let mut stmts: Vec<(usize, usize, &str)> = Vec::new();
-            while j < n {
-                let bc = strip_py_comment(lines[j]);
-                let bt = bc.trim();
-                if bt.is_empty() {
-                    j += 1;
-                    continue;
+            let mut stmts: Vec<(usize, usize, String)> = Vec::new();
+            if !inline_tail.is_empty() {
+                for part in split_py_inline_stmts(&inline_tail) {
+                    stmts.push((sig_end + 1, ind + 4, part));
                 }
-                let bind = indent_width(lines[j]);
-                if bind <= ind {
-                    break;
-                }
-                if stmts.is_empty() && (bt.starts_with("\"\"\"") || bt.starts_with("'''")) {
-                    let delim = &bt[..3];
-                    if bt.len() >= 6 && bt[3..].contains(delim) {
+            } else {
+                let mut j = sig_end + 1;
+                while j < n {
+                    let bc = strip_py_comment(lines[j]);
+                    let bt = bc.trim();
+                    if bt.is_empty() {
                         j += 1;
                         continue;
                     }
-                    j += 1;
-                    while j < n && !lines[j].contains(delim) {
-                        j += 1;
+                    let bind = indent_width(lines[j]);
+                    if bind <= ind {
+                        break;
                     }
+                    if stmts.is_empty() && (bt.starts_with("\"\"\"") || bt.starts_with("'''")) {
+                        let delim = &bt[..3];
+                        if bt.len() >= 6 && bt[3..].contains(delim) {
+                            j += 1;
+                            continue;
+                        }
+                        j += 1;
+                        while j < n && !lines[j].contains(delim) {
+                            j += 1;
+                        }
+                        j += 1;
+                        continue;
+                    }
+                    stmts.push((j + 1, bind, bt.to_string()));
                     j += 1;
-                    continue;
                 }
-                stmts.push((j + 1, bind, bt));
-                j += 1;
             }
 
             let is_exempt = (fname.starts_with("__") && fname.ends_with("__"))
                 || matches!(fname.as_str(), "log_message" | "noop" | "_noop");
 
             if !is_abstract && !is_exempt && stmts.len() == 1 {
-                let s0 = stmts[0].2;
+                let s0 = stmts[0].2.as_str();
                 if s0 == "pass" || s0 == "..." {
                     out.push(GapFinding {
                         severity: "P1",
@@ -710,20 +860,16 @@ fn scan_python_file_gaps(rel: &str, txt: &str, out: &mut Vec<GapFinding>) {
                 let top_clauses: Vec<(usize, &str)> = stmts
                     .iter()
                     .filter(|(_, bi, _)| *bi == try_ind)
-                    .map(|(ln, _, txt_s)| (*ln, *txt_s))
+                    .map(|(ln, _, txt_s)| (*ln, txt_s.as_str()))
                     .collect();
                 let only_try_except = top_clauses.len() >= 2
                     && top_clauses[1..]
                         .iter()
-                        .all(|(_, c)| c.starts_with("except ") || *c == "except:");
+                        .all(|(_, c)| c.starts_with("except ") || c.starts_with("except(") || *c == "except:");
                 if only_try_except {
                     let mut all_broad_pass = true;
                     for (cl_idx, (cl_line, cl_txt)) in top_clauses.iter().enumerate().skip(1) {
-                        let is_broad = cl_txt.starts_with("except Exception:")
-                            || cl_txt.starts_with("except Exception as ")
-                            || cl_txt.starts_with("except BaseException:")
-                            || cl_txt.starts_with("except BaseException as ");
-                        if !is_broad {
+                        if !is_py_broad_except(cl_txt) {
                             all_broad_pass = false;
                             break;
                         }
@@ -734,7 +880,7 @@ fn scan_python_file_gaps(rel: &str, txt: &str, out: &mut Vec<GapFinding>) {
                         let handler_body: Vec<&str> = stmts
                             .iter()
                             .filter(|(ln, bi, _)| *ln > *cl_line && *ln < next_top_line && *bi > try_ind)
-                            .map(|(_, _, t)| *t)
+                            .map(|(_, _, t)| t.as_str())
                             .collect();
                         if handler_body.len() != 1
                             || (handler_body[0] != "pass" && handler_body[0] != "...")
@@ -1140,5 +1286,63 @@ pub fn run(args: &[String]) -> ExitCode {
         ExitCode::SUCCESS
     } else {
         ExitCode::from(1)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn python_oneliner_tuple_except_and_nested_concrete_parity() {
+        let src = "\
+from typing import Protocol
+
+def oneliner(): pass
+
+def tuple_swallow():
+    try:
+        work()
+    except (ValueError, Exception):
+        pass
+
+class SubProto(Protocol):
+    def proto_method(self) -> int:
+        ...
+
+    class NestedConcrete:
+        def concrete_stub(self):
+            pass
+";
+        let mut out = Vec::new();
+        scan_python_file_gaps("src/tricky.py", src, &mut out);
+        let hits: Vec<(&str, usize, &str)> = out
+            .iter()
+            .map(|f| (f.rule, f.line, f.message.as_str()))
+            .collect();
+        assert!(
+            hits.iter()
+                .any(|(r, ln, m)| *r == "hollow-stub-body" && *ln == 3 && m.contains("oneliner")),
+            "expected oneliner stub finding, got {:?}",
+            hits
+        );
+        assert!(
+            hits.iter()
+                .any(|(r, ln, _)| *r == "swallowed-exception" && *ln == 8),
+            "expected tuple broad except finding at line 8, got {:?}",
+            hits
+        );
+        assert!(
+            !hits.iter().any(|(_, _, m)| m.contains("proto_method")),
+            "Protocol method must remain exempt, got {:?}",
+            hits
+        );
+        assert!(
+            hits.iter().any(|(r, ln, m)| *r == "hollow-stub-body"
+                && *ln == 16
+                && m.contains("concrete_stub")),
+            "nested concrete class stub inside Protocol must be flagged, got {:?}",
+            hits
+        );
     }
 }

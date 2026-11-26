@@ -233,7 +233,8 @@ def _scan_python_ast_gaps(rel: str, text: str) -> list[dict]:
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
             base_names = []
-            for b in node.bases:
+            for raw_b in node.bases:
+                b = raw_b.value if isinstance(raw_b, ast.Subscript) else raw_b
                 if isinstance(b, ast.Name):
                     base_names.append(b.id)
                 elif isinstance(b, ast.Attribute):
