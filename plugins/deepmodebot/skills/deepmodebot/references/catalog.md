@@ -1,6 +1,6 @@
 # Deepmodebot catalog
 
-On-demand index of deepmodebot's autonomous modes, all 30 playbooks, 59 techniques, 25 principles, and habits. `SKILL.md` holds the binding rules and compact router; read only the section and linked file your task needs. Paths are relative to this skill.
+On-demand index of deepmodebot's autonomous modes, all 30 playbooks, 63 techniques, 25 principles, and habits. `SKILL.md` holds the binding rules and compact router; read only the section and linked file your task needs. Paths are relative to this skill.
 
 ## Running without the human
 
@@ -57,13 +57,14 @@ Every playbook lives at `references/playbooks/<file>.md`. Open a `todo` list wit
 
 Large cross-cutting work with no clean fit, or step-away work that must be trusted later, routes to `references/techniques/figure-it-out.md` (designs a bespoke rigorous playbook). Standing multi-day programs route to `references/playbooks/run-a-goal.md` at program scale.
 
-## Full technique triggers (59)
+## Full technique triggers (63)
 
 Each technique is one file at `references/techniques/<name>.md`. Read only what applies; skip for size **S**. Technique and playbook names mean deepmodebot's files, not same-named global skills (`skill://tdd`, `skill://prototype`, `skill://teach`, `skill://wizard`, `skill://retro`, `skill://handoff`).
 
 - **Fast orientation, Orca/git worktrees, own PRs, or manifest state** → **workspace-map** (`references/techniques/workspace-map.md`): zero-bloat memory-mapped SQLite/FTS5 index (`assets/workspace-map/workspace_map.py` `overview`/`query`/`workspaces`/`prs`/`sync`/`prune`), shared per repo across worktrees (~300-token turn-1 map).
-- **Semantic auto-routing, prompt upgrade & repo suggestions** → **autoroute** (`references/techniques/autoroute.md`, `assets/autoroute/autoroute.py` 3-stage LLM router + route critic), **prompt-upgrade** (`references/techniques/prompt-upgrade.md`, `assets/prompt-tools/prompt_tools.py upgrade`), and **suggest** (`references/techniques/suggest.md`, `prompt_tools.py suggest --ui` repo gap/overclaim scanner).
-- **Interactive human cockpits & A2UI surfaces** → **gen-ui** (`references/techniques/gen-ui.md`, `assets/gen-ui/gen_ui.py` Google A2UI v1.0 compiler/validator + `.scratch/gen-ui/` 8-surface cap).
+- **Semantic auto-routing, prompt upgrade, expert vocabulary & repo suggestions** → **autoroute** (`references/techniques/autoroute.md`, `assets/autoroute/autoroute.py` 3-stage LLM router + route critic), **prompt-upgrade** (`references/techniques/prompt-upgrade.md`, `assets/prompt-tools/prompt_tools.py upgrade`), **reframe** (`references/techniques/reframe.md`, disambiguate problem shapes, teach 8–12 cited expert terms + neighboring-field analogies, rewrite spec), and **suggest** (`references/techniques/suggest.md`, `prompt_tools.py suggest --ui` repo gap/overclaim scanner).
+- **Interactive human cockpits, A2UI surfaces & webhook bot UIs** → **gen-ui** (`references/techniques/gen-ui.md`, `assets/gen-ui/gen_ui.py` Google A2UI v1.0 compiler/validator + `.scratch/gen-ui/` 8-surface cap) and **webhook-ui** (`references/techniques/webhook-ui.md`, local + Tailscale dashboard relaying clicks with a server-held sender key and JSONL spool).
+- **Per-role model & reasoning-budget configuration** → **model-setup** (`references/techniques/model-setup.md`, `assets/setup/model_setup.py` idempotent `.deepmodebot/models.json` writer with `large`/`medium`/`small` `<=xhigh` ladder and legacy migration).
 
 - **Before building anything new** → **prior-art** (`references/techniques/prior-art.md`): check trending first (`python -B "<this skill>/scripts/trending.py" find <terms>`, `py -3 -B` on Windows), then GitHub, registries, and docs; check license before copying or forking.
 - **Module/interface with 2+ viable shapes** → **architect** (`references/techniques/architect.md`) before coding; skip for small edits crossing one function boundary.
@@ -86,7 +87,7 @@ Each technique is one file at `references/techniques/<name>.md`. Read only what 
 - **Words, durable research, or issues** → **domain-model** (`references/techniques/domain-model.md`), **research** (`references/techniques/research.md`, including opportunity probe and decision-brief), **tracker** (`references/techniques/tracker.md`).
 - **PRs, bots, and gates** → **pr-review** (`references/techniques/pr-review.md`), **pr-agent** (`references/techniques/pr-agent.md`), **pr-conversation** (`references/techniques/pr-conversation.md`), **issue-conversation** (`references/techniques/issue-conversation.md`), **github-app** (`references/techniques/github-app.md`), **security-audit** (`references/techniques/security-audit.md`), **panel** (`references/techniques/panel.md`), **show-me-your-work** (`references/techniques/show-me-your-work.md`), **figure-it-out** (`references/techniques/figure-it-out.md`).
 - **Tooling & instruction hygiene** → **tdd** (`references/techniques/tdd.md`), **architecture-review** (`references/techniques/architecture-review.md`), **git-guardrails** (`references/techniques/git-guardrails.md`), **pre-commit** (`references/techniques/pre-commit.md`), **scrape** (`references/techniques/scrape.md`), **wizard** (`references/techniques/wizard.md`), **writing-for-agents** (`references/techniques/writing-for-agents.md`; generate/refresh `AGENTS.md` with `assets/agents-md/agents_md.py`).
-- **Communication & reflection** → **in-your-own-words** (`references/techniques/in-your-own-words.md`), **sharpen** (`references/techniques/sharpen.md`), **teach** (`references/techniques/teach.md`), **course** (`references/techniques/course.md`), **re-explain** (`references/techniques/re-explain.md`), **recall** (`references/techniques/recall.md`), **blast-radius** (`references/techniques/blast-radius.md`), **reflect** (`references/techniques/reflect.md`), **retro** (`references/techniques/retro.md`).
+- **Communication & reflection** → **in-your-own-words** (`references/techniques/in-your-own-words.md`), **sharpen** (`references/techniques/sharpen.md`), **teach** (`references/techniques/teach.md`), **course** (`references/techniques/course.md`), **re-explain** (`references/techniques/re-explain.md`), **recall** (`references/techniques/recall.md`), **catchup-video** (`references/techniques/catchup-video.md`), **blast-radius** (`references/techniques/blast-radius.md`), **reflect** (`references/techniques/reflect.md`), **retro** (`references/techniques/retro.md`).
 
 ## Full principles directory (25)
 

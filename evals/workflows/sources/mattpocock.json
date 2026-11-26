@@ -1,11 +1,11 @@
 {
   "repository": "mattpocock/skills",
-  "commit": "5863806dd4e15c63174bee4e7515a4256792ecfa",
+  "commit": "6f7f7831a625f040a8e06a0e7954826b87ce775a",
   "prefix": "",
-  "observed_date": "2026-11-12",
-  "tree_sha": "5863806dd4e15c63174bee4e7515a4256792ecfa",
+  "observed_date": "2026-11-25",
+  "tree_sha": "6f7f7831a625f040a8e06a0e7954826b87ce775a",
   "truncated": false,
-  "source_url": "https://api.github.com/repos/mattpocock/skills/git/trees/5863806dd4e15c63174bee4e7515a4256792ecfa?recursive=1",
+  "source_url": "https://api.github.com/repos/mattpocock/skills/git/trees/6f7f7831a625f040a8e06a0e7954826b87ce775a?recursive=1",
   "files": [
     {
       "path": ".agents/adr/0001-explicit-setup-pointer-only-for-hard-dependencies.md",
@@ -38,9 +38,19 @@
       "size": 512
     },
     {
+      "path": ".changeset/chief-of-staff-delegate-remember.md",
+      "sha": "60fd06ba12af87627f046dcd9b1f1fecb16e9da3",
+      "size": 423
+    },
+    {
       "path": ".changeset/chief-of-staff-shared-wiki-procedures.md",
       "sha": "d585a36631cb75c0f7d4820d72915a5701dddfb9",
       "size": 399
+    },
+    {
+      "path": ".changeset/chief-of-staff-soften.md",
+      "sha": "b5326a9fbaf7b17d5975c8a79a6e17de27e0f44b",
+      "size": 477
     },
     {
       "path": ".changeset/config.json",
@@ -48,9 +58,19 @@
       "size": 380
     },
     {
+      "path": ".changeset/glossary-bold-terms.md",
+      "sha": "4e3a7cb902b5f5af6ef911ad3ffe6b740ef871a0",
+      "size": 239
+    },
+    {
       "path": ".changeset/implementer-fresh-per-ticket.md",
       "sha": "ac08d503310bbecd29caa95b8cce05bd3f160b2d",
       "size": 181
+    },
+    {
+      "path": ".changeset/software-factory-frontmatter.md",
+      "sha": "f291db8f4b3fbe8883921f20f4f3b2fa1b739e57",
+      "size": 212
     },
     {
       "path": ".changeset/software-factory-skill.md",
@@ -81,6 +101,11 @@
       "path": ".github/ISSUE_TEMPLATE/idea.yml",
       "sha": "27840c9acb81f91cc6b8d394a5b9273d668cc602",
       "size": 1835
+    },
+    {
+      "path": ".github/workflows/check.yml",
+      "sha": "6c19e6b9ca1de1feb13b5115bfbae7c0d9087b6a",
+      "size": 488
     },
     {
       "path": ".github/workflows/needs-info.yml",
@@ -334,13 +359,18 @@
     },
     {
       "path": "package-lock.json",
-      "sha": "db12f086c92da55b5d724f0dd3afecfebd2d793f",
-      "size": 49290
+      "sha": "2787482775ab39d301710ce8b78ce1bb3730a98b",
+      "size": 49790
     },
     {
       "path": "package.json",
-      "sha": "c5b98049235efc00945e91aea1f8a971a8dc9ae5",
-      "size": 597
+      "sha": "56dcdcd0923218e01a0331f3bc9b630b21683cb0",
+      "size": 682
+    },
+    {
+      "path": "scripts/check-frontmatter.mjs",
+      "sha": "f06a876757031fd65c0aea4b200183171a09535b",
+      "size": 1578
     },
     {
       "path": "scripts/link-skills.sh",
@@ -434,8 +464,8 @@
     },
     {
       "path": "skills/engineering/domain-modeling/GLOSSARY-FORMAT.md",
-      "sha": "9c0b4c7a2e8507c23cbb5e0baa66d81699321cc6",
-      "size": 2300
+      "sha": "09f5f79d9f625304e51ee93a1940167a582360c1",
+      "size": 2504
     },
     {
       "path": "skills/engineering/domain-modeling/SKILL.md",
@@ -669,18 +699,18 @@
     },
     {
       "path": "skills/in-progress/README.md",
-      "sha": "a7352637389c97be31823c87186421385ff83466",
-      "size": 1883
+      "sha": "456c29d0257d339a857cfeb75f70bed8a8254ee7",
+      "size": 2075
     },
     {
       "path": "skills/in-progress/chief-of-staff/SKILL.md",
-      "sha": "22f0b6626f07bfdfa78b70d006742dfa2260e9c4",
-      "size": 4729
+      "sha": "d823bf86956c570f74545e93b77b25338b437671",
+      "size": 4470
     },
     {
       "path": "skills/in-progress/chief-of-staff/agents/openai.yaml",
-      "sha": "080598b44ad9c843dc3457b6e0e32368aaeec84d",
-      "size": 184
+      "sha": "d9358ad457d46f6ee33d9bbc6897216a24b25d25",
+      "size": 195
     },
     {
       "path": "skills/in-progress/claude-handoff/SKILL.md",
@@ -739,8 +769,8 @@
     },
     {
       "path": "skills/in-progress/software-factory/SKILL.md",
-      "sha": "8152f6d6d96e446f91eca4114260a9935eff6f16",
-      "size": 6108
+      "sha": "ba4adc45935e8c24d6bed9b869792e4436ad5979",
+      "size": 6110
     },
     {
       "path": "skills/in-progress/software-factory/TICKET-TRACKERS.md",

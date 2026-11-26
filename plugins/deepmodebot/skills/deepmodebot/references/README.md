@@ -62,5 +62,8 @@ Frontend evidence and media live in the private `TimothyVang/frontend` (skip if 
 **Verification and contributor sibling skills** bundled alongside deepmodebot:
 - Creating a repo `verify-<app>` skill when repeated journeys justify one → `skill://create-verification-skill`.
 - Auditing or updating an existing `verify-<app>` skill as features drift → `skill://maintain-verification-skill`.
+- Creating a project-local formal verification skill (TLA+, proof assistant, SMT, or bounded code verifier) → `skill://create-formal-verification-skill`.
+- Bringing formal models/harnesses back in sync after code changes without weakening properties → `skill://maintain-formal-verification-skill`.
+- Checking a TLA+ state model and rendering shortest-counterexample Mermaid statecharts → `skill://statechart`.
 - Picking unclaimed non-overlapping work in someone else's repo → `skill://contribute`.
 - Publishing a newcomer `PROJECT_BRIEF.md`, task board, and overlap guardrails for contributors → `skill://project-brief`.

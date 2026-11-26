@@ -281,7 +281,13 @@ skill_bytes = (skill_root / "SKILL.md").read_text(encoding="utf-8").replace("\r\
 window = skill_bytes.find(b"\n## Routes\n")
 if window < 0 or window > RULES_WINDOW_BYTES:
     problems.append(f"plugins/deepmodebot/skills/deepmodebot/SKILL.md: '## Routes' starts at byte {window}; the rules before it must fit in {RULES_WINDOW_BYTES} bytes")
-# Every shipped Node ESM script parses cleanly when node is available.
+# Validate pinned upstream workflow coverage & enforce 100% mapped shipped pstack skills.
+wf_run = subprocess.run([sys.executable, "-B", str(ROOT / "evals/workflows/run.py"), "validate"],
+                        env=NO_PYC_ENV, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+if wf_run.returncode:
+    problems.append(f"evals/workflows/run.py validate failed:\n{(wf_run.stdout + wf_run.stderr).strip()[-2000:]}")
+
+# Every shipped Node ESM script parses cleanly and statechart's deterministic TS suite passes when node is available.
 node_exe = shutil.which("node")
 if node_exe:
     for mjs in sorted(ROOT.glob("plugins/*/scripts/*.mjs")):
@@ -289,6 +295,13 @@ if node_exe:
                                     capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
         if node_check.returncode:
             problems.append(f"{mjs.relative_to(ROOT)}: node --check failed\n{(node_check.stdout + node_check.stderr).strip()}")
+    sc_test_dir = ROOT / "plugins/deepmodebot/skills/statechart/scripts/test"
+    if sc_test_dir.is_dir():
+        sc_tests = [str(sc_test_dir / name) for name in ("pipeline.test.ts", "messages.test.ts", "chart.test.ts")]
+        sc_run = subprocess.run([node_exe, "--disable-warning=ExperimentalWarning", "--test", *sc_tests],
+                                cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+        if sc_run.returncode:
+            problems.append(f"statechart TypeScript tests failed:\n{(sc_run.stdout + sc_run.stderr)[-3000:]}")
 
 # Validate Antigravity plugin manifests when agy is on PATH (0 errors, 0 truncation warnings).
 agy_exe = shutil.which("agy")

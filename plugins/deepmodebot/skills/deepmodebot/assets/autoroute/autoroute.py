@@ -28,15 +28,17 @@ READ_ONLY_MODES = frozenset({
     "investigation", "runtime-forensics", "trace-forensics", "triage",
     "pr-review", "grill", "self-grill", "tournament", "research", "flows",
     "architecture-review", "retro", "course", "questionnaire", "re-explain",
-    "security-audit", "pr-agent", "blast-radius", "sharpen", "reflect", "recall",
-    "interrogate", "sme-review", "formal-verification", "prior-art", "wizard",
+    "security-audit", "pr-agent", "blast-radius", "sharpen", "reframe", "reflect", "recall", "catchup-video",
+    "interrogate", "sme-review", "formal-verification", "statechart", "prior-art", "wizard",
     "scrape", "suggest", "teach", "why", "how", "autoroute",
     "goal-review", "workspace-map", "open-design-evidence", "deep-stack",
 })
 
 FLEXIBLE_SIZE_MODES = frozenset({
-    "eval", "arena", "prompt-upgrade", "self-authoring", "video-forensics", "gen-ui",
+    "eval", "arena", "prompt-upgrade", "self-authoring", "video-forensics", "gen-ui", "webhook-ui", "model-setup",
     "pause-safely", "triage", "inner-loop", "tool-routing", "agent-collaboration", "visual-e2e",
+    "create-verification-skill", "maintain-verification-skill",
+    "create-formal-verification-skill", "maintain-formal-verification-skill",
 })
 
 SENSITIVE_RE = re.compile(
@@ -92,6 +94,11 @@ SPECIALIZED_SIGNALS = (
     ("prototype", re.compile(r"\b(?:throwaway\s+(?:prototype|spike)|quick\s+spike|prototype\b.*\b(?:test\s+whether|beats?|compare))\b", re.I)),
     ("session-pickup", re.compile(r"\b(?:pick\s+up\s+where\s+(?:the\s+)?(?:previous|last)\s+agent|take\s+over\b.*\bin[- ]flight)\b", re.I)),
     ("pause-safely", re.compile(r"\b(?:pause\s+safely|checkpoint\s+and\s+pause|resume\s+tomorrow)\b", re.I)),
+    ("reframe", re.compile(r"(?:^\s*/?reframe\b|\b(?:expert\s+words\s+for\s+what\s+(?:i'?m|we'?re)\s+building|what\s+is\s+this\s+problem\s+called|teach\s+(?:me\s+)?the\s+expert\s+(?:words|terms|vocabulary))\b)", re.I)),
+    ("catchup-video", re.compile(r"\b(?:catchup[- ]video|catch[- ]up\s+video|subtitled\s+(?:catch[- ]?up\s+|recap\s+)?video|video\s+recap\s+of\s+what\s+happened)\b", re.I)),
+    ("webhook-ui", re.compile(r"\b(?:webhook[- ]ui|make[- ]bot[- ]ui)\b|\b(?:custom|tailscale|local)\s+(?:ui|page|dashboard|buttons?)\b.{0,45}\b(?:wake|trigger|post\s+to)\b.{0,30}\bwebhook\b", re.I)),
+    ("model-setup", re.compile(r"\b(?:model[- ]setup|per[- ]role\s+models?|configure\s+(?:my\s+|role\s+)?models?\s+(?:and\s+)?(?:reasoning\s+)?budget)\b", re.I)),
+    ("statechart", re.compile(r"(?:^\s*/?statechart\b|\b(?:tla\+?\s+statechart|mermaid\s+statechart\b.*\bcounterexample|draw\b.*\btla\+?\s+model\s+as\s+a?\s*statechart)\b)", re.I)),
     ("formal-verification", re.compile(r"\btla\+(?![A-Za-z0-9_])|\b(?:tlc|statechart|lean\s*4?|lean\s+proof|mathlib|coq|rocq|isabelle|smt2|z3|comparator|nanoda|bombadil|model[- ]check|property[- ]based\s+ui|(?:formalize|prove)\s+(?:this|the)\s+(?:theorem|lemma|conjecture|invariant))\b|(?<![A-Za-z0-9_])\.(?:lean|tla|smt2)\b", re.I)),
     ("suggest", re.compile(r"\b(?:deepmode\s+suggest|suggest\s+(?:me\s+)?(?:some\s+)?(?:full[- ]scope\s+)?prompts?|what\s+prompts?\s+should\s+i\s+run|what\s+should\s+i\s+(?:fix|work\s+on)\s+next)\b", re.I)),
     ("prompt-upgrade", re.compile(r"\b(?:make\s+my\s+prompt\s+better|(?:review|improve|upgrade|rewrite|fix)\s+(?:my|this)\s+prompt|convert\b.*\bdeepmode\s*prompt)\b", re.I)),
