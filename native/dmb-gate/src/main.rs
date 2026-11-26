@@ -147,12 +147,21 @@ jobs:
 
         let ui_hits = ui::scan_ui(
             "web/app.css",
-
-            ".card { transition: all 200ms ease-in; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }\n",
+            ".card { transition: all 200ms ease-in; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }\n.drawer { transition: width 180ms ease-out; background: #000000; transform: scale(0); }\n",
         );
         assert!(ui_hits.iter().any(|f| f.rule == "ui-transition-all"));
         assert!(ui_hits.iter().any(|f| f.rule == "ui-ease-in"));
         assert!(ui_hits.iter().any(|f| f.rule == "ui-heavy-rgba-shadow"));
+        assert!(ui_hits.iter().any(|f| f.rule == "ui-layout-transition" && f.severity == "P1"));
+        assert!(ui_hits.iter().any(|f| f.rule == "ui-pure-black-surface" && f.severity == "P1"));
+        assert!(ui_hits.iter().any(|f| f.rule == "ui-scale-zero" && f.severity == "P1"));
+
+        let tsx_hits = ui::scan_ui(
+            "web/Toolbar.tsx",
+            "<input type=\"checkbox\" className=\"rounded-full\" />\n<button className=\"icon\"><svg viewBox=\"0 0 16 16\"></svg></button>\n",
+        );
+        assert!(tsx_hits.iter().any(|f| f.rule == "ui-circular-checkbox" && f.severity == "P1"));
+        assert!(tsx_hits.iter().any(|f| f.rule == "ui-icon-button-unlabeled" && f.severity == "P1"));
     }
 
     #[test]

@@ -37,6 +37,30 @@ class UiAuditTests(unittest.TestCase):
         self.assertIn("reduced-motion", rules)
         self.assertIn("oklch-ambient-shadow", rules)
 
+    def test_flags_layout_transition_circular_checkbox_unlabeled_icon_btn_and_pure_black(self):
+        bad_tsx = """export function Toolbar() {
+  return (
+    <div className="bg-black">
+      <input type="checkbox" className="w-4 h-4 rounded-full" />
+      <button className="icon-btn"><svg viewBox="0 0 16 16"><path d="M0 0h16v16H0z"/></svg></button>
+    </div>
+  );
+}"""
+        findings = ui_audit.audit_source(bad_tsx, "Toolbar.tsx", ".tsx")
+        by_rule = {f["rule"]: f["severity"] for f in findings}
+        self.assertEqual(by_rule.get("no-pure-black-surface"), "P1")
+        self.assertEqual(by_rule.get("checkbox-not-circular"), "P1")
+        self.assertEqual(by_rule.get("icon-button-label"), "P1")
+
+        bad_css = """.drawer { transition: width 220ms ease-out; background: #000000; transform: scale(0); }
+:focus-visible { outline: 2px solid var(--accent); }
+@media (prefers-reduced-motion: reduce) { .drawer { transition: none; } }"""
+        css_findings = ui_audit.audit_source(bad_css, "drawer.css", ".css")
+        css_by_rule = {f["rule"]: f["severity"] for f in css_findings}
+        self.assertEqual(css_by_rule.get("no-layout-transition"), "P1")
+        self.assertEqual(css_by_rule.get("no-pure-black-surface"), "P1")
+        self.assertEqual(css_by_rule.get("no-scale-zero-entry"), "P1")
+
     def test_clean_oklch_document_passes(self):
         good_html = """<!doctype html>
 <html lang="en">

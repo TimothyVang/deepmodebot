@@ -29,6 +29,48 @@ fn has_raw_tw_gray(line: &str) -> bool {
     false
 }
 
+fn has_layout_transition(low: &str) -> bool {
+    let Some(pos) = low.find("transition:").or_else(|| low.find("transition-property:")) else {
+        return false;
+    };
+    let decl = low[pos..].split(';').next().unwrap_or("");
+    for prop in ["width", "height", "margin", "padding", "top", "left", "right", "bottom"] {
+        for tok in decl.split(|c: char| !c.is_ascii_alphabetic() && c != '-') {
+            if tok == prop {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn has_circular_checkbox(low: &str) -> bool {
+    let is_cb = (low.contains("<input") && (low.contains("type=\"checkbox\"") || low.contains("type='checkbox'")))
+        || low.contains("role=\"checkbox\"")
+        || low.contains("role='checkbox'");
+    is_cb && (low.contains("rounded-full") || low.contains("border-radius: 50%") || low.contains("border-radius:50%") || low.contains("9999px"))
+}
+
+fn has_unlabeled_icon_button(low: &str) -> bool {
+    let Some(b_start) = low.find("<button") else {
+        return false;
+    };
+    let tail = &low[b_start..];
+    let Some(open_end) = tail.find('>') else {
+        return false;
+    };
+    let attrs = &tail[..open_end];
+    if attrs.contains("aria-label=") || attrs.contains("aria-labelledby=") || attrs.contains("title=") {
+        return false;
+    }
+    let after_open = &tail[open_end + 1..];
+    let Some(close_pos) = after_open.find("</button>") else {
+        return false;
+    };
+    let inner = after_open[..close_pos].trim();
+    inner.starts_with("<svg") && inner.ends_with("</svg>")
+}
+
 pub fn scan_ui(rel: &str, text: &str) -> Vec<UiFinding> {
     let mut out = Vec::new();
     let ext = Path::new(rel)
@@ -37,6 +79,7 @@ pub fn scan_ui(rel: &str, text: &str) -> Vec<UiFinding> {
         .map(|s| s.to_ascii_lowercase())
         .unwrap_or_default();
     let low_full = text.to_ascii_lowercase();
+    let allows_intrinsic = low_full.contains("interpolate-size");
 
     for (idx, raw) in text.lines().enumerate() {
         let ln = idx + 1;
@@ -48,6 +91,14 @@ pub fn scan_ui(rel: &str, text: &str) -> Vec<UiFinding> {
                 file: rel.to_string(),
                 line: ln,
                 message: "`transition: all` animates layout properties; list explicit properties.",
+            });
+        } else if !allows_intrinsic && has_layout_transition(&low) {
+            out.push(UiFinding {
+                severity: "P1",
+                rule: "ui-layout-transition",
+                file: rel.to_string(),
+                line: ln,
+                message: "Avoid animating layout box properties (width/height/margin/padding/top/left); use transform/opacity.",
             });
         }
         if low.contains("ease-in") && !low.contains("ease-in-out") {
@@ -66,6 +117,46 @@ pub fn scan_ui(rel: &str, text: &str) -> Vec<UiFinding> {
                 file: rel.to_string(),
                 line: ln,
                 message: "Raw Tailwind gray utility; use semantic surface/text/border tokens.",
+            });
+        }
+        if !matches!(ext.as_str(), "css" | "scss") {
+            if has_circular_checkbox(&low) {
+                out.push(UiFinding {
+                    severity: "P1",
+                    rule: "ui-circular-checkbox",
+                    file: rel.to_string(),
+                    line: ln,
+                    message: "Checkboxes must stay rectangular/squircle; circular `rounded-full`/`50%` signifies single-select radios.",
+                });
+            }
+            if has_unlabeled_icon_button(&low) {
+                out.push(UiFinding {
+                    severity: "P1",
+                    rule: "ui-icon-button-unlabeled",
+                    file: rel.to_string(),
+                    line: ln,
+                    message: "Icon-only `<button>` missing `aria-label`/`aria-labelledby` (and tooltip).",
+                });
+            }
+        }
+        if (low.contains("background:") || low.contains("background-color:"))
+            && (low.contains("#000;") || low.contains("#000000;") || low.ends_with("#000") || low.ends_with("#000000"))
+        {
+            out.push(UiFinding {
+                severity: "P1",
+                rule: "ui-pure-black-surface",
+                file: rel.to_string(),
+                line: ln,
+                message: "Avoid `#000000` dark surfaces (OLED scroll smearing); use brand-tinted dark tokens.",
+            });
+        }
+        if low.contains("transform:") && (low.contains("scale(0)") || low.contains("scale(0.0)")) {
+            out.push(UiFinding {
+                severity: "P1",
+                rule: "ui-scale-zero",
+                file: rel.to_string(),
+                line: ln,
+                message: "Avoid `scale(0)` UI entries; start popovers/menus at `scale(0.95)` from trigger origin.",
             });
         }
         if low.contains("box-shadow:") && low.contains("rgba(0, 0, 0, 0.") {
