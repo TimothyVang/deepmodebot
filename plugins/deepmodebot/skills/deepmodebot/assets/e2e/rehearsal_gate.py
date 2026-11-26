@@ -102,42 +102,68 @@ def _connect(db_file: Path):
                 open_p0_p1 INTEGER NOT NULL DEFAULT 0,
                 critic_notes TEXT NOT NULL DEFAULT '',
                 passed INTEGER NOT NULL DEFAULT 0,
+                provenance_receipt TEXT NOT NULL DEFAULT '',
+                compared_refs_json TEXT NOT NULL DEFAULT '[]',
                 created_at REAL NOT NULL,
                 UNIQUE(slug, version),
                 FOREIGN KEY(slug) REFERENCES workflows(slug) ON DELETE CASCADE
             );
             """
         )
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(rehearsals)").fetchall()}
+        if "provenance_receipt" not in cols:
+            conn.execute("ALTER TABLE rehearsals ADD COLUMN provenance_receipt TEXT NOT NULL DEFAULT ''")
+        if "compared_refs_json" not in cols:
+            conn.execute("ALTER TABLE rehearsals ADD COLUMN compared_refs_json TEXT NOT NULL DEFAULT '[]'")
         conn.commit()
         yield conn
     finally:
         conn.close()
 
 
-def _hash_video(root: Path, rel_video: str) -> tuple[str, str, int]:
+def _hash_repo_file(root: Path, rel_path: str, *, require_video: bool = False) -> tuple[str, str, int]:
     resolved_root = root.resolve()
-    raw = Path(rel_video)
+    raw = Path(rel_path)
     if raw.is_absolute():
-        raise ValueError(f"video path must be repo-relative: {rel_video!r}")
+        raise ValueError(f"path must be repo-relative: {rel_path!r}")
     candidate = resolved_root / raw
     if candidate.is_symlink():
-        raise ValueError(f"refusing symlinked video file: {candidate}")
+        raise ValueError(f"refusing symlinked file: {candidate}")
     resolved = candidate.resolve()
     if not resolved.is_relative_to(resolved_root):
-        raise ValueError(f"video path escapes project root: {rel_video!r}")
+        raise ValueError(f"path escapes project root: {rel_path!r}")
     if not resolved.is_file():
-        raise ValueError(f"video file not found: {resolved}")
-    if resolved.suffix.lower() not in VALID_VIDEO_EXTS:
+        raise ValueError(f"file not found: {resolved}")
+    if require_video and resolved.suffix.lower() not in VALID_VIDEO_EXTS:
         raise ValueError(f"video must be one of {sorted(VALID_VIDEO_EXTS)}, got {resolved.suffix!r}")
     size = resolved.stat().st_size
     if size <= 0:
-        raise ValueError(f"video file is empty (0 bytes): {resolved}")
+        raise ValueError(f"file is empty (0 bytes): {resolved}")
     h = hashlib.sha256()
     with resolved.open("rb") as fh:
         for chunk in iter(lambda: fh.read(65536), b""):
             h.update(chunk)
     return resolved.relative_to(resolved_root).as_posix(), h.hexdigest(), size
 
+
+def _hash_video(root: Path, rel_video: str) -> tuple[str, str, int]:
+    return _hash_repo_file(root, rel_video, require_video=True)
+
+
+def _valid_provenance_receipt(receipt: str, required_producer: str) -> bool:
+    clean = receipt.strip()
+    if ":" not in clean:
+        return False
+    prod, job_id = clean.split(":", 1)
+    p = prod.strip().lower()
+    j = job_id.strip().lower()
+    if not p or p in {"local", "mock", "fake", "primitive", "primitives", "blender-primitives", "none"}:
+        return False
+    if len(j) < 4 or j in {"none", "null", "local", "mock", "fake", "todo", "0"}:
+        return False
+    if required_producer and p != required_producer.strip().lower():
+        return False
+    return True
 
 def init_workflow(
     root: Path,
@@ -148,6 +174,8 @@ def init_workflow(
     intent: str,
     beats: list[str],
     standard: dict | None = None,
+    references: list[str] | None = None,
+    required_producer: str = "",
     max_rounds: int = 25,
 ) -> dict:
     if target_kind not in VALID_KINDS:
@@ -160,13 +188,18 @@ def init_workflow(
     clean_slug = _safe_slug(slug)
     dbf = _db_path(root, clean_slug)
     now = time.time()
-    std = standard or {
+    locked_refs = {rel: sha for raw in (references or []) if raw.strip() for rel, sha, _ in [_hash_repo_file(root, raw)]}
+    std = dict(standard or {
         "require_user_approval": True,
         "require_full_video": True,
         "require_collective_video_review": True,
         "require_fresh_eye_critic": True,
         "viewports": ["1440x900", "390x844"],
-    }
+    })
+    if locked_refs:
+        std["locked_references"] = locked_refs
+    if required_producer.strip():
+        std["required_producer"] = required_producer.strip()
     with _connect(dbf) as conn:
         conn.execute(
             """INSERT INTO workflows(slug, app_name, target_kind, intent, beats_json, standard_json, approved_by_user, max_rounds, created_at)
@@ -221,6 +254,8 @@ def record_rehearsal_run(
     critic_verdict: str = "revise",
     open_p0_p1: int = 0,
     critic_notes: str = "",
+    provenance_receipt: str = "",
+    compared_references: list[str] | None = None,
 ) -> dict:
     if critic_verdict not in ("approve", "revise"):
         raise ValueError("critic_verdict must be 'approve' or 'revise'")
@@ -243,6 +278,15 @@ def record_rehearsal_run(
             raise ValueError(f"rehearsal round cap reached ({max_rounds}); review blockers with user before extending")
 
         required_beats = set(json.loads(wf["beats_json"]))
+        std = json.loads(wf["standard_json"] or "{}")
+        locked_refs: dict[str, str] = std.get("locked_references") or {}
+        req_prod: str = std.get("required_producer") or ""
+        comp_norm = sorted({_hash_repo_file(root, r)[0] for r in (compared_references or []) if r.strip()})
+        refs_ok = all(
+            r in comp_norm and _hash_repo_file(root, r)[1] == sha
+            for r, sha in locked_refs.items()
+        )
+        prov_ok = (not req_prod) or _valid_provenance_receipt(provenance_receipt, req_prod)
         all_beats = required_beats.issubset(set(covered))
         passed = int(
             bool(wf["approved_by_user"])
@@ -252,18 +296,21 @@ def record_rehearsal_run(
             and len(video_notes.strip()) >= MIN_VIDEO_NOTES_CHARS
             and critic_verdict == "approve"
             and int(open_p0_p1) == 0
+            and refs_ok
+            and prov_ok
         )
         conn.execute(
             """INSERT INTO rehearsals(
                    slug, version, video_path, video_sha256, video_bytes, video_duration_sec,
                    desktop_width, mobile_width, beats_covered_json, automated_gate_ok,
-                   watched_full_video, video_notes, critic_verdict, open_p0_p1, critic_notes, passed, created_at
-               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   watched_full_video, video_notes, critic_verdict, open_p0_p1, critic_notes,
+                   passed, provenance_receipt, compared_refs_json, created_at
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 clean_slug, next_v, norm_video, digest, size, float(duration_sec),
                 int(desktop_width), int(mobile_width), json.dumps(covered), int(bool(auto_gate_ok)),
                 int(bool(watched_full_video)), video_notes.strip(), critic_verdict, int(open_p0_p1),
-                critic_notes.strip(), passed, now,
+                critic_notes.strip(), passed, provenance_receipt.strip(), json.dumps(comp_norm), now,
             ),
         )
         conn.commit()
@@ -288,6 +335,9 @@ def evaluate_verdict(root: Path, *, slug: str) -> dict:
 
     failed: list[str] = []
     required_beats = json.loads(wf["beats_json"])
+    std = json.loads(wf["standard_json"] or "{}")
+    locked_refs: dict[str, str] = std.get("locked_references") or {}
+    req_prod: str = std.get("required_producer") or ""
     if not wf["approved_by_user"]:
         failed.append("intent-grilled-and-approved")
 
@@ -300,6 +350,10 @@ def evaluate_verdict(root: Path, *, slug: str) -> dict:
             "full-video-collective-playback-reviewed",
             "fresh-eye-critic-approved",
         ])
+        if locked_refs:
+            failed.append("reference-comparison-verified")
+        if req_prod:
+            failed.append("provenance-verified")
     else:
         covered = set(json.loads(latest["beats_covered_json"]))
         missing_beats = [b for b in required_beats if b not in covered]
@@ -316,6 +370,20 @@ def evaluate_verdict(root: Path, *, slug: str) -> dict:
             failed.append("full-video-collective-playback-reviewed")
         if latest["critic_verdict"] != "approve" or int(latest["open_p0_p1"]) > 0:
             failed.append("fresh-eye-critic-approved")
+        if locked_refs:
+            comp_set = set(json.loads(latest["compared_refs_json"] or "[]"))
+            refs_intact = True
+            for r, expected_sha in locked_refs.items():
+                try:
+                    _, live_r_sha, _ = _hash_repo_file(root, r)
+                    if r not in comp_set or live_r_sha != expected_sha:
+                        refs_intact = False
+                except ValueError:
+                    refs_intact = False
+            if not refs_intact:
+                failed.append("reference-comparison-verified")
+        if req_prod and not _valid_provenance_receipt(latest["provenance_receipt"] or "", req_prod):
+            failed.append("provenance-verified")
 
     return {
         "verdict": "REHEARSAL_PASSED" if not failed else "REHEARSAL_BLOCKED",
@@ -392,6 +460,8 @@ def main(argv: list[str] | None = None) -> int:
     sp_init.add_argument("--intent", required=True)
     sp_init.add_argument("--beats", required=True, help="Comma-separated ordered workflow beats.")
     sp_init.add_argument("--max-rounds", type=int, default=25)
+    sp_init.add_argument("--references", default="", help="Optional comma-separated reference files to hash-lock.")
+    sp_init.add_argument("--required-producer", default="", help="Optional upstream producer required in provenance receipt.")
     sp_init.add_argument("--json", action="store_true")
 
     sp_app = sub.add_parser("approve")
@@ -414,6 +484,8 @@ def main(argv: list[str] | None = None) -> int:
     sp_rec.add_argument("--critic-verdict", default="revise", choices=("approve", "revise"))
     sp_rec.add_argument("--open-p0-p1", type=int, default=0)
     sp_rec.add_argument("--critic-notes", default="")
+    sp_rec.add_argument("--provenance-receipt", default="", help="Optional producer:job_id receipt for generated assets.")
+    sp_rec.add_argument("--compared-references", default="", help="Comma-separated locked references compared by critic.")
     sp_rec.add_argument("--json", action="store_true")
 
     sp_ver = sub.add_parser("verdict")
@@ -428,7 +500,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "init":
         res = init_workflow(
             root, slug=args.slug, app_name=args.app, target_kind=args.kind,
-            intent=args.intent, beats=args.beats.split(","), max_rounds=args.max_rounds,
+            intent=args.intent, beats=args.beats.split(","),
+            references=[x for x in args.references.split(",") if x.strip()],
+            required_producer=args.required_producer,
+            max_rounds=args.max_rounds,
         )
         print(json.dumps(res, indent=2) if args.json else f"initialized rehearsal {res['slug']} (awaiting user approval)")
         return 0
@@ -443,6 +518,8 @@ def main(argv: list[str] | None = None) -> int:
             mobile_width=args.mobile_width, auto_gate_ok=args.auto_gate_ok,
             watched_full_video=args.watched_full_video, video_notes=args.video_notes,
             critic_verdict=args.critic_verdict, open_p0_p1=args.open_p0_p1, critic_notes=args.critic_notes,
+            provenance_receipt=args.provenance_receipt,
+            compared_references=[x for x in args.compared_references.split(",") if x.strip()],
         )
         print(json.dumps(res, indent=2) if args.json else f"v{res['version']}: {res['verdict']} (failed: {res['failed_gates']})")
         return 0 if res["verdict"] == "REHEARSAL_PASSED" else 1

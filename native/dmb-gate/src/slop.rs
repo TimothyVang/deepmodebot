@@ -1071,6 +1071,31 @@ pub fn run(args: &[String]) -> ExitCode {
         if !added.is_empty() {
             scan_added_lines(rel, &added, &mut local);
         }
+        let (mut r_added, r_hunks) = crate::reward::diff_file_hunks(&root, rel, staged, None);
+        if r_added.is_empty() && !added.is_empty() {
+            r_added = added.clone();
+        }
+        if !r_added.is_empty() || !r_hunks.is_empty() {
+            let rs_cfg_ln = if rel.ends_with(".rs") {
+                fs::read_to_string(root.join(rel))
+                    .ok()
+                    .and_then(|t| crate::reward::find_rs_cfg_test_line(&t))
+            } else {
+                None
+            };
+            let mut r_findings = Vec::new();
+            crate::reward::scan_file_reward_hacks(rel, &r_added, &r_hunks, true, false, rs_cfg_ln, &mut r_findings);
+            for rf in r_findings {
+                local.push(Finding {
+                    severity: rf.severity,
+                    rule: rf.rule,
+                    file: rf.file,
+                    line: rf.line,
+                    message: rf.message,
+                    fix: rf.fix,
+                });
+            }
+        }
         if (rel == ".github/dependabot.yml" || rel == ".github/dependabot.yaml") && !added.is_empty() {
             if let Ok(dep_txt) = fs::read_to_string(root.join(rel)) {
                 if dep_txt.contains("cooldown:") {

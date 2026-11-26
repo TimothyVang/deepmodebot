@@ -54,7 +54,8 @@ class SlopGateTests(unittest.TestCase):
             "        subprocess.run(['echo', 'hi'])\n"
             "    except Exception:\n"
             "        pass\n"
-            "    x = 1  # noqa\n",
+            "    x = 1  # noqa\n"
+            "    cmd = ['gate.py', '--min-iou', '0.0']\n",
             encoding="utf-8",
         )
         (self.repo / "ui/widget.ts").write_text(
@@ -74,7 +75,10 @@ class SlopGateTests(unittest.TestCase):
             "        assert True\n"
             "        self.assertEqual(1, 1)\n"
             "    def test_no_assert(self):\n"
-            "        x = 2 + 2\n",
+            "        x = 2 + 2\n"
+            "    @unittest.skip('hide broken check')\n"
+            "    def test_skipped(self):\n"
+            "        self.assertEqual(2, 2)\n",
             encoding="utf-8",
         )
         (self.repo / "AGENTS.md").write_text("\n".join(f"line {i}" for i in range(15)) + "\n", encoding="utf-8")
@@ -98,6 +102,8 @@ class SlopGateTests(unittest.TestCase):
         self.assertIn("test-theater-no-assert", rules)
         self.assertIn("boundary-violation", rules)
         self.assertIn("budget-max-lines", rules)
+        self.assertIn("reward-hack-threshold-zero", rules)
+        self.assertIn("reward-hack-test-skip", rules)
         self.assertTrue((self.repo / ".scratch/deepmode-memory.db").is_file())
 
     def test_clean_change_passes_and_ruff_catches_unused_import_when_installed(self):

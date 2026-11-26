@@ -41,7 +41,7 @@ Usage: deepmodebot <command>
              --check                          exit 1 if project setup is incomplete
     --install-hooks  install <1s .git/hooks/pre-commit running zero-token slop gate
     --dependabot     also generate .github/dependabot.yml with 7-day cooldown
-  gate [sub]         Run parallel check gate (slop|ci|perf|ui|seo|docs|sec|cleanup|agents|skill-check|map|guard)
+  gate [sub]         Run parallel check gate (slop|reward|ci|perf|ui|seo|docs|sec|cleanup|agents|skill-check|map|guard|gap)
   net [sub]          Run native concurrent Go engine (trending|pr-overlap|fetch-papers|webhook)
   build-native       Compile zero-dep Rust (dmb-gate) and Go (dmb-net) release binaries
   update             Upgrade this npm package, then re-sync the tools setup configured (--quiet for the hourly task)
@@ -203,7 +203,8 @@ function gate() {
   const passArgs = args.slice(1);
   const sub = passArgs[0] && !passArgs[0].startsWith("-") ? passArgs[0] : "slop";
   const pyOnly = new Set(["seo", "docs", "sec"]);
-  const nativeBin = pyOnly.has(sub) ? null : findNativeGate();
+  const rewardLedger = sub === "reward" && passArgs.some((a) => ["lock-contract", "record-provenance", "record-judge", "verdict"].includes(a));
+  const nativeBin = pyOnly.has(sub) || rewardLedger ? null : findNativeGate();
   if (nativeBin) {
     const res = run(nativeBin, passArgs);
     if (res.out.trim()) console.log(res.out.trim());
@@ -217,6 +218,7 @@ function gate() {
   const rest = passArgs[0] === sub ? passArgs.slice(1) : passArgs;
   const map = {
     slop: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "local-ci", "slop_gate.py"),
+    reward: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "reward-guard", "reward_guard.py"),
     ci: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "local-ci", "local_ci.py"),
     perf: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "perf-audit", "perf_audit.py"),
     ui: join(pkgRoot, "plugins", "deepmodebot", "skills", "frontend-ui", "scripts", "ui_audit.py"),

@@ -6,6 +6,7 @@ Run `python .agents/skills/verify-deepmodebot/control.py doctor` from the root f
 - [Review quality and safe context](review.md): sealed review input boundaries, findings and clean controls.
 - [Workflow coverage](workflows.md): pinned inventories and executed agent journeys.
 - For the Bun app relay, use the self-test in `plugins/deepmodebot/skills/app-automation-relay/SKILL.md` and the acceptance criteria in `.omp/skills/verify-deepmodebot/features/README.md`.
+- For anti-reward-hacking enforcement (`reward_guard.py`, `dmb-gate reward`), run the disposable shortcut/provenance/judge verification in `.omp/skills/verify-deepmodebot/features/README.md`.
 
 These entries cover the surfaces changed in this work. They do not claim production autostart, every harness, hosted competitors or all upstream workflows have been exercised.
 

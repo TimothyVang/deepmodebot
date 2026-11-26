@@ -507,6 +507,8 @@ def run_slop_gate(
 
     loop_mod = _load_mod("dmb_loop_slop", ASSETS_DIR / "loop" / "loop.py")
     guardrails = set(loop_mod.discover_guardrail_configs(str(resolved_root))) | set(GUARDRAIL_EXTRA)
+    reward_path = ASSETS_DIR / "reward-guard" / "reward_guard.py"
+    reward_mod = _load_mod("dmb_reward_guard", reward_path) if reward_path.is_file() else None
 
     if not allow_config_change:
         for rel in changed:
@@ -516,6 +518,7 @@ def run_slop_gate(
                                  "fix": "Revert guardrail weakening or re-run with `--allow-config-change` when intentional."})
 
     has_head = _git(resolved_root, "rev-parse", "--verify", "HEAD").returncode == 0
+    batched_reward = reward_mod._batch_diffs_for_files(resolved_root, changed, staged=staged) if reward_mod is not None else {}
     for rel in changed:
         text = _read_text_safe(resolved_root, rel)
         if text is None:
@@ -541,6 +544,11 @@ def run_slop_gate(
         if rel.endswith(".py"):
             findings.extend(_check_python_ast(rel, text, added, max_func_lines=max_func_lines, max_nesting=max_nesting))
 
+        if reward_mod is not None:
+            _, r_hunks = batched_reward.get(rel, ({}, []))
+            findings.extend(
+                reward_mod.scan_added_lines_for_reward_hacks(rel, added, r_hunks, include_primitives=False, full_text=text)
+            )
     perf_path = ASSETS_DIR / "perf-audit" / "perf_audit.py"
     code_changed = [f for f in changed if Path(f).suffix.lower() in CODE_EXTS and not TEST_FILE_RE.search(f) and (resolved_root / f).is_file()]
     if perf_path.is_file() and code_changed:
@@ -570,6 +578,8 @@ def run_slop_gate(
         findings.extend(l_findings)
 
     findings.extend(_check_policy_xml(resolved_root, changed))
+    if reward_mod is not None:
+        findings.extend(reward_mod._check_locked_contracts(resolved_root))
 
     counts = {"P0": 0, "P1": 0, "P2": 0}
     for f in findings:

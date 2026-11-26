@@ -5,6 +5,7 @@ mod gap;
 mod guard;
 mod map;
 mod perf;
+mod reward;
 mod skill_check;
 mod slop;
 mod ui;
@@ -15,9 +16,10 @@ use std::process::ExitCode;
 
 fn print_help() {
     println!(
-        "dmb-gate 0.3.0 — zero-dependency parallel Rust engine (10 tools)\n\
+        "dmb-gate 0.3.0 — zero-dependency parallel Rust engine (11 tools)\n\
          Usage:\n\
            dmb-gate slop [--root DIR] [--staged] [--files ...] [--no-linters] [--allow-config-change] [--json]\n\
+           dmb-gate reward [scan] [--root DIR] [--base REF] [--staged] [--files ...] [--allow-primitives] [--advisory] [--json]\n\
            dmb-gate ci [run] [--root DIR] [--cached] [--jobs a,b] [--json]\n\
            dmb-gate perf [--root DIR] [--files ...] [--fail-on-high] [--json]\n\
            dmb-gate ui [PATH] [--fail-on-p1] [--json]\n\
@@ -55,6 +57,7 @@ fn main() -> ExitCode {
         "map" => map::run(&args[1..]),
         "guard" => guard::run(&args[1..]),
         "gap" => gap::run(&args[1..]),
+        "reward" => reward::run(&args[1..]),
         _ => slop::run(&args),
     }
 }
@@ -269,5 +272,56 @@ jobs:
         assert!(findings.iter().any(|f| f.rule == "swallowed-exception" && f.file == "src/svc.py"));
         assert!(findings.iter().any(|f| f.rule == "swallowed-exception" && f.file == "src/net.ts"));
         assert!(findings.iter().any(|f| f.rule == "stale-replaces-claim"));
+    }
+
+    #[test]
+    fn reward_scanner_detects_threshold_zero_skips_primitives_and_weakened_bounds() {
+        let mut out = Vec::new();
+        let added = vec![
+            (1usize, "bpy.ops.mesh.primitive_cube_add(size=2)".to_string()),
+            (2, "cmd = ['gate.py', '--min-iou', '-0.5', '--min-clip-score', '1e-9', '--skip-reference']".to_string()),
+            (3, "def f(): return {'verdict': 'PASS', 'iou': 1.0}".to_string()),
+        ];
+        let hunks = vec![(
+            vec!["iou_floor = 0.72".to_string(), "mse_limit = 1e-6".to_string()],
+            vec![
+                (10usize, "iou_floor = 1e-9".to_string()),
+                (11usize, "mse_limit = 1e-2".to_string()),
+            ],
+        )];
+        reward::scan_file_reward_hacks("gates/gen.py", &added, &hunks, false, true, None, &mut out);
+        assert!(out.iter().any(|f| f.rule == "reward-hack-primitive-standin"));
+        assert!(out.iter().any(|f| f.rule == "reward-hack-threshold-zero"));
+        assert!(out.iter().any(|f| f.rule == "reward-hack-hardcoded-pass"));
+        assert_eq!(out.iter().filter(|f| f.rule == "reward-hack-assertion-weakened").count(), 2);
+
+        let mut clean_app = Vec::new();
+        let app_hunks = vec![(
+            vec!["acc = 1".to_string(), "weapon.accuracy = 0.95".to_string()],
+            vec![(2usize, "acc = 0".to_string()), (3usize, "weapon.accuracy = 0.85".to_string())],
+        )];
+        reward::scan_file_reward_hacks("src/app.py", &[], &app_hunks, false, true, None, &mut clean_app);
+        assert!(clean_app.is_empty());
+
+        assert_eq!(
+            reward::find_rs_cfg_test_line("#[cfg(test)]\nuse std::sync::Mutex;\npub fn prod() {}\n"),
+            None
+        );
+        assert_eq!(
+            reward::find_rs_cfg_test_line("pub fn prod() {}\n#[cfg(test)]\nmod tests {\n}\n"),
+            Some(2)
+        );
+
+        let mut test_out = Vec::new();
+        let test_added = vec![
+            (1usize, "@pytest.mark.skip('broken')".to_string()),
+            (2usize, "@unittest.skipUnless(True, 'env')".to_string()),
+            (3usize, "test.skip(browserName === 'webkit', 'unsupported');".to_string()),
+            (4usize, "        pytest.skip('needs gpu')".to_string()),
+            (5usize, "test.skip('broken suite', () => {});".to_string()),
+        ];
+        reward::scan_file_reward_hacks("tests/test_gen.py", &test_added, &[], false, true, None, &mut test_out);
+        assert_eq!(test_out.len(), 2);
+        assert!(test_out.iter().all(|f| f.rule == "reward-hack-test-skip"));
     }
 }

@@ -1,6 +1,6 @@
 # Deepmodebot catalog
 
-On-demand index of deepmodebot's autonomous modes, all 30 playbooks, 70 techniques, 25 principles, and habits. `SKILL.md` holds the binding rules and compact router; read only the section and linked file your task needs. Paths are relative to this skill.
+On-demand index of deepmodebot's autonomous modes, all 30 playbooks, 70 techniques, 26 principles, and habits. `SKILL.md` holds the binding rules and compact router; read only the section and linked file your task needs. Paths are relative to this skill.
 
 ## Running without the human
 
@@ -90,14 +90,14 @@ Each technique is one file at `references/techniques/<name>.md`. Read only what 
 - **Tooling, DX & instruction hygiene** → **tdd** (`references/techniques/tdd.md`), **devex-review** (`references/techniques/devex-review.md`, cold-start onboarding + CLI/SDK ergonomics), **architecture-review** (`references/techniques/architecture-review.md`), **git-guardrails** (`references/techniques/git-guardrails.md`), **pre-commit** (`references/techniques/pre-commit.md`), **scrape** (`references/techniques/scrape.md`), **wizard** (`references/techniques/wizard.md`), **writing-for-agents** (`references/techniques/writing-for-agents.md`; generate/refresh `AGENTS.md` with `assets/agents-md/agents_md.py`).
 - **Communication & reflection** → **in-your-own-words** (`references/techniques/in-your-own-words.md`), **sharpen** (`references/techniques/sharpen.md`), **teach** (`references/techniques/teach.md`), **course** (`references/techniques/course.md`), **re-explain** (`references/techniques/re-explain.md`), **recall** (`references/techniques/recall.md`), **catchup-video** (`references/techniques/catchup-video.md`), **blast-radius** (`references/techniques/blast-radius.md`), **reflect** (`references/techniques/reflect.md`), **retro** (`references/techniques/retro.md`).
 
-## Full principles directory (25)
+## Full principles directory (26)
 
 One file per principle in `references/principles/<name>.md`. Read the file before applying or citing it.
 
 - **Core (design):** `hardcore-mode` (aim straight for the first-principles architectural ceiling, zero sandbagging), `laziness-protocol` (bias to deletion, smallest change), `foundational-thinking` (types, data structures, shared state before logic), `redesign-from-first-principles` (integrate a requirement as if there from day one), `subtract-before-you-add` (remove complexity first), `experience-first` (design from user experience).
 - **Core (execution):** `attack-the-premise` (two fixes sharing a premise failed the same gate, so test it), `minimize-reader-load` (count layers/hidden state; collapse one-caller wrappers), `outcome-oriented-execution` (converge on target architecture, no throwaway compat), `exhaust-the-design-space` (2-3 prototypes for novel decisions), `build-the-lever` (build the script/checker reviewers rerun).
 - **Architecture:** `model-the-domain`, `boundary-discipline` (guards at boundaries, trust internal types, pure core), `type-system-discipline` (illegal states unrepresentable, brand primitives, parse at boundaries), `make-operations-idempotent`, `migrate-callers-then-delete-legacy-apis`, `separate-before-serializing-shared-state`.
-- **Verification:** `prove-it-works`, `fix-root-causes` (a guard fixes only legitimate states), `sequence-verifiable-units`, `test-behavior-not-implementation`, `explain-the-number`.
+- **Verification:** `prove-it-works`, `no-reward-hacking` (freeze test/reference thresholds, prove upstream build provenance, pair scalar gates with an independent perceptual/semantic judge), `fix-root-causes` (a guard fixes only legitimate states), `sequence-verifiable-units`, `test-behavior-not-implementation`, `explain-the-number`.
 - **Delegation:** `guard-the-context-window`, `never-block-on-the-human` (proceed on reversible work, present results, let the human correct).
 - **Meta:** `encode-lessons-in-structure` (repeated instruction becomes a lint, check, or script).
 

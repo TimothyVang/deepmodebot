@@ -577,6 +577,23 @@ def _scan_backend_perf_traps(root: Path, files: list[str]) -> list[dict]:
         return []
 
 
+
+def _scan_reward_hacks(root: Path, files: list[str], base: str | None, staged: bool) -> list[dict]:
+    rg_script = Path(__file__).resolve().parent.parent / "reward-guard" / "reward_guard.py"
+    if not rg_script.is_file() or not files:
+        return []
+    try:
+        spec = importlib.util.spec_from_file_location("self_grill_reward_guard", rg_script)
+        if spec is None or spec.loader is None:
+            return []
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = mod
+        spec.loader.exec_module(mod)
+        res = mod.scan_reward_hacking(root, staged=staged, explicit_files=files if not _is_git_root_or_worktree(root) else None, base=base)
+        return list(res.get("findings") or [])
+    except Exception:
+        return []
+
 def _auto_merge_base(root: Path) -> str | None:
     branch_res = _run_git(root, ["rev-parse", "--abbrev-ref", "HEAD"])
     branch = branch_res.stdout.strip() if branch_res.returncode == 0 else ""
@@ -712,6 +729,7 @@ def inspect_diff(
     toy_shortcuts = _scan_toy_shortcuts(safe_root, files, effective_base, staged, head_sha) if in_git else []
     backend_perf_findings = _scan_backend_perf_traps(safe_root, files)
     proof_escapes = _scan_proof_escapes(safe_root, files)
+    reward_hacks = _scan_reward_hacks(safe_root, files, effective_base, staged)
     questions = build_questions(
         phase="checks",
         files=files,
@@ -729,6 +747,7 @@ def inspect_diff(
         backend_perf_findings=backend_perf_findings,
         proof_paths=proof_paths,
         proof_escapes=proof_escapes,
+        reward_hacks=reward_hacks,
     )
     recommend_cross_family = measured_size == "L" or bool(sensitive_paths) or bool(proof_paths)
     tree_digest = compute_tree_digest(safe_root)
@@ -762,6 +781,8 @@ def inspect_diff(
         "backend_perf_findings": backend_perf_findings[:25],
         "proof_escape_count": len(proof_escapes),
         "proof_escapes": proof_escapes[:25],
+        "reward_hack_count": len(reward_hacks),
+        "reward_hacks": reward_hacks[:25],
         "recommend_cross_family_skeptic": recommend_cross_family,
         "questions": questions,
     }
@@ -787,6 +808,7 @@ def build_questions(
     backend_perf_findings: list[dict] | None = None,
     proof_paths: list[str] | None = None,
     proof_escapes: list[dict] | None = None,
+    reward_hacks: list[dict] | None = None,
 ) -> list[dict]:
     items: list[dict] = []
     comment_count = added_comment_total if added_comment_total is not None else len(added_comments or [])
@@ -795,6 +817,7 @@ def build_questions(
     perf_list = list(backend_perf_findings or [])
     p_paths = list(proof_paths or [])
     p_escapes = list(proof_escapes or [])
+    rh_list = list(reward_hacks or [])
     def add(qid: str, severity: str, category: str, prompt: str, trigger: str) -> None:
         items.append(
             {
@@ -974,6 +997,23 @@ def build_questions(
                 "Hardcore Mode audit: does this implementation ship the true first-principles architecture/algorithm rather than a watered-down approximation, single-threaded shortcut, or deferred '(optional hardcore mode)' compromise?",
                 "hardcore-code-change",
             )
+        if rh_list:
+            locs = ", ".join(f"{r['file']}:{r['line']}({r['rule']})" for r in rh_list[:4])
+            add(
+                "no-reward-hacking",
+                "critical",
+                "integrity",
+                f"Goodhart / Anti-Reward-Hacking violation: diff triggers {len(rh_list)} reward-hack signal(s) ({locs}). Restore full thresholds/tests, replace primitive stand-ins with real upstream outputs + provenance receipts (reward_guard.py), and verify side-by-side against the reference goal.",
+                "reward-hacks",
+            )
+        elif any(re.search(r"(?:gate|eval|bench|score|metric|validat|render|mesh|spark|fidelity)", p, re.I) for p in files):
+            add(
+                "no-reward-hacking",
+                "critical",
+                "integrity",
+                "Goodhart / Anti-Reward-Hacking check: did you keep every test/reference threshold intact (zero --min-iou 0 or .skip), record upstream build provenance (job_id + SHA-256), and confirm via an independent judge that the output fulfills the real goal rather than gaming scalar metrics?",
+                "eval-or-pipeline-touched",
+            )
         add(
             "gaps-and-overclaims",
             "critical",
@@ -1081,6 +1121,7 @@ def cmd_init(args: argparse.Namespace) -> int:
         backend_perf_findings=diff_info["backend_perf_findings"],
         proof_paths=diff_info["proof_paths"],
         proof_escapes=diff_info["proof_escapes"],
+        reward_hacks=diff_info["reward_hacks"],
     )
     for q in questions:
         if q["id"] in existing_answers:
@@ -1102,6 +1143,7 @@ def cmd_init(args: argparse.Namespace) -> int:
         "total_lines": diff_info["total_lines"],
         "sensitive_paths": diff_info["sensitive_paths"],
         "toy_shortcuts": diff_info["toy_shortcuts"],
+        "reward_hacks": diff_info["reward_hacks"],
         "recommend_cross_family_skeptic": diff_info["recommend_cross_family_skeptic"],
         "questions": questions,
     }
@@ -1266,7 +1308,7 @@ def build_prosecutor_bundle(
         f"- Measured diff size: `{diff_info['measured_size']}` ({diff_info['file_count']} files, +{diff_info['lines_added']}/-{diff_info['lines_deleted']} lines)",
         f"- Tree digest: `{diff_info['tree_digest']}`",
         f"- Sensitive paths: `{diff_info['sensitive_paths']}`",
-        f"- Mechanical flags: comments={diff_info['added_comment_count']}, workaround_smells={diff_info['workaround_smell_count']}, toy_shortcuts={diff_info['toy_shortcut_count']}",
+        f"- Mechanical flags: comments={diff_info['added_comment_count']}, workaround_smells={diff_info['workaround_smell_count']}, toy_shortcuts={diff_info['toy_shortcut_count']}, reward_hacks={diff_info['reward_hack_count']}",
     ]
     if claims_text.strip():
         sections.append("\n## Draft Claims Under Audit\n" + claims_text.strip())
@@ -1283,6 +1325,8 @@ def build_prosecutor_bundle(
         if "path" in x
     } | {x["file"] for x in (diff_info.get("backend_perf_findings") or []) if "file" in x} | {
         x["file"] for x in (diff_info.get("proof_escapes") or []) if "file" in x
+    } | {
+        x["file"] for x in (diff_info.get("reward_hacks") or []) if "file" in x
     }
 
     def _bundle_priority(rel: str) -> tuple[int, int, int, int, str]:
@@ -1332,8 +1376,8 @@ def build_prosecutor_bundle(
         f"Read ONLY `{out_dir / 'prosecutor-bundle.md'}` first (read additional ranges in `{safe_root}` only for `[HUNK WINDOW]` files).\n"
         "Run the 3-step Adaptive Hotspot Prosecutor + Independent Sieve in a SINGLE pass:\n"
         "1. Adaptive Hotspot Map (5 lines): weight ~75% of probes on the highest-complexity code/regex/state/concurrency/security modules in the bundle and ~25% on Draft Claims & Docs vs literal code.\n"
-        "2. Exhaustive Divergent Hunt: push past surface checks to brainstorm 50+ concrete candidate bugs, false positives, false negatives, edge cases, and overclaims (do NOT filter early).\n"
-        "3. Independent Prosecutor Sieve: keep ONLY 100% code-provable P0/P1/P2 Gaps and text-vs-code Overclaims with exact `<file>:<line>`, concrete trigger input, and root-cause fix. Drop hypothetical '$90 trillion' filler."
+        "2. Exhaustive Divergent Hunt: push past surface checks to brainstorm 50+ concrete candidate bugs, Goodhart reward hacks (weakened thresholds/tests, skipped references, procedural box/cone stand-ins, unverified provenance), false positives, false negatives, edge cases, and overclaims (do NOT filter early).\n"
+        "3. Independent Prosecutor Sieve: keep ONLY 100% code-provable P0/P1/P2 Gaps, Reward Hacks, and text-vs-code Overclaims with exact `<file>:<line>`, concrete trigger input, and root-cause fix. Drop hypothetical '$90 trillion' filler."
     )
     bundle_path = out_dir / "prosecutor-bundle.md"
     atomic_write_text(bundle_path, "\n".join(sections) + "\n", safe_root)

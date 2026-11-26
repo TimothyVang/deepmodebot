@@ -179,6 +179,21 @@ class SelfGrillTests(unittest.TestCase):
         self.assertIn("hardcore-craft-depth", qmap)
         self.assertEqual(qmap["hardcore-craft-depth"]["severity"], "critical")
 
+    def test_detects_reward_hacking_threshold_zeroing_and_primitive_standins(self):
+        (self.repo / "src" / "gen_mesh.py").write_text(
+            "import bpy\n"
+            "bpy.ops.mesh.primitive_cone_add(radius1=1)\n"
+            "cmd = ['gate.py', '--min-iou', '0.0']\n",
+            encoding="utf-8",
+        )
+        code, raw = self.run_cli("check-diff", "--root", str(self.repo), "--json")
+        self.assertEqual(code, 0)
+        report = json.loads(raw)
+        self.assertGreaterEqual(report["reward_hack_count"], 2)
+        qmap = {q["id"]: q for q in report["questions"]}
+        self.assertIn("no-reward-hacking", qmap)
+        self.assertEqual(qmap["no-reward-hacking"]["severity"], "critical")
+
     def test_shootout_regressions_init_shortcuts_sensitive_paths_inline_comments_and_bundle(self):
         self.assertIsNotNone(self_grill.SENSITIVE_PATH_RE.search("src/user_auth.py"))
         self.assertIsNotNone(self_grill.SENSITIVE_PATH_RE.search("config/prod.env"))
