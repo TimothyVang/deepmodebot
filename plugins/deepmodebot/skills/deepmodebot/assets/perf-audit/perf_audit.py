@@ -32,6 +32,15 @@ SKIP_DIRS = {
     ".venv",
     "venv",
     ".pytest_cache",
+    ".next",
+    ".lake",
+    ".playwright-mcp",
+    ".turbo",
+    "coverage",
+    ".cache",
+    "out",
+    ".nuxt",
+    ".svelte-kit",
 }
 
 SCAN_EXTS = {

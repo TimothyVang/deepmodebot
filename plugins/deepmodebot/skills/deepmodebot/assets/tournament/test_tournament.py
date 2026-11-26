@@ -711,5 +711,46 @@ tournament.main(sys.argv[2:])
         self.assertEqual(status["ready_matches"], ["qf-1", "qf-2", "qf-3", "qf-4"])
 
 
+    def test_render_and_status_include_full_ranked_portfolio_across_all_lenses(self):
+        _, raw = self.run_cli(
+            "init", "--root", str(self.repo), "--slug", "portfolio-all",
+            "--prompt", "Surface all high-leverage bets", "--entrants", "4", "--json",
+        )
+        init_out = json.loads(raw)
+        tdir = init_out["dir"]
+        for ent in init_out["entrants"]:
+            self.run_cli(
+                "pitch", "--dir", tdir, "--entrant", ent["id"],
+                "--title", f"Bet {ent['id']}",
+                "--thesis", f"Distinct leverage thesis for {ent['id']}.",
+                "--gap-kind", ent["default_gap_kind"],
+                "--receipt", "src/router.py:1",
+            )
+        eids = [e["id"] for e in init_out["entrants"]]
+        self.run_cli(
+            "judge", "--dir", tdir, "--match", "sf-1", "--winner", eids[0],
+            "--judge-model", "judge", "--verified-receipt", "src/router.py:1",
+            "--rationale", "Strongest Pod A.", "--graft-from", eids[1], "--graft", "Keep streaming cursor.",
+        )
+        self.run_cli(
+            "judge", "--dir", tdir, "--match", "sf-2", "--winner", eids[2],
+            "--judge-model", "judge", "--verified-receipt", "src/router.py:1",
+            "--rationale", "Strongest Pod B.",
+        )
+        self.run_cli(
+            "judge", "--dir", tdir, "--match", "final", "--winner", eids[0],
+            "--judge-model", "judge", "--verified-receipt", "src/router.py:1",
+            "--rationale", "Best end-to-end leverage.",
+        )
+        _, st_raw = self.run_cli("status", "--dir", tdir, "--json")
+        st = json.loads(st_raw)
+        self.assertEqual(st["ranked_portfolio_count"], 4)
+        self.assertEqual([p["entrant"] for p in st["ranked_portfolio"]][:2], [eids[0], eids[2]])
+
+        _, md = self.run_cli("render", "--dir", tdir)
+        self.assertIn("## Full Ranked High-Leverage Portfolio (4 pitched lenses)", md)
+        for eid in eids:
+            self.assertIn(f"Distinct leverage thesis for {eid}.", md)
+
 if __name__ == "__main__":
     unittest.main()

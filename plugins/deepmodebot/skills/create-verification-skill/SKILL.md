@@ -62,7 +62,7 @@ Write `.omp/skills/verify-<app>/SKILL.md`. Frontmatter is required: omp skips pr
 
 ## 4. Seed the feature map
 
-Create `.omp/skills/verify-<app>/features/README.md` plus one file per user-facing feature you can identify (top 3–5 to start, from routes, commands, menus, or docs). Follow the shape in `references/feature-map-example/`: a README index (baseline preconditions, driving conventions, proof and skip reporting, entry contract, feature list) and one file per feature.
+Create `.omp/skills/verify-<app>/features/README.md` plus one file for **every** user-facing feature surface identified across routes, CLI commands, menus, background workflows, and docs (ordered by user criticality; never cap at a partial 3–5 subset). Follow the shape in `references/feature-map-example/`: a README index (baseline preconditions, driving conventions, proof and skip reporting, entry contract, complete feature list) and one file per feature.
 
 Each feature file: H1 title, one paragraph of user-visible behavior, then exactly these four H2s in order: `Sub-features`, `How to get to it (user POV)`, `Driving it with control-<app>`, `Gotchas`. The driving section starts with `Preconditions:` and pairs each user action with an exact command and its observable result.
 

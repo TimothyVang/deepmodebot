@@ -222,5 +222,38 @@ class PromptToolsTests(unittest.TestCase):
         override = prompt_tools.analyze_ambiguity("/deep improve things, don't ask questions just do it", root=self.repo)
         self.assertFalse(override["needs_clarification"])
 
+
+    def test_suggest_default_full_scope_reveals_all_subsystems_and_capability_gaps(self):
+        (self.repo / "ROADMAP.md").write_text(
+            "# Roadmap\n\n- [ ] Ship multi-region WebSocket session resume\n- [ ] Add tenant audit export\n",
+            encoding="utf-8",
+        )
+        for sub, body in (
+            ("billing", "import openai\nasync def bill(db, ids):\n    for i in ids:\n        await db.fetchrow('SELECT * FROM inv WHERE id = $1', i)\n"),
+            ("search", "def reindex():\n    pass\n"),
+            ("api", "from fastapi import FastAPI\napp = FastAPI()\n@app.post('/pay')\ndef pay():\n    return {'ok': True}\n"),
+        ):
+            d = self.repo / "src" / sub
+            d.mkdir(parents=True, exist_ok=True)
+            (d / "service.py").write_text(body + ("\n" * 230), encoding="utf-8")
+
+        code, out = self.run_cli("suggest", "--root", str(self.repo), "--json")
+        self.assertEqual(code, 0)
+        res = json.loads(out)
+        self.assertTrue(res["full_scope"])
+        self.assertFalse(res["truncated"])
+        self.assertEqual(len(res["suggestions"]), res["total_leverage_tasks"])
+        self.assertGreaterEqual(res["total_leverage_tasks"], 7)
+        self.assertGreaterEqual(res["roadmap_unchecked_hits"], 2)
+
+        kinds = {s["kind"] for s in res["suggestions"]}
+        self.assertIn("capability", kinds)
+        self.assertIn("hardcore", kinds)
+        hardcore_subs = {s["subsystem"] for s in res["suggestions"] if s["kind"] == "hardcore"}
+        self.assertTrue({"src/billing", "src/search", "src/api"}.issubset(hardcore_subs), hardcore_subs)
+        for item in res["suggestions"]:
+            self.assertIn("leverage_score", item)
+            self.assertIn("wave", item)
+            self.assertIn("subsystem", item)
 if __name__ == "__main__":
     unittest.main()

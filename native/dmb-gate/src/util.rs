@@ -16,6 +16,14 @@ pub const SKIP_DIRS: &[&str] = &[
     "venv",
     ".pytest_cache",
     ".next",
+    ".lake",
+    ".playwright-mcp",
+    ".turbo",
+    "coverage",
+    ".cache",
+    "out",
+    ".nuxt",
+    ".svelte-kit",
 ];
 
 pub fn worker_count(items: usize) -> usize {

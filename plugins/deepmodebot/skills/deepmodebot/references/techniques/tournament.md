@@ -30,15 +30,16 @@
    - An independent judge verifies the decisive receipt and records the winner with `tournament.py judge`, setting `champion` and preserving the runner-up.
    Done when `tournament.py status --dir <dir> --json` names `champion` (and `runner_up` when two finalists reached the final).
 
-6. **Propose Champion and Runner-Up (checkpoint).** Run `tournament.py render --dir <dir>` to write `<dir>/proposal.md` and present:
+6. **Propose Champion, Runner-Up, and the Full Ranked High-Leverage Portfolio (checkpoint).** Run `tournament.py render --dir <dir>` to write `<dir>/proposal.md` and present:
    - **Champion thesis:** system shape, grafted insights, submitted receipts distinguished from judge-verified receipts, primary risk, and first tracer-bullet slice.
    - **Runner-Up counter-thesis:** the strongest surviving alternative and when to prefer it.
+   - **Full Ranked High-Leverage Portfolio (`1..N` across all pitched lenses):** every surviving and eliminated contender's distinct high-leverage thesis, gap kind, receipts, and grafted insights so zero valid architectural or SOTA levers discovered by the 12 lenses are hidden behind single-elimination rounds.
    - **Bracket ledger:** match winners, verified receipts, and grafts.
-   Preserve the original delivery intent. For discovery-only requests (including `/tournament` without a build request), ask the user to pick **Champion**, **Runner-Up**, or a constraint adjustment before modifying production files.
+   Preserve the original delivery intent. For discovery-only requests (including `/tournament` without a build request), ask whether the user wants **Champion**, **Runner-Up**, a **multi-item bundle from the Full Ranked Portfolio**, or a constraint adjustment before modifying production files.
    For an original build or implementation request, including one automatically routed here for vagueness, present the proposal and continue with Champion without requiring the user to anticipate or name the tournament. Respect any explicit request to pause or choose first. This handoff grants no new permission to publish, deploy, spend money, or cross another hard stop.
    Hand the chosen thesis to Spec (`references/playbooks/spec.md`) or Feature (`references/playbooks/feature.md`), then implement and prove the requested build.
-   Done when `proposal.md` exists, the user sees Champion and Runner-Up, and discovery-only work awaits their pick or the original build continues to verified delivery.
+   Done when `proposal.md` exists, the user sees Champion, Runner-Up, and the Full Ranked High-Leverage Portfolio, and discovery-only work awaits their pick or the original build continues to verified delivery.
 
-**Output:** `<root>/.scratch/tournaments/<slug>/proposal.md` summarized with Champion, Runner-Up, grafted insights, submitted versus judge-verified receipts, bracket ledger, and either a decision prompt or implementation handoff.
+**Output:** `<root>/.scratch/tournaments/<slug>/proposal.md` summarized with Champion, Runner-Up, the Full Ranked High-Leverage Portfolio across all pitched lenses, grafted insights, submitted versus judge-verified receipts, bracket ledger, and either a decision prompt or implementation handoff.
 
-**Done when** `proposal.md` exists with checked judge receipts for every advancing round, the user receives Champion plus Runner-Up, and the original delivery intent is honored: discovery stops for a pick; a requested build continues through implementation and runtime proof.
+**Done when** `proposal.md` exists with checked judge receipts for every advancing round, the user receives Champion + Runner-Up + the Full Ranked Portfolio, and the original delivery intent is honored: discovery stops for a pick; a requested build continues through implementation and runtime proof.

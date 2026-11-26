@@ -1,6 +1,6 @@
 ---
 name: tournament
-description: "12-agent receipt-verified tournament bracket (/tournament) proposing Champion + Runner-Up for open/vague goals."
+description: "12-agent receipt-verified tournament bracket (/tournament) surfacing Champion, Runner-Up, and the Full Ranked High-Leverage Portfolio."
 ---
 
 # /tournament
@@ -9,6 +9,6 @@ Read `skill://deepmodebot` (`../../../skills/deepmodebot/SKILL.md` from this ski
 In Antigravity, `skill://<name>/<path>` means `<path>` inside `../../../skills/<name>/` (`~/.gemini/config/plugins/deepmodebot/skills/<name>/`).
 
 Initialize `<root>/.scratch/tournaments/<slug>/bracket.json` with `python -B "<deepmodebot skill dir>/assets/tournament/tournament.py" init --root "<root>" --slug "<slug>" --prompt-stdin <<'EOF'` (`py -3 -B` on Windows).
-Fan out read-only contenders (`invoke_subagent` with `scout`/`research`, `run_workflow`, or `omp_task`), enforce verified receipts on every pitch and rebuttal, run Round 1 clashes, the semifinals, and the final with an independent read-only judge and optional single-insight grafting, and stop at the **Champion** plus **Runner-Up** proposal gate unless explicitly asked to build the winner too.
+Fan out read-only contenders (`invoke_subagent` with `scout`/`research`, `run_workflow`, or `omp_task`), enforce verified receipts on every pitch and rebuttal, run Round 1 clashes, the semifinals, and the final with an independent read-only judge and optional single-insight grafting, and present **Champion**, **Runner-Up**, and the **Full Ranked High-Leverage Portfolio (`1..N` across all pitched lenses)** before coding unless explicitly asked to build the winner immediately.
 
 Apply this to what the user asked for.

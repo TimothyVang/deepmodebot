@@ -34,11 +34,11 @@ Run deterministic repo scanning and ledger verification in the parent session vi
    Record every claim and the exact falsification check run via `gap_audit.py record-claim` (`--evidence-tier code-verified|spec-rfc|measured|docs-only`, `--disconfirmation-probe "<issue/code/repro check>"`, `--disconfirmation-result survived|qualified|refuted`, `--caveat "<exact bound>"`).
    Done when every claim in `ledger.json` carries a substantive disconfirmation probe and explicit scope bounds.
 
-4. **Build the SOTA-vs-Repo Differential Gap Matrix.** Compare external SOTA invariants and failure modes directly against the active repository (`missing`, `partial`, `stubbed`, `divergent`, or `parity`), citing exact disk-verified repo receipts (`path:line`, `scan:...`, or `missing:<path>`):
+4. **Build the complete SOTA-vs-Repo Differential Gap Matrix (zero top-3 truncation).** Compare external SOTA invariants, capabilities, and failure modes across **every affected subsystem** in the active repository (`missing`, `partial`, `stubbed`, `divergent`, or `parity`), citing exact disk-verified repo receipts (`path:line`, `scan:...`, or `missing:<path>`):
    ```bash
    python -B "<this skill>/assets/gap-audit/gap_audit.py" record-gap --dir "<ledger-dir>" --id "G1" --capability "<invariant>" --source-ref "<upstream>" --repo-state missing --repo-evidence "<path:line>" --priority P1 --leverage "<what gate, lint, test, or module encodes this>"
    ```
-   Always ask: *what mechanical check, static rule, or architecture seam prevents agents from missing this class of bug again?*
+   Record **100% of material SOTA/capability/architecture/perf gaps** (`G1..GN`, ranked `P0` → `P1` → `P2` by leverage; never stop at 1–3 sample rows) and ask: *what mechanical check, static rule, or architecture seam prevents agents from missing this class of bug again?*
    Done when every material gap between upstream SOTA/specs and the target repo is recorded with priority and leverage.
 
 5. **Enforce the strict research gate and render.** Verify and render (`--render docs/research/<slug>.md` when saving to the repo, or `<ledger-dir>/brief.md` for chat-only asks):
