@@ -118,7 +118,12 @@ mod tests {
                 (2, "const ok = process.env.NEXT_PUBLIC_APP_URL;".to_string()),
                 (3, "const ai = new OpenAI({ dangerouslyAllowBrowser: true });".to_string()),
                 (4, "export class Room implements DurableObject {}".to_string()),
-                (5, "const { waitUntil } = ctx;".to_string()),
+                (5, "const { passThroughOnException, waitUntil } = ctx;".to_string()),
+                (6, "const { env } = ctx; ctx.waitUntil(p);".to_string()),
+                (7, "const { waitUntil } = ctx2;".to_string()),
+                (8, "const ai2 = new OpenAI({ dangerouslyAllowBrowser: false /* true */ });".to_string()),
+                (9, "export class RoomBase implements DurableObjectBase {}".to_string()),
+                (10, "export class Sub extends Base  implements  DurableObject {}".to_string()),
             ],
             &mut edge_out,
         );
@@ -127,6 +132,8 @@ mod tests {
         assert!(edge_out.iter().any(|f| f.rule == "llm-browser-key-exposure" && f.line == 3));
         assert!(edge_out.iter().any(|f| f.rule == "workers-legacy-implements-do" && f.line == 4));
         assert!(edge_out.iter().any(|f| f.rule == "workers-ctx-destructure" && f.line == 5));
+        assert!(!edge_out.iter().any(|f| f.line == 6 || f.line == 7 || f.line == 8 || f.line == 9));
+        assert!(edge_out.iter().any(|f| f.rule == "workers-legacy-implements-do" && f.line == 10));
     }
 
     #[test]
@@ -189,7 +196,7 @@ jobs:
 
         let legit_tsx = ui::scan_ui(
             "web/Legit.tsx",
-            "/* never use transition: width 200ms; background: #000000; transform: scale(0); */\n<button type=\"button\"><svg viewBox=\"0 0 16 16\"></svg> English (US) <svg viewBox=\"0 0 12 12\"></svg></button>\n<label><input type=\"checkbox\" className=\"rounded-sm\" /><span className=\"rounded-full\">12</span></label>\n<input type=\"text\" onPaste={handleOtpPaste} />\n<div style={{ transition: \"transform 150ms ease-out\", width: 260, top: 10 }}>Menu</div>\n<div role=\"status\"><span className=\"w-2 h-2 animate-pulse\" /> LIVE</div>\n<div><span className=\"animate-pulse\" /> deliver</div>\n",
+            "/* never use transition: width 200ms; background: #000000; transform: scale(0); */\n// <meta name=\"viewport\" content=\"user-scalable=no\" />\n<meta name=\"viewport\" content=\"user-scalable=normal\" />\n<button type=\"button\"><svg viewBox=\"0 0 16 16\"></svg> English (US) <svg viewBox=\"0 0 12 12\"></svg></button>\n<label><input type=\"checkbox\" className=\"rounded-sm\" /><span className=\"rounded-full\">12</span></label>\n<input type=\"text\" onPaste={handleOtpPaste} placeholder=\"preventDefault\" />\n<div style={{ transition: \"transform 150ms ease-out\", width: 260, top: 10 }}>Menu</div>\n<div role=\"status\"><span className=\"w-2 h-2 animate-pulse\" /> LIVE</div>\n<div><span className=\"animate-pulse\" /> deliver</div>\n",
         );
         assert!(legit_tsx.is_empty(), "unexpected findings: {:?}", legit_tsx);
 

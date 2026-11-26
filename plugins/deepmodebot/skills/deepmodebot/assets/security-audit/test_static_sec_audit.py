@@ -74,7 +74,7 @@ class StaticSecAuditTests(unittest.TestCase):
             encoding="utf-8",
         )
         (self.root / "wrangler.jsonc").write_text(
-            '{\n  // comment\n  "vars": {\n    "API_BASE_URL": "https://api.example.com",\n    "STRIPE_SECRET_KEY": "sk-test-1234567890"\n  }\n}\n',
+            '{\n  // comment\n  "vars": {\n    "API_BASE_URL": "https://api.example.com",\n    "STRIPE_SECRET_KEY": "sk-test-1234567890",\n    "API_KEY_HEADER": "x-api-key",\n    "PASSWORD_POLICY": "strong-12-char"\n  }\n}\n',
             encoding="utf-8",
         )
         rep = ssa.scan_repo(self.root)
@@ -84,6 +84,8 @@ class StaticSecAuditTests(unittest.TestCase):
         self.assertNotIn(("client-bundle-secret-env", 2), by_rule)
         self.assertIn(("llm-sdk-browser-key-exposure", 3), by_rule)
         self.assertIn(("wrangler-vars-secret", 5), by_rule)
+        self.assertNotIn(("wrangler-vars-secret", 6), by_rule)
+        self.assertNotIn(("wrangler-vars-secret", 7), by_rule)
 
 if __name__ == "__main__":
     unittest.main()

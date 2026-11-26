@@ -7,6 +7,49 @@
   "reference-library": "89 repos"
  },
  "repos": {
+  "0xcodez/iphone-mirror-windows": {
+   "name": "0xCodez/iphone-mirror-windows",
+   "github_id": 1450491758,
+   "url": "https://github.com/0xCodez/iphone-mirror-windows",
+   "description": "Mirror and control your iPhone on Windows: AirPlay receiver in an iPhone-shaped window, plus mouse and keyboard control over USB",
+   "language": "Python",
+   "license": "GPL-3.0",
+   "topics": [
+    "airplay",
+    "ios",
+    "iphone",
+    "pyside6",
+    "python",
+    "screen-mirroring",
+    "webdriveragent",
+    "windows"
+   ],
+   "stars": 226,
+   "created": "2026-11-08",
+   "pushed": "2026-11-08",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 226,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1450491758,
+    "topics": [
+     "airplay receiver",
+     "device mirroring",
+     "windows utility"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=836s"
+    ],
+    "caution": "README identifies the whole application as GPL-3.0 because it includes the playfair-derived FairPlay module. Network receiver, FFmpeg/Qt packaging, device control and further third-party license/security boundaries need independent review. Use only authorized devices and content.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
   "4lwayz/portwatch-vi": {
    "name": "4lwayz/portwatch-vi",
    "github_id": 1467035512,
@@ -26,6 +69,81 @@
    "seen_in": [
     "github-search:new-this-week"
    ]
+  },
+  "799953468/frp-ban": {
+   "name": "799953468/frp-ban",
+   "github_id": 1446900886,
+   "url": "https://github.com/799953468/frp-ban",
+   "description": "",
+   "language": "C#",
+   "license": "MIT",
+   "topics": [],
+   "stars": 173,
+   "created": "2026-11-05",
+   "pushed": "2026-11-25",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 173,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1446900886,
+    "topics": [
+     "frp operations",
+     "brute force defense",
+     "log driven blocking"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=888s"
+    ],
+    "caution": "Regex/IP blocking can cause false positives and miss abuse; it is not authentication, patching, or comprehensive perimeter security.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "7uanf/icopy": {
+   "name": "7uanf/iCopy",
+   "github_id": 1449871752,
+   "url": "https://github.com/7uanf/iCopy",
+   "description": "Copia de seguridad de iCloud Fotos para Windows: completa, verificada y sin cortes.",
+   "language": "Rust",
+   "license": "MIT",
+   "topics": [
+    "backup",
+    "icloud",
+    "icloud-photos",
+    "rust",
+    "tray-app",
+    "windows"
+   ],
+   "stars": 133,
+   "created": "2026-11-08",
+   "pushed": "2026-11-11",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 133,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1449871752,
+    "topics": [
+     "photo backup",
+     "resumable transfer",
+     "desktop utility"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=417s"
+    ],
+    "caution": "iCloud authentication and optional deletion are high-impact; no account access or deletion was tested. Do not generalize README verification claims to guaranteed recovery; independently prove restore before deletion.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "a11delavar/mitra": {
    "name": "a11delavar/mitra",
@@ -156,6 +274,7 @@
   },
   "addyosmani/agent-skills": {
    "name": "addyosmani/agent-skills",
+   "github_id": 1158722119,
    "url": "https://github.com/addyosmani/agent-skills",
    "description": "Production-grade engineering skills for AI coding agents.",
    "language": "JavaScript",
@@ -168,17 +287,33 @@
     "cursor",
     "skills"
    ],
-   "stars": 115846,
+   "stars": 120559,
    "created": "2026-02-15",
-   "pushed": "2026-11-01",
+   "pushed": "2026-11-24",
    "archived": false,
    "fork": false,
    "first_seen": "2026-11-11",
    "stars_first_seen": 115813,
    "last_seen": "2026-11-11",
    "seen_in": [
-    "github-trending-daily"
-   ]
+    "github-trending-daily",
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1158722119,
+    "topics": [
+     "agent workflows",
+     "lifecycle",
+     "verification",
+     "anti rationalization"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=pnZh5PAF3VE&t=1719s"
+    ],
+    "caution": "Individual skill installation may omit shared references. Compare the existing workflow and harness compatibility before adopting; no blanket installation or efficacy claim.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "adn8naiagent/f1replaytiming": {
    "name": "adn8naiagent/F1ReplayTiming",
@@ -203,6 +338,53 @@
    "seen_in": [
     "githubawesome"
    ]
+  },
+  "adventists-ai/sophon-realtime": {
+   "name": "adventists-ai/sophon-realtime",
+   "github_id": 1446277821,
+   "url": "https://github.com/adventists-ai/sophon-realtime",
+   "description": "Open full-duplex voice models that hear your tone and speak with one. One GPU with vLLM-Omni, or fully offline on a Mac with MLX. Zero-shot voice cloning, OpenAI Realtime / GPT-Live compatible, free hosted API trial. Ap…",
+   "language": "Python",
+   "license": "Apache-2.0",
+   "topics": [
+    "apple-silicon",
+    "full-duplex",
+    "livekit",
+    "macos",
+    "mlx",
+    "offline",
+    "open-source",
+    "openai-realtime",
+    "paralinguistics",
+    "pipecat",
+    "realtime",
+    "speech"
+   ],
+   "stars": 549,
+   "created": "2026-11-04",
+   "pushed": "2026-11-26",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 549,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1446277821,
+    "topics": [
+     "realtime voice",
+     "full duplex audio",
+     "voice agent research"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=243s"
+    ],
+    "caution": "Voice/prosody claims and concurrency benchmarks are upstream, not independently reproduced; not clinical evidence. Code/weights claim Apache-2.0 but individual build/third-party model notices must travel with redistribution. Reported80GB GPU class is a substantial deployment constraint.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "afk-surf/xnulinux": {
    "name": "AFK-surf/xnulinux",
@@ -447,6 +629,50 @@
     "github-search:new-this-week"
    ]
   },
+  "alexeyw/lot-map": {
+   "name": "alexeyw/lot-map",
+   "github_id": 1451775929,
+   "url": "https://github.com/alexeyw/lot-map",
+   "description": "Lot Map for Claude Code: a live map beside the chat that shows what the agent is doing. Tool calls, model steps, hooks, skills and subagents light up as they happen. Local only, in 8 languages.",
+   "language": "TypeScript",
+   "license": "MIT",
+   "topics": [
+    "agent-observability",
+    "ai-agents",
+    "claude",
+    "claude-code",
+    "claude-code-plugin",
+    "developer-tools",
+    "svg-animation",
+    "typescript",
+    "visualization"
+   ],
+   "stars": 1179,
+   "created": "2026-11-09",
+   "pushed": "2026-11-22",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 1179,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1451775929,
+    "topics": [
+     "agent observability",
+     "claude code plugin",
+     "execution visualization"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=708s"
+    ],
+    "caution": "Visual activity is not correctness/progress proof; hook/log collection may reveal filenames or sensitive tool data.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
   "alice-white-73/microsoft-project-desktop": {
    "name": "alice-white-73/microsoft-project-desktop",
    "github_id": 1458202960,
@@ -594,6 +820,53 @@
     "github-search:new-this-month"
    ]
   },
+  "anil-matcha/open-genjutsu": {
+   "name": "Anil-matcha/open-genjutsu",
+   "github_id": 642065600,
+   "url": "https://github.com/Anil-matcha/open-genjutsu",
+   "description": "Local-first AI video recasting with draft review, explicit HD approval, and source-audio restoration.",
+   "language": "Python",
+   "license": "MIT",
+   "topics": [
+    "ai-media",
+    "ai-video",
+    "character-replacement",
+    "character-swap",
+    "creative-tools",
+    "fastapi",
+    "ffmpeg",
+    "generative-ai",
+    "local-first",
+    "media-processing",
+    "omni-reference",
+    "open-genjutsu"
+   ],
+   "stars": 1184,
+   "created": "2023-05-17",
+   "pushed": "2026-11-03",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 1184,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 642065600,
+    "topics": [
+     "media",
+     "video recasting",
+     "local workspace"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=pnZh5PAF3VE&t=27s"
+    ],
+    "caution": "External generation credits and uploads; source/likeness/audio rights required; no public-hosting auth upstream.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
   "anomalyco/rune": {
    "name": "anomalyco/rune",
    "url": "https://github.com/anomalyco/rune",
@@ -658,6 +931,7 @@
   },
   "anthropics/skills": {
    "name": "anthropics/skills",
+   "github_id": 1061953414,
    "url": "https://github.com/anthropics/skills",
    "description": "Public repository for Agent Skills",
    "language": "Python",
@@ -665,9 +939,9 @@
    "topics": [
     "agent-skills"
    ],
-   "stars": 193061,
+   "stars": 200892,
    "created": "2025-09-22",
-   "pushed": "2026-11-06",
+   "pushed": "2026-11-16",
    "archived": false,
    "fork": false,
    "first_seen": "2026-11-11",
@@ -675,8 +949,73 @@
    "last_seen": "2026-11-11",
    "seen_in": [
     "github-trending-monthly",
-    "github-trending-weekly"
-   ]
+    "github-trending-weekly",
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1061953414,
+    "topics": [
+     "document processing",
+     "docx",
+     "pdf",
+     "pptx",
+     "xlsx",
+     "agent skills"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=pnZh5PAF3VE&t=343s"
+    ],
+    "caution": "Per-folder licensing, no root license conclusion; office skills changed custom restrictions to Apache2 on Nov6 2026; preserve third-party terms; educational/demo disclaimer.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "archid21/rightsize": {
+   "name": "archid21/rightsize",
+   "github_id": 1431595113,
+   "url": "https://github.com/archid21/rightsize",
+   "description": "Make every Claude token count. rightsize picks the right model and effort for each prompt, while keeping cache and context costs low. It learns how you work and gets better over time.",
+   "language": "TypeScript",
+   "license": "MIT",
+   "topics": [
+    "ai-agents",
+    "ai-cost",
+    "anthropic",
+    "claude",
+    "claude-code",
+    "claude-code-hooks",
+    "claude-code-plugin",
+    "context-window",
+    "cost-control",
+    "cost-optimization",
+    "developer-tools",
+    "finops"
+   ],
+   "stars": 52,
+   "created": "2026-10-23",
+   "pushed": "2026-11-23",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 52,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1431595113,
+    "topics": [
+     "model routing",
+     "cost observability",
+     "claude code plugin"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=pnZh5PAF3VE&t=2192s"
+    ],
+    "caution": "Savings/benchmarks upstream only, not reproduced; model/hook compatibility and spend controls need review.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "arda313131882/aion-2-trainer-tool": {
    "name": "Arda313131882/aion-2-trainer-tool",
@@ -878,6 +1217,40 @@
     "github-search:topic:mcp"
    ]
   },
+  "bea4dev/shoji-bar-4": {
+   "name": "bea4dev/shoji-bar-4",
+   "github_id": 1452313780,
+   "url": "https://github.com/bea4dev/shoji-bar-4",
+   "description": "A Wayland shell with Material Design 3 Expressive, written in Rust",
+   "language": "Rust",
+   "license": "MIT",
+   "topics": [],
+   "stars": 230,
+   "created": "2026-11-10",
+   "pushed": "2026-11-20",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 230,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1452313780,
+    "topics": [
+     "linux desktop shell",
+     "rust ui",
+     "material design"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=786s"
+    ],
+    "caution": "Compositor/platform-specific system integration; not a portable generic frontend toolkit.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
   "belobug/victory-belobug-amd": {
    "name": "Belobug/VIctory-Belobug-AMD",
    "github_id": 1471562910,
@@ -929,6 +1302,53 @@
    "seen_in": [
     "github-search:topic:llm"
    ]
+  },
+  "bomby-app/bomby": {
+   "name": "bomby-app/bomby",
+   "github_id": 1445016884,
+   "url": "https://github.com/bomby-app/bomby",
+   "description": "Talk to your coding agent. A Mac app that hands what you say to Claude Code, Codex, OpenCode, goose or omp, and tells you when it's done.",
+   "language": "TypeScript",
+   "license": "MIT",
+   "topics": [
+    "acp",
+    "agent-client-protocol",
+    "ai-agents",
+    "claude-code",
+    "codex",
+    "coding-agents",
+    "developer-tools",
+    "gemini-live",
+    "goose",
+    "livekit",
+    "macos",
+    "opencode"
+   ],
+   "stars": 24,
+   "created": "2026-11-04",
+   "pushed": "2026-11-11",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 24,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1445016884,
+    "topics": [
+     "voice interface",
+     "coding agent orchestration",
+     "macos"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=pnZh5PAF3VE&t=2135s"
+    ],
+    "caution": "README explicitly says permissions bypass/full computer access; not recommended deployment posture; MIT code excludes trademarks/branding; external voice/model costs.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "bryceyuuu/run": {
    "name": "BryceYuuu/RUN",
@@ -1343,12 +1763,13 @@
   },
   "cloudflare/security-audit-skill": {
    "name": "cloudflare/security-audit-skill",
+   "github_id": 1273427276,
    "url": "https://github.com/cloudflare/security-audit-skill",
    "description": "A coding-agent skill for multi-phase security audits with independently verified, machine-readable findings",
    "language": "JavaScript",
    "license": "MIT",
    "topics": [],
-   "stars": 70255,
+   "stars": 78682,
    "created": "2026-06-18",
    "pushed": "2026-09-14",
    "archived": false,
@@ -1358,8 +1779,23 @@
    "last_seen": "2026-11-11",
    "seen_in": [
     "github-trending-monthly",
-    "github-trending-weekly"
-   ]
+    "github-trending-weekly",
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1273427276,
+    "topics": [
+     "authorized security review",
+     "coverage ledger",
+     "independent verification"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=pnZh5PAF3VE&t=1917s"
+    ],
+    "caution": "OS-enforced sandbox required before target-controlled execution per README; no audit run or vulnerability discovery claim.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "cloudflare/skills": {
    "name": "cloudflare/skills",
@@ -1538,6 +1974,40 @@
    "seen_in": [
     "github-search:new-this-week"
    ]
+  },
+  "coolerwave/aimmac": {
+   "name": "Coolerwave/AimMac",
+   "github_id": 1449654006,
+   "url": "https://github.com/Coolerwave/AimMac",
+   "description": "Point your iPhone at your Mac and the cursor follows. Tap to click, hold to drag. Bluetooth only, open source.",
+   "language": "HTML",
+   "license": "MIT",
+   "topics": [],
+   "stars": 178,
+   "created": "2026-11-07",
+   "pushed": "2026-11-10",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 178,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1449654006,
+    "topics": [
+     "iphone controller",
+     "bluetooth input",
+     "macos utility"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=813s"
+    ],
+    "caution": "Input injection/pairing and ergonomics need validation; not assistive-device or safety certification.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "copilotkit/openbot": {
    "name": "CopilotKit/OpenBot",
@@ -1963,6 +2433,90 @@
     "github-search:topic:mcp-server"
    ]
   },
+  "djyde/dalibre": {
+   "name": "djyde/dalibre",
+   "github_id": 1450160937,
+   "url": "https://github.com/djyde/dalibre",
+   "description": "A lightweight Calibre alternative",
+   "language": "Go",
+   "license": "GPL-3.0",
+   "topics": [
+    "calibre",
+    "ebook"
+   ],
+   "stars": 423,
+   "created": "2026-11-08",
+   "pushed": "2026-11-26",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 423,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1450160937,
+    "topics": [
+     "ebook library",
+     "native go desktop",
+     "mcp library tools"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=521s"
+    ],
+    "caution": "No blanket top-level license established; README identifies GPL-3.0 calibre SQL plus OFL fonts/ISC icons/MIT colors. Writes to an existing calibre database require backup/compatibility validation.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "dodaios/ste80-humanizer": {
+   "name": "Dodaios/ste80-humanizer",
+   "github_id": 1451662178,
+   "url": "https://github.com/Dodaios/ste80-humanizer",
+   "description": "STE80 Humanizer: agent skill that removes AI tells and rewrites text 80% of the way to ASD-STE100 (Simplified Technical English), the method Andrej Karpathy shared.",
+   "language": "Python",
+   "license": "MIT",
+   "topics": [
+    "agent-skills",
+    "ai-writing",
+    "asd-ste100",
+    "claude-code",
+    "claude-skills",
+    "codex",
+    "cursor",
+    "humanize-ai-text",
+    "humanizer",
+    "karpathy",
+    "llm",
+    "plain-language"
+   ],
+   "stars": 1150,
+   "created": "2026-11-09",
+   "pushed": "2026-11-24",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 1150,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1451662178,
+    "topics": [
+     "technical editing",
+     "writing agent skills",
+     "plain language"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=493s"
+    ],
+    "caution": "Style transformation is not evidence of human authorship, correctness or STE certification; preserve meaning and citations. Third-party notices and source attribution require review.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
   "donchitos/claude-code-game-studios": {
    "name": "Donchitos/Claude-Code-Game-Studios",
    "url": "https://github.com/Donchitos/Claude-Code-Game-Studios",
@@ -2333,7 +2887,7 @@
    "name": "erkamyaman/rust-anything",
    "github_id": 1459971684,
    "url": "https://github.com/erkamyaman/rust-anything",
-   "description": "Rewrite your whole app in Rust, one piece at a time, checked against the original's recorded behavior at every step. CLIs, HTTP servers and libraries in TypeScript, Python, C, Go, Ruby and Java.",
+   "description": "Rewrite your app in Rust, piece by piece, checked against the original at every step. Works with TypeScript, JavaScript, Python, Go, Ruby, Java, C, PHP, C#, Kotlin and PowerShell.",
    "language": "Rust",
    "license": "Apache-2.0",
    "topics": [
@@ -2350,9 +2904,9 @@
     "migration",
     "napi"
    ],
-   "stars": 9675,
+   "stars": 9998,
    "created": "2026-11-16",
-   "pushed": "2026-11-25",
+   "pushed": "2026-11-26",
    "archived": false,
    "fork": false,
    "first_seen": "2026-11-26",
@@ -2362,8 +2916,24 @@
     "github-search:new-this-month",
     "github-search:topic:agent-skills",
     "github-search:topic:claude-code",
-    "github-search:topic:mcp"
-   ]
+    "github-search:topic:mcp",
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1459971684,
+    "topics": [
+     "rust migration",
+     "differential replay",
+     "strangler port",
+     "agent skills"
+    ],
+    "sources": [
+     "https://github.com/erkamyaman/rust-anything"
+    ],
+    "caution": "Dual-licensed MIT OR Apache-2.0. Recorded cases.jsonl replay proves covered inputs only; keep per-app target dirs isolated and forbid shipping while original:: fallback glue remains.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "erkamyaman/safe-anything": {
    "name": "erkamyaman/safe-anything",
@@ -2419,17 +2989,32 @@
     "smart-stack",
     "stream-deck"
    ],
-   "stars": 6594,
+   "stars": 6956,
    "created": "2026-11-07",
-   "pushed": "2026-11-25",
+   "pushed": "2026-11-26",
    "archived": false,
    "fork": false,
    "first_seen": "2026-11-26",
    "stars_first_seen": 6594,
    "last_seen": "2026-11-26",
    "seen_in": [
-    "github-search:new-this-month"
-   ]
+    "github-search:new-this-month",
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1449548089,
+    "topics": [
+     "desktop observability",
+     "android companion",
+     "agent status panel"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=90s"
+    ],
+    "caution": "Pairing, notifications and local control increase device trust requirements; no security test performed.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "expo/exact": {
    "name": "expo/exact",
@@ -2452,7 +3037,7 @@
     "swift",
     "uikit"
    ],
-   "stars": 5120,
+   "stars": 5163,
    "created": "2026-11-02",
    "pushed": "2026-11-26",
    "archived": false,
@@ -2461,8 +3046,23 @@
    "stars_first_seen": 5120,
    "last_seen": "2026-11-26",
    "seen_in": [
-    "github-search:new-this-month"
-   ]
+    "github-search:new-this-month",
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1442385098,
+    "topics": [
+     "cross platform ui",
+     "native app runtime",
+     "agent testability"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=65s"
+    ],
+    "caution": "Not a drop-in React Native replacement without migration evaluation; compiler/host/toolchain requirements must be checked. NOTICE carves out vendor/media/font licenses; included permission for images is not blanket redistribution permission.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "feder-cr/git-ai": {
    "name": "feder-cr/git-ai",
@@ -2522,6 +3122,49 @@
    "seen_in": [
     "github-search:topic:browser-automation"
    ]
+  },
+  "felipebasurto/unslop-ui": {
+   "name": "felipebasurto/unslop-ui",
+   "github_id": 1435735611,
+   "url": "https://github.com/felipebasurto/unslop-ui",
+   "description": "Agent skill that cuts AI tells from UI copy, charts and dashboards: eyebrows, numbering, botsplaining, decorative icons, badges and status dots. Opt-in surface rules.",
+   "language": "TypeScript",
+   "license": "MIT",
+   "topics": [
+    "agent-skills",
+    "ai-slop",
+    "claude-code",
+    "claude-skills",
+    "codex",
+    "cursor",
+    "ui",
+    "ux-writing"
+   ],
+   "stars": 921,
+   "created": "2026-10-27",
+   "pushed": "2026-11-25",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 921,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1435735611,
+    "topics": [
+     "ui copy",
+     "anti slop",
+     "agent skills"
+    ],
+    "sources": [
+     "https://github.com/felipebasurto/unslop-ui"
+    ],
+    "caution": "MIT. Copy-removal rules (eyebrows, decorative numbering, unwired pulse dots) are defaults; explicit product brief requirements take precedence.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "firecrawl/firecrawl": {
    "name": "firecrawl/firecrawl",
@@ -2588,6 +3231,40 @@
     "githubawesome"
    ]
   },
+  "futuremls-lab/flashstates": {
+   "name": "FutureMLS-Lab/FlashStates",
+   "github_id": 1451341946,
+   "url": "https://github.com/FutureMLS-Lab/FlashStates",
+   "description": "",
+   "language": "Python",
+   "license": "Apache-2.0",
+   "topics": [],
+   "stars": 325,
+   "created": "2026-11-09",
+   "pushed": "2026-11-21",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 325,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1451341946,
+    "topics": [
+     "llm serving",
+     "state cache",
+     "inference research"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=861s"
+    ],
+    "caution": "Reported latency improvements are workload/model/hardware-specific upstream benchmarks, not reproduced. Caching conversation/model state has privacy and cross-session isolation implications.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
   "fxceless/victory-fork": {
    "name": "fxceless/victory-fork",
    "github_id": 1470579726,
@@ -2643,8 +3320,43 @@
     "githubawesome"
    ]
   },
+  "gokayfem/image-to-sculpt": {
+   "name": "gokayfem/image-to-sculpt",
+   "github_id": 1450680194,
+   "url": "https://github.com/gokayfem/image-to-sculpt",
+   "description": "Turn one image of anything into a 3D sculpt measured against that image: registered views, map-fitting passes, Blender replay and timelapse. A skill for coding agents.",
+   "language": "Python",
+   "license": "MIT",
+   "topics": [],
+   "stars": 351,
+   "created": "2026-11-08",
+   "pushed": "2026-11-08",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 351,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1450680194,
+    "topics": [
+     "image to 3d",
+     "blender workflows",
+     "creative agent skills"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=394s"
+    ],
+    "caution": "Unseen geometry is inferred/generated; image likeness and watertightness are not physical/manufacturing validity. Input images/model services/dependencies have separate terms.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
   "google-deepmind/mujoco": {
    "name": "google-deepmind/mujoco",
+   "github_id": 400501136,
    "url": "https://github.com/google-deepmind/mujoco",
    "description": "Multi-Joint dynamics with Contact. A general purpose physics simulator.",
    "language": "C++",
@@ -2654,17 +3366,31 @@
     "physics",
     "robotics"
    ],
-   "stars": 17626,
+   "stars": 18499,
    "created": "2021-08-27",
-   "pushed": "2026-11-11",
+   "pushed": "2026-11-26",
    "archived": false,
    "fork": false,
    "first_seen": "2026-11-11",
    "stars_first_seen": 17620,
    "last_seen": "2026-11-11",
    "seen_in": [
-    "github-trending-weekly"
-   ]
+    "github-trending-weekly",
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 400501136,
+    "topics": [
+     "robotics",
+     "physics simulation"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=pnZh5PAF3VE&t=1434s"
+    ],
+    "caution": "Simulation is not real-world/clinical validation; main tip may be unstable; third-party implot license.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "google-labs-code/stitch-skills": {
    "name": "google-labs-code/stitch-skills",
@@ -2750,22 +3476,38 @@
   },
   "googlechrome/modern-web-guidance": {
    "name": "GoogleChrome/modern-web-guidance",
+   "github_id": 1189825116,
    "url": "https://github.com/GoogleChrome/modern-web-guidance",
    "description": "Keep your coding agent up to date with the latest web best practices",
    "language": null,
    "license": "Apache-2.0",
    "topics": [],
-   "stars": 4846,
+   "stars": 26555,
    "created": "2026-03-23",
-   "pushed": "2026-11-10",
+   "pushed": "2026-11-23",
    "archived": false,
    "fork": false,
    "first_seen": "2026-11-11",
    "stars_first_seen": 4793,
    "last_seen": "2026-11-11",
    "seen_in": [
-    "githubawesome"
-   ]
+    "githubawesome",
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1189825116,
+    "topics": [
+     "web platform guidance",
+     "frontend agent skills",
+     "accessibility review"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=11s"
+    ],
+    "caution": "Code Apache-2.0 is not the entire license story: guides/ documentation is CC-BY-4.0 and derived documents have attribution requirements.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "googlechrome/modern-web-guidance-src": {
    "name": "GoogleChrome/modern-web-guidance-src",
@@ -2785,6 +3527,48 @@
    "seen_in": [
     "github-trending-daily"
    ]
+  },
+  "govijr/terminal-phone": {
+   "name": "govijr/terminal-phone",
+   "github_id": 1443759046,
+   "url": "https://github.com/govijr/terminal-phone",
+   "description": "Your Real iPhone or iOS Simulator in your Terminal.",
+   "language": "Swift",
+   "license": "MIT",
+   "topics": [
+    "appstore",
+    "cli",
+    "gui",
+    "ios",
+    "phone",
+    "terminal",
+    "tui"
+   ],
+   "stars": 369,
+   "created": "2026-11-03",
+   "pushed": "2026-11-09",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 369,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1443759046,
+    "topics": [
+     "ios automation",
+     "terminal device ui",
+     "mcp device tools"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=626s"
+    ],
+    "caution": "macOS/iOS pairing, terminal graphics and accessibility support constrain portability; physical-device permissions require review.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "gtsteffaniak/filebrowser": {
    "name": "gtsteffaniak/filebrowser",
@@ -2861,6 +3645,53 @@
    "seen_in": [
     "github-search:topic:browser-automation"
    ]
+  },
+  "haydenschmitty/floorplan": {
+   "name": "haydenschmitty/floorplan",
+   "github_id": 1435672472,
+   "url": "https://github.com/haydenschmitty/floorplan",
+   "description": "See how your app actually fits together. An interactive, plain-English map of your codebase, drawn by Claude or Codex.",
+   "language": "JavaScript",
+   "license": "MIT",
+   "topics": [
+    "ai-coding",
+    "architecture-diagram",
+    "claude",
+    "claude-code",
+    "claude-code-plugin",
+    "codebase-visualization",
+    "codex",
+    "codex-plugin",
+    "developer-tools",
+    "onboarding",
+    "openai",
+    "vibe-coding"
+   ],
+   "stars": 6928,
+   "created": "2026-10-27",
+   "pushed": "2026-11-16",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 6928,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1435672472,
+    "topics": [
+     "codebase map",
+     "architecture visualization",
+     "codex plugin"
+    ],
+    "sources": [
+     "https://github.com/haydenschmitty/floorplan"
+    ],
+    "caution": "MIT. Generated plain-English architecture maps can drift after refactors; treat endpoint/key health checks as heuristics, not a complete security audit.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "helixmap/sigwood": {
    "name": "helixmap/sigwood",
@@ -3246,6 +4077,40 @@
     "github-search:new-this-month"
    ]
   },
+  "hybridrobotics/supermimic": {
+   "name": "HybridRobotics/supermimic",
+   "github_id": 1452531582,
+   "url": "https://github.com/HybridRobotics/supermimic",
+   "description": "Humanoid whole-body motion tracking with one differentiable world model.",
+   "language": "Python",
+   "license": "Apache-2.0",
+   "topics": [],
+   "stars": 2076,
+   "created": "2026-11-10",
+   "pushed": "2026-11-21",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 2076,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1452531582,
+    "topics": [
+     "robotics research",
+     "motion imitation",
+     "simulation training"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=191s"
+    ],
+    "caution": "Do not transfer simulation claims to physical robot safety; GPU/dependency/training data terms need separate review.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
   "iainkay/ram-altman": {
    "name": "IainKay/ram-altman",
    "url": "https://github.com/IainKay/ram-altman",
@@ -3591,6 +4456,53 @@
     "github-search:new-this-week"
    ]
   },
+  "jammaru/sakutto": {
+   "name": "jammaru/sakutto",
+   "github_id": 1447398642,
+   "url": "https://github.com/jammaru/sakutto",
+   "description": "A browser extension for easy on-device translation with a local LLM (PLaMo). Private, free, no server needed.",
+   "language": "TypeScript",
+   "license": "MIT",
+   "topics": [
+    "browser-extension",
+    "chrome-extension",
+    "firefox-extension",
+    "japanese",
+    "llama-cpp",
+    "local-llm",
+    "on-device-ai",
+    "plamo",
+    "privacy",
+    "translation",
+    "wasm",
+    "webgpu"
+   ],
+   "stars": 306,
+   "created": "2026-11-05",
+   "pushed": "2026-11-26",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 306,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1447398642,
+    "topics": [
+     "local translation",
+     "browser extension",
+     "on device inference"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=268s"
+    ],
+    "caution": "MIT covers project code, not PLaMo model weights: model Community License imposes separate commercial registration/eligibility terms. PLaMo Community License Article7.2 forbids using output as sole evidence/evaluation/opinion for medical diagnoses, legal matters, financial decisions or important personal assessments; redistribution, output attribution and derivative-model terms also apply. Wikipedia-derived benchmark fixture has CC-BY-SA-4.0 scope; third-party PDF/runtime notices apply. Local-processing claims are not an independently audited privacy guarantee.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
   "janestreet/agent_skills": {
    "name": "janestreet/agent_skills",
    "github_id": 1444573070,
@@ -3599,7 +4511,7 @@
    "language": null,
    "license": "MIT",
    "topics": [],
-   "stars": 11848,
+   "stars": 11929,
    "created": "2026-11-03",
    "pushed": "2026-11-17",
    "archived": false,
@@ -3608,8 +4520,23 @@
    "stars_first_seen": 11848,
    "last_seen": "2026-11-26",
    "seen_in": [
-    "github-search:new-this-month"
-   ]
+    "github-search:new-this-month",
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1444573070,
+    "topics": [
+     "socratic tutoring",
+     "agent skills",
+     "mastery learning"
+    ],
+    "sources": [
+     "https://github.com/janestreet/agent_skills"
+    ],
+    "caution": "MIT. Socratic quiz loops frustrate one-off explain-X questions; keep an explicit intent guard before launching multi-turn diagnostics.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "jasoncharb/directory-opus": {
    "name": "JasonCharb/directory-opus",
@@ -3642,6 +4569,45 @@
    "seen_in": [
     "github-search:new-this-week"
    ]
+  },
+  "jdhruv14/line-art-animation": {
+   "name": "JDhruv14/line-art-animation",
+   "github_id": 1452450730,
+   "url": "https://github.com/JDhruv14/line-art-animation",
+   "description": "A Claude skill and TypeScript library for animated line-art SVG components: ink figures that walk and react, scenes with a day/night cycle.",
+   "language": "TypeScript",
+   "license": "MIT",
+   "topics": [
+    "claude-skill",
+    "line-art",
+    "svg-animation",
+    "typescript"
+   ],
+   "stars": 1307,
+   "created": "2026-11-10",
+   "pushed": "2026-11-10",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 1307,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1452450730,
+    "topics": [
+     "svg animation",
+     "illustrated ui",
+     "creative agent skills"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=140s"
+    ],
+    "caution": "Check accessibility/reduced-motion and rendering cost in the actual product; no performance measurements reproduced.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "jenkinwoo/sheeridverify": {
    "name": "JenkinWoo/sheeridVerify",
@@ -3768,9 +4734,9 @@
     "shot-detection",
     "subtitles"
    ],
-   "stars": 13429,
+   "stars": 13614,
    "created": "2026-10-29",
-   "pushed": "2026-11-25",
+   "pushed": "2026-11-26",
    "archived": false,
    "fork": false,
    "first_seen": "2026-11-11",
@@ -3779,8 +4745,60 @@
    "seen_in": [
     "github-search:new-this-month",
     "github-search:topic:agent-skills",
-    "github-search:topic:claude-code"
-   ]
+    "github-search:topic:claude-code",
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1438661890,
+    "topics": [
+     "media",
+     "shot analysis",
+     "agent handoff"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=pnZh5PAF3VE&t=130s"
+    ],
+    "caution": "Technique analysis does not grant rights to footage/music/likeness; authenticity judgments not verified.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "junhan2/ztd-charts": {
+   "name": "Junhan2/ztd-charts",
+   "github_id": 1446572955,
+   "url": "https://github.com/Junhan2/ztd-charts",
+   "description": "47 animated, interactive React charts in pure SVG with zero runtime dependencies, a JSON spec, and CLI and MCP tools for AI agents",
+   "language": "TypeScript",
+   "license": "MIT",
+   "topics": [
+    "chart",
+    "data-visualization"
+   ],
+   "stars": 393,
+   "created": "2026-11-05",
+   "pushed": "2026-11-19",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 393,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1446572955,
+    "topics": [
+     "react charts",
+     "svg data visualization",
+     "accessible dashboards"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=344s"
+    ],
+    "caution": "Keyboard/screen-reader claims require testing with real target users and data; example values are fabricated upstream examples.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "kaankiziltug/logo-design-skill": {
    "name": "kaankiziltug/logo-design-skill",
@@ -4019,7 +5037,7 @@
     "typescript",
     "workflow"
    ],
-   "stars": 6576,
+   "stars": 6641,
    "created": "2026-11-03",
    "pushed": "2026-11-26",
    "archived": false,
@@ -4029,8 +5047,23 @@
    "last_seen": "2026-11-26",
    "seen_in": [
     "github-search:new-this-month",
-    "github-search:topic:ai-agents"
-   ]
+    "github-search:topic:ai-agents",
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1443985070,
+    "topics": [
+     "background agent loop",
+     "decision cards",
+     "cli orchestration"
+    ],
+    "sources": [
+     "https://github.com/KKKKhazix/agent-autoloop"
+    ],
+    "caution": "MIT. Inspect upstream install scripts instead of piping remote scripts directly to shell; scope unattended CLI permissions and spend caps.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "kkkkhazix/aihot": {
    "name": "KKKKhazix/AIHOT",
@@ -4294,6 +5327,40 @@
     "github-search:new-this-month"
    ]
   },
+  "littledivy/tailnet-do": {
+   "name": "littledivy/tailnet-do",
+   "github_id": 1449061181,
+   "url": "https://github.com/littledivy/tailnet-do",
+   "description": "Put a Cloudflare Durable Object on your Tailscale tailnet",
+   "language": "JavaScript",
+   "license": "MIT",
+   "topics": [],
+   "stars": 280,
+   "created": "2026-11-07",
+   "pushed": "2026-11-13",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 280,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1449061181,
+    "topics": [
+     "cloudflare workers",
+     "private network connectivity",
+     "durable objects"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=467s"
+    ],
+    "caution": "Bridges a cloud runtime into private network trust; ACLs, egress, key lifecycle and Tailscale/Cloudflare terms need separate review.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
   "lnpandy/nx2apple": {
    "name": "LNPANDY/NX2Apple",
    "url": "https://github.com/LNPANDY/NX2Apple",
@@ -4511,22 +5578,40 @@
   },
   "mattpocock/skills": {
    "name": "mattpocock/skills",
+   "github_id": 1148788086,
    "url": "https://github.com/mattpocock/skills",
    "description": "Skills for Real Engineers. Straight from my .agents directory.",
    "language": "Shell",
    "license": "MIT",
    "topics": [],
-   "stars": 321911,
+   "stars": 333429,
    "created": "2026-02-03",
-   "pushed": "2026-11-11",
+   "pushed": "2026-11-25",
    "archived": false,
    "fork": false,
    "first_seen": "2026-11-11",
    "stars_first_seen": 321876,
    "last_seen": "2026-11-11",
    "seen_in": [
-    "github-trending-weekly"
-   ]
+    "github-trending-weekly",
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1148788086,
+    "topics": [
+     "agent workflows",
+     "retro",
+     "specs",
+     "project orchestration",
+     "tdd"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=pnZh5PAF3VE&t=1594s"
+    ],
+    "caution": "Compare existing workflow before adopting; no blanket installation or efficacy claim.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "mdiri-ai/soduwork": {
    "name": "mdiri-ai/SoduWork",
@@ -4649,6 +5734,7 @@
   },
   "milind-soni/openmausbot": {
    "name": "milind-soni/OpenMausBot",
+   "github_id": 1331261687,
    "url": "https://github.com/milind-soni/OpenMausBot",
    "description": "Open-source Grok Bot alternative with a virtual machine that bots can use",
    "language": "TypeScript",
@@ -4666,17 +5752,35 @@
     "self-hosted",
     "typescript"
    ],
-   "stars": 21196,
+   "stars": 28074,
    "created": "2026-08-11",
-   "pushed": "2026-11-11",
+   "pushed": "2026-11-26",
    "archived": false,
    "fork": false,
    "first_seen": "2026-11-11",
    "stars_first_seen": 21178,
    "last_seen": "2026-11-11",
    "seen_in": [
-    "github-trending-weekly"
-   ]
+    "github-trending-weekly",
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1331261687,
+    "topics": [
+     "agent orchestration",
+     "chat agents",
+     "computer use",
+     "vertical admin assistant research",
+     "doctor admin prototype",
+     "synthetic data prototype"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=pnZh5PAF3VE&t=429s"
+    ],
+    "caution": "Apache-2.0 covers the core, excluding enterprise/. Enterprise production needs a key; third-party hosting, resale and white-labeling of enterprise features require a written partner agreement. Core-only use must exclude enterprise code and retain applicable notices and bundled licenses. Doctor-admin tags mean synthetic-data research, not healthcare approval.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "minimax-ai/openagentcore": {
    "name": "MiniMax-AI/OpenAgentCore",
@@ -4812,6 +5916,49 @@
    "seen_in": [
     "github-search:topic:sandbox"
    ]
+  },
+  "moh4696/cinematic-skill": {
+   "name": "Moh4696/cinematic-skill",
+   "github_id": 1451084291,
+   "url": "https://github.com/Moh4696/cinematic-skill",
+   "description": "Agent skill for narrated cinematic films built entirely from code.",
+   "language": "Python",
+   "license": "MIT",
+   "topics": [
+    "agent-skills",
+    "claude-code",
+    "codex",
+    "documentary",
+    "explainer-video",
+    "motion-graphics",
+    "skia",
+    "video"
+   ],
+   "stars": 1039,
+   "created": "2026-11-09",
+   "pushed": "2026-11-09",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 1039,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1451084291,
+    "topics": [
+     "narrated video",
+     "motion design",
+     "creative agent skills"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=575s"
+    ],
+    "caution": "Research, image/music rights and factual checks remain producer responsibilities; generated output is not automatically cleared.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "monid-ai/monid": {
    "name": "monid-ai/monid",
@@ -5106,6 +6253,94 @@
     "github-trending-daily"
    ]
   },
+  "niazmorshed2007/reanimate": {
+   "name": "NiazMorshed2007/reanimate",
+   "github_id": 1438029127,
+   "url": "https://github.com/NiazMorshed2007/reanimate",
+   "description": "A Claude Code skill that reverse-engineers any animation frame by frame, then proves the copy moves the same.",
+   "language": "JavaScript",
+   "license": "MIT",
+   "topics": [
+    "agent-skills",
+    "animation",
+    "claude-code",
+    "claude-skills",
+    "frontend",
+    "motion",
+    "playwright"
+   ],
+   "stars": 2607,
+   "created": "2026-10-29",
+   "pushed": "2026-10-31",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 2607,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1438029127,
+    "topics": [
+     "animation reverse engineering",
+     "motion parity",
+     "agent skills"
+    ],
+    "sources": [
+     "https://github.com/NiazMorshed2007/reanimate"
+    ],
+    "caution": "MIT. Rebuild motion timing and easing in project-owned code; never copy third-party copyrighted brand assets, fonts, or proprietary copy.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "nishant-tiwari24/cracked": {
+   "name": "nishant-Tiwari24/cracked",
+   "github_id": 1448033453,
+   "url": "https://github.com/nishant-Tiwari24/cracked",
+   "description": "Skills for getting hired. Company-wise mock interviews, OAs with hidden tests and brutal resume roasts for 470+ companies, straight from your terminal.",
+   "language": "TypeScript",
+   "license": "MIT",
+   "topics": [
+    "agent-skills",
+    "ai-agents",
+    "ats",
+    "career",
+    "claude-code",
+    "claude-skills",
+    "codex",
+    "coding-interview",
+    "cursor",
+    "dsa",
+    "faang",
+    "interview-prep"
+   ],
+   "stars": 357,
+   "created": "2026-11-06",
+   "pushed": "2026-11-14",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 357,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1448033453,
+    "topics": [
+     "interview practice",
+     "learning agent skills"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=113s"
+    ],
+    "caution": "Company-specific advice and hiring outcomes are not independently verified; resume/personal data requires privacy review.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
   "notrexed/hookshot": {
    "name": "NotRexed/Hookshot",
    "url": "https://github.com/NotRexed/Hookshot",
@@ -5128,12 +6363,13 @@
   },
   "nutlope/hallmark": {
    "name": "Nutlope/hallmark",
+   "github_id": 1222917575,
    "url": "https://github.com/Nutlope/hallmark",
    "description": "Anti-AI-slop design skill for Claude Code, Cursor, and Codex.",
    "language": "CSS",
    "license": "MIT",
    "topics": [],
-   "stars": 53332,
+   "stars": 61482,
    "created": "2026-04-27",
    "pushed": "2026-11-11",
    "archived": false,
@@ -5142,27 +6378,131 @@
    "stars_first_seen": 53308,
    "last_seen": "2026-11-11",
    "seen_in": [
-    "github-trending-monthly"
-   ]
+    "github-trending-monthly",
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1222917575,
+    "topics": [
+     "ui design",
+     "anti slop linter",
+     "agent skills"
+    ],
+    "sources": [
+     "https://github.com/Nutlope/hallmark"
+    ],
+    "caution": "MIT. Bundled photography carries individual open-license attribution requirements; use Floor/Render checks without copying theme showcase copy verbatim.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "nvidia/auto-ontology": {
    "name": "NVIDIA/auto-ontology",
+   "github_id": 1222953295,
    "url": "https://github.com/NVIDIA/auto-ontology",
    "description": "Auto Ontology is a Python framework for building semantic, graph-based reasoning layers over data. It enables deterministic query generation, better context retrieval, and more explainable AI for LLM and agent workflows.",
    "language": "Python",
    "license": "Apache-2.0",
    "topics": [],
-   "stars": 11799,
+   "stars": 15007,
    "created": "2026-04-27",
-   "pushed": "2026-11-11",
+   "pushed": "2026-11-26",
    "archived": false,
    "fork": false,
    "first_seen": "2026-11-11",
    "stars_first_seen": 11788,
    "last_seen": "2026-11-11",
    "seen_in": [
-    "github-trending-weekly"
-   ]
+    "github-trending-weekly",
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1222953295,
+    "topics": [
+     "ontology",
+     "semantic model",
+     "text to sql",
+     "data catalog"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=pnZh5PAF3VE&t=1020s"
+    ],
+    "caution": "Keep backend/ingestion private; ingestion has no own auth; optional Kumo table upload requires governance; human certification; no guaranteed retrieval completeness.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "nwverse/persona": {
+   "name": "nwverse/persona",
+   "github_id": 1448423533,
+   "url": "https://github.com/nwverse/persona",
+   "description": "",
+   "language": "Go",
+   "license": "MIT",
+   "topics": [
+    "agent",
+    "personal-agent",
+    "super-agent"
+   ],
+   "stars": 444,
+   "created": "2026-11-06",
+   "pushed": "2026-11-26",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 444,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1448423533,
+    "topics": [
+     "personal agent hub",
+     "cross device orchestration",
+     "human approval"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=603s"
+    ],
+    "caution": "Always-on hub and remote agent access expand authority; connected devices and secrets require independent security review.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "nyllon-software/ember-cloudflare": {
+   "name": "NYLLON-SOFTWARE/ember-cloudflare",
+   "github_id": 1416079060,
+   "url": "https://github.com/NYLLON-SOFTWARE/ember-cloudflare",
+   "description": "Open Source Slack and Campfire inspired chat with one click deploy to Cloudflare.",
+   "language": "TypeScript",
+   "license": "MIT",
+   "topics": [],
+   "stars": 1354,
+   "created": "2026-10-12",
+   "pushed": "2026-11-25",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 1354,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1416079060,
+    "topics": [
+     "team chat",
+     "cloudflare",
+     "project collaboration"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=pnZh5PAF3VE&t=177s"
+    ],
+    "caution": "Not Slack feature parity; cloud/model/service costs and data/access review required; nested Apache/MIT/ISC notices.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "obra/superpowers": {
    "name": "obra/superpowers",
@@ -5192,6 +6532,41 @@
    "seen_in": [
     "github-trending-daily"
    ]
+  },
+  "oddmundleikvoll/sprintwake-projects": {
+   "name": "oddmundleikvoll/sprintwake-projects",
+   "github_id": 1446186485,
+   "url": "https://github.com/oddmundleikvoll/sprintwake-projects",
+   "description": "A native macOS client for GitHub Projects, with optional Slack conversations.",
+   "language": "Swift",
+   "license": "MIT",
+   "topics": [],
+   "stars": 22,
+   "created": "2026-11-04",
+   "pushed": "2026-11-06",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 22,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1446186485,
+    "topics": [
+     "project management",
+     "github projects",
+     "native macos",
+     "team chat"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=pnZh5PAF3VE&t=2174s"
+    ],
+    "caution": "Everyone with project access can read draft-backed chat; private repo OAuth scope broad; macOS14+; no backend does not mean no external data.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "oil-oil/oil-ui": {
    "name": "oil-oil/oil-ui",
@@ -5325,6 +6700,53 @@
    "seen_in": [
     "github-search:topic:mcp-server"
    ]
+  },
+  "omnijev/flide": {
+   "name": "OmniJev/Flide",
+   "github_id": 1432164199,
+   "url": "https://github.com/OmniJev/Flide",
+   "description": "🔥🔥 The extremely fast inference engine for decision model",
+   "language": "Python",
+   "license": "Apache-2.0",
+   "topics": [
+    "ai-agents",
+    "cuda",
+    "decision-making",
+    "deterministic-inference",
+    "gemma",
+    "inference-engine",
+    "jev",
+    "kv-cache",
+    "large-language-models",
+    "linear-attention",
+    "llm",
+    "llm-agents"
+   ],
+   "stars": 575,
+   "created": "2026-10-24",
+   "pushed": "2026-11-26",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 575,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1432164199,
+    "topics": [
+     "decision inference",
+     "shared context batching",
+     "inference research"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=294s"
+    ],
+    "caution": "Published throughput/exactness claims depend on supported model/workload/hardware; not reproduced. Kernel provenance and model-weight licenses must be checked separately from root Apache-2.0.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "omonkeyz/xbox-emulator": {
    "name": "omonkeyz/xbox-emulator",
@@ -5653,6 +7075,40 @@
     "github-search:new-this-month",
     "github-search:topic:agent-skills"
    ]
+  },
+  "paulirish/chrome-capture": {
+   "name": "paulirish/chrome-capture",
+   "github_id": 1450622335,
+   "url": "https://github.com/paulirish/chrome-capture",
+   "description": "60-120fps / 2160p tab video/audio capture from Chrome",
+   "language": "TypeScript",
+   "license": "Apache-2.0",
+   "topics": [],
+   "stars": 563,
+   "created": "2026-11-08",
+   "pushed": "2026-11-17",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 563,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1450622335,
+    "topics": [
+     "browser recording",
+     "visual test artifacts",
+     "demo video"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=216s"
+    ],
+    "caution": "README targets Chrome153+ native recording and evolving automation support; verify installed versions before use. Recorded pages/audio may contain confidential information.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "pbakaus/impeccable": {
    "name": "pbakaus/impeccable",
@@ -6005,6 +7461,40 @@
     "github-search:new-this-week"
    ]
   },
+  "rauchg/vinyl": {
+   "name": "rauchg/vinyl",
+   "github_id": 1450034590,
+   "url": "https://github.com/rauchg/vinyl",
+   "description": "A record player simulated from the groove up",
+   "language": "JavaScript",
+   "license": "MIT",
+   "topics": [],
+   "stars": 150,
+   "created": "2026-11-08",
+   "pushed": "2026-11-08",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 150,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1450034590,
+    "topics": [
+     "webgl audio",
+     "interactive demo",
+     "audio simulation"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=652s"
+    ],
+    "caution": "Simulation/educational fidelity is not validated signal-accuracy; uploaded audio must be licensed. MIT covers the code, not all bundled recordings or generated cuts. README identifies Summer: Presto and its cut as CC BY-SA 4.0; preserve each recording's terms.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
   "rddmwmddr/android-ad-cleaner": {
    "name": "rddmwmddr/android-ad-cleaner",
    "url": "https://github.com/rddmwmddr/android-ad-cleaner",
@@ -6158,6 +7648,44 @@
    "seen_in": [
     "github-search:new-this-month"
    ]
+  },
+  "ruc-nlpir/coworkos": {
+   "name": "RUC-NLPIR/CoworkOS",
+   "github_id": 1443648426,
+   "url": "https://github.com/RUC-NLPIR/CoworkOS",
+   "description": "CoworkOS: a cowork harness for long-horizon and human-in-the-loop task execution",
+   "language": "JavaScript",
+   "license": "MIT",
+   "topics": [
+    "agent",
+    "cowork",
+    "harness"
+   ],
+   "stars": 185,
+   "created": "2026-11-03",
+   "pushed": "2026-11-03",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 185,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1443648426,
+    "topics": [
+     "multi session agents",
+     "document workflows",
+     "agent workspace"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=547s"
+    ],
+    "caution": "Persistent logs/connected desktop applications can expose confidential documents; reliability and recovery claims are not reproduced. THIRD_PARTY_NOTICES identifies bundled PPTist and bridge/local modifications under vendor/pptist with GNU AGPL-3.0 obligations. Application-wide distribution must not be described solely as MIT; fonts and external runtimes have further terms.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "ryotheone/dxo-photolab-10-config": {
    "name": "RyoTheOne/dxo-photolab-10-config",
@@ -6485,6 +8013,7 @@
   },
   "sherlock-project/sherlock": {
    "name": "sherlock-project/sherlock",
+   "github_id": 162998479,
    "url": "https://github.com/sherlock-project/sherlock",
    "description": "Hunt down social media accounts by username across social networks",
    "language": "Python",
@@ -6503,17 +8032,77 @@
     "python",
     "python3"
    ],
-   "stars": 110007,
+   "stars": 117954,
    "created": "2018-12-24",
-   "pushed": "2026-11-11",
+   "pushed": "2026-11-26",
    "archived": false,
    "fork": false,
    "first_seen": "2026-11-11",
    "stars_first_seen": 109990,
    "last_seen": "2026-11-11",
    "seen_in": [
-    "github-trending-monthly"
-   ]
+    "github-trending-monthly",
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 162998479,
+    "topics": [
+     "authorized username audit"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=pnZh5PAF3VE&t=255s"
+    ],
+    "caution": "Username matches are not proof of person identity; no unauthorized profiling or contact enrichment recommendation.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "shinyobjectz/raea": {
+   "name": "shinyobjectz/raea",
+   "github_id": 1424671157,
+   "url": "https://github.com/shinyobjectz/raea",
+   "description": "Render Anything Engine: tell your AI what to make. Videos, motion graphics, 3D and games as React and TypeScript, rendered on your own GPU. Rust + Bevy, macOS, Linux and Windows.",
+   "language": "TypeScript",
+   "license": "NOASSERTION",
+   "topics": [
+    "3d",
+    "agent-skills",
+    "ai-agents",
+    "ai-video",
+    "bevy",
+    "claude-code",
+    "game-engine",
+    "gpu",
+    "linux",
+    "macos",
+    "motion-design",
+    "motion-graphics"
+   ],
+   "stars": 5275,
+   "created": "2026-10-18",
+   "pushed": "2026-11-26",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 5275,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1424671157,
+    "topics": [
+     "programmatic video",
+     "motion graphics",
+     "react rendering"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=39s"
+    ],
+    "caution": "FSL-1.1-ALv2 restricts competing use; future Apache conversion is not current Apache permission. Source-available is not equivalent to unrestricted open source. README calls Windows newest/least tested and release young.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "simbasjungles/free-my-tv": {
    "name": "simbasjungles/free-my-tv",
@@ -6699,6 +8288,93 @@
     "github-search:topic:coding-agent"
    ]
   },
+  "sshah03/recalc": {
+   "name": "sshah03/recalc",
+   "github_id": 1444840798,
+   "url": "https://github.com/sshah03/recalc",
+   "description": "A spreadsheet you share with your AI agents: every cell can hold a value, a formula, a terminal command, or a Claude Code or Codex agent.",
+   "language": "Rust",
+   "license": "Apache-2.0",
+   "topics": [
+    "agent-orchestration",
+    "agentic-ai",
+    "ai-agents",
+    "claude",
+    "claude-code",
+    "codex",
+    "coding-agent",
+    "developer-tools",
+    "excel",
+    "harness",
+    "harness-engineering",
+    "harness-framework"
+   ],
+   "stars": 81,
+   "created": "2026-11-03",
+   "pushed": "2026-11-09",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 81,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1444840798,
+    "topics": [
+     "agent spreadsheet",
+     "local workbench",
+     "formula workflows"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=761s"
+    ],
+    "caution": "Early beta with expected bugs and breaking changes; keep independent backups before evaluating valuable spreadsheets. Cells can invoke shell commands or agents, crossing an execution boundary. Local-only/citation/lock claims are not a medical record, financial-control or security certification.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "stevenmichaelthomas/numbrone": {
+   "name": "stevenmichaelthomas/numbrone",
+   "github_id": 1450679268,
+   "url": "https://github.com/stevenmichaelthomas/numbrone",
+   "description": "A chief of staff for your coding agents: route requests to per-project manager agents that run parallel workers in git worktrees, on herdr.",
+   "language": "Shell",
+   "license": "MIT",
+   "topics": [
+    "agent-skills",
+    "ai-agents",
+    "claude-code",
+    "git-worktree",
+    "herdr"
+   ],
+   "stars": 146,
+   "created": "2026-11-08",
+   "pushed": "2026-11-17",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 146,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1450679268,
+    "topics": [
+     "agent team orchestration",
+     "git worktrees",
+     "issue routing"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=680s"
+    ],
+    "caution": "Requires separate review of terminal workspace integration, shell authority, merge approvals and external-service access.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
   "storytold/craft-anything": {
    "name": "storytold/craft-anything",
    "github_id": 1440956372,
@@ -6751,6 +8427,48 @@
    "seen_in": [
     "github-search:topic:sandbox"
    ]
+  },
+  "sybil-solutions/inference-optimisation-skill": {
+   "name": "sybil-solutions/inference-optimisation-skill",
+   "github_id": 1460417668,
+   "url": "https://github.com/sybil-solutions/inference-optimisation-skill",
+   "description": "Agent skill for hill-climbing local LLM serving speed (decode, speculative decoding, prefill, KV, startup, TTFT) on any hardware and quantization",
+   "language": "Python",
+   "license": "MIT",
+   "topics": [
+    "agent-skill",
+    "benchmarking",
+    "claude-code",
+    "inference",
+    "llm",
+    "speculative-decoding"
+   ],
+   "stars": 2783,
+   "created": "2026-11-16",
+   "pushed": "2026-11-16",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 2783,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1460417668,
+    "topics": [
+     "llm inference",
+     "roofline hillclimbing",
+     "speculative decoding",
+     "agent skills"
+    ],
+    "sources": [
+     "https://github.com/sybil-solutions/inference-optimisation-skill"
+    ],
+    "caution": "MIT. Compute ceilings from measured device copy and GEMM throughput rather than vendor spec sheets; label lossy quantization tradeoffs explicitly.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "sybil-solutions/skill-distill": {
    "name": "sybil-solutions/skill-distill",
@@ -7084,7 +8802,7 @@
     "llm",
     "llm-benchmark"
    ],
-   "stars": 768,
+   "stars": 787,
    "created": "2026-11-04",
    "pushed": "2026-11-17",
    "archived": false,
@@ -7093,8 +8811,56 @@
    "stars_first_seen": 768,
    "last_seen": "2026-11-26",
    "seen_in": [
-    "github-search:topic:browser-automation"
-   ]
+    "github-search:topic:browser-automation",
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1445663842,
+    "topics": [
+     "browser agent evaluation",
+     "website reconstruction benchmark"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=368s"
+    ],
+    "caution": "Apache-2.0 code/task/verifier scope does not grant production reuse of third-party reference websites; README limits reference content to non-commercial research. Benchmark scores do not prove general production correctness or safety.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "tobi/wrapvm": {
+   "name": "tobi/wrapvm",
+   "github_id": 1445001947,
+   "url": "https://github.com/tobi/wrapvm",
+   "description": "A desktop VM for agents: wrap's base image + XFCE, shared Chrome, agent-browser and agent-desktop. Containerfile + Smolfile.",
+   "language": "Dockerfile",
+   "license": null,
+   "topics": [],
+   "stars": 398,
+   "created": "2026-11-04",
+   "pushed": "2026-11-24",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 398,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1445001947,
+    "topics": [
+     "agent desktop sandbox",
+     "development vm",
+     "browser automation"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=320s"
+    ],
+    "caution": "No root LICENSE discovered: do not assume permission from public visibility or dependencies. Persistent browser sessions, workspace mounts, credentials and CDP exposure need threat modeling; VM is not automatically safe isolation.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "toeverything/affine": {
    "name": "toeverything/AFFiNE",
@@ -7256,6 +9022,101 @@
     "github-trending-daily"
    ]
   },
+  "trendorin/yami": {
+   "name": "Trendorin/yami",
+   "github_id": 1444477580,
+   "url": "https://github.com/Trendorin/yami",
+   "description": "Pixel-art desktop for niri, written in Rust: a ~15 MB shell (bar, launcher, dock, lock screen, notifications, widgets) and its own file manager, viewer, player, screenshots and login screen as standalone modules. One pa…",
+   "language": "Rust",
+   "license": "MIT",
+   "topics": [
+    "desktop-shell",
+    "dotfiles",
+    "file-manager",
+    "installer",
+    "layer-shell",
+    "linux",
+    "linux-rice",
+    "niri",
+    "pixel-art",
+    "ricing",
+    "rust",
+    "tiling-window-manager"
+   ],
+   "stars": 244,
+   "created": "2026-11-03",
+   "pushed": "2026-11-26",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 244,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1444477580,
+    "topics": [
+     "linux desktop",
+     "rust ui",
+     "wayland shell"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=444s"
+    ],
+    "caution": "OS/compositor-specific, not a generic application UI library. MIT code has separate bundled fonts; README identifies GPL-3.0 niri-derived component and branding restrictions.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "tryatlas/atlas": {
+   "name": "tryatlas/atlas",
+   "github_id": 1238992253,
+   "url": "https://github.com/tryatlas/atlas",
+   "description": "Source control for agents. Use multiple coding agents, track their changes and query them in one place",
+   "language": "TypeScript",
+   "license": "Apache-2.0",
+   "topics": [
+    "ai",
+    "ai-coding-assistant",
+    "claude-code",
+    "codex",
+    "coding-agents",
+    "git",
+    "gitops",
+    "kilo-code",
+    "mcp",
+    "mcp-client",
+    "opencode",
+    "opencode-ai"
+   ],
+   "stars": 9162,
+   "created": "2026-05-14",
+   "pushed": "2026-11-26",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 9162,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1238992253,
+    "topics": [
+     "agent provenance",
+     "session history",
+     "commit traceability",
+     "team orchestration"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=pnZh5PAF3VE&t=2036s"
+    ],
+    "caution": "Redirect to tryatlas/atlas preserved; sensitive prompt/tool-output collection needs consent/redaction/retention review.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
   "tss878/delta-executor-toolkit": {
    "name": "tss878/delta-executor-toolkit",
    "url": "https://github.com/tss878/delta-executor-toolkit",
@@ -7307,6 +9168,46 @@
    "seen_in": [
     "github-search:new-this-week"
    ]
+  },
+  "udhaykumarbala/cleanyourtv-app": {
+   "name": "udhaykumarbala/cleanyourtv-app",
+   "github_id": 1428369484,
+   "url": "https://github.com/udhaykumarbala/cleanyourtv-app",
+   "description": "A community-built phone app for Clean Your TV: clean up an Android TV from your phone. No laptop, no coding agent, nothing uninstalled.",
+   "language": "Kotlin",
+   "license": "MIT",
+   "topics": [
+    "adb",
+    "android-tv",
+    "debloat",
+    "fire-tv",
+    "google-tv",
+    "launcher"
+   ],
+   "stars": 2504,
+   "created": "2026-10-21",
+   "pushed": "2026-11-03",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 2504,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1428369484,
+    "topics": [
+     "android tv tools",
+     "device maintenance"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=167s"
+    ],
+    "caution": "ADB/network debugging and app removal can disrupt a device; claimed restore safety is not independently validated. Third-party notices and bundled font licenses remain relevant.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "umbra9179/clipboard-history-manager-windows": {
    "name": "Umbra9179/clipboard-history-manager-windows",
@@ -7451,14 +9352,15 @@
   },
   "vercel-labs/agent-browser": {
    "name": "vercel-labs/agent-browser",
+   "github_id": 1132001614,
    "url": "https://github.com/vercel-labs/agent-browser",
    "description": "Browser automation CLI for AI agents",
    "language": "Rust",
    "license": "Apache-2.0",
    "topics": [],
-   "stars": 49797,
+   "stars": 54110,
    "created": "2026-01-11",
-   "pushed": "2026-11-11",
+   "pushed": "2026-11-26",
    "archived": false,
    "fork": false,
    "first_seen": "2026-11-11",
@@ -7466,8 +9368,23 @@
    "last_seen": "2026-11-11",
    "seen_in": [
     "github-trending-daily",
-    "github-trending-weekly"
-   ]
+    "github-trending-weekly",
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1132001614,
+    "topics": [
+     "authorized browser automation",
+     "browser qa",
+     "accessibility snapshots"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=pnZh5PAF3VE&t=728s"
+    ],
+    "caution": "Fresh refs after DOM/navigation; no anti-bot/auth bypass recommendation; bundled axe-core MPL2/third-party terms.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "vercel-labs/agent-desktop": {
    "name": "vercel-labs/agent-desktop",
@@ -7767,7 +9684,7 @@
    "language": "TypeScript",
    "license": "MIT",
    "topics": [],
-   "stars": 40995,
+   "stars": 40998,
    "created": "2026-01-14",
    "pushed": "2026-11-17",
    "archived": false,
@@ -7841,7 +9758,7 @@
     "react",
     "ui"
    ],
-   "stars": 1263,
+   "stars": 1264,
    "created": "2025-09-10",
    "pushed": "2026-10-05",
    "archived": false,
@@ -8616,6 +10533,40 @@
     "github-search:new-this-month"
    ]
   },
+  "zainnoori/gitmanual": {
+   "name": "zainnoori/gitmanual",
+   "github_id": 1446280047,
+   "url": "https://github.com/zainnoori/gitmanual",
+   "description": "Generate a step-by-step setup guide for a GitHub repository. Paste the repo URL into GitManual or change github.com to gitmanual.com in the URL.",
+   "language": "TypeScript",
+   "license": "MIT",
+   "topics": [],
+   "stars": 293,
+   "created": "2026-11-04",
+   "pushed": "2026-11-25",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 293,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1446280047,
+    "topics": [
+     "repository onboarding",
+     "setup documentation",
+     "dependency discovery"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=734s"
+    ],
+    "caution": "Generated setup/download scripts are untrusted suggestions; never execute merely because a guide produced them.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
   "zeabur-oss/zeabur": {
    "name": "zeabur-oss/zeabur",
    "url": "https://github.com/zeabur-oss/zeabur",
@@ -8703,6 +10654,7 @@
   },
   "zhulinsen/daily_stock_analysis": {
    "name": "ZhuLinsen/daily_stock_analysis",
+   "github_id": 1131513930,
    "url": "https://github.com/ZhuLinsen/daily_stock_analysis",
    "description": "LLM 驱动的多市场股票智能分析系统：多源行情、实时新闻、决策看板与自动推送，支持零成本定时运行。 LLM-powered multi-market stock analysis system with multi-source market data, real-time news, decision dashboard, automated notifications, and cost-free scheduled runs.",
    "language": "Python",
@@ -8716,17 +10668,31 @@
     "quantitative-finance",
     "quantitative-trading"
    ],
-   "stars": 70111,
+   "stars": 74775,
    "created": "2026-01-10",
-   "pushed": "2026-11-10",
+   "pushed": "2026-11-26",
    "archived": false,
    "fork": false,
    "first_seen": "2026-11-11",
    "stars_first_seen": 70080,
    "last_seen": "2026-11-11",
    "seen_in": [
-    "github-trending-daily"
-   ]
+    "github-trending-daily",
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1131513930,
+    "topics": [
+     "financial research",
+     "report automation"
+    ],
+    "sources": [
+     "https://www.youtube.com/watch?v=pnZh5PAF3VE&t=907s"
+    ],
+    "caution": "Not investment advice or accuracy proof; data/provider limits; screening subtree Apache2 while root MIT.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "zhuyansen/new-term-radar": {
    "name": "zhuyansen/new-term-radar",

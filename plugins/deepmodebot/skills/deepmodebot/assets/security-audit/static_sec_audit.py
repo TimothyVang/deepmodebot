@@ -71,7 +71,7 @@ CODE_RULES: tuple[tuple[str, str, set[str], re.Pattern[str], str], ...] = (
         "error",
         {".py", ".js", ".ts", ".mjs", ".cjs", ".jsx", ".tsx", ".svelte", ".vue"},
         re.compile(
-            r"\b(?:NEXT_PUBLIC|VITE|EXPO_PUBLIC|NUXT_PUBLIC)_[A-Z0-9_]*(?:SECRET|PRIVATE_KEY|SERVICE_ROLE|DATABASE_URL|WEBHOOK_SECRET)[A-Z0-9_]*\b"
+            r"(?<![A-Za-z0-9_$])(?:NEXT_PUBLIC|VITE|EXPO_PUBLIC|NUXT_PUBLIC)_[A-Z0-9_]*(?:SECRET|PRIVATE_KEY|SERVICE_ROLE|DATABASE_URL|WEBHOOK_SECRET)[A-Z0-9_]*(?![A-Za-z0-9_$])"
         ),
         "Client-bundled public env prefix exposes server secret/key/DB credential to browser bundles; keep server-only",
     ),
@@ -86,7 +86,7 @@ CODE_RULES: tuple[tuple[str, str, set[str], re.Pattern[str], str], ...] = (
 
 WRANGLER_CONFIG_NAMES = frozenset({"wrangler.toml", "wrangler.json", "wrangler.jsonc"})
 WRANGLER_SECRET_KV_RE = re.compile(
-    r"""['"]?[A-Za-z0-9_]*(?:SECRET|PRIVATE_KEY|PASSWORD|SERVICE_ROLE|API_KEY|AUTH_TOKEN)[A-Za-z0-9_]*['"]?\s*[:=]\s*['"](?!\s*['"]|<|YOUR_|REPLACE_|CHANGE_ME|\$\{)[^'"]{6,}['"]""",
+    r"""['"]?(?=[A-Za-z0-9_]*(?:SECRET|PRIVATE_KEY|PASSWORD|SERVICE_ROLE|API_KEY|AUTH_TOKEN|DATABASE_URL))(?!\w*_(?:HEADER|POLICY|NAME|ENV|FORMAT|LENGTH|TTL|ENABLED|PREFIX|MODE|PATH)\b)[A-Za-z0-9_]+['"]?\s*[:=]\s*['"](?!\s*['"]|<|YOUR_|REPLACE_|CHANGE_ME|\$\{)[^'"]{6,}['"]""",
     re.I,
 )
 

@@ -348,13 +348,24 @@ fn has_viewport_zoom_lock(low: &str) -> bool {
         let tag = &low[start..=start + rel_gt];
         from = start + rel_gt + 1;
         let compact: String = tag.chars().filter(|c| !c.is_ascii_whitespace()).collect();
-        if (compact.contains("name=\"viewport\"") || compact.contains("name='viewport'"))
-            && (compact.contains("user-scalable=no")
-                || compact.contains("user-scalable='no'")
-                || compact.contains("user-scalable=\"no\"")
-                || compact.contains("user-scalable=0"))
-        {
-            return true;
+        if !(compact.contains("name=\"viewport\"") || compact.contains("name='viewport'")) {
+            continue;
+        }
+        let mut ufrom = 0;
+        while let Some(urel) = compact[ufrom..].find("user-scalable=") {
+            let after_eq = &compact[ufrom + urel + "user-scalable=".len()..];
+            ufrom += urel + "user-scalable=".len();
+            let unquoted = after_eq
+                .strip_prefix('"')
+                .or_else(|| after_eq.strip_prefix('\''))
+                .unwrap_or(after_eq);
+            for tok in ["no", "0"] {
+                if let Some(tail) = unquoted.strip_prefix(tok) {
+                    if !tail.bytes().next().map(|b| b.is_ascii_alphanumeric()).unwrap_or(false) {
+                        return true;
+                    }
+                }
+            }
         }
     }
     false
@@ -389,6 +400,47 @@ fn find_jsx_tag_close(s: &str) -> Option<usize> {
     None
 }
 
+fn has_return_false(val: &str) -> bool {
+    let bytes = val.as_bytes();
+    let mut from = 0;
+    while let Some(rel) = val[from..].find("return") {
+        let pos = from + rel;
+        let end = pos + "return".len();
+        from = end;
+        if pos > 0 && (bytes[pos - 1].is_ascii_alphanumeric() || bytes[pos - 1] == b'_') {
+            continue;
+        }
+        let after = &val[end..];
+        let trimmed = after.trim_start();
+        if trimmed.len() == after.len() {
+            continue;
+        }
+        if let Some(after_false) = trimmed.strip_prefix("false") {
+            if !after_false
+                .bytes()
+                .next()
+                .map(|b| b.is_ascii_alphanumeric() || b == b'_')
+                .unwrap_or(false)
+            {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn has_prevent_default_call(val: &str) -> bool {
+    let mut from = 0;
+    while let Some(rel) = val[from..].find("preventdefault") {
+        let after = val[from + rel + "preventdefault".len()..].trim_start();
+        from += rel + "preventdefault".len();
+        if after.starts_with('(') {
+            return true;
+        }
+    }
+    false
+}
+
 fn has_paste_block_input(low: &str) -> bool {
     for pat in ["<input", "<textarea"] {
         let mut from = 0;
@@ -402,10 +454,47 @@ fn has_paste_block_input(low: &str) -> bool {
             let Some(rel_gt) = find_jsx_tag_close(&low[start..]) else { break };
             let tag = &low[start..=start + rel_gt];
             from = start + rel_gt + 1;
-            if let Some(op) = tag.find("onpaste") {
-                let after_op = &tag[op..];
-                if after_op.contains("preventdefault") || after_op.contains("return false") {
-                    return true;
+            let tbytes = tag.as_bytes();
+            let mut op_from = 0;
+            while let Some(op_rel) = tag[op_from..].find("onpaste") {
+                let op = op_from + op_rel;
+                let op_end = op + "onpaste".len();
+                op_from = op_end;
+                if op > 0 && (tbytes[op - 1].is_ascii_alphanumeric() || tbytes[op - 1] == b'-' || tbytes[op - 1] == b'_') {
+                    continue;
+                }
+                let rest = tag[op_end..].trim_start();
+                let Some(after_eq) = rest.strip_prefix('=') else { continue };
+                let val = after_eq.trim_start();
+                if let Some(q) = val.as_bytes().first().copied().filter(|b| *b == b'"' || *b == b'\'') {
+                    let inner_s = &val[1..];
+                    if let Some(end_q) = inner_s.find(q as char) {
+                        let attr_val = &inner_s[..end_q];
+                        if has_prevent_default_call(attr_val) || has_return_false(attr_val) {
+                            return true;
+                        }
+                    }
+                } else if val.starts_with('{') {
+                    let vbytes = val.as_bytes();
+                    let mut depth = 0usize;
+                    let mut end_b = None;
+                    for (idx, b) in vbytes.iter().copied().enumerate() {
+                        if b == b'{' {
+                            depth += 1;
+                        } else if b == b'}' {
+                            depth = depth.saturating_sub(1);
+                            if depth == 0 {
+                                end_b = Some(idx);
+                                break;
+                            }
+                        }
+                    }
+                    if let Some(eb) = end_b {
+                        let attr_val = &val[1..eb];
+                        if has_prevent_default_call(attr_val) {
+                            return true;
+                        }
+                    }
                 }
             }
         }

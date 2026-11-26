@@ -446,7 +446,7 @@ def short_count(n):
     return f"{n / 1000:.1f}k" if n >= 1000 else str(n)
 
 
-def line(entry):
+def line(entry, wrap_bytes=None):
     gained = entry["stars"] - entry["stars_first_seen"]
     parts = [f"[{entry['name']}]({entry['url']})", f"★{short_count(entry['stars'])}"
              + (f" (+{short_count(gained)} since seen)" if gained > 0 else "")]
@@ -457,12 +457,17 @@ def line(entry):
     statuses = [name for name in ("archived", "fork") if entry.get(name)]
     if statuses:
         parts.append(("reference only: " if reference else "") + ", ".join(statuses))
+    caution_part = None
     if reference:
         parts.append(f"reference {reference['reviewed']}: " + ", ".join(reference["topics"]))
         if reference["caution"]:
-            parts.append("caution: " + clean(reference["caution"], limit=None))
-    return "- " + " · ".join(parts)
-
+            caution_part = "caution: " + clean(reference["caution"], limit=None)
+            parts.append(caution_part)
+    rendered = "- " + " · ".join(parts)
+    if wrap_bytes and caution_part and len(rendered.encode("utf-8")) > wrap_bytes:
+        head = "- " + " · ".join(parts[:-1])
+        return f"{head}\n  {caution_part}"
+    return rendered
 
 def render(catalog):
     now = today()
@@ -486,7 +491,7 @@ def render(catalog):
         f"## Created in the last {NEW_REPO_DAYS} days",
         "",
     ]
-    out += [line(e) for e in by_stars if e["created"] >= new][: PER_SECTION * 2] or ["- (none)"]
+    out += [line(e, wrap_bytes=700) for e in by_stars if e["created"] >= new][: PER_SECTION * 2] or ["- (none)"]
     sections = {title: [] for title, _ in CATEGORIES}
     sections[OTHER] = []
     for entry in by_stars:
@@ -495,7 +500,7 @@ def render(catalog):
     for title, members in sections.items():
         out += ["", f"## {title}", "", f"Top {min(PER_SECTION, len(members))} of {len(members)} by stars, "
                 f"observed from these sources in the last {RECENT_DAYS} days.", ""]
-        out += [line(e) for e in members[:PER_SECTION]] or ["- (none)"]
+        out += [line(e, wrap_bytes=700) for e in members[:PER_SECTION]] or ["- (none)"]
     return "\n".join(out) + "\n"
 
 

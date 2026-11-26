@@ -75,7 +75,7 @@ VIEWPORT_ZOOM_LOCK_RE = re.compile(
     re.I,
 )
 PASTE_BLOCK_INPUT_RE = re.compile(
-    r"<(?:input|textarea)\b(?:[^>'\"{}]|'[^']*'|\"[^\"]*\"|\{[^}]*\})*?\bonpaste\s*=\s*(?:['\"][^'\"]*(?:preventdefault|return\s+false)[^'\"]*['\"]|\{[^}]*preventdefault\s*\([^}]*\})",
+    r"<(?:input|textarea)\b(?:[^>'\"{}]|'[^']*'|\"[^\"]*\"|\{[^}]*\})*?\bonpaste\s*=\s*(?:\"[^\"]*(?:preventdefault\s*\(|\breturn\s+false\b)[^\"]*\"|'[^']*(?:preventdefault\s*\(|\breturn\s+false\b)[^']*'|\{(?:[^{}]|\{[^{}]*\})*?preventdefault\s*\((?:[^{}]|\{[^{}]*\})*\})",
     re.I,
 )
 BROWSER_AUDIT_SNIPPET = r"""(() => {
@@ -275,6 +275,7 @@ def _iter_targets(target: Path) -> list[Path]:
 
 
 CSS_COMMENT_RE = re.compile(r"/\*.*?\*/", re.S)
+LINE_COMMENT_RE = re.compile(r"(?<!:)//.*$")
 
 
 def audit_source(text: str, rel: str, suffix: str) -> list[dict]:
@@ -283,6 +284,8 @@ def audit_source(text: str, rel: str, suffix: str) -> list[dict]:
     is_style = suffix in {".css", ".scss"} or (is_html and "<style" in text.lower())
     is_markup = suffix in {".html", ".htm", ".jsx", ".tsx", ".vue", ".svelte"}
     scan_text = CSS_COMMENT_RE.sub(lambda m: "\n" * m.group(0).count("\n"), text)
+    if suffix in {".scss", ".jsx", ".tsx"}:
+        scan_text = "\n".join(LINE_COMMENT_RE.sub("", ln) for ln in scan_text.splitlines())
     allows_intrinsic_size = "interpolate-size" in scan_text.lower()
 
     for idx, line in enumerate(scan_text.splitlines(), 1):
