@@ -44,6 +44,10 @@ For vague intent, quantitative milestones and independent two-of-three goal revi
 Frontend evidence and media live in the private `TimothyVang/frontend` (skip if inaccessible). When you need them, shallow-clone read-only to gitignored `.scratch/refs/frontend` (reference-only exception to the no-nested-project-repos rule) and never commit from it.
 
 
+**Technical SEO, GEO/AEO, Schema.org & Agentic Web readiness** (auditing or shipping indexable HTML, Core Web Vitals, JSON-LD, `robots.txt` AI crawler rules, `sitemap.xml`, `/llms.txt`, and browser-agent-ready forms) → `skill://seo-and-geo` (`scripts/seo_audit.py`).
+
+**Office & document engineering** (creating, editing, extracting, or verifying `.xlsx` financial/formula spreadsheets, `.pptx` widescreen decks, `.docx` reports/redlines, and `.pdf` documents/forms) → `skill://office-documents` (`scripts/doc_audit.py`).
+
 **Deep learning, RL, neural networks & weight-space programming** (non-LLM neural architectures, reinforcement learning, world models, geometric/scientific ML, training optimization, and gradient-free `READ`/`FIX`/`WRITE` weight-space edits via `scripts/wsp.py`) → `skill://deep-learning`, then only the reference file the task touches (`weight-space-programming.md`, `reinforcement-learning.md`, `neural-architectures.md`, `training-optimization.md`, `papers-and-repos.md`).
 
 **App automation relay:** for revision-checked `observe → act → wait` over native app interfaces, see `skill://app-automation-relay`. Its `assets/relay_server.ts` is a runnable Bun HTTP/stdio starter.

@@ -28,12 +28,29 @@ SCAN_EXTS = frozenset({".html", ".htm", ".css", ".scss", ".jsx", ".tsx", ".vue",
 SKIP_DIRS = frozenset({".git", ".scratch", ".worktrees", "node_modules", "__pycache__", "dist", "build", ".next"})
 
 TRANSITION_ALL_RE = re.compile(r"\btransition\s*:\s*[^;{}]*\ball\b", re.I)
+LAYOUT_TRANSITION_RE = re.compile(
+    r"\btransition(?:-property)?\s*:\s*[^;{}]*\b(?:width|height|top|left|right|bottom|margin(?:-(?:top|right|bottom|left))?|padding(?:-(?:top|right|bottom|left))?)\b",
+    re.I,
+)
 EASE_IN_ONLY_RE = re.compile(r"\bease-in\b(?!-out)", re.I)
+SCALE_ZERO_CSS_RE = re.compile(r"\btransform\s*:\s*[^;{}]*\bscale\(\s*0(?:\.0+)?\s*\)", re.I)
+PURE_BLACK_BG_CSS_RE = re.compile(r"\bbackground(?:-color)?\s*:\s*#000(?:000)?\b(?![0-9a-f])", re.I)
 RAW_TW_GRAY_RE = re.compile(r"\b(?:bg|text|border)-(?:zinc|slate|gray|neutral|stone)-\d{2,3}\b")
+TW_BG_BLACK_RE = re.compile(r"""(?<=[\s"'`])bg-black(?=[\s"'`])""")
 HEAVY_RGBA_SHADOW_RE = re.compile(r"box-shadow\s*:[^;{}]*rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0?\.[1-9]\d*\s*\)", re.I)
 BORDER_DECL_RE = re.compile(r"\bborder(?:-(?:top|right|bottom|left))?\s*:\s*[1-9]\d*px\s+solid\b", re.I)
 IMG_TAG_RE = re.compile(r"<img\b[^>]*>", re.I)
 ALT_ATTR_RE = re.compile(r"\balt\s*=", re.I)
+CIRCULAR_CHECKBOX_TAG_RE = re.compile(
+    r"<(?:input\b[^>]*\btype\s*=\s*['\"]checkbox['\"][^>]*|[a-z0-9_-]+\b[^>]*\brole\s*=\s*['\"]checkbox['\"][^>]*)",
+    re.I,
+)
+ROUNDED_FULL_CLASS_RE = re.compile(r"\brounded-full\b|border-radius\s*:\s*(?:50%|9999px)", re.I)
+ICON_ONLY_BUTTON_RE = re.compile(
+    r"<button\b(?P<attrs>[^>]*)>\s*<(?:svg|i)\b[^>]*>.*?</(?:svg|i)>\s*</button>",
+    re.I,
+)
+A11Y_NAME_ATTR_RE = re.compile(r"\b(?:aria-label|aria-labelledby|title)\s*=\s*['\"][^'\"]+['\"]", re.I)
 
 BROWSER_AUDIT_SNIPPET = r"""(() => {
   const vw = window.innerWidth;
@@ -83,7 +100,7 @@ BROWSER_AUDIT_SNIPPET = r"""(() => {
   };
 
   let bordered = 0, maxBorderDepth = 0, transitionAll = 0, foldCoveredArea = 0;
-  const smallTargets = [], unlabeled = [], lowContrast = [];
+  const smallTargets = [], unlabeled = [], lowContrast = [], circularCheckboxes = [], pureBlackSurfaces = [], missingTabularNums = [], iconButtonsMissingTooltip = [], centerOriginMenus = [], unprefocusedFilterPopovers = [];
   const depthMap = new WeakMap();
 
   for (const el of document.querySelectorAll("body *")) {
@@ -101,6 +118,22 @@ BROWSER_AUDIT_SNIPPET = r"""(() => {
     if (hasBorder) { bordered += 1; if (depth > maxBorderDepth) maxBorderDepth = depth; }
 
     const r = el.getBoundingClientRect();
+    if (r.width >= 200 && r.height >= 120 && cs.backgroundColor === "rgb(0, 0, 0)" && pureBlackSurfaces.length < 6) {
+      pureBlackSurfaces.push({ tag: el.tagName.toLowerCase(), w: Math.round(r.width), h: Math.round(r.height) });
+    }
+    if (el.matches("input[type='checkbox'], [role='checkbox']") && r.width > 0 && r.height > 0) {
+      const rad = parseFloat(cs.borderTopLeftRadius) || 0;
+      if (rad >= Math.min(r.width, r.height) * 0.45 && circularCheckboxes.length < 6) {
+        circularCheckboxes.push(el.outerHTML.slice(0, 80));
+      }
+    }
+    if (el.matches("time, [role='timer'], td") && el.children.length === 0 && /\d{2,}/.test(el.textContent || "")) {
+      const fvn = cs.fontVariantNumeric || "";
+      const ff = (cs.fontFamily || "").toLowerCase();
+      if (!fvn.includes("tabular-nums") && !/mono|consolas|menlo|fira code|jetbrains/.test(ff) && missingTabularNums.length < 6) {
+        missingTabularNums.push({ tag: el.tagName.toLowerCase(), text: (el.textContent || "").trim().slice(0, 24) });
+      }
+    }
     if (r.width > 0 && r.height > 0 && r.top < vh && r.bottom > 0 && el.children.length === 0) {
       const txt = (el.textContent || "").trim();
       if (txt) {
@@ -125,8 +158,23 @@ BROWSER_AUDIT_SNIPPET = r"""(() => {
         smallTargets.push({ tag: el.tagName.toLowerCase(), w: Math.round(r.width), h: Math.round(r.height), text: (el.textContent || "").trim().slice(0, 28) });
       }
       if (el.matches("button, a[href], [role='button']")) {
-        const name = (el.getAttribute("aria-label") || el.textContent || "").trim();
+        const visText = (el.textContent || "").trim();
+        const name = (el.getAttribute("aria-label") || visText).trim();
         if (!name && !el.getAttribute("aria-labelledby")) unlabeled.push(el.outerHTML.slice(0, 80));
+        if (!visText && el.querySelector("svg, img") && iconButtonsMissingTooltip.length < 10) {
+          const hasTip = el.hasAttribute("aria-describedby") || el.hasAttribute("data-tooltip") || el.hasAttribute("data-state") || el.hasAttribute("title");
+          if (!hasTip) iconButtonsMissingTooltip.push(el.outerHTML.slice(0, 80));
+        }
+      }
+    }
+    if (el.matches("[role='menu'], [role='listbox']") && r.width > 0 && r.height > 0) {
+      const [ox, oy] = (cs.transformOrigin || "").split(/\s+/).map(parseFloat);
+      if (Number.isFinite(ox) && Number.isFinite(oy) && Math.abs(ox - r.width / 2) < 1 && Math.abs(oy - r.height / 2) < 1 && centerOriginMenus.length < 10) {
+        centerOriginMenus.push(el.outerHTML.slice(0, 80));
+      }
+      const filterInput = el.querySelector("input[type='text'], input[type='search'], input:not([type])");
+      if (filterInput && document.activeElement !== filterInput && !el.contains(document.activeElement) && unprefocusedFilterPopovers.length < 10) {
+        unprefocusedFilterPopovers.push(el.outerHTML.slice(0, 80));
       }
     }
   }
@@ -146,6 +194,12 @@ BROWSER_AUDIT_SNIPPET = r"""(() => {
     lowContrastSamples: lowContrast,
     smallMobileTargets: smallTargets.slice(0, 10),
     unlabeledControls: unlabeled.slice(0, 10),
+    circularCheckboxes,
+    pureBlackSurfaces,
+    missingTabularNums,
+    iconButtonsMissingTooltip,
+    centerOriginMenus,
+    unprefocusedFilterPopovers,
     brokenImages,
   };
 })()"""
@@ -174,19 +228,40 @@ def audit_source(text: str, rel: str, suffix: str) -> list[dict]:
     is_style = suffix in {".css", ".scss"} or (is_html and "<style" in text.lower())
     is_markup = suffix in {".html", ".htm", ".jsx", ".tsx", ".vue", ".svelte"}
     scan_text = CSS_COMMENT_RE.sub(lambda m: "\n" * m.group(0).count("\n"), text) if is_style else text
+    allows_intrinsic_size = "interpolate-size" in scan_text.lower()
 
     for idx, line in enumerate(scan_text.splitlines(), 1):
         if TRANSITION_ALL_RE.search(line):
             findings.append({"severity": "P1", "rule": "no-transition-all", "file": rel, "line": idx,
                              "message": "Avoid `transition: all`; animate explicit transform/opacity/color properties."})
+        elif LAYOUT_TRANSITION_RE.search(line) and not allows_intrinsic_size:
+            findings.append({"severity": "P1", "rule": "no-layout-transition", "file": rel, "line": idx,
+                             "message": "Avoid animating layout box properties (width/height/top/left/margin/padding); use transform/opacity or Motion `layout`."})
         if EASE_IN_ONLY_RE.search(line):
             findings.append({"severity": "P2", "rule": "no-ease-in-ui", "file": rel, "line": idx,
                              "message": "Avoid `ease-in` on UI transitions; use `ease-out` (enter/exit) or `ease-in-out` (moves)."})
+        if is_style and SCALE_ZERO_CSS_RE.search(line):
+            findings.append({"severity": "P1", "rule": "no-scale-zero-entry", "file": rel, "line": idx,
+                             "message": "Avoid `scale(0)` UI entries; start popovers/menus at `scale(0.95)` with trigger-directional `transform-origin`."})
+        if is_style and PURE_BLACK_BG_CSS_RE.search(line):
+            findings.append({"severity": "P1", "rule": "no-pure-black-surface", "file": rel, "line": idx,
+                             "message": "Avoid `#000000` dark surfaces (causes OLED scroll smearing); use brand-tinted dark tokens (`>= #09090b`)."})
         if is_markup:
             m_tw = RAW_TW_GRAY_RE.search(line)
             if m_tw:
                 findings.append({"severity": "P2", "rule": "semantic-color-tokens", "file": rel, "line": idx,
                                  "message": f"Raw gray utility `{m_tw.group(0)}`; map through semantic role tokens."})
+            if TW_BG_BLACK_RE.search(line):
+                findings.append({"severity": "P1", "rule": "no-pure-black-surface", "file": rel, "line": idx,
+                                 "message": "Avoid `bg-black` (`#000000` causes OLED scroll smearing); use a tinted dark surface token."})
+            for m_cb in CIRCULAR_CHECKBOX_TAG_RE.finditer(line):
+                if ROUNDED_FULL_CLASS_RE.search(m_cb.group(0)):
+                    findings.append({"severity": "P1", "rule": "checkbox-not-circular", "file": rel, "line": idx,
+                                     "message": "Checkboxes must stay rectangular/squircle (`rounded-sm`/`4–6px`); circles (`rounded-full`/`50%`) signify single-select radios."})
+            for m_btn in ICON_ONLY_BUTTON_RE.finditer(line):
+                if not A11Y_NAME_ATTR_RE.search(m_btn.group("attrs")):
+                    findings.append({"severity": "P1", "rule": "icon-button-label", "file": rel, "line": idx,
+                                     "message": "Icon-only `<button>` is missing `aria-label`/`aria-labelledby` (and should expose a tooltip + shortcut)."})
             for m_img in IMG_TAG_RE.finditer(line):
                 if not ALT_ATTR_RE.search(m_img.group(0)):
                     findings.append({"severity": "P0", "rule": "img-alt", "file": rel, "line": idx,

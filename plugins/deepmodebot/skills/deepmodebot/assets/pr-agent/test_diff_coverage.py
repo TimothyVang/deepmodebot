@@ -65,8 +65,12 @@ class DiffCoverageTests(unittest.TestCase):
         excluded_reasons = {x["path"]: x["reason"] for x in data["excluded"]}
         self.assertEqual(excluded_reasons["package-lock.json"], "lockfile")
         self.assertEqual(excluded_reasons["src/old.py"], "deleted")
-        groups = {b["rule_group"] for b in data["batches"]}
-        self.assertEqual(groups, {"auth_security", "backend_core", "tests"})
+        groups = [b["rule_group"] for b in data["batches"]]
+        self.assertEqual(groups, ["auth_security", "backend_core", "tests"])
+        self.assertEqual(data["batches"][0]["guide_step"], "1 of 3")
+        loc = data["loc_summary"]
+        self.assertLess(loc["meaningful_lines"], loc["total_lines"])
+        self.assertIn("Meaningful code +", loc["badge"])
 
     def test_verify_fails_on_missing_file_or_out_of_range_line(self) -> None:
         (self.repo / "src" / "app.py").write_text("def hello():\n    return 'world'\n", encoding="utf-8")

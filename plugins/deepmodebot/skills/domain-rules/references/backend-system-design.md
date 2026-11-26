@@ -120,6 +120,15 @@ Common split: REST or GraphQL at the edge, gRPC inside.
 - Task queue (RabbitMQ, SQS): competing consumers; a message is gone once acknowledged. Event log (Kafka): durable, partitioned, replayable. (DEVOPS)
 - Publish domain events (`OrderPlaced`) to a bus so other services react without coupling. (PATTERNS)
 - Bound every queue or apply backpressure, so a surge cannot exhaust memory. (CS-4H)
+- **Outbound notifications & OS AI summarizers:** schedule engagement notifications relative to the user's last active session (`~23.5 h` offset) with a local quiet-hours ceiling (`<= 22:00`), suppress mobile push while the user is active on desktop, rank by multi-signal context rather than `{name}` templates, and front-load unambiguous factual claims + structured priority metadata so OS-level LLM notification summarizers cannot invert meaning.
+
+## Local-first sync, collaborative state & product surfaces
+
+- **Local workspace replica for daily-use tools (Linear pattern):** request-wait-render navigation feels laggy on 8-hour/day tools; keep a normalized local client replica (IndexedDB/SQLite) for `0 ms` reads, apply mutations optimistically, and sync diffs asynchronously via dual persistence/retry queues (fast metadata separate from heavy media blobs) with explicit rollback/retry banners on failure.
+- **Property-granularity sync & actor-scoped undo (Figma/Notion pattern):** resolve concurrent collaborative edits at **property/field granularity** (LWW or CRDT/OT) rather than whole-object locks, preserve all edits in version history, and implement **per-actor `Ctrl/Cmd+Z` undo** (including non-destructive selection state, capped in a bounded ring buffer).
+- **Collapse overlapping flags into one orthogonal primitive:** before adding `pinned`, `starred`, `flagged`, `important`, and `folder` booleans, unify them into one composable tag/label/block primitive plus saved view queries; keep privacy/read-receipt toggles reciprocally symmetric.
+- **End-to-end latency budgets & perceptual algorithms:** decompose interactive AI/voice SLAs into hard per-stage budgets (e.g., `<= 700 ms` release-to-render = `200 ms` ASR + `200 ms` cleanup + `200 ms` RTT + `100 ms` buffer); use perceptual spread shuffling (grouped per-category spacing + `20–30%` jitter + random offset) when uniform Fisher-Yates clumping feels broken to humans.
+- **Tri-modal surface parity:** pair direct-manipulation GUIs (`<= 3` taps) and schema-validated GenUI widgets (for fuzzy middle-complexity queries) with **headless CLI/API/MCP parity** for bulk, administrative, and agentic operations.
 
 ## Scaling
 

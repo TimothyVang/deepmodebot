@@ -2,7 +2,7 @@
 name: domain-rules
 description: "Domain engineering rules for design/review: AI agents/LLMs, AWS networking, backend & high-scale perf, cache/data structures, languages, DevOps, debugging."
 metadata:
-  as-of: "2026-11-11"
+  as-of: "2026-11-25"
 ---
 
 # Engineering domain rules

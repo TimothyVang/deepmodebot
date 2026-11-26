@@ -41,7 +41,7 @@ Usage: deepmodebot <command>
              --check                          exit 1 if project setup is incomplete
     --install-hooks  install <1s .git/hooks/pre-commit running zero-token slop gate
     --dependabot     also generate .github/dependabot.yml with 7-day cooldown
-  gate [sub]         Run native parallel Rust engine (slop|ci|perf|ui|cleanup|agents|skill-check|map|guard)
+  gate [sub]         Run parallel check gate (slop|ci|perf|ui|seo|docs|sec|cleanup|agents|skill-check|map|guard)
   net [sub]          Run native concurrent Go engine (trending|pr-overlap|fetch-papers|webhook)
   build-native       Compile zero-dep Rust (dmb-gate) and Go (dmb-net) release binaries
   update             Upgrade this npm package, then re-sync the tools setup configured (--quiet for the hourly task)
@@ -201,7 +201,9 @@ function findNativeGate() {
 
 function gate() {
   const passArgs = args.slice(1);
-  const nativeBin = findNativeGate();
+  const sub = passArgs[0] && !passArgs[0].startsWith("-") ? passArgs[0] : "slop";
+  const pyOnly = new Set(["seo", "docs", "sec"]);
+  const nativeBin = pyOnly.has(sub) ? null : findNativeGate();
   if (nativeBin) {
     const res = run(nativeBin, passArgs);
     if (res.out.trim()) console.log(res.out.trim());
@@ -212,13 +214,15 @@ function gate() {
     console.error("Neither native dmb-gate nor python 3 found.");
     return 1;
   }
-  const sub = passArgs[0] && !passArgs[0].startsWith("-") ? passArgs[0] : "slop";
   const rest = passArgs[0] === sub ? passArgs.slice(1) : passArgs;
   const map = {
     slop: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "local-ci", "slop_gate.py"),
     ci: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "local-ci", "local_ci.py"),
     perf: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "perf-audit", "perf_audit.py"),
     ui: join(pkgRoot, "plugins", "deepmodebot", "skills", "frontend-ui", "scripts", "ui_audit.py"),
+    seo: join(pkgRoot, "plugins", "deepmodebot", "skills", "seo-and-geo", "scripts", "seo_audit.py"),
+    docs: join(pkgRoot, "plugins", "deepmodebot", "skills", "office-documents", "scripts", "doc_audit.py"),
+    sec: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "security-audit", "static_sec_audit.py"),
     cleanup: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "cleanup", "self_cleanup.py"),
     agents: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "agents-md", "agents_md.py"),
   };

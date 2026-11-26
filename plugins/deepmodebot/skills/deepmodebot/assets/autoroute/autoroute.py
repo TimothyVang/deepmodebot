@@ -26,16 +26,17 @@ ASSETS_DIR = SKILL_DIR / "assets"
 
 READ_ONLY_MODES = frozenset({
     "investigation", "runtime-forensics", "trace-forensics", "triage",
-    "pr-review", "grill", "self-grill", "tournament", "research", "flows",
+    "pr-review", "grill", "product-lens", "devex-review", "self-grill", "tournament", "research", "flows",
     "architecture-review", "retro", "course", "questionnaire", "re-explain",
-    "security-audit", "pr-agent", "blast-radius", "sharpen", "reframe", "reflect", "recall", "catchup-video",
+    "security-audit", "variant-analysis", "pr-agent", "blast-radius", "sharpen", "reframe", "reflect", "recall", "catchup-video",
     "interrogate", "sme-review", "formal-verification", "statechart", "prior-art", "wizard",
     "scrape", "suggest", "teach", "why", "how", "autoroute",
-    "goal-review", "workspace-map", "open-design-evidence", "deep-stack",
+    "goal-review", "workspace-map", "open-design-evidence", "deep-stack", "seo-and-geo",
 })
 
 FLEXIBLE_SIZE_MODES = frozenset({
     "eval", "arena", "prompt-upgrade", "self-authoring", "video-forensics", "gen-ui", "webhook-ui", "model-setup",
+    "modernize-pr", "expand-contract", "release-and-canary", "mutation-testing", "office-documents",
     "pause-safely", "triage", "inner-loop", "tool-routing", "agent-collaboration", "visual-e2e",
     "create-verification-skill", "maintain-verification-skill",
     "create-formal-verification-skill", "maintain-formal-verification-skill",
@@ -98,6 +99,13 @@ SPECIALIZED_SIGNALS = (
     ("catchup-video", re.compile(r"\b(?:catchup[- ]video|catch[- ]up\s+video|subtitled\s+(?:catch[- ]?up\s+|recap\s+)?video|video\s+recap\s+of\s+what\s+happened)\b", re.I)),
     ("webhook-ui", re.compile(r"\b(?:webhook[- ]ui|make[- ]bot[- ]ui)\b|\b(?:custom|tailscale|local)\s+(?:ui|page|dashboard|buttons?)\b.{0,45}\b(?:wake|trigger|post\s+to)\b.{0,30}\bwebhook\b", re.I)),
     ("model-setup", re.compile(r"\b(?:model[- ]setup|per[- ]role\s+models?|configure\s+(?:my\s+|role\s+)?models?\s+(?:and\s+)?(?:reasoning\s+)?budget)\b", re.I)),
+    ("modernize-pr", re.compile(r"\b(?:modernize[- ]pr|modernize\s+this\s+pr|rebase\s+this\s+old\s+pr|revive\s+this\s+(?:old\s+)?(?:pr|branch)|is\s+this\s+pr\s+still\s+worth\s+landing)\b", re.I)),
+    ("expand-contract", re.compile(r"\b(?:expand[- /]contract|zero[- ]downtime\s+(?:migration|column|schema|rename|drop|cutover)|dual[- ]write.*backfill)\b", re.I)),
+    ("release-and-canary", re.compile(r"\b(?:canary\s+(?:check|monitor\w*|rollout)|monitor\s+after\s+deploy|post[- ]deploy\s+canary|document[- ]release|update\s+docs\s+after\s+ship)\b", re.I)),
+    ("devex-review", re.compile(r"\b(?:devex[- ]review|dx\s+(?:plan\s+)?review|developer\s+experience\s+review|check\s+developer\s+onboarding|cli\s+ergonomics\s+review)\b", re.I)),
+    ("product-lens", re.compile(r"\b(?:product[- ]lens|ceo\s+review|founder[- ]mode\s+review|10[- ]star\s+(?:product|experience)|painkiller\s+(?:vs|or)\s+vitamin)\b", re.I)),
+    ("variant-analysis", re.compile(r"\b(?:variant[- ]analysis|hunt\s+(?:for\s+)?(?:all\s+)?sibling\s+(?:bugs|vulnerabilities)|find\s+every\s+variant\s+of\s+this\s+(?:bug|vuln))\b", re.I)),
+    ("mutation-testing", re.compile(r"\b(?:mutation[- ]test(?:ing|s)?|kill\s+surviving\s+mutants|cargo[- ]mutants|mutmut|stryker)\b", re.I)),
     ("statechart", re.compile(r"(?:^\s*/?statechart\b|\b(?:tla\+?\s+statechart|mermaid\s+statechart\b.*\bcounterexample|draw\b.*\btla\+?\s+model\s+as\s+a?\s*statechart)\b)", re.I)),
     ("formal-verification", re.compile(r"\btla\+(?![A-Za-z0-9_])|\b(?:tlc|statechart|lean\s*4?|lean\s+proof|mathlib|coq|rocq|isabelle|smt2|z3|comparator|nanoda|bombadil|model[- ]check|property[- ]based\s+ui|(?:formalize|prove)\s+(?:this|the)\s+(?:theorem|lemma|conjecture|invariant))\b|(?<![A-Za-z0-9_])\.(?:lean|tla|smt2)\b", re.I)),
     ("suggest", re.compile(r"\b(?:deepmode\s+suggest|suggest\s+(?:me\s+)?(?:some\s+)?(?:full[- ]scope\s+)?prompts?|what\s+prompts?\s+should\s+i\s+run|what\s+should\s+i\s+(?:fix|work\s+on)\s+next)\b", re.I)),
@@ -116,6 +124,10 @@ REFERENCE_SKILL_SIGNALS = (
     ("skill://agent-harnesses", re.compile(r"\b(?:omp|claude\s+code|codex|antigravity|mcp|acp|a2a|ag[- ]ui|a2ui|webmcp|subagent|subagents|teamwork|weekly\s+usage|quota|hooks\.json|skill\.md)\b", re.I)),
     ("skill://domain-rules", re.compile(r"\b(?:llm|rag|evals?|rate\s+limit|distributed|concurrency|race\s+condition|deadlock|caching|idempoten\w*|incident|legacy\s+code|backend|server|endpoint|fastapi|starlette|express|axum|tokio|goroutine|event\s+loop|n\+1|tail\s+latency|p9[59]|throughput|rps|serialization|orjson|gzip|cache\s+stampede|singleflight|simd|cache\s+line|arena|unordered_map)\b", re.I)),
     ("skill://deep-stack", re.compile(r"\b(?:what\s+stack|tech\s+stack|pick\s+a\s+stack|choose\s+a\s+stack|greenfield\s+stack)\b", re.I)),
+    ("skill://seo-and-geo", re.compile(r"\b(?:seo|geo/aeo|json[- ]ld|schema\.org|sitemap\.xml|robots\.txt|llms\.txt|core\s+web\s+vitals|agentic\s+browsing|hreflang|opengraph)\b", re.I)),
+    ("skill://office-documents", re.compile(r"(?<![A-Za-z0-9_])\.(?:xlsx|pptx|docx|pdf)\b|\b(?:spreadsheet|excel\s+workbook|powerpoint|slide\s+deck|word\s+document|openpyxl|python[- ]pptx|python[- ]docx|fillable\s+pdf)\b", re.I)),
+    ("skill://deep-learning", re.compile(r"\b(?:reinforcement\s+learning|ppo|grpo|sac|world\s+model|gnn|equivariant|pinns?|neural\s+operator|weight[- ]space\s+programming|muon\s+optimizer)\b", re.I)),
+    ("skill://app-automation-relay", re.compile(r"\b(?:automation\s+relay|control\s+adapter\b.*\b(?:desktop|mobile|terminal|app)|observe\s*->\s*act\s*->\s*wait)\b", re.I)),
 )
 
 CONCRETE_ANCHOR_RE = re.compile(

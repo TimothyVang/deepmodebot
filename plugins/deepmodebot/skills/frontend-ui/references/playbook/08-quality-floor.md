@@ -7,8 +7,8 @@
   - Composite widgets (toolbar, tabs, listbox, grid, tree) have one tab stop with arrow keys inside.
   - Focus never falls to `body`: after a delete, the next item; after a close, the opener.
   - Focus looks different from selection. Disabled items inside composites stay focusable via `aria-disabled`. No positive `tabindex`.
-  - Tooltips go only on interactive elements (`aria-labelledby`/`aria-describedby`). Tab state lives in the URL.
-- **Shortcuts:** avoid modifier + Tab / Enter / Space / Escape. Every shortcut target is also reachable by navigation (⌘K needs a visible trigger).
+  - **Universal icon tooltips & desktop cursor discipline (`icRjQePEa_A`, 11:40–12:38, 18:18):** every icon button and non-obvious status indicator carries a tooltip with its action name + keyboard chord (`Go to pulse · G then P`), wired via `aria-labelledby`/`aria-describedby` on interactive triggers only. Desktop **Operate** apps default standard buttons/rows to the OS arrow cursor (`cursor: default`, optional user preference for `pointer`) and offer a preference to keep animated GIFs/emojis static until hover. Tab state lives in the URL.
+  - **Shortcuts:** avoid modifier + Tab / Enter / Space / Escape. Every shortcut target is also reachable by navigation (⌘K needs a visible trigger). Support chorded navigation (`G then P`, `M then B`) without hijacking text inputs, and distinguish tap-toggle from hold-key quasimodes (`05-motion.md`).
 - **Data tables:** use `<table>` unless cells are interactive (then ARIA grid). Right-align comparable numbers; start-align IDs; never center text. Empty state replaces the whole table, headers included.
 - **Panes and scrolling:** panes work at 320–360 px and cap content width on wide windows. A scroll stays with the region where it started (hovered side pane never steals wheel from a streaming thread).
 - **Sensitive content:** blurred when backgrounded. No telemetry without consent.

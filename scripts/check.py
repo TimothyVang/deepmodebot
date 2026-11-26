@@ -25,6 +25,7 @@ BANNED = re.compile(
 WHITE_LABEL_EXEMPT = {
     Path("scripts/check.py"), Path("trending"), Path("evals/workflows"),
     Path("docs/evidence"), Path("docs/research/community-skills-review.md"),
+    Path("docs/research/popular-skills-gap-audit.md"),
     Path("plugins/deepmodebot/skills/deepmodebot/assets/repo-references.json"),
     Path("docs/research/youtube-learning/history-recovery.md"),
 }
@@ -34,7 +35,7 @@ SKILL_BODY_MAX_BYTES = 24_000  # Antigravity truncates skill bodies above 24 KB
 CORE_LINE_BYTES = 600  # deepmodebot's SKILL.md, sibling SKILL.md, playbooks and techniques: one instruction per line
 # Reference skills hold cited facts that go stale; each SKILL.md states the date they were true as of.
 LIBRARY_SKILLS = ("agent-harnesses", "app-automation-relay", "cloud-devsecops", "deep-learning", "domain-rules",
-                  "frontend-ui", "secrets-and-auth", "software-architecture")
+                  "frontend-ui", "office-documents", "secrets-and-auth", "seo-and-geo", "software-architecture")
 STALE_AFTER_DAYS = 120
 problems = []
 

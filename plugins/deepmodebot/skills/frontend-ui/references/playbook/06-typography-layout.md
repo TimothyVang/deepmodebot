@@ -6,8 +6,10 @@
 - **Text:**
   - Body text about 65ch (never more than 80).
   - Serif body gets slightly more line-height.
-  - `tabular-nums` for numeric columns.
-  - `…`, not `...`.
+  - `tabular-nums` for numeric columns, numbered list markers (`9.` → `10.`), live video/audio timers, and dynamic counters so digits never jitter horizontally.
+  - `…`, not `...`. Use grapheme-cluster segmentation (`Intl.Segmenter`) for character limits, truncation, and backspace stepping so multi-codepoint ZWJ emojis never split (`7DN3Ectm6UY`). Use dynamic **middle-truncation** on versioned filenames, paths, and IDs so `v1`/`v2` suffixes stay visible (`FQVRfadJkJk`).
+  - Maintain a sticky horizontal `preferredCaretX` across consecutive `ArrowUp`/`ArrowDown` moves in custom editors so crossing a short line never drifts the cursor column left.
+  - Match **input-box geometry** to desired writing density: compact comment-sized boxes produce concise updates; tall document canvases invite essays (`icRjQePEa_A`). Keep multi-select **checkboxes rectangular/squircle** (`4–6 px` radius) — circular controls (`rounded-full`) signify single-select radios (`FQVRfadJkJk`).
   - Loosen tracking on any uppercase.
   - Fallback fonts with a metric match to avoid layout shift.
 - **Emphasis:** underlines only on links; bold for UI emphasis; italic for citation or stress.

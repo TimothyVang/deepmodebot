@@ -3,9 +3,12 @@
 **Use when:** a PR needs a security audit before it merges ("audit this PR", "audit every PR", "add a security gate"), the repo opted into the gate (it has `.deepmodebot/security-audit-accepted.txt`), or the change touches auth, permissions, input parsing, secrets, or anything an untrusted user can reach. It runs Cloudflare's security-audit skill (github.com/cloudflare/security-audit-skill, MIT) on the PR's diff and blocks the merge on a confirmed finding at or above a severity bar. Your own agent runs it; there is no CI job and no SaaS reviewer.
 
 The pieces live in this skill's `assets/security-audit/`:
-- `audit-pr.sh`: the runner. It checks the PR head out in a temporary worktree, pins the Cloudflare skill to one commit, computes the diff itself, runs the audit with the `claude` CLI under a locked-down profile, gates the result, and posts or updates one PR comment.
+- `static_sec_audit.py`: fast (`<1s`), zero-dependency, cross-platform static scanner (runs natively on Windows, macOS, and Linux via `py -3 -B` / `python3 -B`, or `deepmodebot gate sec`). Catches unpinned GitHub Actions, `pull_request_target` untrusted checkouts, `${{ ... }}` workflow script injection, non-constant-time HMAC/signature `==` checks, unsafe `yaml.load`/`pickle`, SQL f-strings, and `shell=True` command interpolation. Always run this first on every OS.
+- `audit-pr.sh`: the deep multi-agent PR diff runner (POSIX + `claude` CLI). Checks out the PR head in a temporary worktree, pins Cloudflare's `security-audit-skill` to one commit, computes the diff, runs the audit under a locked-down profile, gates the result, and posts or updates one PR comment.
 - `prompt.md`: the audit request. Full audit mode, `quick` profile, scoped to the precomputed diff, source-only.
 - `gate.cjs`: turns `findings.json` into a pass or fail and the comment text.
+
+When a single vulnerability or boundary bug is found, follow **variant-analysis** (`references/techniques/variant-analysis.md`) to sweep the entire codebase for sibling instances and wire a regression rule.
 
 ## Run it
 

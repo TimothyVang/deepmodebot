@@ -1,6 +1,10 @@
 ## 1. Workflow: job → art direction → build → audit & declutter → motion pass → real-browser polish
 
 1. **Start with the job.** Name who acts, the user goal, the primary object, and what changes. List every reachable state (loading, empty, error, populated, destructive) before drawing pixels.
+   - **Encode workflow opinions (`TimothyVang/frontend:reference/youtube/icRjQePEa_A/README.md`, 02:25–05:22, 12:38–17:20):**
+     - **Pen-ink immediacy (`0 ms` local reads):** daily **Operate** tools keep a local client cache/sync store + optimistic mutations + background delta sync so navigation, filtering, and triage render without loading screens or skeletons after initial boot.
+     - **Input geometry shapes output:** size text boxes to the desired communication density — compact `2–4` line comment boxes (no rigid metric templates) paired with a structured health enum (`On track · At risk · Off track`) produce scannable updates across hundreds of projects; save full-page editors for specs.
+     - **Progressive friction & single ownership:** place situational/pressure-inducing fields (`Due date`) one submenu deeper (`⇧D`) and hide unset empty fields; enforce a **single accountable owner (`assignee`/`lead`)** per item (keep subscribers separate); convert meeting/doc bullet lists into tracked items **in-place** without leaving the document.
 2. **Write a concrete Art Direction Brief (`references/playbook/00-art-direction.md`) before any code:**
    - **Archetype & mood:** pick one positive archetype (Precision Workbench, Warm Editorial, High-Density Swiss, Tactile Consumer, or Spatial Canvas) and name two concrete anti-goals.
    - **Color formula:** 4 OKLCH surface tiers (`canvas`, `surface`, `raised`, `sunken`) tinted with the brand hue, 3 text tones, equal-L/C status tokens, and one primary accent — all named by role (`--bg-surface`, `--fg-muted`), never hex or raw Tailwind grays (`references/playbook/06a-color.md`).
@@ -8,7 +12,7 @@
    - **Composition:** pick a non-generic layout (asymmetric split, master-detail workbench, borderless KPI strip + flat ruled rows, or editorial hero + live proof) with an ASCII wireframe.
 3. **Diverge deliberately (works in plain code, no external design tool required):**
    - Check shipped references in `references/patterns/mobbin-shipped-apps.md` and `mobbin-animations.md` (or inspect live reference URLs at `1440×900` and `390×844` when browsing).
-   - If a working UI feels visually flat, explore 2–3 logic-preserving style directions along clear axes (*Precision Workbench*, *Warm Editorial*, *High-Density Swiss*) before locking global tokens.
+   - If a working UI feels visually flat or a surface is novel (e.g. AI code review, multi-agent workspace), build **3–5 distinct working directions** in code (`icRjQePEa_A`, 27:55–28:06) along named axes (*Precision Workbench*, *Warm Editorial*, *High-Density Swiss*) and dogfood them before locking global layout/tokens.
    - For agent features, prototype real streaming/approval/error behavior with scripted fixtures before polishing visuals.
 4. **Build with real content and surface finish:** Use realistic domain copy and real data shapes — never grey placeholder boxes, lorem ipsum, or invented `99.99%` metrics. Enforce the border budget (`<= 1` bordered container depth), directional dark top-rim lighting or layered light ambient shadows, and frosted sticky chrome.
 5. **Separate polish passes (never ship round 1):**
