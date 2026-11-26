@@ -66,5 +66,24 @@ class StaticSecAuditTests(unittest.TestCase):
         self.assertEqual(rep2["errors"], 0)
 
 
+    def test_catches_client_bundle_secrets_browser_llm_keys_and_wrangler_vars(self):
+        (self.root / "web.tsx").write_text(
+            "const key = process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;\n"
+            "const pub = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;\n"
+            "const client = new OpenAI({ apiKey: pub, dangerouslyAllowBrowser: true });\n",
+            encoding="utf-8",
+        )
+        (self.root / "wrangler.jsonc").write_text(
+            '{\n  // comment\n  "vars": {\n    "API_BASE_URL": "https://api.example.com",\n    "STRIPE_SECRET_KEY": "sk-test-1234567890"\n  }\n}\n',
+            encoding="utf-8",
+        )
+        rep = ssa.scan_repo(self.root)
+        self.assertFalse(rep["ok"])
+        by_rule = [(f["rule"], f["line"]) for f in rep["findings"]]
+        self.assertIn(("client-bundle-secret-env", 1), by_rule)
+        self.assertNotIn(("client-bundle-secret-env", 2), by_rule)
+        self.assertIn(("llm-sdk-browser-key-exposure", 3), by_rule)
+        self.assertIn(("wrangler-vars-secret", 5), by_rule)
+
 if __name__ == "__main__":
     unittest.main()

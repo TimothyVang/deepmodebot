@@ -57,7 +57,14 @@ class SlopGateTests(unittest.TestCase):
             "    x = 1  # noqa\n",
             encoding="utf-8",
         )
-        (self.repo / "ui/widget.ts").write_text("export const x = (v: unknown) => (v as any).foo;\n", encoding="utf-8")
+        (self.repo / "ui/widget.ts").write_text(
+            "export const x = (v: unknown) => (v as any).foo;\n"
+            "export const leaked = process.env.NEXT_PUBLIC_STRIPE_SECRET_KEY;\n"
+            "export const llm = { dangerouslyAllowBrowser: true };\n"
+            "export class Counter implements DurableObject {}\n"
+            "export function handle(ctx: any) { const { waitUntil } = ctx; return waitUntil; }\n",
+            encoding="utf-8",
+        )
         (self.repo / "test_fake.py").write_text(
             "import unittest\n"
             "class T(unittest.TestCase):\n"
@@ -82,6 +89,10 @@ class SlopGateTests(unittest.TestCase):
         self.assertIn("swallowed-exception", rules)
         self.assertIn("safety-subprocess-timeout", rules)
         self.assertIn("ts-unsafe-cast", rules)
+        self.assertIn("client-env-secret", rules)
+        self.assertIn("llm-browser-key-exposure", rules)
+        self.assertIn("workers-legacy-implements-do", rules)
+        self.assertIn("workers-ctx-destructure", rules)
         self.assertIn("test-theater-empty", rules)
         self.assertIn("test-theater-tautology", rules)
         self.assertIn("test-theater-no-assert", rules)

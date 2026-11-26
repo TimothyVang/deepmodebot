@@ -11,6 +11,7 @@ Use a dedicated git worktree and branch for PR/publication work, concurrent writ
    - PowerShell: `New-Item -ItemType Directory -Force .worktrees | Out-Null; if (!(Test-Path .worktrees/.gitignore)) { Set-Content -NoNewline .worktrees/.gitignore "*\`n" }; git worktree add .worktrees/<slug> -b <type>/<slug> origin/main`
 4. Work only inside that directory. Install dependencies there; worktrees do not share `node_modules` or virtualenvs.
 5. Copy any untracked local config the task needs (for example `.env.local`). Never commit it.
+6. When running dev servers across parallel worktrees, avoid `:3000`/`:5173`/`:8787` port, cookie, and OAuth-redirect collisions by wrapping the dev script with [`portless`](https://github.com/vercel-labs/portless) (`portless run <cmd>` routes linked worktrees to `https://<slug>.<app>.localhost` on an assigned free port `4000–4999`; `PORTLESS=0` bypasses) or passing an explicit per-worktree `PORT`.
 
 A worktree already assigned to this task is reused as is. Never build on `main`.
 

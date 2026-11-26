@@ -4,7 +4,7 @@
   "github-trending": "43 repos",
   "github-search": "117 repos",
   "githubawesome": "failed: <urlopen error [Errno 11001] getaddrinfo failed>",
-  "reference-library": "60 repos"
+  "reference-library": "89 repos"
  },
  "repos": {
   "4lwayz/portwatch-vi": {
@@ -1026,6 +1026,228 @@
     "github-search:topic:llm"
    ]
   },
+  "cloudflare/agents": {
+   "name": "cloudflare/agents",
+   "github_id": 924394244,
+   "url": "https://github.com/cloudflare/agents",
+   "description": "Build and deploy AI Agents on Cloudflare",
+   "language": "TypeScript",
+   "license": "MIT",
+   "topics": [
+    "agents",
+    "ai",
+    "cloudflare",
+    "durable-objects",
+    "workflows"
+   ],
+   "stars": 6155,
+   "created": "2025-01-29",
+   "pushed": "2026-11-26",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 6155,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 924394244,
+    "topics": [
+     "cloudflare workers",
+     "durable objects",
+     "stateful agents",
+     "mcp",
+     "webmcp"
+    ],
+    "sources": [
+     "https://github.com/orgs/cloudflare/repositories"
+    ],
+    "caution": "MIT SDK coupled to Cloudflare Durable Objects/workerd; enforce 128 MB Worker memory limits and validate @callable() inputs.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "cloudflare/capnweb": {
+   "name": "cloudflare/capnweb",
+   "github_id": 998173252,
+   "url": "https://github.com/cloudflare/capnweb",
+   "description": "JavaScript/TypeScript-native, low-boilerplate, object-capability RPC system",
+   "language": "TypeScript",
+   "license": "MIT",
+   "topics": [],
+   "stars": 4049,
+   "created": "2025-06-08",
+   "pushed": "2026-11-24",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 4049,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 998173252,
+    "topics": [
+     "object capability rpc",
+     "promise pipelining",
+     "typescript rpc",
+     "websocket"
+    ],
+    "sources": [
+     "https://github.com/orgs/cloudflare/repositories"
+    ],
+    "caution": "MIT; authenticate in-band (never cookies), rate-limit pipelined sub-calls, cap payload size, and validate runtime types.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "cloudflare/cf": {
+   "name": "cloudflare/cf",
+   "github_id": 1380002148,
+   "url": "https://github.com/cloudflare/cf",
+   "description": "The agentic CLI for the entire Cloudflare API",
+   "language": "TypeScript",
+   "license": "Apache-2.0",
+   "topics": [],
+   "stars": 1100,
+   "created": "2026-09-21",
+   "pushed": "2026-11-26",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 1100,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1380002148,
+    "topics": [
+     "cloudflare cli",
+     "agentic cli",
+     "workers config",
+     "typescript config"
+    ],
+    "sources": [
+     "https://github.com/orgs/cloudflare/repositories"
+    ],
+    "caution": "Apache-2.0 release-candidate CLI; use only on greenfield or cloudflare.config.ts repos, not existing wrangler.* projects.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "cloudflare/cloudflare-os": {
+   "name": "cloudflare/cloudflare-os",
+   "github_id": 1211925923,
+   "url": "https://github.com/cloudflare/cloudflare-os",
+   "description": "Agent workspace built on Cloudflare Workers for creating documents, building apps, and running agents with your company’s context and systems.",
+   "language": "TypeScript",
+   "license": "Apache-2.0",
+   "topics": [],
+   "stars": 11874,
+   "created": "2026-04-15",
+   "pushed": "2026-11-26",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 11874,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1211925923,
+    "topics": [
+     "agent workspace",
+     "capability gatekeepers",
+     "dynamic workers",
+     "sandboxed gadgets"
+    ],
+    "sources": [
+     "https://github.com/orgs/cloudflare/repositories"
+    ],
+    "caution": "Apache-2.0 early-access v2 architecture; review Dynamic Worker egress rules, CSP, and OAuth Gatekeeper scopes before deployment.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "cloudflare/cloudflared": {
+   "name": "cloudflare/cloudflared",
+   "github_id": 106867604,
+   "url": "https://github.com/cloudflare/cloudflared",
+   "description": "Cloudflare Tunnel client",
+   "language": "Go",
+   "license": "Apache-2.0",
+   "topics": [
+    "cloudflare",
+    "cloudflare-tunnel",
+    "reverse-proxy",
+    "zero-trust-network-access"
+   ],
+   "stars": 16758,
+   "created": "2017-10-13",
+   "pushed": "2026-11-24",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 16758,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 106867604,
+    "topics": [
+     "cloudflare tunnel",
+     "zero trust",
+     "private origin",
+     "ingress daemon"
+    ],
+    "sources": [
+     "https://github.com/orgs/cloudflare/repositories"
+    ],
+    "caution": "Apache-2.0; pair tunnels with Cloudflare Access/Zero Trust policies so internal origins are not exposed unauthenticated.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "cloudflare/computer": {
+   "name": "cloudflare/computer",
+   "github_id": 1260288940,
+   "url": "https://github.com/cloudflare/computer",
+   "description": "Give your agent a computer 👾",
+   "language": "TypeScript",
+   "license": "MIT",
+   "topics": [],
+   "stars": 9968,
+   "created": "2026-06-05",
+   "pushed": "2026-11-25",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 9968,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1260288940,
+    "topics": [
+     "agent sandbox",
+     "durable object sqlite vfs",
+     "fuse container",
+     "dynamic worker"
+    ],
+    "sources": [
+     "https://github.com/orgs/cloudflare/repositories"
+    ],
+    "caution": "MIT; core VFS is stable while ContainerBackend/computerd and Worker shell surfaces are marked experimental upstream.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
   "cloudflare/kitesurf": {
    "name": "cloudflare/kitesurf",
    "github_id": 1397434450,
@@ -1049,6 +1271,76 @@
     "github-search:topic:browser-automation"
    ]
   },
+  "cloudflare/kumo": {
+   "name": "cloudflare/kumo",
+   "github_id": 1086502772,
+   "url": "https://github.com/cloudflare/kumo",
+   "description": "Cloudflare's component library for building modern web applications.",
+   "language": "TypeScript",
+   "license": "MIT",
+   "topics": [],
+   "stars": 4260,
+   "created": "2025-10-30",
+   "pushed": "2026-11-25",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 4260,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1086502772,
+    "topics": [
+     "ui components",
+     "base ui",
+     "accessible react",
+     "design system cli"
+    ],
+    "sources": [
+     "https://github.com/orgs/cloudflare/repositories"
+    ],
+    "caution": "MIT React + Base UI component system; verify theme tokens and peer dependencies (@phosphor-icons/react) before mixing stacks.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "cloudflare/pingora": {
+   "name": "cloudflare/pingora",
+   "github_id": 636853988,
+   "url": "https://github.com/cloudflare/pingora",
+   "description": "A library for building fast, reliable and evolvable network services.",
+   "language": "Rust",
+   "license": "Apache-2.0",
+   "topics": [],
+   "stars": 28061,
+   "created": "2023-05-05",
+   "pushed": "2026-11-23",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 28061,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 636853988,
+    "topics": [
+     "rust proxy",
+     "http load balancer",
+     "network services",
+     "tls"
+    ],
+    "sources": [
+     "https://github.com/orgs/cloudflare/repositories"
+    ],
+    "caution": "Apache-2.0 programmable Rust proxy library (not a turn-key binary); audit TLS, upstream timeouts, and Linux platform targets.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
   "cloudflare/security-audit-skill": {
    "name": "cloudflare/security-audit-skill",
    "url": "https://github.com/cloudflare/security-audit-skill",
@@ -1068,6 +1360,152 @@
     "github-trending-monthly",
     "github-trending-weekly"
    ]
+  },
+  "cloudflare/skills": {
+   "name": "cloudflare/skills",
+   "github_id": 1113922795,
+   "url": "https://github.com/cloudflare/skills",
+   "description": "Skills for teaching agents how to build on Cloudflare.",
+   "language": "Shell",
+   "license": "Apache-2.0",
+   "topics": [
+    "agents",
+    "cloudflare",
+    "skills",
+    "workers"
+   ],
+   "stars": 3465,
+   "created": "2025-12-10",
+   "pushed": "2026-11-25",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 3465,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1113922795,
+    "topics": [
+     "agent skills",
+     "cloudflare workers",
+     "durable objects",
+     "wrangler",
+     "vinext"
+    ],
+    "sources": [
+     "https://github.com/orgs/cloudflare/repositories"
+    ],
+    "caution": "Apache-2.0 official skills; verify installed wrangler/cf schemas and compatibility_date against live Cloudflare docs.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "cloudflare/vinext": {
+   "name": "cloudflare/vinext",
+   "github_id": 1165371200,
+   "url": "https://github.com/cloudflare/vinext",
+   "description": "Vite plugin that reimplements the Next.js API surface — deploy anywhere",
+   "language": "TypeScript",
+   "license": "MIT",
+   "topics": [],
+   "stars": 9412,
+   "created": "2026-02-24",
+   "pushed": "2026-11-26",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 9412,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1165371200,
+    "topics": [
+     "nextjs on vite",
+     "cloudflare workers",
+     "rsc",
+     "portable deployment"
+    ],
+    "sources": [
+     "https://github.com/orgs/cloudflare/repositories"
+    ],
+    "caution": "MIT active-development Next.js reimplementation on Vite; run vinext check for Partial Prerendering and native-addon gaps.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "cloudflare/workerd": {
+   "name": "cloudflare/workerd",
+   "github_id": 537085161,
+   "url": "https://github.com/cloudflare/workerd",
+   "description": "The JavaScript / Wasm runtime that powers Cloudflare Workers",
+   "language": "C++",
+   "license": "Apache-2.0",
+   "topics": [],
+   "stars": 9274,
+   "created": "2022-09-15",
+   "pushed": "2026-11-26",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 9274,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 537085161,
+    "topics": [
+     "javascript runtime",
+     "wasm runtime",
+     "cloudflare workers",
+     "local edge"
+    ],
+    "sources": [
+     "https://github.com/orgs/cloudflare/repositories"
+    ],
+    "caution": "Apache-2.0 V8/Cap'n Proto runtime; self-hosted sandboxing requires OS-level isolation beyond V8 isolates alone.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "cloudflare/workers-oauth-provider": {
+   "name": "cloudflare/workers-oauth-provider",
+   "github_id": 946716231,
+   "url": "https://github.com/cloudflare/workers-oauth-provider",
+   "description": "OAuth provider library for Cloudflare Workers",
+   "language": "TypeScript",
+   "license": "MIT",
+   "topics": [],
+   "stars": 1903,
+   "created": "2025-03-11",
+   "pushed": "2026-11-25",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 1903,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 946716231,
+    "topics": [
+     "oauth 2.1",
+     "mcp auth",
+     "cloudflare workers",
+     "pkce"
+    ],
+    "sources": [
+     "https://github.com/orgs/cloudflare/repositories"
+    ],
+    "caution": "MIT OAuth provider wrapper for Workers; enforce PKCE, strict redirect URI allowlists, audience checks, and KV/DO token TTLs.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "codesouvik/clion-standalone-enhancement": {
    "name": "CodeSouvik/clion-standalone-enhancement",
@@ -7063,6 +7501,299 @@
     "github-trending-weekly"
    ]
   },
+  "vercel-labs/deepsec": {
+   "name": "vercel-labs/deepsec",
+   "github_id": 1225774688,
+   "url": "https://github.com/vercel-labs/deepsec",
+   "description": "Deepsec is a security harness for finding vulnerabilities in your codebase powered by coding agents",
+   "language": "TypeScript",
+   "license": "Apache-2.0",
+   "topics": [],
+   "stars": 8618,
+   "created": "2026-04-30",
+   "pushed": "2026-11-25",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 8618,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1225774688,
+    "topics": [
+     "security scanner",
+     "vulnerability harness",
+     "diff security review",
+     "sandboxed audit"
+    ],
+    "sources": [
+     "https://github.com/orgs/vercel-labs/repositories"
+    ],
+    "caution": "Apache-2.0 agentic scanner; full-repo runs can incur high token spend—set --max-cost-usd and isolate untrusted code in sandboxes.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "vercel-labs/dev3000": {
+   "name": "vercel-labs/dev3000",
+   "github_id": 1049400318,
+   "url": "https://github.com/vercel-labs/dev3000",
+   "description": "Captures your web app's complete development timeline - server logs, browser events, console messages, network requests, and automatic screenshots - in a unified, timestamped feed for AI debugging.",
+   "language": "TypeScript",
+   "license": "MIT",
+   "topics": [
+    "ai",
+    "devtools",
+    "web"
+   ],
+   "stars": 1604,
+   "created": "2025-09-02",
+   "pushed": "2026-11-18",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 1604,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1049400318,
+    "topics": [
+     "browser timeline",
+     "cdp network capture",
+     "server logs",
+     "agent debugging"
+    ],
+    "sources": [
+     "https://github.com/orgs/vercel-labs/repositories"
+    ],
+    "caution": "MIT unified server+browser timeline; credential redaction is best-effort, so never paste raw payloads into public logs.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "vercel-labs/emulate": {
+   "name": "vercel-labs/emulate",
+   "github_id": 1187384370,
+   "url": "https://github.com/vercel-labs/emulate",
+   "description": "API emulators for local dev, CI and sandboxes",
+   "language": "TypeScript",
+   "license": "Apache-2.0",
+   "topics": [],
+   "stars": 2110,
+   "created": "2026-03-20",
+   "pushed": "2026-11-26",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 2110,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1187384370,
+    "topics": [
+     "local api emulator",
+     "stripe webhooks",
+     "github api",
+     "offline ci sandbox"
+    ],
+    "sources": [
+     "https://github.com/orgs/vercel-labs/repositories"
+    ],
+    "caution": "Apache-2.0 stateful SaaS/AI API emulators; keep bound to 127.0.0.1 and still run final sandbox smoke checks against real providers.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "vercel-labs/json-render": {
+   "name": "vercel-labs/json-render",
+   "github_id": 1134411737,
+   "url": "https://github.com/vercel-labs/json-render",
+   "description": "The Generative UI framework",
+   "language": "TypeScript",
+   "license": "Apache-2.0",
+   "topics": [],
+   "stars": 19852,
+   "created": "2026-01-14",
+   "pushed": "2026-11-23",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 19852,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1134411737,
+    "topics": [
+     "generative ui",
+     "zod component catalog",
+     "streaming ui",
+     "svelte react"
+    ],
+    "sources": [
+     "https://github.com/orgs/vercel-labs/repositories"
+    ],
+    "caution": "Apache-2.0 catalog-constrained Generative UI; keep action handlers server-authorized and never allow arbitrary code/script props.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "vercel-labs/lat.md": {
+   "name": "vercel-labs/lat.md",
+   "github_id": 1177225364,
+   "url": "https://github.com/vercel-labs/lat.md",
+   "description": "Agent Lattice: a knowledge graph for your codebase, written in markdown.",
+   "language": "TypeScript",
+   "license": "MIT",
+   "topics": [],
+   "stars": 2098,
+   "created": "2026-03-09",
+   "pushed": "2026-11-25",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 2098,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1177225364,
+    "topics": [
+     "codebase knowledge graph",
+     "markdown lattice",
+     "referential check",
+     "offline search"
+    ],
+    "sources": [
+     "https://github.com/orgs/vercel-labs/repositories"
+    ],
+    "caution": "MIT markdown knowledge graph; run lat check in CI so [[wiki-links]] and // @lat: source backlinks do not drift from code.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "vercel-labs/opensrc": {
+   "name": "vercel-labs/opensrc",
+   "github_id": 1129171970,
+   "url": "https://github.com/vercel-labs/opensrc",
+   "description": "Fetch source code for npm packages to give AI coding agents deeper context",
+   "language": "Rust",
+   "license": "Apache-2.0",
+   "topics": [
+    "ai",
+    "ai-coding",
+    "cli",
+    "coding-agents",
+    "developer-tools",
+    "llm",
+    "nodejs",
+    "npm",
+    "source-code",
+    "typescript"
+   ],
+   "stars": 3042,
+   "created": "2026-01-06",
+   "pushed": "2026-09-16",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 3042,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1129171970,
+    "topics": [
+     "dependency source context",
+     "npm source fetch",
+     "coding agent context"
+    ],
+    "sources": [
+     "https://github.com/orgs/vercel-labs/repositories"
+    ],
+    "caution": "Apache-2.0 source fetcher; keep opensrc/ gitignored and treat fetched third-party package text as untrusted data, not instructions.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "vercel-labs/portless": {
+   "name": "vercel-labs/portless",
+   "github_id": 1158537997,
+   "url": "https://github.com/vercel-labs/portless",
+   "description": "Replace port numbers with stable, named local URLs. For humans and agents.",
+   "language": "TypeScript",
+   "license": "Apache-2.0",
+   "topics": [],
+   "stars": 12968,
+   "created": "2026-02-15",
+   "pushed": "2026-11-25",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 12968,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1158537997,
+    "topics": [
+     "named localhost urls",
+     "git worktree isolation",
+     "local https proxy"
+    ],
+    "sources": [
+     "https://github.com/orgs/vercel-labs/repositories"
+    ],
+    "caution": "Apache-2.0 local reverse proxy; default trust setup installs a local CA and edits hosts—use --no-tls or --unprivileged when restricted.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "vercel-labs/skills": {
+   "name": "vercel-labs/skills",
+   "github_id": 1134543109,
+   "url": "https://github.com/vercel-labs/skills",
+   "description": "The open agent skills tool - npx skills",
+   "language": "TypeScript",
+   "license": "MIT",
+   "topics": [],
+   "stars": 40995,
+   "created": "2026-01-14",
+   "pushed": "2026-11-17",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 40995,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1134543109,
+    "topics": [
+     "agent skills cli",
+     "skills lockfile",
+     "sha256 content hash",
+     "cross-harness"
+    ],
+    "sources": [
+     "https://github.com/orgs/vercel-labs/repositories"
+    ],
+    "caution": "MIT skills CLI; set DISABLE_TELEMETRY=1 when telemetry is undesired, pin commit hashes in skills-lock.json, and audit skill scripts.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
   "vercel-labs/ui": {
    "name": "vercel-labs/ui",
    "github_id": 1434724807,
@@ -7095,6 +7826,377 @@
    "seen_in": [
     "github-search:topic:mcp"
    ]
+  },
+  "vercel-labs/web-interface-guidelines": {
+   "name": "vercel-labs/web-interface-guidelines",
+   "github_id": 1053871163,
+   "url": "https://github.com/vercel-labs/web-interface-guidelines",
+   "description": "Guidelines for building interfaces on the Web.",
+   "language": "Shell",
+   "license": "MIT",
+   "topics": [
+    "design",
+    "interface",
+    "nextjs",
+    "react",
+    "ui"
+   ],
+   "stars": 1263,
+   "created": "2025-09-10",
+   "pushed": "2026-10-05",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 1263,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1053871163,
+    "topics": [
+     "web accessibility",
+     "focus management",
+     "keyboard ux",
+     "interaction polish"
+    ],
+    "sources": [
+     "https://github.com/orgs/vercel-labs/repositories"
+    ],
+    "caution": "MIT interface checklist; separate universal WAI-ARIA/ergonomic rules from the Vercel-brand copywriting section at the end.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "vercel/ai": {
+   "name": "vercel/ai",
+   "github_id": 644461337,
+   "url": "https://github.com/vercel/ai",
+   "description": "The AI Toolkit for TypeScript. From the creators of Next.js, the AI SDK is a free open-source library for building AI-powered applications and agents",
+   "language": "TypeScript",
+   "license": "NOASSERTION",
+   "topics": [
+    "anthropic",
+    "artificial-intelligence",
+    "gemini",
+    "generative-ai",
+    "generative-ui",
+    "javascript",
+    "language-model",
+    "llm",
+    "nextjs",
+    "openai",
+    "react",
+    "svelte"
+   ],
+   "stars": 28232,
+   "created": "2023-05-23",
+   "pushed": "2026-11-26",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 28232,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 644461337,
+    "topics": [
+     "typescript ai sdk",
+     "streaming ui",
+     "tool calling",
+     "structured output"
+    ],
+    "sources": [
+     "https://github.com/orgs/vercel/repositories"
+    ],
+    "caution": "Apache-2.0 (LICENSE header); keep provider keys server-side, bound tool loops, and validate structured outputs before effects.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "vercel/chat": {
+   "name": "vercel/chat",
+   "github_id": 1120872920,
+   "url": "https://github.com/vercel/chat",
+   "description": "Universal chat layer for building bots and agents.",
+   "language": "TypeScript",
+   "license": "MIT",
+   "topics": [
+    "ai",
+    "chat",
+    "discord",
+    "google-chat",
+    "slack",
+    "teams",
+    "vercel"
+   ],
+   "stars": 2494,
+   "created": "2025-12-22",
+   "pushed": "2026-11-26",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 2494,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1120872920,
+    "topics": [
+     "chat bot sdk",
+     "slack",
+     "teams",
+     "discord",
+     "multi-platform adapters"
+    ],
+    "sources": [
+     "https://github.com/orgs/vercel/repositories"
+    ],
+    "caution": "MIT multi-channel bot SDK; verify webhook signatures on raw bodies and check per-platform feature parity in @chat-adapter/catalog.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "vercel/eve": {
+   "name": "vercel/eve",
+   "github_id": 1271113810,
+   "url": "https://github.com/vercel/eve",
+   "description": "The Open Framework for Building Agents",
+   "language": "TypeScript",
+   "license": "Apache-2.0",
+   "topics": [
+    "agent",
+    "framework",
+    "harness",
+    "javascript",
+    "markdown",
+    "sandbox",
+    "typescript",
+    "vercel",
+    "workflows"
+   ],
+   "stars": 6089,
+   "created": "2026-06-16",
+   "pushed": "2026-11-26",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 6089,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1271113810,
+    "topics": [
+     "filesystem agent framework",
+     "durable agents",
+     "typescript agents",
+     "schedules"
+    ],
+    "sources": [
+     "https://github.com/orgs/vercel/repositories"
+    ],
+    "caution": "Apache-2.0 filesystem-first agent framework; gate tool side effects, spend budgets, and AI Gateway/provider auth explicitly.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "vercel/resumable-stream": {
+   "name": "vercel/resumable-stream",
+   "github_id": 969842321,
+   "url": "https://github.com/vercel/resumable-stream",
+   "description": "Stream resumption for web streams",
+   "language": "TypeScript",
+   "license": "MIT",
+   "topics": [],
+   "stars": 583,
+   "created": "2025-04-21",
+   "pushed": "2026-09-16",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 583,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 969842321,
+    "topics": [
+     "sse resumption",
+     "serverless streaming",
+     "redis pubsub",
+     "reconnect"
+    ],
+    "sources": [
+     "https://github.com/orgs/vercel/repositories"
+    ],
+    "caution": "MIT Redis/Valkey-backed stream resumption; scope streamId authorization per user so another tenant cannot subscribe by ID.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "vercel/sandbox": {
+   "name": "vercel/sandbox",
+   "github_id": 1140519292,
+   "url": "https://github.com/vercel/sandbox",
+   "description": "Vercel Sandbox is an ephemeral compute primitive designed to safely run untrusted or user-generated code.",
+   "language": "TypeScript",
+   "license": "Apache-2.0",
+   "topics": [],
+   "stars": 232,
+   "created": "2026-01-23",
+   "pushed": "2026-11-26",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 232,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1140519292,
+    "topics": [
+     "firecracker microvm",
+     "ephemeral compute",
+     "code execution sandbox",
+     "oidc"
+    ],
+    "sources": [
+     "https://github.com/orgs/vercel/repositories"
+    ],
+    "caution": "Apache-2.0 SDK for paid/metered Vercel Firecracker microVMs; prefer short-lived OIDC tokens, explicit timeouts, and egress limits.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "vercel/streamdown": {
+   "name": "vercel/streamdown",
+   "github_id": 1038323680,
+   "url": "https://github.com/vercel/streamdown",
+   "description": "A drop-in replacement for react-markdown, designed for AI-powered streaming.",
+   "language": "TypeScript",
+   "license": "NOASSERTION",
+   "topics": [
+    "ai",
+    "markdown",
+    "streaming"
+   ],
+   "stars": 5789,
+   "created": "2025-08-15",
+   "pushed": "2026-11-26",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 5789,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1038323680,
+    "topics": [
+     "streaming markdown",
+     "syntax healing",
+     "ai chat ui",
+     "react markdown"
+    ],
+    "sources": [
+     "https://github.com/orgs/vercel/repositories"
+    ],
+    "caution": "Apache-2.0 streaming Markdown renderer; enforce image prefix allowlists, disallow data: images, and keep HTML sanitization active.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "vercel/turborepo": {
+   "name": "vercel/turborepo",
+   "github_id": 413918947,
+   "url": "https://github.com/vercel/turborepo",
+   "description": "The build system for coding agents.",
+   "language": "Rust",
+   "license": "MIT",
+   "topics": [
+    "build-system",
+    "build-tool",
+    "javascript",
+    "monorepo",
+    "typescript"
+   ],
+   "stars": 31394,
+   "created": "2021-10-05",
+   "pushed": "2026-11-26",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 31394,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 413918947,
+    "topics": [
+     "monorepo build system",
+     "remote cache",
+     "affected graph",
+     "package boundaries"
+    ],
+    "sources": [
+     "https://github.com/orgs/vercel/repositories"
+    ],
+    "caution": "MIT build system; enable remote cache artifact signing and never let untrusted fork PRs write to shared production caches.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
+  },
+  "vercel/workflow": {
+   "name": "vercel/workflow",
+   "github_id": 1081770999,
+   "url": "https://github.com/vercel/workflow",
+   "description": "Workflow SDK: Build durable, reliable, and observable apps and AI Agents in TypeScript",
+   "language": "TypeScript",
+   "license": "Apache-2.0",
+   "topics": [
+    "ai-agents",
+    "durable-execution",
+    "orchestration",
+    "serverless",
+    "vercel",
+    "workflow-engine",
+    "workflows"
+   ],
+   "stars": 2535,
+   "created": "2025-10-23",
+   "pushed": "2026-11-26",
+   "archived": false,
+   "fork": false,
+   "first_seen": "2026-11-26",
+   "stars_first_seen": 2535,
+   "last_seen": "2026-11-26",
+   "seen_in": [
+    "reference-library"
+   ],
+   "reference": {
+    "github_id": 1081770999,
+    "topics": [
+     "durable execution",
+     "typescript workflows",
+     "step retries",
+     "observability"
+    ],
+    "sources": [
+     "https://github.com/orgs/vercel/repositories"
+    ],
+    "caution": "Apache-2.0 durable workflow SDK; make external step side effects idempotent and register lifecycle hooks only at host startup.",
+    "reviewed": "2026-11-26",
+    "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN"
+   }
   },
   "vesuvio1/display-fusion": {
    "name": "Vesuvio1/display-fusion",
@@ -7711,5 +8813,6 @@
     "github-search:new-this-month"
    ]
   }
- }
+ },
+ "reference_revision": "73901dfc9f261dccf86e1304aa2b7e6af380e80bc4fa81d199a5437ddedafcf2"
 }

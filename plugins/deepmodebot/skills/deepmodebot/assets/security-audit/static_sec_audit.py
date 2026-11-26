@@ -66,6 +66,28 @@ CODE_RULES: tuple[tuple[str, str, set[str], re.Pattern[str], str], ...] = (
         re.compile(r"\bsubprocess\.(?:run|Popen|call|check_output|check_call)\s*\(\s*f['\"].*shell\s*=\s*True"),
         "subprocess call combines f-string command interpolation with shell=True; pass an argv list with shell=False",
     ),
+    (
+        "client-bundle-secret-env",
+        "error",
+        {".py", ".js", ".ts", ".mjs", ".cjs", ".jsx", ".tsx", ".svelte", ".vue"},
+        re.compile(
+            r"\b(?:NEXT_PUBLIC|VITE|EXPO_PUBLIC|NUXT_PUBLIC)_[A-Z0-9_]*(?:SECRET|PRIVATE_KEY|SERVICE_ROLE|DATABASE_URL|WEBHOOK_SECRET)[A-Z0-9_]*\b"
+        ),
+        "Client-bundled public env prefix exposes server secret/key/DB credential to browser bundles; keep server-only",
+    ),
+    (
+        "llm-sdk-browser-key-exposure",
+        "error",
+        {".js", ".ts", ".mjs", ".cjs", ".jsx", ".tsx", ".svelte", ".vue"},
+        re.compile(r"\bdangerouslyAllowBrowser\s*:\s*true\b"),
+        "LLM SDK dangerouslyAllowBrowser: true leaks provider API keys to browser clients; proxy via server route",
+    ),
+)
+
+WRANGLER_CONFIG_NAMES = frozenset({"wrangler.toml", "wrangler.json", "wrangler.jsonc"})
+WRANGLER_SECRET_KV_RE = re.compile(
+    r"""['"]?[A-Za-z0-9_]*(?:SECRET|PRIVATE_KEY|PASSWORD|SERVICE_ROLE|API_KEY|AUTH_TOKEN)[A-Za-z0-9_]*['"]?\s*[:=]\s*['"](?!\s*['"]|<|YOUR_|REPLACE_|CHANGE_ME|\$\{)[^'"]{6,}['"]""",
+    re.I,
 )
 
 
@@ -163,22 +185,53 @@ def scan_repo(root: Path) -> dict:
             files_scanned += 1
             findings.extend(audit_workflow_yaml(wf, wf.relative_to(root).as_posix()))
 
-    code_exts = {".py", ".js", ".ts", ".mjs", ".cjs"}
+    code_exts = {".py", ".js", ".ts", ".mjs", ".cjs", ".jsx", ".tsx", ".svelte", ".vue"}
+    env_secret_re = re.compile(
+        r"^\s*(?:export\s+)?(?:NEXT_PUBLIC|VITE|EXPO_PUBLIC|NUXT_PUBLIC)_[A-Z0-9_]*(?:SECRET|PRIVATE_KEY|SERVICE_ROLE|DATABASE_URL|WEBHOOK_SECRET)[A-Z0-9_]*\s*="
+    )
     self_path = Path(__file__).resolve()
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS)
         base = Path(dirpath)
         for fname in sorted(filenames):
-            if fname.startswith("test_") or fname.endswith((".test.ts", ".test.js", ".test.mjs", "_test.py")):
+            if fname.startswith("test_") or fname.endswith((".test.ts", ".test.js", ".test.mjs", ".test.tsx", "_test.py")):
                 continue
             p = base / fname
             if p.resolve() == self_path:
+                continue
+            rel = p.relative_to(root).as_posix()
+            low_name = fname.lower()
+            if low_name in WRANGLER_CONFIG_NAMES:
+                files_scanned += 1
+                for lineno, line in enumerate(p.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+                    s = line.lstrip()
+                    if s.startswith(("#", "//")):
+                        continue
+                    if WRANGLER_SECRET_KV_RE.search(line):
+                        findings.append({
+                            "file": rel,
+                            "line": lineno,
+                            "severity": "error",
+                            "rule": "wrangler-vars-secret",
+                            "message": "Plaintext secret/key configured in Wrangler config; store via `wrangler secret put` instead of `vars`",
+                        })
+                continue
+            if low_name.startswith(".env"):
+                files_scanned += 1
+                for lineno, line in enumerate(p.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+                    if env_secret_re.search(line):
+                        findings.append({
+                            "file": rel,
+                            "line": lineno,
+                            "severity": "error",
+                            "rule": "client-bundle-secret-env",
+                            "message": "Client-exposed env variable holds a secret/private/DB credential; drop the public prefix",
+                        })
                 continue
             ext = p.suffix.lower()
             if ext not in code_exts:
                 continue
             files_scanned += 1
-            rel = p.relative_to(root).as_posix()
             text = p.read_text(encoding="utf-8", errors="replace")
             line_map = (
                 _strip_comments_and_docstrings_py(text)

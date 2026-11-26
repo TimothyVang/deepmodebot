@@ -70,7 +70,14 @@ A11Y_NAME_ATTR_RE = re.compile(
     r"\b(?:aria-label|aria-labelledby|title)\s*=\s*(?:['\"][^'\"]*\S[^'\"]*['\"]|\{\s*(?!['\"]\s*['\"]\s*\})[^}]+\})",
     re.I,
 )
-
+VIEWPORT_ZOOM_LOCK_RE = re.compile(
+    r"<meta\b(?=[^>]*\bname\s*=\s*['\"]viewport['\"])(?=[^>]*\buser-scalable\s*=\s*['\"]?(?:no|0)\b)[^>]*>",
+    re.I,
+)
+PASTE_BLOCK_INPUT_RE = re.compile(
+    r"<(?:input|textarea)\b(?:[^>'\"{}]|'[^']*'|\"[^\"]*\"|\{[^}]*\})*?\bonpaste\s*=\s*(?:['\"][^'\"]*(?:preventdefault|return\s+false)[^'\"]*['\"]|\{[^}]*preventdefault\s*\([^}]*\})",
+    re.I,
+)
 BROWSER_AUDIT_SNIPPET = r"""(() => {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
@@ -217,6 +224,10 @@ BROWSER_AUDIT_SNIPPET = r"""(() => {
   const heroClippedAboveFold = Boolean(vw >= 1280 && h1Rect && h1Rect.bottom > Math.max(vh, 800));
   const rootOx = getComputedStyle(document.documentElement).overflowX;
   const overflowHiddenBreaksSticky = (rootOx === "hidden" || bodyCs.overflowX === "hidden") && [...document.querySelectorAll("body *")].some(n => getComputedStyle(n).position === "sticky");
+  const vpMeta = document.querySelector("meta[name='viewport']");
+  const zoomDisabled = Boolean(vpMeta && /user-scalable\s*=\s*(?:no|0)\b/i.test(vpMeta.getAttribute("content") || ""));
+  const rootBg = effectiveBg(document.body);
+  const missingDarkColorScheme = luminance(rootBg) < 0.08 && !String(getComputedStyle(document.documentElement).colorScheme || "").includes("dark");
   return {
     viewport: `${vw}x${vh}`,
     overflowX,
@@ -242,6 +253,8 @@ BROWSER_AUDIT_SNIPPET = r"""(() => {
     deadFormsOrHashLinks,
     heroClippedAboveFold,
     overflowHiddenBreaksSticky,
+    zoomDisabled,
+    missingDarkColorScheme,
     brokenImages,
   };
 })()"""
@@ -314,6 +327,12 @@ def audit_source(text: str, rel: str, suffix: str) -> list[dict]:
             if FAKE_LIVE_PULSE_RE.search(line) and not LIVE_STATUS_A11Y_RE.search(line):
                 findings.append({"severity": "P2", "rule": "no-fake-live-pulse", "file": rel, "line": idx,
                                  "message": "Avoid unwired `animate-pulse` decorative `LIVE/ONLINE/SYNCED` dots (`unslop-ui` U10); wire real state with `role='status'`."})
+            if VIEWPORT_ZOOM_LOCK_RE.search(line):
+                findings.append({"severity": "P1", "rule": "no-zoom-disable", "file": rel, "line": idx,
+                                 "message": "Never disable browser zoom (`user-scalable=no`); size mobile `<input>` text `>= 16px` instead."})
+            if PASTE_BLOCK_INPUT_RE.search(line):
+                findings.append({"severity": "P1", "rule": "no-paste-block", "file": rel, "line": idx,
+                                 "message": "Never disable paste (`onPaste` `preventDefault`/`return false`) on `<input>` or `<textarea>`."})
             for m_img in IMG_TAG_RE.finditer(line):
                 if not ALT_ATTR_RE.search(m_img.group(0)):
                     findings.append({"severity": "P0", "rule": "img-alt", "file": rel, "line": idx,

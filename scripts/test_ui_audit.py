@@ -43,6 +43,8 @@ class UiAuditTests(unittest.TestCase):
     <div className="bg-black">
       <input type="checkbox" className="w-4 h-4 rounded-full" />
       <button className="icon-btn"><svg viewBox="0 0 16 16"><path d="M0 0h16v16H0z"/></svg></button>
+      <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+      <input type="password" onPaste={(e) => e.preventDefault()} />
       <div><span className="w-2 h-2 rounded-full animate-pulse"></span> LIVE</div>
     </div>
   );
@@ -52,8 +54,9 @@ class UiAuditTests(unittest.TestCase):
         self.assertEqual(by_rule.get("no-pure-black-surface"), "P1")
         self.assertEqual(by_rule.get("checkbox-not-circular"), "P1")
         self.assertEqual(by_rule.get("icon-button-label"), "P1")
+        self.assertEqual(by_rule.get("no-zoom-disable"), "P1")
+        self.assertEqual(by_rule.get("no-paste-block"), "P1")
         self.assertEqual(by_rule.get("no-fake-live-pulse"), "P2")
-
         bad_css = """.drawer { width: 100vw; transition: width 220ms ease-out; background: #000000; transform: scale(0); }
 :focus-visible { outline: 2px solid var(--accent); }
 @media (prefers-reduced-motion: reduce) { .drawer { transition: none; } }"""
@@ -73,6 +76,7 @@ export function SelectRow({ x, y }: { x: number; y: number }) {
     <div>
       <button type="button"><svg viewBox="0 0 16 16"></svg> English (US) <svg viewBox="0 0 12 12"></svg></button>
       <label><input type="checkbox" className="rounded-sm" /><span className="rounded-full">12</span></label>
+      <input type="text" onPaste={handleOtpPaste} />
       <div style={{ transition: "transform 150ms ease-out", width: 260, top: y, left: x }}>Menu</div>
     </div>
   );

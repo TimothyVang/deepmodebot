@@ -6,6 +6,7 @@ Summary (facts checked 2026-11-11):
 - Enforce package boundaries with a tool (Nx module boundaries, `turbo boundaries`, dependency-cruiser, sheriff, import-linter); agents do not respect conventions that are not checked.
 - Agent context: one root `AGENTS.md` plus short per-package files. Harnesses load nested files differently (Codex and Antigravity: root/ancestors to cwd only, ignoring subfolders below cwd; Claude Code: subdirectories on demand; omp: ancestors plus pointers), so put package commands where the agent will actually start.
 - Remote cache security is real: Nx deprecated its bucket cache plugins over cache poisoning (CVE-2025-36852); never let untrusted PR builds write to the cache `main` reads.
+- Parallel worktree dev servers: use [`vercel-labs/portless`](https://github.com/vercel-labs/portless) (Apache-2.0) so each linked git worktree serves `https://<branch-tail>.<app>.localhost` on an isolated free port (`4000–4999`) instead of colliding on `:3000` (in Turborepo roots, ensure package dev configs honor `PORT`/`HOST` or pass `--no-turbo` when invoking per-app). When a large monorepo's domain decisions and test specs outgrow flat `AGENTS.md` files, evaluate [`vercel-labs/lat.md`](https://github.com/vercel-labs/lat.md) (MIT) with `lat check` in CI to enforce bidirectional `[[wiki-link]]` <-> `// @lat:` source backlinks.
 
 ## 1. Monorepo or polyrepo
 

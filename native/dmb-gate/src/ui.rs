@@ -340,6 +340,79 @@ fn has_unlabeled_icon_button(low: &str) -> bool {
     false
 }
 
+fn has_viewport_zoom_lock(low: &str) -> bool {
+    let mut from = 0;
+    while let Some(rel_m) = low[from..].find("<meta") {
+        let start = from + rel_m;
+        let Some(rel_gt) = low[start..].find('>') else { break };
+        let tag = &low[start..=start + rel_gt];
+        from = start + rel_gt + 1;
+        let compact: String = tag.chars().filter(|c| !c.is_ascii_whitespace()).collect();
+        if (compact.contains("name=\"viewport\"") || compact.contains("name='viewport'"))
+            && (compact.contains("user-scalable=no")
+                || compact.contains("user-scalable='no'")
+                || compact.contains("user-scalable=\"no\"")
+                || compact.contains("user-scalable=0"))
+        {
+            return true;
+        }
+    }
+    false
+}
+
+fn find_jsx_tag_close(s: &str) -> Option<usize> {
+    let bytes = s.as_bytes();
+    let mut quote: Option<u8> = None;
+    let mut braces = 0usize;
+    let mut i = 0;
+    while i < bytes.len() {
+        let b = bytes[i];
+        if let Some(q) = quote {
+            if b == b'\\' {
+                i += 2;
+                continue;
+            }
+            if b == q {
+                quote = None;
+            }
+        } else {
+            match b {
+                b'"' | b'\'' => quote = Some(b),
+                b'{' => braces += 1,
+                b'}' => braces = braces.saturating_sub(1),
+                b'>' if braces == 0 => return Some(i),
+                _ => {}
+            }
+        }
+        i += 1;
+    }
+    None
+}
+
+fn has_paste_block_input(low: &str) -> bool {
+    for pat in ["<input", "<textarea"] {
+        let mut from = 0;
+        while let Some(rel_i) = low[from..].find(pat) {
+            let start = from + rel_i;
+            let after_kw = start + pat.len();
+            if matches!(low.as_bytes().get(after_kw), Some(b) if b.is_ascii_alphanumeric() || *b == b'-') {
+                from = after_kw;
+                continue;
+            }
+            let Some(rel_gt) = find_jsx_tag_close(&low[start..]) else { break };
+            let tag = &low[start..=start + rel_gt];
+            from = start + rel_gt + 1;
+            if let Some(op) = tag.find("onpaste") {
+                let after_op = &tag[op..];
+                if after_op.contains("preventdefault") || after_op.contains("return false") {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
 pub fn scan_ui(rel: &str, text: &str) -> Vec<UiFinding> {
     let mut out = Vec::new();
     let ext = Path::new(rel)
@@ -409,6 +482,24 @@ pub fn scan_ui(rel: &str, text: &str) -> Vec<UiFinding> {
                     file: rel.to_string(),
                     line: ln,
                     message: "Icon-only `<button>` missing `aria-label`/`aria-labelledby` (and tooltip).",
+                });
+            }
+            if has_viewport_zoom_lock(&low) {
+                out.push(UiFinding {
+                    severity: "P1",
+                    rule: "ui-no-zoom-disable",
+                    file: rel.to_string(),
+                    line: ln,
+                    message: "Never disable browser zoom (`user-scalable=no`); size mobile `<input>` text `>= 16px` instead.",
+                });
+            }
+            if has_paste_block_input(&low) {
+                out.push(UiFinding {
+                    severity: "P1",
+                    rule: "ui-no-paste-block",
+                    file: rel.to_string(),
+                    line: ln,
+                    message: "Never disable paste (`onPaste` `preventDefault`/`return false`) on `<input>` or `<textarea>`.",
                 });
             }
         }

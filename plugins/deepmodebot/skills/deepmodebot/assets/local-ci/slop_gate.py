@@ -46,6 +46,12 @@ SECRET_PATTERNS = (
 UNPINNED_ACTION_RE = re.compile(r"^\s*-?\s*uses:\s*[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+@(?:main|master)\b")
 TS_CAST_SLOP_RE = re.compile(r"\bas\s+(?:any|unknown\s+as)\b")
 UNSAFE_WEB_SINK_RE = re.compile(r"(?:\.innerHTML\s*=|\bdangerouslySetInnerHTML\b|\beval\s*\()")
+CLIENT_ENV_SECRET_RE = re.compile(
+    r"\b(?:NEXT_PUBLIC|VITE|EXPO_PUBLIC|NUXT_PUBLIC)_[A-Z0-9_]*(?:SECRET|PRIVATE_KEY|SERVICE_ROLE|DATABASE_URL|WEBHOOK_SECRET)[A-Z0-9_]*\b"
+)
+LLM_BROWSER_KEY_RE = re.compile(r"\bdangerouslyAllowBrowser\s*:\s*true\b")
+WORKERS_LEGACY_DO_RE = re.compile(r"\bclass\s+[A-Za-z_$][\w$]*\s+implements\s+DurableObject\b")
+WORKERS_CTX_DESTRUCTURE_RE = re.compile(r"\b(?:const|let|var)\s*\{\s*waitUntil\b[^}]*\}\s*=\s*ctx\b")
 RUST_UNWRAP_RE = re.compile(r"""(?<!['"`])\.unwrap\s*\(\s*\)(?!['"`])""")
 GO_IGNORED_ERR_RE = re.compile(r"\b_\s*=\s*err\b")
 JS_IMPORT_RE = re.compile(r"""(?:import\s+(?:[^'"]+?\s+from\s+)?|require\s*\(\s*)['"]([^'"]+)['"]""")
@@ -245,6 +251,22 @@ def _check_secrets_and_patterns(rel: str, added_lines: dict[int, str], full_text
             findings.append({"severity": "P1", "rule": "ts-unsafe-cast", "file": rel, "line": ln,
                              "message": "Unsafe `as any` / `as unknown as` type escape.",
                              "fix": "Narrow with a proper type guard or schema parser."})
+        if not in_test_ctx and CLIENT_ENV_SECRET_RE.search(line):
+            findings.append({"severity": "P0", "rule": "client-env-secret", "file": rel, "line": ln,
+                             "message": "Client-exposed env prefix (`NEXT_PUBLIC_`/`VITE_`/`EXPO_PUBLIC_`/`NUXT_PUBLIC_`) names a secret/private/DB credential.",
+                             "fix": "Keep secrets in server-only env vars and access them behind a server route or Action."})
+        if not in_test_ctx and ext in (".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".svelte", ".vue") and LLM_BROWSER_KEY_RE.search(line):
+            findings.append({"severity": "P0", "rule": "llm-browser-key-exposure", "file": rel, "line": ln,
+                             "message": "`dangerouslyAllowBrowser: true` exposes provider API keys in client bundles.",
+                             "fix": "Move LLM SDK calls behind a server endpoint or Durable Object / Edge route."})
+        if not in_test_ctx and ext in (".js", ".mjs", ".ts", ".tsx") and WORKERS_LEGACY_DO_RE.search(line):
+            findings.append({"severity": "P1", "rule": "workers-legacy-implements-do", "file": rel, "line": ln,
+                             "message": "Legacy `implements DurableObject` omits `this.ctx` and `this.env` bindings.",
+                             "fix": "Import `DurableObject` from `cloudflare:workers` and use `extends DurableObject<Env>`."})
+        if not in_test_ctx and ext in (".js", ".mjs", ".ts", ".tsx") and WORKERS_CTX_DESTRUCTURE_RE.search(line):
+            findings.append({"severity": "P1", "rule": "workers-ctx-destructure", "file": rel, "line": ln,
+                             "message": "Destructuring `const { waitUntil } = ctx` loses `ExecutionContext` `this` binding and throws `Illegal invocation`.",
+                             "fix": "Call `ctx.waitUntil(...)` directly on `ctx`."})
         if not in_test_ctx and ext in (".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".html") and UNSAFE_WEB_SINK_RE.search(line):
             findings.append({"severity": "P1", "rule": "security-unsafe-sink", "file": rel, "line": ln,
                              "message": "Unsafe dynamic sink (`eval`/`innerHTML`/`dangerouslySetInnerHTML`).",
