@@ -46,6 +46,7 @@
 | EXP-10Y | 2026-04-11 | [10+ Years of Software Engineering Experience in 6 Minutes](https://youtu.be/FCokcO7YhzE) |
 | FABLE | 2026-11-10 | [Claude Fable 5.2 Is Here- and It’s Fire 🔥](https://youtu.be/WShnPxaPet0) |
 | FDE | 2026-10-28 | [Forward Deployment Engineer Roadmap: The AI Job That’s Exploding Right Now](https://youtu.be/A7PBx08b0WU) |
+| FERMAT | 2026-11-25 | [1,000 Claude Agents Formalized Fermat's Last Theorem — Lance Martin, Anthropic](https://www.youtube.com/watch?v=wrfbI5eyLAI) |
 | FORGETS | 2026-08-11 | [Why ChatGPT, Claude and Gemini Forgets Everything???](https://youtu.be/ZBuDOmCCmsI) |
 | FRAMEWORKS-2026 | 2026-04-11 | [10 Backend Frameworks That Will Dominate 2026](https://youtu.be/dAeK3Gnikbg) |
 | GITHUB | 2026-02-11 | [Every GitHub Concept Explained in 2 Minutes](https://youtu.be/txE9MO7Vwl4) |

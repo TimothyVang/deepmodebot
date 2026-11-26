@@ -47,6 +47,7 @@ Apply clean cutover to each closed slice: migrate its callers and delete its sup
 - No structure moves before the pin exists and is green.
 - Unit tests and characterization pins must mock or block live production inference and paid external APIs so refactor test loops cannot burn production budgets (`https://www.youtube.com/watch?v=6TjFjHPjVH0`, 06:33).
 - Verify renamed architectural abstractions in code, not just plans: confirm each "agent", "skill", or runtime actually implements the promised contract rather than aliasing a stub or leaving scheduled outputs empty (`https://www.youtube.com/watch?v=6TjFjHPjVH0`, 04:00–07:59).
+- Never translate the test suite alongside a language port; rewritten tests stop being a trusted oracle. Require an unchanged language-independent suite that predates the port and runs against both implementations, or optimize the existing runtime in place (`https://www.youtube.com/watch?v=TvsF67C2F54`, 04:16-04:59, 17:14-17:30).
 - Cleanup reveals a missing feature or real bug → split it out; ship the structural change first against the pinned contract. A redesign is allowed only when named and routed to Feature.
 - Any step turns the pin red → stop and fix before the next step.
 - Structural refactors without a reader-load reduction are reverted. Language ports instead prove their stated migration objective.
