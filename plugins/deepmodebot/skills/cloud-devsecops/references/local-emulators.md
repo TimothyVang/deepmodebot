@@ -1,4 +1,4 @@
-# Local Cloud Emulators (Floci, LocalStack, moto, Azurite, Google, Cosmos)
+# Local Cloud & SaaS API Emulators (Floci, emulate, workerd, LocalStack, moto, Azurite)
 
 Read when testing IaC (Terraform/OpenTofu, CDK, Bicep), SDK code, or CI pipelines against AWS, Azure, GCP or OCI without touching a real account; when choosing or migrating a local emulator; or when a local run "passed" and you must decide whether to trust it. Full report: https://github.com/TimothyVang/cloud-devsecops/blob/main/research/floci-local-cloud-emulators.md
 
@@ -248,6 +248,19 @@ LocalStack to Floci: swap image to a pinned `floci/floci:<version>` (or `-compat
 - OCI: no identity domains, dynamic groups, tag namespaces, object versioning, lifecycle, S3 Compatibility API, secret rotation.
 - Doc contradictions: `persistent` flush timing, snapshots, `floci start --services`, Testcontainers names. Project is under a year old with two main maintainers (bus factor [inference]); vendor speed claims unreproduced.
 
+
+## SaaS, OAuth, Webhook & AI API Emulators (`vercel-labs/emulate`)
+
+When an app or CI/sandbox run calls third-party SaaS APIs, webhooks, OAuth providers, or LLM endpoints without network egress or live keys, run [`vercel-labs/emulate`](https://github.com/vercel-labs/emulate) (Apache-2.0) alongside Floci or `workerd`:
+
+- **Zero-config loopback suite (`npx emulate`):** Binds `127.0.0.1` ports `4000`–`4014` for **Vercel (`:4000`), GitHub (`:4001`), Google (`:4002`), Slack (`:4003`), Apple (`:4004`), Microsoft (`:4005`), Okta (`:4006`), AWS (`:4007`), Resend (`:4008`), Stripe (`:4009`), MongoDB Atlas (`:4010`), Clerk (`:4011`), Linear (`:4012`), Twilio (`:4013`), and AI (`:4014`)**.
+- **Real protocol & webhook invariants (not stub mocks):**
+  - **Stripe (`:4009`):** Signs webhooks with `Stripe-Signature` over `<timestamp>.<raw-body>` when a secret is configured.
+  - **Slack (`:4003`):** Signs callbacks with `X-Slack-Request-Timestamp` + `X-Slack-Signature` (`v0:<timestamp>:<raw-body>` HMAC-SHA256); verify against the unparsed raw body.
+  - **Resend (`:4008`):** Enforces 24-hour `Idempotency-Key` replay on `POST /emails` and `/emails/batch` plus optional `resend.allowlist` / `send_attempts` assertions.
+  - **AI (`:4014`):** Deterministic rule-driven OpenAI Responses/Chat/Images/Audio, Anthropic Messages, Gemini `generateContent`, and Vercel AI SDK streams, tool loops, refusals, disconnects, and stalls offline with zero API spend.
+- **Programmatic & HTTPS workflows:** Use `createEmulator({ service: "github", seed })` in Vitest/Node tests (auto-generates ephemeral RSA-2048 GitHub App keys exposed on `generatedSecrets`, or write owner-only secrets via `--generated-secrets-file`), `npx emulate init --custom <name>` for custom providers, `npx emulate mcp` (redacts credentials/escapes), and `npx emulate start --portless` (`https://github.emulate.localhost`) with [`vercel-labs/portless`](https://github.com/vercel-labs/portless).
+- **Cloudflare local runtime:** `wrangler dev` / `cf dev` runs real `cloudflare/workerd` locally with KV, R2, D1, SQLite Durable Objects, and Workflows; inspect state and traces at `/cdn-cgi/local/explorer` and run unit/integration suites inside `@cloudflare/vitest-plugin` (`cloudflare-edge.md`).
 ## Do / Avoid
 
 **Do**
@@ -262,4 +275,4 @@ LocalStack to Floci: swap image to a pinned `floci/floci:<version>` (or `-compat
 - Treating stubs as output validation or a permissive green run as least-privilege proof.
 - `floci snapshot`; the `-compat` OCI key near real OCI; `FLOCI_SECURITY_ALLOW_UNSAFE_NETWORK_EXPOSURE=true` on shared networks.
 
-Related: `devsecops-pipeline.md`, `aws.md`, `azure.md`, `gcp.md`.
+Related: `cloudflare-edge.md`, `devsecops-pipeline.md`, `aws.md`, `azure.md`, `gcp.md`.

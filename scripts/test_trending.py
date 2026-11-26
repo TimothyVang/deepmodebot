@@ -699,6 +699,16 @@ class ReferenceDiscoveryTests(unittest.TestCase):
         self.assertIn("[new-owner/component]", output.getvalue())
         self.assertIn(self.reference["caution"], output.getvalue())
 
+    def test_render_wraps_oversized_caution_bullets_under_max_line_bytes_while_keeping_full_caution(self):
+        long_ref = {**self.reference, "caution": ("MIT code, separate model terms apply. " * 14).strip()}
+        entry = self.entry("example/long-caution")
+        entry["reference"] = long_ref
+        rendered = catalog.render({"updated": "2026-11-14", "sources": {"reference-library": "1 repos"},
+                                   "repos": {"example/long-caution": entry}})
+        self.assertIn(long_ref["caution"], rendered)
+        for ln in rendered.splitlines():
+            self.assertLessEqual(len(ln.encode("utf-8")), 760)
+
 
 if __name__ == "__main__":
     unittest.main()

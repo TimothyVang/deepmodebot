@@ -144,8 +144,14 @@ fn added_lines_for_file(root: &Path, rel: &str, staged: bool) -> Vec<(usize, Str
 
 fn is_test_file(rel: &str) -> bool {
     let low = rel.to_ascii_lowercase();
-    low.contains("/tests/")
+    low.starts_with("tests/")
+        || low.starts_with("test/")
+        || low.starts_with("spec/")
+        || low.starts_with("__tests__/")
+        || low.contains("/tests/")
         || low.contains("/test/")
+        || low.contains("/spec/")
+        || low.contains("/__tests__/")
         || low.starts_with("test_")
         || low.contains("/test_")
         || low.contains("_test.")
@@ -213,6 +219,194 @@ fn contains_unquoted(line: &str, needle: &str) -> bool {
             return true;
         }
         start = idx + needle.len();
+    }
+    false
+}
+fn is_js_ident_byte(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || b == b'_' || b == b'$'
+}
+
+fn scrub_js_code_line(line: &str) -> String {
+    let bytes = line.as_bytes();
+    let mut out = String::with_capacity(line.len());
+    let mut quote: Option<u8> = None;
+    let mut i = 0;
+    while i < bytes.len() {
+        let b = bytes[i];
+        if let Some(q) = quote {
+            if b == b'\\' && i + 1 < bytes.len() {
+                out.push_str("  ");
+                i += 2;
+                continue;
+            }
+            if b == q {
+                out.push(b as char);
+                quote = None;
+            } else {
+                out.push(' ');
+            }
+            i += 1;
+            continue;
+        }
+        if b == b'/' && i + 1 < bytes.len() && bytes[i + 1] == b'/' {
+            break;
+        }
+        if b == b'/' && i + 1 < bytes.len() && bytes[i + 1] == b'*' {
+            if let Some(rel_end) = line[i + 2..].find("*/") {
+                let span = rel_end + 4;
+                for _ in 0..span {
+                    out.push(' ');
+                }
+                i += span;
+                continue;
+            } else {
+                break;
+            }
+        }
+        if matches!(b, b'\'' | b'"' | b'`') {
+            quote = Some(b);
+            out.push(b as char);
+            i += 1;
+            continue;
+        }
+        let ch = line[i..].chars().next().unwrap_or(' ');
+        out.push(ch);
+        i += ch.len_utf8();
+    }
+    out
+}
+
+fn has_exact_word(haystack: &str, word: &str) -> bool {
+    let bytes = haystack.as_bytes();
+    let mut from = 0;
+    while let Some(rel) = haystack[from..].find(word) {
+        let pos = from + rel;
+        let end = pos + word.len();
+        from = end;
+        let prev_ok = pos == 0 || !is_js_ident_byte(bytes[pos - 1]);
+        let next_ok = end >= bytes.len() || !is_js_ident_byte(bytes[end]);
+        if prev_ok && next_ok {
+            return true;
+        }
+    }
+    false
+}
+
+fn has_client_env_secret(line: &str) -> bool {
+    let bytes = line.as_bytes();
+    for prefix in ["NEXT_PUBLIC_", "VITE_", "EXPO_PUBLIC_", "NUXT_PUBLIC_"] {
+        let mut from = 0;
+        while let Some(rel) = line[from..].find(prefix) {
+            let pos = from + rel;
+            from = pos + prefix.len();
+            if pos > 0 && is_js_ident_byte(bytes[pos - 1]) {
+                continue;
+            }
+            let ident: String = line[pos..]
+                .chars()
+                .take_while(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '$')
+                .collect();
+            if ident
+                .bytes()
+                .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_')
+                && ["SECRET", "PRIVATE_KEY", "SERVICE_ROLE", "DATABASE_URL", "WEBHOOK_SECRET"]
+                    .iter()
+                    .any(|suf| ident.contains(suf))
+            {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn has_llm_browser_key(js: &str) -> bool {
+    let needle = "dangerouslyAllowBrowser";
+    let bytes = js.as_bytes();
+    let mut from = 0;
+    while let Some(rel) = js[from..].find(needle) {
+        let pos = from + rel;
+        let end = pos + needle.len();
+        from = end;
+        if pos > 0 && is_js_ident_byte(bytes[pos - 1]) {
+            continue;
+        }
+        let rest = js[end..].trim_start();
+        let Some(after_colon) = rest.strip_prefix(':') else { continue };
+        let val = after_colon.trim_start();
+        if let Some(after_true) = val.strip_prefix("true") {
+            if !after_true.bytes().next().map(is_js_ident_byte).unwrap_or(false) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn has_legacy_implements_do(js: &str) -> bool {
+    let bytes = js.as_bytes();
+    let mut from = 0;
+    while let Some(rel) = js[from..].find("class") {
+        let pos = from + rel;
+        let end = pos + "class".len();
+        from = end;
+        if pos > 0 && is_js_ident_byte(bytes[pos - 1]) {
+            continue;
+        }
+        if !matches!(bytes.get(end), Some(b' ' | b'\t')) {
+            continue;
+        }
+        let header_end = js[end..].find('{').map(|i| end + i).unwrap_or(js.len());
+        let header = &js[end..header_end];
+        let hbytes = header.as_bytes();
+        let mut hfrom = 0;
+        while let Some(irel) = header[hfrom..].find("implements") {
+            let ipos = hfrom + irel;
+            let iend = ipos + "implements".len();
+            hfrom = iend;
+            let prev_ok = ipos == 0 || !is_js_ident_byte(hbytes[ipos - 1]);
+            let next_ok = matches!(hbytes.get(iend), Some(b' ' | b'\t'));
+            if prev_ok && next_ok && has_exact_word(&header[iend..], "DurableObject") {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn has_workers_ctx_destructure(js: &str) -> bool {
+    let bytes = js.as_bytes();
+    for kw in ["const", "let", "var"] {
+        let mut from = 0;
+        while let Some(rel) = js[from..].find(kw) {
+            let pos = from + rel;
+            let end = pos + kw.len();
+            from = end;
+            if pos > 0 && is_js_ident_byte(bytes[pos - 1]) {
+                continue;
+            }
+            if end < bytes.len() && is_js_ident_byte(bytes[end]) {
+                continue;
+            }
+            let rest = js[end..].trim_start();
+            let Some(after_open) = rest.strip_prefix('{') else { continue };
+            let Some(close_idx) = after_open.find('}') else { continue };
+            let inner = &after_open[..close_idx];
+            if !has_exact_word(inner, "waitUntil") {
+                continue;
+            }
+            let after_brace = after_open[close_idx + 1..].trim_start();
+            let Some(after_eq) = after_brace.strip_prefix('=') else { continue };
+            if after_eq.starts_with('=') {
+                continue;
+            }
+            let rhs = after_eq.trim_start();
+            if let Some(after_ctx) = rhs.strip_prefix("ctx") {
+                if !after_ctx.bytes().next().map(is_js_ident_byte).unwrap_or(false) {
+                    return true;
+                }
+            }
+        }
     }
     false
 }
@@ -315,6 +509,51 @@ pub fn scan_added_lines(rel: &str, lines: &[(usize, String)], out: &mut Vec<Find
                 line: *ln,
                 message: "Swallowed Go error (`_ = err`).".to_string(),
                 fix: "Check and return or handle `err`.",
+            });
+        }
+        if has_client_env_secret(line) {
+            out.push(Finding {
+                severity: "P0",
+                rule: "client-env-secret",
+                file: rel.to_string(),
+                line: *ln,
+                message: "Client-exposed env prefix names a secret/private/DB credential.".to_string(),
+                fix: "Keep secrets in server-only env vars behind a server route or Action.",
+            });
+        }
+        let js_code = if matches!(ext.as_str(), "js" | "mjs" | "cjs" | "ts" | "tsx" | "jsx" | "svelte" | "vue") {
+            scrub_js_code_line(line)
+        } else {
+            String::new()
+        };
+        if !js_code.is_empty() && has_llm_browser_key(&js_code) {
+            out.push(Finding {
+                severity: "P0",
+                rule: "llm-browser-key-exposure",
+                file: rel.to_string(),
+                line: *ln,
+                message: "`dangerouslyAllowBrowser: true` exposes provider API keys in client bundles.".to_string(),
+                fix: "Proxy LLM SDK calls through a server route or Durable Object.",
+            });
+        }
+        if matches!(ext.as_str(), "js" | "mjs" | "ts" | "tsx") && has_legacy_implements_do(&js_code) {
+            out.push(Finding {
+                severity: "P1",
+                rule: "workers-legacy-implements-do",
+                file: rel.to_string(),
+                line: *ln,
+                message: "Legacy `implements DurableObject` omits `this.ctx` and `this.env`.".to_string(),
+                fix: "Import `DurableObject` from `cloudflare:workers` and use `extends DurableObject<Env>`.",
+            });
+        }
+        if matches!(ext.as_str(), "js" | "mjs" | "ts" | "tsx") && has_workers_ctx_destructure(&js_code) {
+            out.push(Finding {
+                severity: "P1",
+                rule: "workers-ctx-destructure",
+                file: rel.to_string(),
+                line: *ln,
+                message: "Destructuring `waitUntil` from `ctx` throws `Illegal invocation` at runtime.".to_string(),
+                fix: "Call `ctx.waitUntil(...)` directly on `ctx`.",
             });
         }
         if matches!(ext.as_str(), "js" | "mjs" | "cjs" | "ts" | "tsx" | "jsx")

@@ -70,7 +70,91 @@ A11Y_NAME_ATTR_RE = re.compile(
     r"\b(?:aria-label|aria-labelledby|title)\s*=\s*(?:['\"][^'\"]*\S[^'\"]*['\"]|\{\s*(?!['\"]\s*['\"]\s*\})[^}]+\})",
     re.I,
 )
+VIEWPORT_ZOOM_LOCK_RE = re.compile(
+    r"<meta\b(?=[^>]*\bname\s*=\s*['\"]viewport['\"])(?=[^>]*\buser-scalable\s*=\s*['\"]?(?:no|0)\b)[^>]*>",
+    re.I,
+)
+PREVENT_DEFAULT_CALL_RE = re.compile(r"preventdefault\s*\(", re.I)
+RETURN_FALSE_RE = re.compile(r"(?<![A-Za-z0-9_])return\s+false(?![A-Za-z0-9_])", re.I)
 
+
+def _find_jsx_tag_close(s: str) -> int:
+    quote: str | None = None
+    braces = 0
+    i = 0
+    n = len(s)
+    while i < n:
+        ch = s[i]
+        if quote is not None:
+            if ch == "\\":
+                i += 2
+                continue
+            if ch == quote:
+                quote = None
+        else:
+            if ch in ("'", '"'):
+                quote = ch
+            elif ch == "{":
+                braces += 1
+            elif ch == "}":
+                braces = max(0, braces - 1)
+            elif ch == ">" and braces == 0:
+                return i
+        i += 1
+    return -1
+
+
+def _has_paste_block_input(line: str) -> bool:
+    low = line.lower()
+    for pat in ("<input", "<textarea"):
+        pos = 0
+        while True:
+            idx = low.find(pat, pos)
+            if idx < 0:
+                break
+            after_kw = idx + len(pat)
+            if after_kw < len(low) and (low[after_kw].isalnum() or low[after_kw] == "-"):
+                pos = after_kw
+                continue
+            rel_gt = _find_jsx_tag_close(low[idx:])
+            if rel_gt < 0:
+                break
+            tag = low[idx : idx + rel_gt + 1]
+            pos = idx + rel_gt + 1
+            op_from = 0
+            while True:
+                op = tag.find("onpaste", op_from)
+                if op < 0:
+                    break
+                op_end = op + len("onpaste")
+                op_from = op_end
+                if op > 0 and (tag[op - 1].isalnum() or tag[op - 1] in ("-", "_")):
+                    continue
+                rest = tag[op_end:].lstrip()
+                if not rest.startswith("="):
+                    continue
+                val = rest[1:].lstrip()
+                if val.startswith(('"', "'")):
+                    q = val[0]
+                    end_q = val.find(q, 1)
+                    if end_q >= 1:
+                        attr_val = val[1:end_q]
+                        if PREVENT_DEFAULT_CALL_RE.search(attr_val) or RETURN_FALSE_RE.search(attr_val):
+                            return True
+                elif val.startswith("{"):
+                    depth = 0
+                    end_b = -1
+                    for b_idx, ch in enumerate(val):
+                        if ch == "{":
+                            depth += 1
+                        elif ch == "}":
+                            depth -= 1
+                            if depth == 0:
+                                end_b = b_idx
+                                break
+                    if end_b > 0 and PREVENT_DEFAULT_CALL_RE.search(val[1:end_b]):
+                        return True
+    return False
 BROWSER_AUDIT_SNIPPET = r"""(() => {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
@@ -217,6 +301,10 @@ BROWSER_AUDIT_SNIPPET = r"""(() => {
   const heroClippedAboveFold = Boolean(vw >= 1280 && h1Rect && h1Rect.bottom > Math.max(vh, 800));
   const rootOx = getComputedStyle(document.documentElement).overflowX;
   const overflowHiddenBreaksSticky = (rootOx === "hidden" || bodyCs.overflowX === "hidden") && [...document.querySelectorAll("body *")].some(n => getComputedStyle(n).position === "sticky");
+  const vpMeta = document.querySelector("meta[name='viewport']");
+  const zoomDisabled = Boolean(vpMeta && /user-scalable\s*=\s*(?:no|0)\b/i.test(vpMeta.getAttribute("content") || ""));
+  const rootBg = effectiveBg(document.body);
+  const missingDarkColorScheme = luminance(rootBg) < 0.08 && !String(getComputedStyle(document.documentElement).colorScheme || "").includes("dark");
   return {
     viewport: `${vw}x${vh}`,
     overflowX,
@@ -242,6 +330,8 @@ BROWSER_AUDIT_SNIPPET = r"""(() => {
     deadFormsOrHashLinks,
     heroClippedAboveFold,
     overflowHiddenBreaksSticky,
+    zoomDisabled,
+    missingDarkColorScheme,
     brokenImages,
   };
 })()"""
@@ -262,6 +352,7 @@ def _iter_targets(target: Path) -> list[Path]:
 
 
 CSS_COMMENT_RE = re.compile(r"/\*.*?\*/", re.S)
+LINE_COMMENT_RE = re.compile(r"(?<!:)//.*$")
 
 
 def audit_source(text: str, rel: str, suffix: str) -> list[dict]:
@@ -270,6 +361,8 @@ def audit_source(text: str, rel: str, suffix: str) -> list[dict]:
     is_style = suffix in {".css", ".scss"} or (is_html and "<style" in text.lower())
     is_markup = suffix in {".html", ".htm", ".jsx", ".tsx", ".vue", ".svelte"}
     scan_text = CSS_COMMENT_RE.sub(lambda m: "\n" * m.group(0).count("\n"), text)
+    if suffix in {".scss", ".jsx", ".tsx"}:
+        scan_text = "\n".join(LINE_COMMENT_RE.sub("", ln) for ln in scan_text.splitlines())
     allows_intrinsic_size = "interpolate-size" in scan_text.lower()
 
     for idx, line in enumerate(scan_text.splitlines(), 1):
@@ -314,6 +407,12 @@ def audit_source(text: str, rel: str, suffix: str) -> list[dict]:
             if FAKE_LIVE_PULSE_RE.search(line) and not LIVE_STATUS_A11Y_RE.search(line):
                 findings.append({"severity": "P2", "rule": "no-fake-live-pulse", "file": rel, "line": idx,
                                  "message": "Avoid unwired `animate-pulse` decorative `LIVE/ONLINE/SYNCED` dots (`unslop-ui` U10); wire real state with `role='status'`."})
+            if VIEWPORT_ZOOM_LOCK_RE.search(line):
+                findings.append({"severity": "P1", "rule": "no-zoom-disable", "file": rel, "line": idx,
+                                 "message": "Never disable browser zoom (`user-scalable=no`); size mobile `<input>` text `>= 16px` instead."})
+            if _has_paste_block_input(line):
+                findings.append({"severity": "P1", "rule": "no-paste-block", "file": rel, "line": idx,
+                                 "message": "Never disable paste (`onPaste` `preventDefault`/`return false`) on `<input>` or `<textarea>`."})
             for m_img in IMG_TAG_RE.finditer(line):
                 if not ALT_ATTR_RE.search(m_img.group(0)):
                     findings.append({"severity": "P0", "rule": "img-alt", "file": rel, "line": idx,

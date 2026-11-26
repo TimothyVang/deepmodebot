@@ -2,7 +2,7 @@
 name: software-architecture
 description: "Repo layout/monorepos, domain ontology & typed models, databases/migrations/RLS, queues/workflows, APIs, observability, and deploy/IaC guidance."
 metadata:
-  as-of: "2026-11-25"
+  as-of: "2026-11-26"
 ---
 
 # Architecture: monorepos, ontology, databases, backend infrastructure

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "reviewed": "2026-11-25",
+  "reviewed": "2026-11-26",
   "archive": "https://drive.google.com/drive/folders/1x8ioZmwn9W_iu3LMzi4vH7fdZs2IwugN",
   "scope": "Primary identities, README and license scopes inspected. Source code, benchmark performance, production security and medical suitability were not independently exercised. Reference tags are leads, not deployment approval.",
   "repos": {
@@ -128,6 +128,111 @@
       ],
       "caution": "README explicitly says permissions bypass/full computer access; not recommended deployment posture; MIT code excludes trademarks/branding; external voice/model costs."
     },
+    "cloudflare/agents": {
+      "github_id": 924394244,
+      "topics": [
+        "cloudflare workers",
+        "durable objects",
+        "stateful agents",
+        "mcp",
+        "webmcp"
+      ],
+      "sources": [
+        "https://github.com/orgs/cloudflare/repositories"
+      ],
+      "caution": "MIT SDK coupled to Cloudflare Durable Objects/workerd; enforce 128 MB Worker memory limits and validate @callable() inputs."
+    },
+    "cloudflare/capnweb": {
+      "github_id": 998173252,
+      "topics": [
+        "object capability rpc",
+        "promise pipelining",
+        "typescript rpc",
+        "websocket"
+      ],
+      "sources": [
+        "https://github.com/orgs/cloudflare/repositories"
+      ],
+      "caution": "MIT; authenticate in-band (never cookies), rate-limit pipelined sub-calls, cap payload size, and validate runtime types."
+    },
+    "cloudflare/cf": {
+      "github_id": 1380002148,
+      "topics": [
+        "cloudflare cli",
+        "agentic cli",
+        "workers config",
+        "typescript config"
+      ],
+      "sources": [
+        "https://github.com/orgs/cloudflare/repositories"
+      ],
+      "caution": "Apache-2.0 release-candidate CLI; use only on greenfield or cloudflare.config.ts repos, not existing wrangler.* projects."
+    },
+    "cloudflare/cloudflare-os": {
+      "github_id": 1211925923,
+      "topics": [
+        "agent workspace",
+        "capability gatekeepers",
+        "dynamic workers",
+        "sandboxed gadgets"
+      ],
+      "sources": [
+        "https://github.com/orgs/cloudflare/repositories"
+      ],
+      "caution": "Apache-2.0 early-access v2 architecture; review Dynamic Worker egress rules, CSP, and OAuth Gatekeeper scopes before deployment."
+    },
+    "cloudflare/cloudflared": {
+      "github_id": 106867604,
+      "topics": [
+        "cloudflare tunnel",
+        "zero trust",
+        "private origin",
+        "ingress daemon"
+      ],
+      "sources": [
+        "https://github.com/orgs/cloudflare/repositories"
+      ],
+      "caution": "Apache-2.0; pair tunnels with Cloudflare Access/Zero Trust policies so internal origins are not exposed unauthenticated."
+    },
+    "cloudflare/computer": {
+      "github_id": 1260288940,
+      "topics": [
+        "agent sandbox",
+        "durable object sqlite vfs",
+        "fuse container",
+        "dynamic worker"
+      ],
+      "sources": [
+        "https://github.com/orgs/cloudflare/repositories"
+      ],
+      "caution": "MIT; core VFS is stable while ContainerBackend/computerd and Worker shell surfaces are marked experimental upstream."
+    },
+    "cloudflare/kumo": {
+      "github_id": 1086502772,
+      "topics": [
+        "ui components",
+        "base ui",
+        "accessible react",
+        "design system cli"
+      ],
+      "sources": [
+        "https://github.com/orgs/cloudflare/repositories"
+      ],
+      "caution": "MIT React + Base UI component system; verify theme tokens and peer dependencies (@phosphor-icons/react) before mixing stacks."
+    },
+    "cloudflare/pingora": {
+      "github_id": 636853988,
+      "topics": [
+        "rust proxy",
+        "http load balancer",
+        "network services",
+        "tls"
+      ],
+      "sources": [
+        "https://github.com/orgs/cloudflare/repositories"
+      ],
+      "caution": "Apache-2.0 programmable Rust proxy library (not a turn-key binary); audit TLS, upstream timeouts, and Linux platform targets."
+    },
     "cloudflare/security-audit-skill": {
       "github_id": 1273427276,
       "topics": [
@@ -139,6 +244,59 @@
         "https://www.youtube.com/watch?v=pnZh5PAF3VE&t=1917s"
       ],
       "caution": "OS-enforced sandbox required before target-controlled execution per README; no audit run or vulnerability discovery claim."
+    },
+    "cloudflare/skills": {
+      "github_id": 1113922795,
+      "topics": [
+        "agent skills",
+        "cloudflare workers",
+        "durable objects",
+        "wrangler",
+        "vinext"
+      ],
+      "sources": [
+        "https://github.com/orgs/cloudflare/repositories"
+      ],
+      "caution": "Apache-2.0 official skills; verify installed wrangler/cf schemas and compatibility_date against live Cloudflare docs."
+    },
+    "cloudflare/vinext": {
+      "github_id": 1165371200,
+      "topics": [
+        "nextjs on vite",
+        "cloudflare workers",
+        "rsc",
+        "portable deployment"
+      ],
+      "sources": [
+        "https://github.com/orgs/cloudflare/repositories"
+      ],
+      "caution": "MIT active-development Next.js reimplementation on Vite; run vinext check for Partial Prerendering and native-addon gaps."
+    },
+    "cloudflare/workerd": {
+      "github_id": 537085161,
+      "topics": [
+        "javascript runtime",
+        "wasm runtime",
+        "cloudflare workers",
+        "local edge"
+      ],
+      "sources": [
+        "https://github.com/orgs/cloudflare/repositories"
+      ],
+      "caution": "Apache-2.0 V8/Cap'n Proto runtime; self-hosted sandboxing requires OS-level isolation beyond V8 isolates alone."
+    },
+    "cloudflare/workers-oauth-provider": {
+      "github_id": 946716231,
+      "topics": [
+        "oauth 2.1",
+        "mcp auth",
+        "cloudflare workers",
+        "pkce"
+      ],
+      "sources": [
+        "https://github.com/orgs/cloudflare/repositories"
+      ],
+      "caution": "MIT OAuth provider wrapper for Workers; enforce PKCE, strict redirect URI allowlists, audience checks, and KV/DO token TTLs."
     },
     "Coolerwave/AimMac": {
       "github_id": 1449654006,
@@ -176,6 +334,19 @@
       ],
       "caution": "Style transformation is not evidence of human authorship, correctness or STE certification; preserve meaning and citations. Third-party notices and source attribution require review."
     },
+    "erkamyaman/rust-anything": {
+      "github_id": 1459971684,
+      "topics": [
+        "rust migration",
+        "differential replay",
+        "strangler port",
+        "agent skills"
+      ],
+      "sources": [
+        "https://github.com/erkamyaman/rust-anything"
+      ],
+      "caution": "Dual-licensed MIT OR Apache-2.0. Recorded cases.jsonl replay proves covered inputs only; keep per-app target dirs isolated and forbid shipping while original:: fallback glue remains."
+    },
     "ersinkoc/phonebox": {
       "github_id": 1449548089,
       "topics": [
@@ -199,6 +370,18 @@
         "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=65s"
       ],
       "caution": "Not a drop-in React Native replacement without migration evaluation; compiler/host/toolchain requirements must be checked. NOTICE carves out vendor/media/font licenses; included permission for images is not blanket redistribution permission."
+    },
+    "felipebasurto/unslop-ui": {
+      "github_id": 1435735611,
+      "topics": [
+        "ui copy",
+        "anti slop",
+        "agent skills"
+      ],
+      "sources": [
+        "https://github.com/felipebasurto/unslop-ui"
+      ],
+      "caution": "MIT. Copy-removal rules (eyebrows, decorative numbering, unwired pulse dots) are defaults; explicit product brief requirements take precedence."
     },
     "FutureMLS-Lab/FlashStates": {
       "github_id": 1451341946,
@@ -259,6 +442,18 @@
       ],
       "caution": "macOS/iOS pairing, terminal graphics and accessibility support constrain portability; physical-device permissions require review."
     },
+    "haydenschmitty/floorplan": {
+      "github_id": 1435672472,
+      "topics": [
+        "codebase map",
+        "architecture visualization",
+        "codex plugin"
+      ],
+      "sources": [
+        "https://github.com/haydenschmitty/floorplan"
+      ],
+      "caution": "MIT. Generated plain-English architecture maps can drift after refactors; treat endpoint/key health checks as heuristics, not a complete security audit."
+    },
     "HybridRobotics/supermimic": {
       "github_id": 1452531582,
       "topics": [
@@ -282,6 +477,18 @@
         "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=268s"
       ],
       "caution": "MIT covers project code, not PLaMo model weights: model Community License imposes separate commercial registration/eligibility terms. PLaMo Community License Article7.2 forbids using output as sole evidence/evaluation/opinion for medical diagnoses, legal matters, financial decisions or important personal assessments; redistribution, output attribution and derivative-model terms also apply. Wikipedia-derived benchmark fixture has CC-BY-SA-4.0 scope; third-party PDF/runtime notices apply. Local-processing claims are not an independently audited privacy guarantee."
+    },
+    "janestreet/agent_skills": {
+      "github_id": 1444573070,
+      "topics": [
+        "socratic tutoring",
+        "agent skills",
+        "mastery learning"
+      ],
+      "sources": [
+        "https://github.com/janestreet/agent_skills"
+      ],
+      "caution": "MIT. Socratic quiz loops frustrate one-off explain-X questions; keep an explicit intent guard before launching multi-turn diagnostics."
     },
     "JDhruv14/line-art-animation": {
       "github_id": 1452450730,
@@ -318,6 +525,18 @@
         "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=344s"
       ],
       "caution": "Keyboard/screen-reader claims require testing with real target users and data; example values are fabricated upstream examples."
+    },
+    "KKKKhazix/agent-autoloop": {
+      "github_id": 1443985070,
+      "topics": [
+        "background agent loop",
+        "decision cards",
+        "cli orchestration"
+      ],
+      "sources": [
+        "https://github.com/KKKKhazix/agent-autoloop"
+      ],
+      "caution": "MIT. Inspect upstream install scripts instead of piping remote scripts directly to shell; scope unattended CLI permissions and spend caps."
     },
     "littledivy/tailnet-do": {
       "github_id": 1449061181,
@@ -372,6 +591,18 @@
       ],
       "caution": "Research, image/music rights and factual checks remain producer responsibilities; generated output is not automatically cleared."
     },
+    "NiazMorshed2007/reanimate": {
+      "github_id": 1438029127,
+      "topics": [
+        "animation reverse engineering",
+        "motion parity",
+        "agent skills"
+      ],
+      "sources": [
+        "https://github.com/NiazMorshed2007/reanimate"
+      ],
+      "caution": "MIT. Rebuild motion timing and easing in project-owned code; never copy third-party copyrighted brand assets, fonts, or proprietary copy."
+    },
     "nishant-Tiwari24/cracked": {
       "github_id": 1448033453,
       "topics": [
@@ -382,6 +613,18 @@
         "https://www.youtube.com/watch?v=i5OYXeCUHwY&t=113s"
       ],
       "caution": "Company-specific advice and hiring outcomes are not independently verified; resume/personal data requires privacy review."
+    },
+    "Nutlope/hallmark": {
+      "github_id": 1222917575,
+      "topics": [
+        "ui design",
+        "anti slop linter",
+        "agent skills"
+      ],
+      "sources": [
+        "https://github.com/Nutlope/hallmark"
+      ],
+      "caution": "MIT. Bundled photography carries individual open-license attribution requirements; use Floor/Render checks without copying theme showcase copy verbatim."
     },
     "NVIDIA/auto-ontology": {
       "github_id": 1222953295,
@@ -527,6 +770,19 @@
       ],
       "caution": "Requires separate review of terminal workspace integration, shell authority, merge approvals and external-service access."
     },
+    "sybil-solutions/inference-optimisation-skill": {
+      "github_id": 1460417668,
+      "topics": [
+        "llm inference",
+        "roofline hillclimbing",
+        "speculative decoding",
+        "agent skills"
+      ],
+      "sources": [
+        "https://github.com/sybil-solutions/inference-optimisation-skill"
+      ],
+      "caution": "MIT. Compute ceilings from measured device copy and GEMM throughput rather than vendor spec sheets; label lossy quantization tradeoffs explicitly."
+    },
     "TIGER-AI-Lab/WebsiteBench": {
       "github_id": 1445663842,
       "topics": [
@@ -598,6 +854,226 @@
       ],
       "caution": "Fresh refs after DOM/navigation; no anti-bot/auth bypass recommendation; bundled axe-core MPL2/third-party terms."
     },
+    "vercel-labs/deepsec": {
+      "github_id": 1225774688,
+      "topics": [
+        "security scanner",
+        "vulnerability harness",
+        "diff security review",
+        "sandboxed audit"
+      ],
+      "sources": [
+        "https://github.com/orgs/vercel-labs/repositories"
+      ],
+      "caution": "Apache-2.0 agentic scanner; full-repo runs can incur high token spend—set --max-cost-usd and isolate untrusted code in sandboxes."
+    },
+    "vercel-labs/dev3000": {
+      "github_id": 1049400318,
+      "topics": [
+        "browser timeline",
+        "cdp network capture",
+        "server logs",
+        "agent debugging"
+      ],
+      "sources": [
+        "https://github.com/orgs/vercel-labs/repositories"
+      ],
+      "caution": "MIT unified server+browser timeline; credential redaction is best-effort, so never paste raw payloads into public logs."
+    },
+    "vercel-labs/emulate": {
+      "github_id": 1187384370,
+      "topics": [
+        "local api emulator",
+        "stripe webhooks",
+        "github api",
+        "offline ci sandbox"
+      ],
+      "sources": [
+        "https://github.com/orgs/vercel-labs/repositories"
+      ],
+      "caution": "Apache-2.0 stateful SaaS/AI API emulators; keep bound to 127.0.0.1 and still run final sandbox smoke checks against real providers."
+    },
+    "vercel-labs/json-render": {
+      "github_id": 1134411737,
+      "topics": [
+        "generative ui",
+        "zod component catalog",
+        "streaming ui",
+        "svelte react"
+      ],
+      "sources": [
+        "https://github.com/orgs/vercel-labs/repositories"
+      ],
+      "caution": "Apache-2.0 catalog-constrained Generative UI; keep action handlers server-authorized and never allow arbitrary code/script props."
+    },
+    "vercel-labs/lat.md": {
+      "github_id": 1177225364,
+      "topics": [
+        "codebase knowledge graph",
+        "markdown lattice",
+        "referential check",
+        "offline search"
+      ],
+      "sources": [
+        "https://github.com/orgs/vercel-labs/repositories"
+      ],
+      "caution": "MIT markdown knowledge graph; run lat check in CI so [[wiki-links]] and // @lat: source backlinks do not drift from code."
+    },
+    "vercel-labs/opensrc": {
+      "github_id": 1129171970,
+      "topics": [
+        "dependency source context",
+        "npm source fetch",
+        "coding agent context"
+      ],
+      "sources": [
+        "https://github.com/orgs/vercel-labs/repositories"
+      ],
+      "caution": "Apache-2.0 source fetcher; keep opensrc/ gitignored and treat fetched third-party package text as untrusted data, not instructions."
+    },
+    "vercel-labs/portless": {
+      "github_id": 1158537997,
+      "topics": [
+        "named localhost urls",
+        "git worktree isolation",
+        "local https proxy"
+      ],
+      "sources": [
+        "https://github.com/orgs/vercel-labs/repositories"
+      ],
+      "caution": "Apache-2.0 local reverse proxy; default trust setup installs a local CA and edits hosts—use --no-tls or --unprivileged when restricted."
+    },
+    "vercel-labs/skills": {
+      "github_id": 1134543109,
+      "topics": [
+        "agent skills cli",
+        "skills lockfile",
+        "sha256 content hash",
+        "cross-harness"
+      ],
+      "sources": [
+        "https://github.com/orgs/vercel-labs/repositories"
+      ],
+      "caution": "MIT skills CLI; set DISABLE_TELEMETRY=1 when telemetry is undesired, pin commit hashes in skills-lock.json, and audit skill scripts."
+    },
+    "vercel-labs/web-interface-guidelines": {
+      "github_id": 1053871163,
+      "topics": [
+        "web accessibility",
+        "focus management",
+        "keyboard ux",
+        "interaction polish"
+      ],
+      "sources": [
+        "https://github.com/orgs/vercel-labs/repositories"
+      ],
+      "caution": "MIT interface checklist; separate universal WAI-ARIA/ergonomic rules from the Vercel-brand copywriting section at the end."
+    },
+    "vercel/ai": {
+      "github_id": 644461337,
+      "topics": [
+        "typescript ai sdk",
+        "streaming ui",
+        "tool calling",
+        "structured output"
+      ],
+      "sources": [
+        "https://github.com/orgs/vercel/repositories"
+      ],
+      "caution": "Apache-2.0 (LICENSE header); keep provider keys server-side, bound tool loops, and validate structured outputs before effects."
+    },
+    "vercel/chat": {
+      "github_id": 1120872920,
+      "topics": [
+        "chat bot sdk",
+        "slack",
+        "teams",
+        "discord",
+        "multi-platform adapters"
+      ],
+      "sources": [
+        "https://github.com/orgs/vercel/repositories"
+      ],
+      "caution": "MIT multi-channel bot SDK; verify webhook signatures on raw bodies and check per-platform feature parity in @chat-adapter/catalog."
+    },
+    "vercel/eve": {
+      "github_id": 1271113810,
+      "topics": [
+        "filesystem agent framework",
+        "durable agents",
+        "typescript agents",
+        "schedules"
+      ],
+      "sources": [
+        "https://github.com/orgs/vercel/repositories"
+      ],
+      "caution": "Apache-2.0 filesystem-first agent framework; gate tool side effects, spend budgets, and AI Gateway/provider auth explicitly."
+    },
+    "vercel/resumable-stream": {
+      "github_id": 969842321,
+      "topics": [
+        "sse resumption",
+        "serverless streaming",
+        "redis pubsub",
+        "reconnect"
+      ],
+      "sources": [
+        "https://github.com/orgs/vercel/repositories"
+      ],
+      "caution": "MIT Redis/Valkey-backed stream resumption; scope streamId authorization per user so another tenant cannot subscribe by ID."
+    },
+    "vercel/sandbox": {
+      "github_id": 1140519292,
+      "topics": [
+        "firecracker microvm",
+        "ephemeral compute",
+        "code execution sandbox",
+        "oidc"
+      ],
+      "sources": [
+        "https://github.com/orgs/vercel/repositories"
+      ],
+      "caution": "Apache-2.0 SDK for paid/metered Vercel Firecracker microVMs; prefer short-lived OIDC tokens, explicit timeouts, and egress limits."
+    },
+    "vercel/streamdown": {
+      "github_id": 1038323680,
+      "topics": [
+        "streaming markdown",
+        "syntax healing",
+        "ai chat ui",
+        "react markdown"
+      ],
+      "sources": [
+        "https://github.com/orgs/vercel/repositories"
+      ],
+      "caution": "Apache-2.0 streaming Markdown renderer; enforce image prefix allowlists, disallow data: images, and keep HTML sanitization active."
+    },
+    "vercel/turborepo": {
+      "github_id": 413918947,
+      "topics": [
+        "monorepo build system",
+        "remote cache",
+        "affected graph",
+        "package boundaries"
+      ],
+      "sources": [
+        "https://github.com/orgs/vercel/repositories"
+      ],
+      "caution": "MIT build system; enable remote cache artifact signing and never let untrusted fork PRs write to shared production caches."
+    },
+    "vercel/workflow": {
+      "github_id": 1081770999,
+      "topics": [
+        "durable execution",
+        "typescript workflows",
+        "step retries",
+        "observability"
+      ],
+      "sources": [
+        "https://github.com/orgs/vercel/repositories"
+      ],
+      "caution": "Apache-2.0 durable workflow SDK; make external step side effects idempotent and register lifecycle hooks only at host startup."
+    },
     "Z1Code/iCopy": {
       "github_id": 1449871752,
       "topics": [
@@ -632,104 +1108,6 @@
         "https://www.youtube.com/watch?v=pnZh5PAF3VE&t=907s"
       ],
       "caution": "Not investment advice or accuracy proof; data/provider limits; screening subtree Apache2 while root MIT."
-    },
-    "erkamyaman/rust-anything": {
-      "github_id": 1459971684,
-      "topics": [
-        "rust migration",
-        "differential replay",
-        "strangler port",
-        "agent skills"
-      ],
-      "sources": [
-        "https://github.com/erkamyaman/rust-anything"
-      ],
-      "caution": "Dual-licensed MIT OR Apache-2.0. Recorded cases.jsonl replay proves covered inputs only; keep per-app target dirs isolated and forbid shipping while original:: fallback glue remains."
-    },
-    "felipebasurto/unslop-ui": {
-      "github_id": 1435735611,
-      "topics": [
-        "ui copy",
-        "anti slop",
-        "agent skills"
-      ],
-      "sources": [
-        "https://github.com/felipebasurto/unslop-ui"
-      ],
-      "caution": "MIT. Copy-removal rules (eyebrows, decorative numbering, unwired pulse dots) are defaults; explicit product brief requirements take precedence."
-    },
-    "haydenschmitty/floorplan": {
-      "github_id": 1435672472,
-      "topics": [
-        "codebase map",
-        "architecture visualization",
-        "codex plugin"
-      ],
-      "sources": [
-        "https://github.com/haydenschmitty/floorplan"
-      ],
-      "caution": "MIT. Generated plain-English architecture maps can drift after refactors; treat endpoint/key health checks as heuristics, not a complete security audit."
-    },
-    "janestreet/agent_skills": {
-      "github_id": 1444573070,
-      "topics": [
-        "socratic tutoring",
-        "agent skills",
-        "mastery learning"
-      ],
-      "sources": [
-        "https://github.com/janestreet/agent_skills"
-      ],
-      "caution": "MIT. Socratic quiz loops frustrate one-off explain-X questions; keep an explicit intent guard before launching multi-turn diagnostics."
-    },
-    "KKKKhazix/agent-autoloop": {
-      "github_id": 1443985070,
-      "topics": [
-        "background agent loop",
-        "decision cards",
-        "cli orchestration"
-      ],
-      "sources": [
-        "https://github.com/KKKKhazix/agent-autoloop"
-      ],
-      "caution": "MIT. Inspect upstream install scripts instead of piping remote scripts directly to shell; scope unattended CLI permissions and spend caps."
-    },
-    "NiazMorshed2007/reanimate": {
-      "github_id": 1438029127,
-      "topics": [
-        "animation reverse engineering",
-        "motion parity",
-        "agent skills"
-      ],
-      "sources": [
-        "https://github.com/NiazMorshed2007/reanimate"
-      ],
-      "caution": "MIT. Rebuild motion timing and easing in project-owned code; never copy third-party copyrighted brand assets, fonts, or proprietary copy."
-    },
-    "Nutlope/hallmark": {
-      "github_id": 1222917575,
-      "topics": [
-        "ui design",
-        "anti slop linter",
-        "agent skills"
-      ],
-      "sources": [
-        "https://github.com/Nutlope/hallmark"
-      ],
-      "caution": "MIT. Bundled photography carries individual open-license attribution requirements; use Floor/Render checks without copying theme showcase copy verbatim."
-    },
-    "sybil-solutions/inference-optimisation-skill": {
-      "github_id": 1460417668,
-      "topics": [
-        "llm inference",
-        "roofline hillclimbing",
-        "speculative decoding",
-        "agent skills"
-      ],
-      "sources": [
-        "https://github.com/sybil-solutions/inference-optimisation-skill"
-      ],
-      "caution": "MIT. Compute ceilings from measured device copy and GEMM throughput rather than vendor spec sheets; label lossy quantization tradeoffs explicitly."
     }
   }
 }

@@ -2,7 +2,7 @@
 name: agent-harnesses
 description: "Cited facts for omp, Claude Code, Codex, Antigravity SDKs/harnesses, hooks, permissions, delegation tiers, MCP/ACP/A2A/WebMCP, and LangChain/LangGraph/Deep Agents."
 metadata:
-  as-of: "2026-11-24"
+  as-of: "2026-11-26"
 ---
 
 # Harnesses, protocols, and AI-native tooling

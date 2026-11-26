@@ -12,6 +12,7 @@ Vendor relationships worth knowing: several Convex and Orgo recommendations came
 - The ecosystem is enough. shadcn has a Svelte port, Tailwind carries over, and a vendor's plain JS package fills gaps when no SvelteKit package exists. Have the agent write whatever is missing (2026-03-24).
 - Next.js habits transfer: file routing (`src/routes/about/+page.svelte`), SSR, data loading, prerendering (2026-03-24).
 - **Alternative: Next.js**, when it fits better or the team prefers it (2026-10-01). It was the default until early 2026 (2026-01-23).
+- **Portable Next.js on Vite / Workers: `vinext`** (`cloudflare/vinext`, MIT). Reimplements the Next.js App & Pages Router surface on Vite so Next.js apps deploy to Cloudflare Workers or standalone Node (`HOST`, not `HOSTNAME`) without platform lock-in; run `npx vinext check` before migrating (2026-11-26).
 - **TanStack Start:** avoid while it is a release candidate. Production work needs stable releases (2026-01-23).
 - **One-off API routes inside Next.js:** Elysia on Bun, mounted at `app/api/[[...slugs]]/route.ts`, with an Eden client in `lib/eden.ts` for end-to-end types. Not a main backend (2026-01-23).
 
@@ -22,6 +23,7 @@ Vendor relationships worth knowing: several Convex and Orgo recommendations came
 
 ## 3. Styling / UI
 - **Tailwind v4 + shadcn/ui.** Start from shadcn/ui's New Project page: choose Base UI components, a style, radius, and theme, then run the generated `bunx` command (2026-01-23).
+- **Alternative Base UI system: `@cloudflare/kumo`** (`cloudflare/kumo`, MIT) when targeting Base UI with built-in agent CLI docs (`npx @cloudflare/kumo ls` / `doc <Component>`) (2026-11-26).
 - Design tooling (Paper, Mobbin) is in §11.
 
 ## 4. Backend / database
@@ -46,14 +48,18 @@ Vendor relationships worth knowing: several Convex and Orgo recommendations came
 - **Claude Agent SDK** for running Claude Code instances inside a sandbox, for coding agents or assistants (2026-01-23).
 - **Composio** as the tool and integration layer (Gmail, Calendar, Slack, GitHub, Sheets, Shopify). Create a tool-router session per user ID and pass its tools to AI SDK `streamText` (2026-01-23).
 - **OpenRouter** as the inference provider behind a usage ledger (2026-07-02).
+- **Durable TypeScript workflows & agents:** `vercel/workflow` (Apache-2.0, `withWorkflow` + `npx workflow web` local UI, portable across Vercel, Postgres, or custom Worlds), `vercel/eve` (Apache-2.0, filesystem-first durable agents under `agent/`), and `cloudflare/agents` (MIT, hibernating per-user/room Stateful Agents on SQLite Durable Objects with `@callable()` RPC and built-in MCP/WebMCP) (2026-11-26).
+- **Guardrailed Generative UI: `vercel-labs/json-render`** (Apache-2.0). Constrain model-streamed UIs to a Zod-typed `defineCatalog` + `defineRegistry` (`@json-render/react`, `@json-render/svelte`, `@json-render/shadcn`, `@json-render/mcp`) rather than executing raw generated code (2026-11-26).
+- **Multi-channel bots & stream recovery:** `vercel/chat` (MIT, write-once bot adapters for Slack, Teams, Discord, GitHub, Linear) and `vercel/resumable-stream` (MIT, Redis/Valkey pubsub SSE resumption for serverless routes without sticky load balancers) (2026-11-26).
 
 ## 8. Sandboxes / agent computers
 - **Daytona** for agent sandboxes. Strong developer experience; each agent can get a computer with a browser (2026-01-23, 2026-07-02).
 - **Orgo** for giving each agent its own computer (2026-10-01). It replaced Daytona for that job. The name comes from auto-captions, so confirm it [INFERENCE: Orgo].
+- **Ephemeral microVMs & edge workspaces:** `@vercel/sandbox` (`vercel/sandbox`, Apache-2.0 Firecracker microVMs with OIDC auth, filesystem snapshot/restore, and Workflow step serialization) or `@cloudflare/computer` (`cloudflare/computer`, MIT Durable Object SQLite virtual filesystem projected via FUSE into Containers or Dynamic Workers) (2026-11-26).
 
 ## 9. Deployment
 - **Default: Vercel**, with Turborepo, for production, staging, services, and admin sites (2026-07-02).
-- **Cloudflare only as a whole stack:** Workers, R2, Hyperdrive, Durable Objects, Email. If any part of the app is on Cloudflare, keep the rest there too. Otherwise use Vercel (2026-10-01).
+- **Cloudflare only as a whole stack:** Workers + Workers Static Assets (never scaffold legacy Pages templates for new apps), R2, D1, Hyperdrive, SQLite Durable Objects (`cloudflare/agents`), Workflows, and Email, driven via `cloudflare/cf` or `wrangler.jsonc` (`wrangler types`, secrets via `wrangler secret put` — see `skill://cloud-devsecops/references/cloudflare-edge.md`). If any part of the app is on Cloudflare, keep the rest there too; otherwise use Vercel (2026-10-01, updated 2026-11-26).
 - Avoid raw AWS, GCP, and Azure. Use managed layers such as Convex, Vercel, and PlanetScale (2026-07-02).
 - Railway for a separate server plus Postgres is superseded by PlanetScale and Cloudflare (2026-01-23, 2026-10-01).
 
@@ -70,6 +76,10 @@ Vendor relationships worth knowing: several Convex and Orgo recommendations came
   3. Prompt the agent to look under `opensrc/` for the library and show how to use the feature in this codebase.
 
   Prefer it to a docs MCP or pasted docs: the code is the best context (2026-04-03).
+- **Package-bundled docs (`node_modules/<pkg>/docs`):** Packages such as `workflow`, `eve`, and `chat` ship version-matched docs inside `node_modules/`; read those local files alongside `opensrc` before hitting the web (2026-11-26).
+- **portless** (`vercel-labs/portless`, Apache-2.0). Replaces colliding `:3000` ports across parallel git worktrees and agents with stable HTTPS `<branch>.<app>.localhost` URLs (`portless run <cmd>`, `PORTLESS=0` to bypass, `portless doctor --json`) so OAuth callbacks, cookies, and browser tests stay isolated (2026-11-26).
+- **emulate** (`vercel-labs/emulate`, Apache-2.0). `npx emulate` runs local stateful drop-in API emulators on `127.0.0.1:4000–4014` (Vercel, GitHub, Google, Slack, Resend, Stripe with real `Stripe-Signature`, Clerk, Linear, Twilio, and offline OpenAI/Anthropic/Gemini streams) for CI and no-network sandboxes (2026-11-26).
+- **dev3000 (`d3k`)** (`vercel-labs/dev3000`, MIT) & **lat.md** (`vercel-labs/lat.md`, MIT). `d3k` records a unified cursor-paged timeline (`d3k events --after <cursor>`) across server logs, browser console, uncaught exceptions, and redacted CDP network requests; `lat.md` maintains a checked markdown codebase graph (`lat check`) when flat `AGENTS.md` files outgrow a large repo (2026-11-26).
 - **Paper**, a Figma alternative that works well with agents and has an MCP (2026-10-01).
 - **Mobbin** for design inspiration; it has an MCP (2026-10-01).
 - **Wispr Flow** for voice prompting. Spoken prompts carry more detail than typed ones (2026-10-01).
