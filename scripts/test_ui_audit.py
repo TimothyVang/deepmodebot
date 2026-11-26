@@ -44,7 +44,7 @@ class UiAuditTests(unittest.TestCase):
       <input type="checkbox" className="w-4 h-4 rounded-full" />
       <button className="icon-btn"><svg viewBox="0 0 16 16"><path d="M0 0h16v16H0z"/></svg></button>
       <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-      <input type="password" onPaste={(e) => e.preventDefault()} />
+      <input type="password" onPaste={(e) => { const x = {}; e.preventDefault(); }} />
       <div><span className="w-2 h-2 rounded-full animate-pulse"></span> LIVE</div>
     </div>
   );
@@ -76,7 +76,7 @@ export function SelectRow({ x, y }: { x: number; y: number }) {
     <div>
       <button type="button"><svg viewBox="0 0 16 16"></svg> English (US) <svg viewBox="0 0 12 12"></svg></button>
       <label><input type="checkbox" className="rounded-sm" /><span className="rounded-full">12</span></label>
-      <input type="text" onPaste={handleOtpPaste} />
+      <input type="text" onPaste={handleOtpPaste} placeholder="preventDefault" />
       <div style={{ transition: "transform 150ms ease-out", width: 260, top: y, left: x }}>Menu</div>
     </div>
   );

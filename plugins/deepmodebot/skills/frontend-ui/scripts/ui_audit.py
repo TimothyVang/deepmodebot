@@ -74,10 +74,87 @@ VIEWPORT_ZOOM_LOCK_RE = re.compile(
     r"<meta\b(?=[^>]*\bname\s*=\s*['\"]viewport['\"])(?=[^>]*\buser-scalable\s*=\s*['\"]?(?:no|0)\b)[^>]*>",
     re.I,
 )
-PASTE_BLOCK_INPUT_RE = re.compile(
-    r"<(?:input|textarea)\b(?:[^>'\"{}]|'[^']*'|\"[^\"]*\"|\{[^}]*\})*?\bonpaste\s*=\s*(?:\"[^\"]*(?:preventdefault\s*\(|\breturn\s+false\b)[^\"]*\"|'[^']*(?:preventdefault\s*\(|\breturn\s+false\b)[^']*'|\{(?:[^{}]|\{[^{}]*\})*?preventdefault\s*\((?:[^{}]|\{[^{}]*\})*\})",
-    re.I,
-)
+PREVENT_DEFAULT_CALL_RE = re.compile(r"preventdefault\s*\(", re.I)
+RETURN_FALSE_RE = re.compile(r"(?<![A-Za-z0-9_])return\s+false(?![A-Za-z0-9_])", re.I)
+
+
+def _find_jsx_tag_close(s: str) -> int:
+    quote: str | None = None
+    braces = 0
+    i = 0
+    n = len(s)
+    while i < n:
+        ch = s[i]
+        if quote is not None:
+            if ch == "\\":
+                i += 2
+                continue
+            if ch == quote:
+                quote = None
+        else:
+            if ch in ("'", '"'):
+                quote = ch
+            elif ch == "{":
+                braces += 1
+            elif ch == "}":
+                braces = max(0, braces - 1)
+            elif ch == ">" and braces == 0:
+                return i
+        i += 1
+    return -1
+
+
+def _has_paste_block_input(line: str) -> bool:
+    low = line.lower()
+    for pat in ("<input", "<textarea"):
+        pos = 0
+        while True:
+            idx = low.find(pat, pos)
+            if idx < 0:
+                break
+            after_kw = idx + len(pat)
+            if after_kw < len(low) and (low[after_kw].isalnum() or low[after_kw] == "-"):
+                pos = after_kw
+                continue
+            rel_gt = _find_jsx_tag_close(low[idx:])
+            if rel_gt < 0:
+                break
+            tag = low[idx : idx + rel_gt + 1]
+            pos = idx + rel_gt + 1
+            op_from = 0
+            while True:
+                op = tag.find("onpaste", op_from)
+                if op < 0:
+                    break
+                op_end = op + len("onpaste")
+                op_from = op_end
+                if op > 0 and (tag[op - 1].isalnum() or tag[op - 1] in ("-", "_")):
+                    continue
+                rest = tag[op_end:].lstrip()
+                if not rest.startswith("="):
+                    continue
+                val = rest[1:].lstrip()
+                if val.startswith(('"', "'")):
+                    q = val[0]
+                    end_q = val.find(q, 1)
+                    if end_q >= 1:
+                        attr_val = val[1:end_q]
+                        if PREVENT_DEFAULT_CALL_RE.search(attr_val) or RETURN_FALSE_RE.search(attr_val):
+                            return True
+                elif val.startswith("{"):
+                    depth = 0
+                    end_b = -1
+                    for b_idx, ch in enumerate(val):
+                        if ch == "{":
+                            depth += 1
+                        elif ch == "}":
+                            depth -= 1
+                            if depth == 0:
+                                end_b = b_idx
+                                break
+                    if end_b > 0 and PREVENT_DEFAULT_CALL_RE.search(val[1:end_b]):
+                        return True
+    return False
 BROWSER_AUDIT_SNIPPET = r"""(() => {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
@@ -333,7 +410,7 @@ def audit_source(text: str, rel: str, suffix: str) -> list[dict]:
             if VIEWPORT_ZOOM_LOCK_RE.search(line):
                 findings.append({"severity": "P1", "rule": "no-zoom-disable", "file": rel, "line": idx,
                                  "message": "Never disable browser zoom (`user-scalable=no`); size mobile `<input>` text `>= 16px` instead."})
-            if PASTE_BLOCK_INPUT_RE.search(line):
+            if _has_paste_block_input(line):
                 findings.append({"severity": "P1", "rule": "no-paste-block", "file": rel, "line": idx,
                                  "message": "Never disable paste (`onPaste` `preventDefault`/`return false`) on `<input>` or `<textarea>`."})
             for m_img in IMG_TAG_RE.finditer(line):
