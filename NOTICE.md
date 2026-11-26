@@ -17,6 +17,7 @@ Some components derive from other MIT-licensed work. Each keeps its upstream cop
 | `plugins/deepmodebot/skills/deepmodebot/references/techniques/reframe.md`, `catchup-video.md`, `webhook-ui.md`, `model-setup.md` | pstack `reframe`, `ketchup-video`, `make-bot-ui`, and `setup-pstack` skills, https://github.com/cursor/plugins/tree/main/pstack | MIT | Copyright (c) 2026 Lauren Tan | `plugins/deepmodebot/skills/deepmodebot/LICENSE` |
 | `plugins/deepmodebot/skills/deep-stack/references/unslop/` | pstack `unslop` skill | MIT | Copyright (c) 2026 Lauren Tan | `plugins/deepmodebot/skills/deep-stack/references/unslop/LICENSE` |
 | `plugins/deepmodebot/skills/deep-learning/scripts/wsp.py`, `hf_passes.py`, and distilled `references/weight-space-programming.md` | `weight-space-programming` skill, https://github.com/ulkuderner/weight-space-programming (implementing Takehi, Teoh, Zhang & Khattab, MIT CSAIL Nov 2026, logs CC BY 4.0) | MIT / CC BY 4.0 | Copyright (c) 2026 Caglar Ulkuderner | `plugins/deepmodebot/skills/deep-learning/LICENSE` |
+| `plugins/deepmodebot/skills/frontend-ui/scripts/motion_diff.py` and UI/porting/roofline/tutor rules | Methodology adapted from `NiazMorshed2007/reanimate` (MIT), `Nutlope/hallmark` (MIT), `felipebasurto/unslop-ui` (MIT), `erkamyaman/rust-anything` (MIT OR Apache-2.0), `sybil-solutions/inference-optimisation-skill` (MIT), and `janestreet/agent_skills` (MIT) | MIT / Apache-2.0 | Respective upstream authors (2026); clean-room stdlib implementation | `LICENSE` |
 
 Public-domain components:
 

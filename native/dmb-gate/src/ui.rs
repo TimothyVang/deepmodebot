@@ -429,6 +429,30 @@ pub fn scan_ui(rel: &str, text: &str) -> Vec<UiFinding> {
                 message: "Avoid `scale(0)` UI entries; start popovers/menus at `scale(0.95)` from trigger origin.",
             });
         }
+        if !is_markup && extract_css_decl_values(&low, &["width"]).iter().any(|v| *v == "100vw" || v.starts_with("100vw ")) {
+            out.push(UiFinding {
+                severity: "P2",
+                rule: "ui-100vw-overflow",
+                file: rel.to_string(),
+                line: ln,
+                message: "Avoid `width: 100vw` (causes horizontal scrollbar overflow); use `100%` with `overflow-x: clip`.",
+            });
+        }
+        if is_markup
+            && low.contains("animate-pulse")
+            && (raw.contains("LIVE") || raw.contains("ONLINE") || raw.contains("SYNCED"))
+            && !low.contains("aria-live")
+            && !low.contains("role=\"status\"")
+            && !low.contains("role='status'")
+        {
+            out.push(UiFinding {
+                severity: "P2",
+                rule: "ui-fake-live-pulse",
+                file: rel.to_string(),
+                line: ln,
+                message: "Avoid unwired `animate-pulse` decorative LIVE/ONLINE/SYNCED status dots; bind to real `role=\"status\"` state.",
+            });
+        }
         if low.contains("box-shadow:") && low.contains("rgba(0, 0, 0, 0.") {
             out.push(UiFinding {
                 severity: "P2",

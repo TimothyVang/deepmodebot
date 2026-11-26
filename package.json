@@ -28,6 +28,7 @@
     "lib",
     ".claude-plugin",
     ".omp-plugin",
+    ".agents/plugins",
     "plugins/deepmodebot",
     "native/dmb-gate/Cargo.toml",
     "native/dmb-gate/src",
