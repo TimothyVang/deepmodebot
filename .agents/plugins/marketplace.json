@@ -12,8 +12,7 @@
         "path": "./plugins/deepmodebot"
       },
       "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "NONE"
+        "installation": "AVAILABLE"
       },
       "category": "Developer Tools"
     }

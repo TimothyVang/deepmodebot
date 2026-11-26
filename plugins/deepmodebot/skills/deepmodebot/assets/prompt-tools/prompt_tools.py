@@ -102,6 +102,85 @@ URI_SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://")
 DEBT_MARKER_RE = re.compile(r"\b(TODO|FIXME|HACK|XXX)\b[:\s]*(.*)")
 DEFECT_WORD_RE = re.compile(r"\b(?:bug|broken|crash|error|fail|failing|fix|regression|leak|hang)\b", re.I)
 
+NO_CLARIFY_OVERRIDE_RE = re.compile(
+    r"\b(?:don'?t\s+ask|no\s+questions|just\s+do\s+it|do\s+everything\s+on\s+your\s+own|autonomous(?:ly)?|decide\s+yourself)\b",
+    re.I,
+)
+CONCRETE_TARGET_RE = re.compile(
+    r"(?:[A-Za-z0-9_./\\-]+\.(?:py|ts|tsx|js|jsx|mjs|cjs|rs|go|luau|lean|tla|md|json|yml|yaml|toml|sql|sh)\b"
+    r"|https?://\S+|\borgs/[A-Za-z0-9_.-]+|#\d+\b|\bPR\s*#?\d+\b|`[^`]+`"
+    r"|\b(?:postgres|sqlite|redis|stripe|oauth|jwt|cloudflare|vercel|workers|nextjs|react|tailwind|rust|golang|dmb-gate|dmb-net|gap_audit|slop_gate)\b)",
+    re.I,
+)
+VAGUE_GOAL_RE = re.compile(
+    r"^(?:please\s+|plz\s+|can\s+you\s+)?(?:improve|fix|upgrade|clean(?:\s+up)?|refactor|build|make|update|check|help(?:\s+with)?)"
+    r"(?:\s+(?:it|this|things|stuff|everything|something|the\s+(?:app|repo|code|project|system)|an?\s+(?:app|tool|website|saas)))?"
+    r"(?:\s+(?:better|faster|cleaner|good|now|please|plz))*[?!.]*$",
+    re.I,
+)
+HUMAN_FORK_RE = re.compile(
+    r"\b(?:not\s+sure\s+(?:whether|if)|should\s+(?:i|we)\b[^?!.]{1,80}\bor\b|either\b[^?!.]{1,60}\bor\b.*\bwhich\b)\b",
+    re.I,
+)
+IRREVERSIBLE_GATE_RE = re.compile(
+    r"\b(?:deploy\s+to\s+prod(?:uction)?|publish\s+(?:to\s+)?(?:npm|pypi|crates)|drop\s+table|delete\s+prod(?:uction)?|force[- ]push)\b",
+    re.I,
+)
+HARNESS_QUESTION_TOOLS = {
+    "agy": "ask_question",
+    "claude": "AskUserQuestion",
+    "omp": "ask",
+    "codex": "request_user_input",
+}
+
+
+def analyze_ambiguity(raw_prompt: str, root: Path | None = None) -> dict:
+    stripped = re.sub(r"^\s*(?:/(?:deepmodebot:)?deep\b|\$deepmodebot:(?:deepmodebot|deep)\b)\s*", "", raw_prompt or "", flags=re.I)
+    cleaned = " ".join(stripped.strip().split())
+    signals: list[str] = []
+    questions: list[dict] = []
+
+    if cleaned and not NO_CLARIFY_OVERRIDE_RE.search(cleaned):
+        has_anchor = bool(CONCRETE_TARGET_RE.search(cleaned))
+        word_count = len(re.findall(r"[A-Za-z0-9_]+", cleaned))
+        if not has_anchor and (word_count <= 4 or VAGUE_GOAL_RE.match(cleaned)):
+            signals.append("underspecified_scope")
+            questions.append({
+                "question": "What outcome should /deep prioritize in this run?",
+                "options": [
+                    "(Recommended) Full repo gap, drift & bug audit followed by Hardcore Mode fixes and verification",
+                    "Build a new end-to-end feature or subsystem (specify target workflow)",
+                    "Optimize performance, reliability, and test coverage across core modules",
+                ],
+            })
+        if HUMAN_FORK_RE.search(cleaned):
+            signals.append("explicit_human_choice_fork")
+            questions.append({
+                "question": "Which direction should /deep lock in before full-scope execution?",
+                "options": [
+                    "(Recommended) Prototype/benchmark the leading first-principles architecture and ship the winner",
+                    "Keep the smallest backwards-compatible change in the existing module layout",
+                ],
+            })
+        if IRREVERSIBLE_GATE_RE.search(cleaned):
+            signals.append("irreversible_or_external_action")
+            questions.append({
+                "question": "This prompt touches an external/irreversible boundary; how far should /deep proceed?",
+                "options": [
+                    "(Recommended) Build, test, and prove everything locally/on a branch, pausing right before external publish/deploy",
+                    "Execute the external publish/deploy step in this run as well",
+                ],
+            })
+
+    return {
+        "needs_clarification": bool(signals),
+        "signals": signals,
+        "max_rounds": 1 if signals else 0,
+        "never_ask_repo_or_doc_facts": True,
+        "headless_fallback": "select_recommended_and_log",
+        "harness_question_tools": HARNESS_QUESTION_TOOLS,
+        "questions": questions[:3],
+    }
 
 def _has_verify_skill(root: Path) -> list[str]:
     found = []
@@ -324,6 +403,7 @@ def upgrade_prompt(raw_prompt: str, root: Path | None = None) -> dict:
     if diff_note:
         upgraded_lines.insert(6, diff_note)
 
+    clarification = analyze_ambiguity(raw_prompt, root=root)
     return {
         "original_prompt": raw_prompt.strip(),
         "hardcore_mode": hardcore_mode,
@@ -331,6 +411,7 @@ def upgrade_prompt(raw_prompt: str, root: Path | None = None) -> dict:
         "decoded_deliverables": deliverables,
         "weaknesses": weaknesses,
         "needs_upgrade": bool(weaknesses),
+        "clarification": clarification,
         "route": route,
         "verify_skills": verify_skills,
         "upgraded_prompt": "\n".join(upgraded_lines),
@@ -464,7 +545,7 @@ def _scan_code_debt_and_tests(
                 tested_dirs.add(parent_rel)
                 if p.parent.name.lower() in {"tests", "test", "__tests__", "spec"} and p.parent.parent != root:
                     tested_dirs.add(p.parent.parent.relative_to(root).as_posix())
-                joined_test = "\n".join(lines[:400])
+                joined_test = "\n".join(lines)
                 for m_imp in IMPORT_REF_RE.finditer(joined_test):
                     raw_imp = next((g for g in m_imp.groups() if g), "")
                     clean_imp = raw_imp.replace("\\", "/").rstrip("/")
@@ -528,6 +609,10 @@ def suggest_prompts(root: Path, limit: int = 8) -> dict:
     if (ASSETS_DIR / "perf-audit" / "perf_audit.py").is_file():
         perf_audit = _load_sibling("deepmode_perf_audit_mod", "perf-audit/perf_audit.py")
         perf_findings = perf_audit.scan_paths(safe_root).get("findings", [])
+    gap_findings: list[dict] = []
+    if (ASSETS_DIR / "gap-audit" / "gap_audit.py").is_file():
+        gap_audit = _load_sibling("deepmode_gap_audit_mod", "gap-audit/gap_audit.py")
+        gap_findings = gap_audit.scan_repo(safe_root).get("findings", [])
     suggestions: list[dict] = []
 
     def add(priority: str, kind: str, title: str, evidence: list[str], prompt: str) -> None:
@@ -563,6 +648,52 @@ def suggest_prompts(root: Path, limit: int = 8) -> dict:
             f"/deep Full-scope gap and overclaim audit across docs: 1. Inspect all {len(overclaims)} flagged guarantee/coverage claim(s) "
             f"({', '.join(refs[:3])}). 2. For each claim, either prove it with a real command/test receipt or rewrite it to state exact tested bounds and limits. "
             f"3. Run doc/repo checks and self-grill, and report each claim's verdict with file:line evidence.",
+        )
+
+    drift_gaps = [
+        g for g in gap_findings
+        if g["rule"] in ("doc-script-flag-drift", "doc-cli-subcommand-drift", "stale-replaces-claim", "cross-lang-gate-drift")
+    ]
+    if drift_gaps:
+        refs = [f"{g['file']}:{g['line']} ({g['rule']})" for g in drift_gaps[:5]]
+        add(
+            "P0",
+            "gap",
+            "Eliminate doc-to-CLI flag drift, stale replacement claims, and cross-language gate drift",
+            refs,
+            f"/deep Full-scope spec-to-code and cross-language parity fix across {len(drift_gaps)} drift finding(s) "
+            f"({', '.join(refs[:4])}): "
+            f"1. Reconcile every documented CLI flag/subcommand, stale replacement comment, and Python-vs-Rust gate rule mismatch at the root. "
+            f"2. Add regression tests asserting 1:1 parity across docs, Python scripts, and native binaries. "
+            f"3. Prove gap_audit.py scan --root . exits 0 and run self-grill.",
+        )
+
+    silent_gaps = [g for g in gap_findings if g["rule"] in ("hollow-stub-body", "swallowed-exception")]
+    if silent_gaps:
+        refs = [f"{g['file']}:{g['line']} ({g['rule']})" for g in silent_gaps[:5]]
+        add(
+            "P1",
+            "gap",
+            "Replace hollow stub functions and silent swallowed exceptions with real behavior",
+            refs,
+            f"/deep [HARDCORE MODE] Full-scope elimination of {len(silent_gaps)} hollow stub / silent error black-hole(s) "
+            f"({', '.join(refs[:4])}): "
+            f"1. Replace every no-op `pass`/`NotImplementedError`/`todo!()` stub with a complete production implementation or explicit ABC/Protocol contract. "
+            f"2. Replace broad `except Exception: pass` and `.catch(() => {{}})` black-holes with narrow error handling and observable failure states. "
+            f"3. Prove gap_audit.py scan --root . exits 0, add failure-path tests, and run self-grill.",
+        )
+
+    unwired_gaps = [g for g in gap_findings if g["rule"] == "unwired-script-asset"]
+    if unwired_gaps:
+        refs = [f"{g['file']}:{g['line']} ({g['rule']})" for g in unwired_gaps[:5]]
+        add(
+            "P2",
+            "gap",
+            "Wire orphaned skill/tool scripts into active workflows or prune dead assets",
+            refs,
+            f"/deep Full-scope dead-seam audit for {len(unwired_gaps)} unwired script asset(s) ({', '.join(refs[:4])}): "
+            f"1. Inspect each unreferenced script and either wire it into its owning SKILL.md / CLI dispatcher with end-to-end tests or delete dead code. "
+            f"2. Prove gap_audit.py scan --root . reports 0 unwired assets and run self-grill.",
         )
 
     if diff["sensitive_paths"]:
@@ -715,6 +846,7 @@ def suggest_prompts(root: Path, limit: int = 8) -> dict:
         "broken_link_hits": len(broken_links),
         "debt_marker_hits": len(debt),
         "perf_audit_hits": len(perf_findings),
+        "gap_audit_hits": len(gap_findings),
         "suggestions": suggestions,
     }
 
@@ -727,6 +859,21 @@ def cmd_upgrade(args: argparse.Namespace) -> int:
         print(json.dumps(result, indent=2))
     else:
         print(result["upgraded_prompt"])
+    return 0
+
+
+def cmd_clarify(args: argparse.Namespace) -> int:
+    raw = sys.stdin.read() if args.stdin else (args.prompt or "")
+    root = Path(args.root) if args.root else None
+    res = analyze_ambiguity(raw, root=root)
+    if args.json:
+        print(json.dumps(res, indent=2))
+    elif res["needs_clarification"]:
+        print(f"clarify [ASK_ONCE_UPFRONT]: {', '.join(res['signals'])}")
+        for idx, q in enumerate(res["questions"], 1):
+            print(f"  Q{idx}: {q['question']} -> {'; '.join(q['options'])}")
+    else:
+        print("clarify [CLEAR_RUN_AUTONOMOUSLY]: 0 questions needed")
     return 0
 
 
@@ -765,6 +912,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_up.add_argument("--root", default=None)
     p_up.add_argument("--json", action="store_true")
     p_up.set_defaults(func=cmd_upgrade)
+
+    p_cl = sub.add_parser("clarify", help="Check whether /deep should ask 1 upfront clarification round or run immediately.")
+    p_cl.add_argument("--stdin", action="store_true")
+    p_cl.add_argument("--prompt", default="")
+    p_cl.add_argument("--root", default=None)
+    p_cl.add_argument("--json", action="store_true")
+    p_cl.set_defaults(func=cmd_clarify)
 
     p_sug = sub.add_parser("suggest", help="Scan a repo for gaps and overclaims and suggest full-scope /deep prompts.")
     p_sug.add_argument("--root", required=True)

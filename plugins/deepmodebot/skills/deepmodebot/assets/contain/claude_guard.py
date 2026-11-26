@@ -94,7 +94,7 @@ def main():
         return 0
     mark = session_mark(sys.argv[2] if len(sys.argv) > 2 else "", event)
     if mode == "activate":
-        if mark and re.match(r"\s*/deepmodebot:", str(event.get("prompt") or "")):
+        if mark and re.match(r"\s*/(?:deepmodebot:|(?:deep|deepmodebot|suggest|research|tournament|review-pr|land-pr|pr-thread|contribute|project-brief)\b)", str(event.get("prompt") or "")):
             folder = os.path.dirname(mark)
             os.makedirs(folder, exist_ok=True)
             try:

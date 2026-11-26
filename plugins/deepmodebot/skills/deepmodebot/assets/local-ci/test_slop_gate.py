@@ -113,5 +113,26 @@ class SlopGateTests(unittest.TestCase):
         self.assertEqual(good["findings"], [])
 
 
+    def test_dependabot_cooldown_and_dotfile_explicit_files(self):
+        dep = self.repo / ".github" / "dependabot.yml"
+        dep.parent.mkdir(parents=True, exist_ok=True)
+        dep.write_text(
+            "version: 2\n"
+            "updates:\n"
+            '  - package-ecosystem: "npm"\n'
+            '    directory: "/"\n'
+            "    schedule:\n"
+            '      interval: "weekly"\n',
+            encoding="utf-8",
+        )
+        res = sg.run_slop_gate(
+            self.repo,
+            explicit_files=[".github/dependabot.yml"],
+            allow_config_change=True,
+            run_linters=False,
+        )
+        rules = {f["rule"] for f in res["findings"]}
+        self.assertIn("supply-chain-dependabot-cooldown", rules)
+
 if __name__ == "__main__":
     unittest.main()

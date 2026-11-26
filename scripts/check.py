@@ -78,6 +78,9 @@ for manifest in [ROOT / ".omp-plugin/marketplace.json", ROOT / ".claude-plugin/m
         src_path = source.get("path") if isinstance(source, dict) else source
         if isinstance(src_path, str) and not (ROOT / src_path).is_dir():
             problems.append(f"{rel_m}: plugin {pname} source {src_path} is missing")
+        policy = plugin.get("policy") or {}
+        if manifest.name == "marketplace.json" and manifest.parent.name == "plugins" and policy.get("authentication") == "NONE":
+            problems.append(f"{rel_m}: policy.authentication 'NONE' is rejected by codex-cli (omit it or use ON_INSTALL/ON_USE)")
         if isinstance(pname, str):
             if meta_ver:
                 marketplace_versions.setdefault(pname, []).append((f"{rel_m}#metadata.version", meta_ver))

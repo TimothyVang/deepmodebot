@@ -235,9 +235,41 @@ def build_batches(reviewable: list[dict], max_files: int, max_lines: int) -> lis
     return batches
 
 
+def _apply_patch_line(rec: dict, line: str) -> None:
+    if line.startswith("Binary files "):
+        rec["binary"] = True
+    elif line.startswith("new file mode"):
+        rec["status"] = "A"
+    elif line.startswith("deleted file mode"):
+        rec["status"] = "D"
+    elif line.startswith("+") and not line.startswith("+++"):
+        rec["added"] += 1
+    elif line.startswith("-") and not line.startswith("---"):
+        rec["deleted"] += 1
+
+
+def collect_changes_from_patch(patch_path: Path) -> list[dict]:
+    records: dict[str, dict] = {}
+    cur_path: str | None = None
+    for line in patch_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if line.startswith("diff --git "):
+            parts = line.split(" b/", 1)
+            cur_path = parts[1].strip() if len(parts) == 2 else None
+            if cur_path and cur_path not in records:
+                records[cur_path] = {"path": cur_path, "status": "M", "added": 0, "deleted": 0, "binary": False}
+            continue
+        if cur_path:
+            _apply_patch_line(records[cur_path], line)
+    return [records[k] for k in sorted(records)]
+
 def cmd_plan(args: argparse.Namespace) -> int:
-    repo = git_root(Path(args.repo).resolve())
-    changes = collect_changes(repo, args.base, args.head, args.include_untracked)
+    repo_arg = args.repo_flag or args.repo
+    repo = git_root(Path(repo_arg).resolve())
+    changes = (
+        collect_changes_from_patch(Path(args.diff))
+        if args.diff
+        else collect_changes(repo, args.base, args.head, args.include_untracked)
+    )
     reviewable: list[dict] = []
     excluded: list[dict] = []
     for rec in changes:
@@ -378,6 +410,8 @@ def main() -> int:
 
     p_plan = sub.add_parser("plan", help="Classify and batch changed/untracked files before review")
     p_plan.add_argument("repo", nargs="?", default=".")
+    p_plan.add_argument("--repo", dest="repo_flag", default=None)
+    p_plan.add_argument("--diff", default=None, help="Read unified diff from file instead of git")
     p_plan.add_argument("--base")
     p_plan.add_argument("--head")
     p_plan.add_argument("--include-untracked", action="store_true")

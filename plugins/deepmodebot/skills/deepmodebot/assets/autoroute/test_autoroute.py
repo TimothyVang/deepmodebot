@@ -417,5 +417,20 @@ class AutoRouteLoopTests(unittest.TestCase):
         self.assertTrue(nqb["nested_anti_stacking"])
         self.assertEqual(nqb["max_subagents_per_task"], 0)
         self.assertEqual(nested_ver["locked_plan"]["panel_seats"], [])
+
+    def test_specialized_signal_detects_adversarial_research_and_gap_matrix(self):
+        sigs = autoroute.detect_specialized_signals("/research SOTA gaps in our repo vs cloudflare/agents")
+        self.assertIn("research", sigs)
+        cat = autoroute.discover_live_catalog(root=self.repo)
+        self.assertIn("research", cat["sibling_skills"])
+
+    def test_menu_includes_pre_flight_clarification_gate_for_zero_thought_deep_autopilot(self):
+        _, raw_vague = self.run_cli("menu", "--root", str(self.repo), "--stdin", "--json", stdin_text="improve this")
+        pkt_vague = json.loads(raw_vague)
+        self.assertTrue(pkt_vague["pre_flight_clarification"]["needs_clarification"])
+
+        _, raw_clear = self.run_cli("menu", "--root", str(self.repo), "--stdin", "--json", stdin_text="fix bug in src/app.py")
+        pkt_clear = json.loads(raw_clear)
+        self.assertFalse(pkt_clear["pre_flight_clarification"]["needs_clarification"])
 if __name__ == "__main__":
     unittest.main()

@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:
 import { test } from "node:test";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { clientById, PLUGIN_ID, pruneStaleOmpShadows } from "../lib/clients.mjs";
+import { clientById, PLUGIN_ID, pruneStaleOmpShadows, syncClientCache } from "../lib/clients.mjs";
 // An OS-native absolute path: a Windows path is relative on Linux CI and never matches.
 const PKG_ROOT = resolve(tmpdir(), "npm", "node_modules", "deepmodebot");
 
@@ -117,5 +117,27 @@ test("omp: pruneStaleOmpShadows removes stale manual deepmodebot shadow folder s
     assert.equal(existsSync(shadow), false);
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("marketplace clients sync stale cached plugin files even when version string is unchanged", () => {
+  const root = mkdtempSync(join(tmpdir(), "dmb-cache-sync-"));
+  try {
+    const pkg = join(root, "pkg");
+    const home = join(root, "home");
+    const srcSkill = join(pkg, "plugins", "deepmodebot", "skills", "deepmodebot");
+    const claudeCache = join(home, ".claude", "plugins", "cache", "deepmodebot", "deepmodebot", "0.9.1", "skills", "deepmodebot");
+    const codexCache = join(home, ".codex", "plugins", "cache", "deepmodebot", "deepmodebot", "0.9.1", "skills", "deepmodebot");
+    mkdirSync(srcSkill, { recursive: true });
+    mkdirSync(claudeCache, { recursive: true });
+    mkdirSync(codexCache, { recursive: true });
+    writeFileSync(join(srcSkill, "SKILL.md"), "fresh-v2");
+    writeFileSync(join(claudeCache, "SKILL.md"), "stale-v1");
+    writeFileSync(join(codexCache, "SKILL.md"), "stale-v1");
+    assert.equal(syncClientCache("claude", pkg, "0.9.1", home), 1);
+    assert.equal(syncClientCache("codex", pkg, "0.9.1", home), 1);
+    assert.equal(syncClientCache("claude", pkg, "0.9.1", home), 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });

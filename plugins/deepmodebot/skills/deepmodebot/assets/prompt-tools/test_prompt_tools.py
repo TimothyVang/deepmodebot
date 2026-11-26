@@ -179,5 +179,48 @@ class PromptToolsTests(unittest.TestCase):
         gap_cards = [s for s in sug["suggestions"] if s["kind"] == "gap"]
         self.assertTrue(any("src/payments" in " ".join(s["evidence"]) for s in gap_cards))
 
+    def test_suggest_surfaces_gap_audit_flag_drift_and_hollow_stubs(self):
+        (self.repo / "scripts").mkdir(exist_ok=True)
+        (self.repo / "scripts" / "runner_cli.py").write_text(
+            "import argparse\np = argparse.ArgumentParser()\np.add_argument('--root')\n",
+            encoding="utf-8",
+        )
+        (self.repo / "README.md").write_text(
+            "# Demo\n\nRun `python scripts/runner_cli.py --root . --missing-opt`.\n",
+            encoding="utf-8",
+        )
+        (self.repo / "src" / "stubbed.py").write_text(
+            "def sync_orders():\n    pass\n",
+            encoding="utf-8",
+        )
+        sug = prompt_tools.suggest_prompts(self.repo, limit=10)
+        self.assertGreaterEqual(sug["gap_audit_hits"], 2)
+        titles = " ".join(s["title"].lower() for s in sug["suggestions"])
+        self.assertIn("flag drift", titles)
+        self.assertIn("hollow stub", titles)
+
+    def test_clarify_distinguishes_ambiguous_human_goals_from_concrete_autopilot_tasks(self):
+        code_vague, out_vague = self.run_cli("clarify", "--prompt", "/deep make this better", "--root", str(self.repo), "--json")
+        self.assertEqual(code_vague, 0)
+        vague = json.loads(out_vague)
+        self.assertTrue(vague["needs_clarification"])
+        self.assertIn("underspecified_scope", vague["signals"])
+        self.assertEqual(vague["harness_question_tools"]["agy"], "ask_question")
+        self.assertTrue(vague["questions"][0]["options"][0].startswith("(Recommended)"))
+
+        code_clear, out_clear = self.run_cli(
+            "clarify",
+            "--prompt",
+            "/deep fix auth token validation in src/app.py and prove tests pass",
+            "--root",
+            str(self.repo),
+            "--json",
+        )
+        self.assertEqual(code_clear, 0)
+        self.assertFalse(json.loads(out_clear)["needs_clarification"])
+
+        override = prompt_tools.analyze_ambiguity("/deep improve things, don't ask questions just do it", root=self.repo)
+        self.assertFalse(override["needs_clarification"])
+
 if __name__ == "__main__":
     unittest.main()

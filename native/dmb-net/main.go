@@ -60,15 +60,11 @@ func main() {
 func printHelp() {
 	fmt.Println(`dmb-net ` + version + ` — zero-dependency concurrent Go network/API engine for deepmodebot
 Usage:
-  dmb-net trending [--topics rust,go,deep-learning] [--limit 10] [--json]
+  dmb-net trending [--topics rust,go,deep-learning] [--orgs cloudflare,vercel] [--limit 10] [--json]
   dmb-net pr-overlap [--repo owner/name] [--json]
   dmb-net fetch-papers [--ids 2106.06981,2301.05062] [--query "reinforcement learning"] [--limit 10] [--json]
   dmb-net webhook [--addr 127.0.0.1:8787] [--secret-env DMB_WEBHOOK_SECRET]`)
 }
-
-// -----------------------------------------------------------------------------
-// 1. Concurrent GitHub Trending Fetcher (replaces scripts/trending.py)
-// -----------------------------------------------------------------------------
 
 type RepoItem struct {
 	FullName    string `json:"full_name"`
@@ -113,16 +109,68 @@ func fetchTopicRepos(ctx context.Context, client *http.Client, baseURL, topic st
 	return parsed.Items, nil
 }
 
+func fetchOrgRepos(ctx context.Context, client *http.Client, baseURL, org string, limit int) ([]RepoItem, error) {
+	cleanOrg := strings.TrimSpace(org)
+	cleanOrg = strings.TrimPrefix(cleanOrg, "https://github.com/orgs/")
+	cleanOrg = strings.TrimPrefix(cleanOrg, "https://github.com/")
+	cleanOrg = strings.TrimPrefix(cleanOrg, "orgs/")
+	cleanOrg = strings.Split(cleanOrg, "/")[0]
+	if cleanOrg == "" {
+		return nil, errors.New("empty org name")
+	}
+	q := url.QueryEscape("org:" + cleanOrg + " stars:>10 archived:false")
+	reqURL := fmt.Sprintf("%s/search/repositories?q=%s&sort=stars&order=desc&per_page=%d", strings.TrimRight(baseURL, "/"), q, limit)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "deepmodebot-dmb-net/"+version)
+	if tok := os.Getenv("GITHUB_TOKEN"); tok != "" {
+		req.Header.Set("Authorization", "Bearer "+tok)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("github status %d for org %s", resp.StatusCode, cleanOrg)
+	}
+	var parsed ghSearchResp
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&parsed); err != nil {
+		return nil, err
+	}
+	for i := range parsed.Items {
+		parsed.Items[i].Topic = "org:" + cleanOrg
+	}
+	return parsed.Items, nil
+}
+
 func runTrending(args []string) error {
 	fs := flag.NewFlagSet("trending", flag.ContinueOnError)
 	topicsFlag := fs.String("topics", "deep-learning,reinforcement-learning,rust", "comma-separated GitHub topics")
-	limit := fs.Int("limit", 5, "repos per topic")
+	orgsFlag := fs.String("orgs", "", "comma-separated GitHub organizations (e.g. cloudflare,vercel)")
+	limit := fs.Int("limit", 5, "repos per topic/org")
 	asJSON := fs.Bool("json", false, "output JSON")
 	apiBase := fs.String("api-base", "https://api.github.com", "GitHub API base URL")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
+	orgs := splitCSV(*orgsFlag)
 	topics := splitCSV(*topicsFlag)
+	if len(orgs) > 0 && *topicsFlag == "deep-learning,reinforcement-learning,rust" {
+		hasExplicitTopics := false
+		for _, a := range args {
+			if a == "--topics" || strings.HasPrefix(a, "--topics=") {
+				hasExplicitTopics = true
+				break
+			}
+		}
+		if !hasExplicitTopics {
+			topics = nil
+		}
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -156,6 +204,27 @@ func runTrending(args []string) error {
 			}
 		}(t)
 	}
+	for _, o := range orgs {
+		wg.Add(1)
+		go func(org string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			items, err := fetchOrgRepos(ctx, client, *apiBase, org, *limit)
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil {
+				errs = append(errs, err.Error())
+				return
+			}
+			for _, it := range items {
+				if !seen[it.FullName] {
+					seen[it.FullName] = true
+					all = append(all, it)
+				}
+			}
+		}(o)
+	}
 	wg.Wait()
 	sort.Slice(all, func(i, j int) bool { return all[i].Stars > all[j].Stars })
 
@@ -175,10 +244,6 @@ func runTrending(args []string) error {
 	}
 	return nil
 }
-
-// -----------------------------------------------------------------------------
-// 2. Concurrent PR File-Overlap Collision Detector (replaces pr-overlap.py)
-// -----------------------------------------------------------------------------
 
 type PRFiles struct {
 	Number int      `json:"number"`
@@ -287,12 +352,18 @@ type arxivFeed struct {
 	Entries []arxivEntry `xml:"entry"`
 }
 
+type arxivCategory struct {
+	Term string `xml:"term,attr"`
+}
+
 type arxivEntry struct {
-	ID        string        `xml:"id"`
-	Title     string        `xml:"title"`
-	Published string        `xml:"published"`
-	Summary   string        `xml:"summary"`
-	Authors   []arxivAuthor `xml:"author"`
+	ID         string          `xml:"id"`
+	Title      string          `xml:"title"`
+	Published  string          `xml:"published"`
+	Summary    string          `xml:"summary"`
+	Comment    string          `xml:"comment"`
+	Authors    []arxivAuthor   `xml:"author"`
+	Categories []arxivCategory `xml:"category"`
 }
 
 type arxivAuthor struct {
@@ -300,11 +371,47 @@ type arxivAuthor struct {
 }
 
 type Paper struct {
-	ID      string   `json:"id"`
-	Date    string   `json:"date"`
-	Title   string   `json:"title"`
-	Authors []string `json:"authors"`
-	Summary string   `json:"summary"`
+	ID         string   `json:"id"`
+	Date       string   `json:"date"`
+	Title      string   `json:"title"`
+	Authors    []string `json:"authors"`
+	Categories []string `json:"categories,omitempty"`
+	CodeURLs   []string `json:"code_urls,omitempty"`
+	Summary    string   `json:"summary"`
+}
+
+func extractGitHubURLs(texts ...string) []string {
+	seen := make(map[string]bool)
+	var urls []string
+	for _, txt := range texts {
+		rem := txt
+		for {
+			idx := strings.Index(rem, "https://github.com/")
+			if idx < 0 {
+				break
+			}
+			sub := rem[idx:]
+			end := len(sub)
+			for k, ch := range sub {
+				if ch <= ' ' || ch == ')' || ch == ']' || ch == '>' || ch == '"' || ch == '\'' {
+					end = k
+					break
+				}
+			}
+			u := strings.TrimRight(sub[:end], ".,;:")
+			u = strings.TrimSuffix(u, ".git")
+			parts := strings.Split(strings.TrimPrefix(u, "https://github.com/"), "/")
+			if len(parts) >= 2 && parts[0] != "" && parts[1] != "" {
+				canon := "https://github.com/" + parts[0] + "/" + parts[1]
+				if !seen[canon] {
+					seen[canon] = true
+					urls = append(urls, canon)
+				}
+			}
+			rem = sub[end:]
+		}
+	}
+	return urls
 }
 
 func parseArxivXML(r io.Reader) ([]Paper, error) {
@@ -331,12 +438,21 @@ func parseArxivXML(r io.Reader) ([]Paper, error) {
 				authors = append(authors, strings.TrimSpace(a.Name))
 			}
 		}
+		cats := make([]string, 0, len(e.Categories))
+		for _, c := range e.Categories {
+			if c.Term != "" && len(cats) < 4 {
+				cats = append(cats, c.Term)
+			}
+		}
+		codeURLs := extractGitHubURLs(e.Summary, e.Comment)
 		papers = append(papers, Paper{
-			ID:      id,
-			Date:    date,
-			Title:   collapseSpaces(e.Title),
-			Authors: authors,
-			Summary: truncate(collapseSpaces(e.Summary), 220),
+			ID:         id,
+			Date:       date,
+			Title:      collapseSpaces(e.Title),
+			Authors:    authors,
+			Categories: cats,
+			CodeURLs:   codeURLs,
+			Summary:    truncate(collapseSpaces(e.Summary), 220),
 		})
 	}
 	return papers, nil

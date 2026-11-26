@@ -38,8 +38,11 @@ STALE_AFTER_DAYS = 1
 USER_AGENT = "deepmodebot-trending (+https://github.com/TimothyVang/deepmodebot)"
 WATCH_TOPICS = [
     "agent-skills", "claude-skills", "claude-code", "mcp", "mcp-server", "ai-agents",
-    "coding-agent", "llm", "browser-automation", "sandbox",
+    "coding-agent", "llm", "browser-automation", "sandbox", "cloudflare-workers",
+    "edge-computing", "design-system", "rust", "distributed-systems", "formal-verification",
+    "static-analysis", "webgpu",
 ]
+PERMISSIVE_SPDX = frozenset({"MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "0BSD", "Unlicense"})
 KEEP_DAYS = 120
 RECENT_DAYS = 30
 NEW_REPO_DAYS = 30
@@ -560,30 +563,132 @@ def fetch_published(out: Path, local) -> bool:
     return not is_stale(local)
 
 
+def _score_token(tok: str, name_l: str, topics_l: str, desc_l: str, lang_l: str) -> float:
+    if len(tok) < 2:
+        return 0.0
+    if tok in name_l:
+        return 3.0
+    if tok in topics_l:
+        return 2.0
+    if tok in desc_l or tok == lang_l:
+        return 1.0
+    return 0.0
+
+
+def _score_phrase(phrase: str, name_l: str, all_topics_l: str, desc_l: str, caution_l: str, lang_l: str) -> float:
+    pts = 0.0
+    if phrase in name_l:
+        pts += 8.0
+    if phrase in all_topics_l:
+        pts += 5.0
+    if phrase in desc_l:
+        pts += 3.0
+    if phrase in caution_l or phrase == lang_l:
+        pts += 1.5
+    tokens = re.findall(r"[a-z0-9][a-z0-9.+-]*", phrase)
+    if len(tokens) > 1 or pts == 0.0:
+        pts += sum(_score_token(t, name_l, all_topics_l, desc_l, lang_l) for t in tokens)
+    return pts
+
+
+def _score_entry(entry: dict, raw_terms: list[str]) -> float:
+    name_l = (entry.get("name") or "").lower()
+    desc_l = (entry.get("description") or "").lower()
+    ref = entry.get("reference") or {}
+    all_topics_l = " ".join([*(entry.get("topics") or []), *(ref.get("topics") or [])]).lower()
+    caution_l = (ref.get("caution") or "").lower()
+    lang_l = (entry.get("language") or "").lower()
+    return sum(
+        _score_phrase(raw.strip().lower(), name_l, all_topics_l, desc_l, caution_l, lang_l)
+        for raw in raw_terms
+        if raw.strip()
+    )
+
+
 def find(args):
     out = args.out or project_cache()
     catalog_path = out / "catalog.json"
     catalog = load_catalog(catalog_path)
-    if not args.no_refresh and is_stale(catalog) and not fetch_published(out, catalog):
+    if not getattr(args, "no_refresh", False) and is_stale(catalog) and not fetch_published(out, catalog):
         print(f"catalog last updated {catalog['updated']}; rebuilding it", file=sys.stderr)
         try:
             update(argparse.Namespace(out=out))
         except SystemExit as err:
             print(f"warning: refresh failed ({err}); searching the stale catalog", file=sys.stderr)
     catalog = load_catalog(catalog_path)
-    terms = [t.lower() for t in args.terms]
     ranked = []
     for entry in catalog["repos"].values():
-        haystack = " ".join([entry["name"], entry["description"], " ".join(entry["topics"]),
-                             " ".join(entry.get("reference", {}).get("topics", [])),
-                             entry["language"] or ""]).lower()
-        hits = sum(term in haystack for term in terms)
-        if hits:
-            ranked.append((hits, entry["stars"], entry))
+        sc = _score_entry(entry, args.terms)
+        if sc > 0:
+            ranked.append((sc, entry["stars"], entry))
     ranked.sort(key=lambda r: (-r[0], -r[1]))
+    chosen = [entry for _, _, entry in ranked[: args.limit]]
+    if getattr(args, "json", False):
+        print(json.dumps({
+            "updated": catalog["updated"],
+            "query": args.terms,
+            "count": len(ranked),
+            "results": chosen,
+        }, indent=2, ensure_ascii=False))
+        return
     print(f"catalog updated {catalog['updated']} ({out / 'README.md'}); {len(ranked)} matches for {' '.join(args.terms)}")
-    for hits, _, entry in ranked[: args.limit]:
+    for entry in chosen:
         print(f"{line(entry)} · [{category(entry)}]")
+
+
+def _clean_org_name(raw: str) -> str:
+    s = raw.strip()
+    for pfx in ("https://github.com/orgs/", "http://github.com/orgs/", "https://github.com/", "orgs/"):
+        if s.lower().startswith(pfx):
+            s = s[len(pfx):]
+            break
+    return s.split("/", 1)[0].strip()
+
+
+def org_sweep(args):
+    token = github_token()
+    cutoff = (today() - dt.timedelta(days=max(1, args.days))).isoformat()
+    seen: dict[str, dict] = {}
+    for raw_org in args.orgs:
+        org = _clean_org_name(raw_org)
+        if not org:
+            continue
+        queries = [
+            f"org:{org} stars:>={args.min_stars} archived:false",
+            f"org:{org} pushed:>={cutoff} stars:>={max(5, args.min_stars // 2)} archived:false",
+        ]
+        for q in queries:
+            params = urllib.parse.urlencode({"q": q, "sort": "stars", "order": "desc", "per_page": min(50, max(10, args.limit))})
+            data = json.loads(fetch(f"https://api.github.com/search/repositories?{params}", token))
+            for repo in data.get("items", []):
+                spdx = ((repo.get("license") or {}).get("spdx_id") or "NONE")
+                is_permissive = spdx in PERMISSIVE_SPDX
+                if getattr(args, "permissive_only", False) and not is_permissive:
+                    continue
+                license_note = (
+                    "verified-spdx-permissive"
+                    if is_permissive
+                    else ("inspect-root-LICENSE-before-use" if spdx == "NOASSERTION" else f"excluded-or-restricted:{spdx}")
+                )
+                full_name = repo["full_name"]
+                seen[full_name.lower()] = {
+                    "name": full_name,
+                    "url": repo.get("html_url") or f"https://github.com/{full_name}",
+                    "stars": repo.get("stargazers_count", 0),
+                    "language": repo.get("language"),
+                    "license": spdx,
+                    "license_disposition": license_note,
+                    "pushed_at": (repo.get("pushed_at") or "")[:10],
+                    "description": (repo.get("description") or "")[:DESCRIPTION_CHARS],
+                    "topics": repo.get("topics") or [],
+                }
+    items = sorted(seen.values(), key=lambda r: (-r["stars"], r["name"]))[: args.limit]
+    if getattr(args, "json", False):
+        print(json.dumps({"orgs": [_clean_org_name(o) for o in args.orgs], "count": len(items), "repos": items}, indent=2, ensure_ascii=False))
+        return
+    print(f"org sweep ({', '.join(_clean_org_name(o) for o in args.orgs)}): {len(items)} repo(s)")
+    for it in items:
+        print(f"- [{it['name']}]({it['url']}) ({it['stars']}★, {it['language'] or 'n/a'}, {it['license']} [{it['license_disposition']}]) — {it['description']}")
 
 
 def main():
@@ -592,12 +697,21 @@ def main():
     up = commands.add_parser("update", help="refresh catalog.json and README.md from all sources")
     up.add_argument("--out", type=Path, help="output directory (default: the project's .scratch/trending)")
     up.set_defaults(run=lambda a: update(argparse.Namespace(out=a.out or project_cache())))
-    fd = commands.add_parser("find", help="rank catalog repos by search terms")
+    fd = commands.add_parser("find", help="rank catalog repos by weighted phrase and token relevance")
     fd.add_argument("terms", nargs="+")
     fd.add_argument("--no-refresh", action="store_true", help="search the catalog as is, even when stale")
     fd.add_argument("--limit", type=int, default=20)
+    fd.add_argument("--json", action="store_true", help="emit structured JSON matches")
     fd.add_argument("--out", type=Path, help="catalog directory (default: the project's .scratch/trending)")
     fd.set_defaults(run=find)
+    og = commands.add_parser("org", help="sweep top and recent public repos in one or more GitHub organizations")
+    og.add_argument("orgs", nargs="+", help="GitHub org name or https://github.com/orgs/<name>/repositories URL")
+    og.add_argument("--days", type=int, default=365)
+    og.add_argument("--min-stars", type=int, default=15)
+    og.add_argument("--limit", type=int, default=25)
+    og.add_argument("--permissive-only", action="store_true", help="keep only MIT/Apache-2.0/BSD/ISC SPDX repos")
+    og.add_argument("--json", action="store_true")
+    og.set_defaults(run=org_sweep)
     sys.stdout.reconfigure(encoding="utf-8")
     args = parser.parse_args()
     args.run(args)

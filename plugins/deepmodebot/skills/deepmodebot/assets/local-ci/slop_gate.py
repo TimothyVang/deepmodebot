@@ -121,9 +121,16 @@ def _git(root: Path, *args: str) -> subprocess.CompletedProcess:
     )
 
 
+def _norm_rel_arg(raw: str) -> str:
+    s = raw.strip().replace("\\", "/")
+    while s.startswith("./"):
+        s = s[2:]
+    return s.lstrip("/")
+
+
 def _changed_files(root: Path, staged: bool, explicit_files: list[str] | None) -> list[str]:
     if explicit_files:
-        return sorted({f.replace("\\", "/").lstrip("./") for f in explicit_files if f.strip()})
+        return sorted({_norm_rel_arg(f) for f in explicit_files if _norm_rel_arg(f)})
     has_head = _git(root, "rev-parse", "--verify", "HEAD").returncode == 0
     found: set[str] = set()
     if staged:
@@ -324,9 +331,9 @@ def _check_secrets_and_patterns(rel: str, added_lines: dict[int, str], full_text
                              "message": "Swallowed Go error (`_ = err`).",
                              "fix": "Check and return or explicitly handle `err`."})
 
-    if rel == ".github/dependabot.yml" and "cooldown:" not in full_text:
+    if rel in (".github/dependabot.yml", ".github/dependabot.yaml") and added_lines and "cooldown:" not in full_text:
         findings.append({"severity": "P2", "rule": "supply-chain-dependabot-cooldown", "file": rel, "line": 1,
-                         "message": "`.github/dependabot.yml` has no `cooldown:` window.",
+                         "message": f"`{rel}` has no `cooldown:` window.",
                          "fix": "Add `cooldown: { default-days: 7 }` to reduce zero-day supply-chain exposure."})
     return findings
 
@@ -587,7 +594,7 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Zero-token diff-only anti-slop, secret, linter, boundary & budget CI gate.")
     p.add_argument("--root", default=".")
     p.add_argument("--staged", action="store_true", help="Scan staged git changes only (for pre-commit hooks).")
-    p.add_argument("--files", default="", help="Optional comma-separated repo-relative file list.")
+    p.add_argument("--files", nargs="*", default=None, help="Optional comma- or space-separated repo-relative file list.")
     p.add_argument("--allow-config-change", action="store_true", help="Allow edits to guardrail configs in this run.")
     p.add_argument("--no-linters", action="store_true", help="Skip external PATH linters (ruff/shellcheck/node).")
     p.add_argument("--record-memory", action="store_true", help="Record failing rules as P1 gotchas in deepmode-memory.db.")
@@ -596,7 +603,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--json", action="store_true")
     args = p.parse_args(argv)
 
-    explicit = [x.strip() for x in args.files.split(",") if x.strip()] if args.files else None
+    explicit = [x.strip() for raw_f in (args.files or []) for x in raw_f.split(",") if x.strip()] or None
     res = run_slop_gate(
         Path(args.root).resolve(),
         staged=args.staged,

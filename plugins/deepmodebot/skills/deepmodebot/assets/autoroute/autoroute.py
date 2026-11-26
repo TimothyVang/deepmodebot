@@ -109,6 +109,7 @@ SPECIALIZED_SIGNALS = (
     ("statechart", re.compile(r"(?:^\s*/?statechart\b|\b(?:tla\+?\s+statechart|mermaid\s+statechart\b.*\bcounterexample|draw\b.*\btla\+?\s+model\s+as\s+a?\s*statechart)\b)", re.I)),
     ("formal-verification", re.compile(r"\btla\+(?![A-Za-z0-9_])|\b(?:tlc|statechart|lean\s*4?|lean\s+proof|mathlib|coq|rocq|isabelle|smt2|z3|comparator|nanoda|bombadil|model[- ]check|property[- ]based\s+ui|(?:formalize|prove)\s+(?:this|the)\s+(?:theorem|lemma|conjecture|invariant))\b|(?<![A-Za-z0-9_])\.(?:lean|tla|smt2)\b", re.I)),
     ("suggest", re.compile(r"\b(?:deepmode\s+suggest|suggest\s+(?:me\s+)?(?:some\s+)?(?:full[- ]scope\s+)?prompts?|what\s+prompts?\s+should\s+i\s+run|what\s+should\s+i\s+(?:fix|work\s+on)\s+next)\b", re.I)),
+    ("research", re.compile(r"(?:^\s*/?(?:deepmodebot:)?research\b|\b(?:adversarial\s+research|sota\s+(?:research|gap\s+matrix|gaps?)|research\b.{0,45}\b(?:gaps?\s+in|vs\s+our\s+repo|differential\s+gap)|sweep\s+(?:github\s+)?orgs?\b))", re.I)),
     ("prompt-upgrade", re.compile(r"\b(?:make\s+my\s+prompt\s+better|(?:review|improve|upgrade|rewrite|fix)\s+(?:my|this)\s+prompt|convert\b.*\bdeepmode\s*prompt)\b", re.I)),
     ("grill", re.compile(r"(?:^\s*grill(?:\s+(?:it|this|me))?\s*[?!.]*$|(?:\bare\s+you\s+sure\W+grill\b)|\bgrill\s+(?:me|this\s+plan|my\s+plan|our\s+plan|it)\b|\bpoke\s+holes\s+in\b)", re.I)),
     ("self-grill", re.compile(r"\b(?:self[- ]grill|check\s+theater|mocking\s+stuff|tests\s+are\s+actually\s+catching|grill\s+(?:my|our|the|this)\s+(?:checks?|diff|tests?|code|work|implementation)|(?:find|look\s+for|hunt(?:\s+for)?|check\s+for)\s+(?:\d+\s+)?(?!(?:architecture|architectural|research)\s+gaps?\b)gaps?\b|(?<!suggest\s)overclaims?\b|what\s+(?:gaps?\s+)?did\s+(?:you|we)\s+miss|^are\s+you\s+sure\s*[?!.]*$)", re.I)),
@@ -349,7 +350,8 @@ def build_menu_packet(prompt: str, root: Path | None = None) -> dict:
     )
     ref_hints = detect_expected_reference_skills(cleaned, catalog["sibling_skills"])
     spec_hints = detect_specialized_signals(cleaned)
-
+    prompt_tools = _load_sibling("ar_prompt_tools", "prompt-tools/prompt_tools.py")
+    clarification = prompt_tools.analyze_ambiguity(cleaned, root=safe_root)
     compact_playbooks = [f"{k} (route_file: {v['file']}): {v['summary']}" for k, v in catalog["playbooks"].items()]
     compact_techniques = [f"{k} (route_file: {v['file']}): {v['summary']}" for k, v in catalog["techniques"].items()]
     compact_ref_skills = [f"{k} (route_file: {v['file']}): {v['summary']}" for k, v in catalog["sibling_skills"].items()]
@@ -410,6 +412,7 @@ def build_menu_packet(prompt: str, root: Path | None = None) -> dict:
         "repo_facts": repo_facts,
         "advisory_only": True,
         "hardcore_mode": hardcore_default,
+        "pre_flight_clarification": clarification,
         "advisory_prior": {
             "deprecated_offline_only": True,
             "mode": prior["mode"],
