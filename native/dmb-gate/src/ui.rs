@@ -352,6 +352,7 @@ pub fn scan_ui(rel: &str, text: &str) -> Vec<UiFinding> {
     let cleaned = strip_comments_preserve_lines(text, strip_line);
     let low_full = cleaned.to_ascii_lowercase();
     let allows_intrinsic = low_full.contains("interpolate-size");
+    let is_style = !is_markup || (matches!(ext.as_str(), "html" | "htm") && low_full.contains("<style"));
 
     for (idx, raw) in cleaned.lines().enumerate() {
         let ln = idx + 1;
@@ -429,7 +430,7 @@ pub fn scan_ui(rel: &str, text: &str) -> Vec<UiFinding> {
                 message: "Avoid `scale(0)` UI entries; start popovers/menus at `scale(0.95)` from trigger origin.",
             });
         }
-        if !is_markup && extract_css_decl_values(&low, &["width"]).iter().any(|v| *v == "100vw" || v.starts_with("100vw ")) {
+        if is_style && extract_css_decl_values(&low, &["width"]).iter().any(|v| *v == "100vw" || v.starts_with("100vw ")) {
             out.push(UiFinding {
                 severity: "P2",
                 rule: "ui-100vw-overflow",
@@ -439,11 +440,44 @@ pub fn scan_ui(rel: &str, text: &str) -> Vec<UiFinding> {
             });
         }
         if is_markup
-            && low.contains("animate-pulse")
-            && (raw.contains("LIVE") || raw.contains("ONLINE") || raw.contains("SYNCED"))
             && !low.contains("aria-live")
             && !low.contains("role=\"status\"")
             && !low.contains("role='status'")
+            && {
+                let mut matched = false;
+                let mut from = 0;
+                while let Some(rel_s) = low[from..].find("<span") {
+                    let s_pos = from + rel_s;
+                    let tail = &low[s_pos..];
+                    let Some(gt) = tail.find('>') else { break };
+                    let open_tag = &tail[..=gt];
+                    let after_span = if open_tag.ends_with("/>") {
+                        from = s_pos + gt + 1;
+                        &tail[gt + 1..]
+                    } else if let Some(close_sp) = tail[gt + 1..].find("</span>") {
+                        from = s_pos + gt + 1 + close_sp + "</span>".len();
+                        &tail[gt + 1 + close_sp + "</span>".len()..]
+                    } else {
+                        break;
+                    };
+                    if !open_tag.contains("animate-pulse") {
+                        continue;
+                    }
+                    let trimmed = after_span.trim_start();
+                    for kw in ["live", "online", "synced"] {
+                        if let Some(rest_kw) = trimmed.strip_prefix(kw) {
+                            if !rest_kw.bytes().next().map(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-').unwrap_or(false) {
+                                matched = true;
+                                break;
+                            }
+                        }
+                    }
+                    if matched {
+                        break;
+                    }
+                }
+                matched
+            }
         {
             out.push(UiFinding {
                 severity: "P2",

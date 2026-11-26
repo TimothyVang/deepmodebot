@@ -136,6 +136,7 @@ def analyze_frames(
 ) -> dict:
     if len(ref_frames) < 2 or len(cand_frames) < 2:
         raise ValueError("need at least 2 frames in both reference and candidate")
+    fps = max(1e-6, float(fps))
 
     ref_act = _activity_series(ref_frames)
     cand_act = _activity_series(cand_frames)
@@ -151,18 +152,36 @@ def analyze_frames(
     rc, cc = ref_win["curve_20"], cand_win["curve_20"]
     curve_rmse = round(math.sqrt(sum((a - b) ** 2 for a, b in zip(rc, cc)) / len(rc)), 4)
 
-    paired = min(len(ref_frames), len(cand_frames))
-    per_frame_mismatch = [_frame_diff_fraction(ref_frames[i], cand_frames[i]) for i in range(paired)]
+    shift = (
+        cand_win["start_frame"] - ref_win["start_frame"]
+        if (ref_win["start_frame"] > 0 and cand_win["start_frame"] > 0)
+        else 0
+    )
+    aligned_pairs = [(i, i + shift) for i in range(len(ref_frames)) if 0 <= i + shift < len(cand_frames)]
+    per_frame_mismatch = (
+        [_frame_diff_fraction(ref_frames[i], cand_frames[j]) for i, j in aligned_pairs]
+        if aligned_pairs
+        else [0.0]
+    )
     rest_indices = [
-        i for i in range(paired)
-        if (i == 0 or (i - 1 < len(ref_act) and ref_act[i - 1] <= 0.002 and i - 1 < len(cand_act) and cand_act[i - 1] <= 0.002))
+        k for k, (i, j) in enumerate(aligned_pairs)
+        if (
+            (i == 0 and j == 0)
+            or (
+                i > 0 and j > 0
+                and i - 1 < len(ref_act) and ref_act[i - 1] <= 0.002
+                and j - 1 < len(cand_act) and cand_act[j - 1] <= 0.002
+            )
+        )
     ]
     rest_self_jitter = [
-        cand_act[i] for i in range(min(len(ref_act), len(cand_act))) if ref_act[i] <= 0.002
+        cand_act[i + shift]
+        for i in range(len(ref_act))
+        if ref_act[i] <= 0.002 and 0 <= i + shift < len(cand_act)
     ]
     rest_jitter = round(max(rest_self_jitter) if rest_self_jitter else 0.0, 4)
     rest_pixel_mismatch = round(
-        sum(per_frame_mismatch[i] for i in rest_indices) / len(rest_indices) if rest_indices else 0.0, 4
+        sum(per_frame_mismatch[k] for k in rest_indices) / len(rest_indices) if rest_indices else 0.0, 4
     )
     mean_mismatch = round(sum(per_frame_mismatch) / len(per_frame_mismatch), 4)
     max_mismatch = round(max(per_frame_mismatch), 4)

@@ -147,26 +147,28 @@ jobs:
 
         let ui_hits = ui::scan_ui(
             "web/app.css",
-            ".card { transition: all 200ms ease-in; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }\n.drawer { transition: margin-top 180ms ease-out; background: #000000 } .scale0 { transform: scale(0); }\n",
+            ".card { width: 100vw; transition: all 200ms ease-in; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }\n.drawer { transition: margin-top 180ms ease-out; background: #000000 } .scale0 { transform: scale(0); }\n",
         );
         assert!(ui_hits.iter().any(|f| f.rule == "ui-transition-all"));
         assert!(ui_hits.iter().any(|f| f.rule == "ui-ease-in"));
         assert!(ui_hits.iter().any(|f| f.rule == "ui-heavy-rgba-shadow"));
+        assert!(ui_hits.iter().any(|f| f.rule == "ui-100vw-overflow" && f.severity == "P2"));
         assert!(ui_hits.iter().any(|f| f.rule == "ui-layout-transition" && f.severity == "P1"));
         assert!(ui_hits.iter().any(|f| f.rule == "ui-pure-black-surface" && f.severity == "P1"));
         assert!(ui_hits.iter().any(|f| f.rule == "ui-scale-zero" && f.severity == "P1"));
 
         let tsx_hits = ui::scan_ui(
             "web/Toolbar.tsx",
-            "<div className=\"bg-black\">\n<input type=\"checkbox\" className=\"rounded-full\" />\n<button className=\"icon\"><i className=\"lucide-x\"></i></button>\n<button aria-label=\"\"><svg viewBox=\"0 0 16 16\"></svg></button>\n</div>\n",
+            "<div className=\"bg-black\">\n<input type=\"checkbox\" className=\"rounded-full\" />\n<button className=\"icon\"><i className=\"lucide-x\"></i></button>\n<button aria-label=\"\"><svg viewBox=\"0 0 16 16\"></svg></button>\n<div><span className=\"w-2 h-2 animate-pulse\" /> Live</div>\n</div>\n",
         );
         assert!(tsx_hits.iter().any(|f| f.rule == "ui-pure-black-surface" && f.line == 1));
         assert!(tsx_hits.iter().any(|f| f.rule == "ui-circular-checkbox" && f.line == 2));
         assert_eq!(tsx_hits.iter().filter(|f| f.rule == "ui-icon-button-unlabeled").count(), 2);
+        assert!(tsx_hits.iter().any(|f| f.rule == "ui-fake-live-pulse" && f.line == 5));
 
         let legit_tsx = ui::scan_ui(
             "web/Legit.tsx",
-            "/* never use transition: width 200ms; background: #000000; transform: scale(0); */\n<button type=\"button\"><svg viewBox=\"0 0 16 16\"></svg> English (US) <svg viewBox=\"0 0 12 12\"></svg></button>\n<label><input type=\"checkbox\" className=\"rounded-sm\" /><span className=\"rounded-full\">12</span></label>\n<div style={{ transition: \"transform 150ms ease-out\", width: 260, top: 10 }}>Menu</div>\n",
+            "/* never use transition: width 200ms; background: #000000; transform: scale(0); */\n<button type=\"button\"><svg viewBox=\"0 0 16 16\"></svg> English (US) <svg viewBox=\"0 0 12 12\"></svg></button>\n<label><input type=\"checkbox\" className=\"rounded-sm\" /><span className=\"rounded-full\">12</span></label>\n<div style={{ transition: \"transform 150ms ease-out\", width: 260, top: 10 }}>Menu</div>\n<div role=\"status\"><span className=\"w-2 h-2 animate-pulse\" /> LIVE</div>\n<div><span className=\"animate-pulse\" /> deliver</div>\n",
         );
         assert!(legit_tsx.is_empty(), "unexpected findings: {:?}", legit_tsx);
 

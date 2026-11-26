@@ -63,6 +63,15 @@ class MotionDiffTests(unittest.TestCase):
         self.assertEqual(res["reference"]["easing_family"], "ease-out")
         self.assertEqual(res["activity_curve_rmse"], 0.0)
 
+    def test_within_tolerance_one_frame_phase_shift_passes(self):
+        ref = render_box_sequence(self._ease_out_positions(start_frame=3))
+        early = render_box_sequence(self._ease_out_positions(start_frame=2))
+        late = render_box_sequence(self._ease_out_positions(start_frame=4))
+        res_early = motion_diff.analyze_frames(ref, early, fps=25.0, mode="pixel")
+        res_late = motion_diff.analyze_frames(ref, late, fps=25.0, mode="pixel")
+        self.assertTrue(res_early["ok"], res_early)
+        self.assertTrue(res_late["ok"], res_late)
+
     def test_catches_ease_in_against_ease_out_and_late_trigger_offset(self):
         ref = render_box_sequence(self._ease_out_positions(start_frame=2))
         wrong_curve = render_box_sequence(self._ease_in_positions(start_frame=2))

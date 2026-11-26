@@ -49,9 +49,10 @@ RAW_TW_GRAY_RE = re.compile(r"\b(?:bg|text|border)-(?:zinc|slate|gray|neutral|st
 TW_BG_BLACK_RE = re.compile(r"""(?<=[\s"'`])bg-black(?=[\s"'`])""")
 WIDTH_100VW_CSS_RE = re.compile(r"(?:^|[;\s{])width\s*:\s*100vw\b", re.I)
 FAKE_LIVE_PULSE_RE = re.compile(
-    r"<span\b(?![^>]*\b(?:role\s*=\s*['\"]status['\"]|aria-live\s*=))[^>]*\banimate-pulse\b[^>]*>.*?</span>\s*(?:LIVE|ONLINE|SYNCED)\b",
+    r"<span\b[^>]*\banimate-pulse\b[^>]*(?:/>|>.*?</span>)\s*(?:LIVE|ONLINE|SYNCED)\b",
     re.I,
 )
+LIVE_STATUS_A11Y_RE = re.compile(r"\b(?:role\s*=\s*['\"]status['\"]|aria-live\s*=)", re.I)
 HEAVY_RGBA_SHADOW_RE = re.compile(r"box-shadow\s*:[^;{}]*rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0?\.[1-9]\d*\s*\)", re.I)
 BORDER_DECL_RE = re.compile(r"\bborder(?:-(?:top|right|bottom|left))?\s*:\s*[1-9]\d*px\s+solid\b", re.I)
 IMG_TAG_RE = re.compile(r"<img\b[^>]*>", re.I)
@@ -310,7 +311,7 @@ def audit_source(text: str, rel: str, suffix: str) -> list[dict]:
                 if not visible and not A11Y_NAME_ATTR_RE.search(m_btn.group("attrs")):
                     findings.append({"severity": "P1", "rule": "icon-button-label", "file": rel, "line": idx,
                                      "message": "Icon-only `<button>` is missing `aria-label`/`aria-labelledby` (and should expose a tooltip + shortcut)."})
-            if FAKE_LIVE_PULSE_RE.search(line):
+            if FAKE_LIVE_PULSE_RE.search(line) and not LIVE_STATUS_A11Y_RE.search(line):
                 findings.append({"severity": "P2", "rule": "no-fake-live-pulse", "file": rel, "line": idx,
                                  "message": "Avoid unwired `animate-pulse` decorative `LIVE/ONLINE/SYNCED` dots (`unslop-ui` U10); wire real state with `role='status'`."})
             for m_img in IMG_TAG_RE.finditer(line):
