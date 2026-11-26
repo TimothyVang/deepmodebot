@@ -978,28 +978,15 @@ fn check_cross_lang_parity(root: &Path, out: &mut Vec<GapFinding>) {
 }
 
 pub fn scan_repo_gaps(root: &Path) -> (usize, Vec<GapFinding>) {
-    const SKIP_DIRS: &[&str] = &[
-        ".git", ".scratch", ".worktrees", "__pycache__", "node_modules",
-        ".venv", "venv", "target", "dist", "build", ".next", ".pytest_cache", ".lake",
-    ];
-    let files: Vec<PathBuf> = walk_files(root, None, SKIP_DIRS);
+    let has_plugins = root.join("plugins").is_dir();
+    let files: Vec<PathBuf> = walk_files(root, None, crate::util::SKIP_DIRS);
 
-    let mut all_texts: BTreeMap<String, String> = BTreeMap::new();
-    let mut live_paths: BTreeSet<String> = BTreeSet::new();
-    let mut live_basenames: BTreeSet<String> = BTreeSet::new();
-    let mut argparse_by_name: BTreeMap<String, Vec<(String, BTreeSet<String>)>> = BTreeMap::new();
-    let mut asset_scripts: Vec<String> = Vec::new();
-
-    for p in &files {
-        let Ok(meta) = fs::symlink_metadata(p) else {
-            continue;
-        };
-        if meta.file_type().is_symlink() || !meta.is_file() || meta.len() > 2_097_152 {
-            continue;
+    let loaded = parallel_map(&files, |p| {
+        let meta = fs::symlink_metadata(p).ok()?;
+        if meta.file_type().is_symlink() || !meta.is_file() || meta.len() > 512_000 {
+            return None;
         }
-        let Ok(rel_p) = p.strip_prefix(root) else {
-            continue;
-        };
+        let rel_p = p.strip_prefix(root).ok()?;
         let rel = rel_p.to_string_lossy().replace('\\', "/");
         let is_test = is_test_rel(&rel);
         let fname = p
@@ -1007,19 +994,34 @@ pub fn scan_repo_gaps(root: &Path) -> (usize, Vec<GapFinding>) {
             .and_then(|s| s.to_str())
             .unwrap_or("")
             .to_string();
-        if !is_test {
-            live_paths.insert(rel.clone());
-            live_basenames.insert(fname.clone());
-        }
         let ext = p
             .extension()
             .and_then(|s| s.to_str())
             .map(|s| s.to_ascii_lowercase())
             .unwrap_or_default();
-        if !SCAN_EXTS.contains(&ext.as_str()) {
-            continue;
+        let want_text = SCAN_EXTS.contains(&ext.as_str())
+            && (has_plugins || !matches!(ext.as_str(), "json" | "yml" | "yaml" | "toml"));
+        let txt = if want_text {
+            fs::read_to_string(p).ok()
+        } else {
+            None
+        };
+        Some((rel, fname, ext, is_test, txt))
+    });
+
+    let mut all_texts: BTreeMap<String, String> = BTreeMap::new();
+    let mut live_paths: BTreeSet<String> = BTreeSet::new();
+    let mut live_basenames: BTreeSet<String> = BTreeSet::new();
+    let mut argparse_by_name: BTreeMap<String, Vec<(String, BTreeSet<String>)>> = BTreeMap::new();
+    let mut asset_scripts: Vec<String> = Vec::new();
+
+    for item in loaded.into_iter().flatten() {
+        let (rel, fname, ext, is_test, txt_opt) = item;
+        if !is_test {
+            live_paths.insert(rel.clone());
+            live_basenames.insert(fname.clone());
         }
-        let Ok(txt) = fs::read_to_string(p) else {
+        let Some(txt) = txt_opt else {
             continue;
         };
         if ext == "py" && !is_test {
@@ -1051,7 +1053,6 @@ pub fn scan_repo_gaps(root: &Path) -> (usize, Vec<GapFinding>) {
         }
         all_texts.insert(rel, txt);
     }
-
     let files_checked = all_texts.len();
     let (gate_subs, net_subs) = discover_cli_subcommands(root);
     let entries: Vec<(String, String)> = all_texts

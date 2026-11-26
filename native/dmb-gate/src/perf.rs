@@ -39,7 +39,8 @@ pub fn scan_text(rel: &str, text: &str) -> Vec<PerfFinding> {
     let mut in_async_py = false;
     let mut async_indent = 0usize;
     let mut loop_indent: Option<usize> = None;
-
+    let mut js_brace_depth: i32 = 0;
+    let mut js_loop_depths: Vec<i32> = Vec::new();
     for (idx, raw) in text.lines().enumerate() {
         let ln = idx + 1;
         let trim = raw.trim();
@@ -134,14 +135,19 @@ pub fn scan_text(rel: &str, text: &str) -> Vec<PerfFinding> {
             } else if (trim.starts_with("def ") || trim.starts_with("class ")) && indent <= async_indent {
                 in_async_py = false;
             }
-            if trim.starts_with("for ") || trim.starts_with("while ") {
+            if trim.starts_with("for ") || trim.starts_with("async for ") || trim.starts_with("while ") {
                 loop_indent = Some(indent);
             } else if let Some(li) = loop_indent {
                 if indent <= li {
                     loop_indent = None;
                 }
             }
-            if in_async_py && (trim.contains("time.sleep(") || trim.contains("requests.get(") || trim.contains("requests.post(")) {
+            if in_async_py
+                && (trim.contains("time.sleep(")
+                    || trim.contains("subprocess.run(")
+                    || trim.contains("requests.get(")
+                    || trim.contains("requests.post("))
+            {
                 out.push(PerfFinding {
                     rule_id: "PERF-ASYNC-001",
                     severity: "high",
@@ -151,19 +157,79 @@ pub fn scan_text(rel: &str, text: &str) -> Vec<PerfFinding> {
                 });
             }
             if let Some(li) = loop_indent {
-                if indent > li
-                    && (trim.contains("cursor.execute(") || trim.contains("conn.execute("))
-                    && !trim.contains("executemany(")
-                {
+                if indent > li {
+                    let is_py_db = (trim.contains(".execute(")
+                        || trim.contains(".fetch(")
+                        || trim.contains(".fetchrow(")
+                        || trim.contains(".fetchval(")
+                        || trim.contains(".find_one(")
+                        || trim.contains(".find_unique(")
+                        || trim.contains(".scalar(")
+                        || trim.contains(".scalars("))
+                        && !trim.contains("executemany(")
+                        && !is_pattern_def;
+                    if is_py_db {
+                        out.push(PerfFinding {
+                            rule_id: "PERF-DB-001",
+                            severity: "high",
+                            file: rel.to_string(),
+                            line: ln,
+                            message: "Database/ORM query inside a loop triggers N+1 round trips; batch with `ANY($1)` or `IN (...)`.",
+                        });
+                    } else if trim.contains("await ")
+                        && !trim.contains(".sleep(")
+                        && !trim.contains(".wait_closed(")
+                        && !trim.contains(".drain(")
+                        && !trim.contains(".aclose(")
+                        && !trim.contains(".close(")
+                        && !is_pattern_def
+                    {
+                        out.push(PerfFinding {
+                            rule_id: "PERF-ASYNC-002",
+                            severity: "high",
+                            file: rel.to_string(),
+                            line: ln,
+                            message: "Serial `await` inside loop causes N+1 latency waterfall; batch IDs or bound concurrency.",
+                        });
+                    }
+                }
+            }
+        }
+        if matches!(ext.as_str(), "ts" | "tsx" | "js" | "jsx" | "mjs") {
+            if !js_loop_depths.is_empty() && !is_pattern_def {
+                let is_js_db = trim.contains(".query(")
+                    || trim.contains(".execute(")
+                    || trim.contains(".findUnique(")
+                    || trim.contains(".findFirst(")
+                    || trim.contains(".findMany(")
+                    || trim.contains(".findOne(");
+                if is_js_db {
                     out.push(PerfFinding {
                         rule_id: "PERF-DB-001",
                         severity: "high",
                         file: rel.to_string(),
                         line: ln,
-                        message: "Database `.execute()` inside a loop risks N+1 query overhead; batch with `executemany` or `IN (...)`.",
+                        message: "Database/ORM query inside loop triggers N+1 round trips; batch queries.",
+                    });
+                } else if (trim.starts_with("await ") || trim.contains(" await ") || trim.contains("(await "))
+                    && !trim.contains("sleep(")
+                {
+                    out.push(PerfFinding {
+                        rule_id: "PERF-ASYNC-002",
+                        severity: "high",
+                        file: rel.to_string(),
+                        line: ln,
+                        message: "Serial `await` inside loop causes latency waterfall; batch or bound concurrency.",
                     });
                 }
             }
+            let opens = trim.matches('{').count() as i32;
+            let closes = trim.matches('}').count() as i32;
+            if (trim.starts_with("for ") || trim.starts_with("for(") || trim.starts_with("while ") || trim.starts_with("while(")) && opens > 0 {
+                js_loop_depths.push(js_brace_depth + 1);
+            }
+            js_brace_depth += opens - closes;
+            js_loop_depths.retain(|&d| d <= js_brace_depth);
         }
     }
     out

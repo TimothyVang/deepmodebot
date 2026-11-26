@@ -19,6 +19,7 @@ Paths are relative to this skill (`skill://deepmodebot/...` in omp; elsewhere re
 
 Applies to M/L and multi-item routes (Size **S** tracks its single item inline). Slicing sequences verification; it never shrinks scope. Full manifest, inventory, sprint/SME checkpoint, and zero-loss resume rules: `references/full-scope.md`.
 - Keep 100% of deliverables/inventory in ONE Scope Manifest (`loop.py manifest`, mirrored in `todo`); any `pending` inventory item fails `loop.py manifest`. Only the user removes scope.
+- When asked what to build/fix/improve, auditing gaps, or mapping a project, reveal **100% of verified high-leverage tasks** across all subsystems (`prompt_tools.py suggest --root "<root>" --limit 0` + domain/SOTA capability levers, grouped `Wave 1 P0` / `Wave 2 P1` / `Wave 3 P2`); never cherry-pick 1–3 items.
 - Single-run builds drive `1/N` to `N/N`; Sprint mode (`active_sprint: 1` / `sme_gate: "required"`) pauses ONLY at the explicit sprint/SME checkpoint (`scope_complete: false`, never done). A pause is never completion.
 
 ## Route (do this first)
@@ -118,7 +119,7 @@ Read entry skill first; full index: `references/README.md`:
 
 ## Writing the reply
 
-- Short declarative sentences, one thought each; no long dashes or mid-sentence colons (colons before lists ok).
+- Short declarative sentences, one thought each; no long dashes or mid-sentence colons (colons before lists ok). Keep prose tight without truncating lists; project audits, `/suggest`, `/research`, and `/tournament` list **all** verified high-leverage tasks (`1..N`) by wave instead of stopping at 1-3 items.
 - Keep required playbook sections; lead with consumer/maintainer impact before detail.
 - Never fabricate links/citations/outputs; link only what you produced/read; never overclaim (counts/guarantees must match fresh observed runs); label claims (measured, inferred, guess); never hand off checks you can run.
 - **No machinery.** Omit skills, playbooks, routes, sizes, verify bookkeeping, pre-authorizations, models/subagents, internal codes unless required by a playbook section or "Why I chose this". Report result, proof, risks, blockers; mention machinery only when it affects trust.

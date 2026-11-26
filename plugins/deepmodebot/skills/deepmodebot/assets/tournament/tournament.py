@@ -1296,6 +1296,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     _, _, state = load_state(Path(args.dir))
     pending_pitches = [e["id"] for e in state["entrants"] if e["status"] == "active" and e["pitch"] is None]
     ready_matches = [m["id"] for m in state["matches"] if match_is_ready(state, m)]
+    ranked_portfolio = _build_ranked_portfolio(state)
     summary = {
         "slug": state["slug"],
         "entrant_count": state["entrant_count"],
@@ -1303,6 +1304,8 @@ def cmd_status(args: argparse.Namespace) -> int:
         "ready_matches": ready_matches,
         "champion": state["champion"],
         "runner_up": state["runner_up"],
+        "ranked_portfolio_count": len(ranked_portfolio),
+        "ranked_portfolio": ranked_portfolio,
     }
     if args.json:
         print(json.dumps(summary, indent=2))
@@ -1313,6 +1316,65 @@ def cmd_status(args: argparse.Namespace) -> int:
         )
     return 0
 
+
+def _build_ranked_portfolio(state: dict) -> list[dict]:
+    round_elim_tier: dict[str, int] = {}
+    judge_verified_by_ent: dict[str, list[str]] = {}
+    for m in state.get("matches", []):
+        res = m.get("result")
+        if not res or res.get("forfeit"):
+            continue
+        mid = m["id"]
+        tier = 1 if mid == "final" else (2 if mid.startswith("sf-") else 3)
+        w = res.get("winner")
+        vr = res.get("verified_receipt")
+        if w and vr and vr.get("raw"):
+            vlist = judge_verified_by_ent.setdefault(w, [])
+            if vr["raw"] not in vlist:
+                vlist.append(vr["raw"])
+        for lid in res.get("losers", []):
+            round_elim_tier[lid] = min(round_elim_tier.get(lid, 9), tier)
+    grafted_from: dict[str, list[str]] = {}
+    for ent in state.get("entrants", []):
+        for g in ent.get("grafts", []):
+            grafted_from.setdefault(g["from"], []).append(g["insight"])
+    portfolio: list[dict] = []
+    for idx, ent in enumerate(state.get("entrants", [])):
+        pitch = ent.get("pitch")
+        if not pitch:
+            continue
+        eid = ent["id"]
+        if eid == state.get("champion"):
+            tier, stage_label = 0, "Champion"
+        elif eid == state.get("runner_up"):
+            tier, stage_label = 1, "Runner-Up"
+        elif round_elim_tier.get(eid) == 2:
+            tier, stage_label = 2, "Semifinalist"
+        elif round_elim_tier.get(eid) == 3:
+            tier, stage_label = 3, "Round 1 Contender"
+        else:
+            tier, stage_label = 4, ent.get("status", "active").capitalize()
+        trusted_rcpts = list(judge_verified_by_ent.get(eid, []))
+        for r in pitch.get("receipts", []):
+            if r.get("kind") == "file" and r["raw"] not in trusted_rcpts:
+                trusted_rcpts.append(r["raw"])
+        portfolio.append({
+            "_order": (tier, -len(grafted_from.get(eid, [])), idx),
+            "entrant": eid,
+            "stage": stage_label,
+            "gap_kind": pitch["gap_kind"],
+            "title": pitch["title"],
+            "thesis": pitch["thesis"],
+            "verified_receipts": trusted_rcpts,
+            "submitted_receipt_count": len(pitch.get("receipts", [])),
+            "counter_risk": pitch.get("counter_risk", ""),
+            "grafted_insights": grafted_from.get(eid, []),
+        })
+    portfolio.sort(key=lambda item: item["_order"])
+    for rank_idx, item in enumerate(portfolio, 1):
+        item.pop("_order", None)
+        item["rank"] = rank_idx
+    return portfolio
 
 def render_markdown(state: dict) -> str:
     if not state["champion"]:
@@ -1365,6 +1427,22 @@ def render_markdown(state: dict) -> str:
             "",
             "No opposing finalist survived upstream dropouts.",
         ])
+
+    portfolio = _build_ranked_portfolio(state)
+    if portfolio:
+        lines.extend(["", f"## Full Ranked High-Leverage Portfolio ({len(portfolio)} pitched lenses)", ""])
+        for item in portfolio:
+            rcpt_str = (
+                f"Verified/disk receipts: {', '.join(f'`{r}`' for r in item['verified_receipts'])}"
+                if item["verified_receipts"]
+                else f"Submitted receipts: {item['submitted_receipt_count']} (unjudged)"
+            )
+            graft_tag = f" | Grafted insight: {'; '.join(item['grafted_insights'])}" if item["grafted_insights"] else ""
+            risk_tag = f" | Risk: {item['counter_risk']}" if item["counter_risk"] else ""
+            lines.append(
+                f"{item['rank']}. **[{item['stage']} · `{item['entrant']}` · {item['gap_kind']}] {item['title']}** — "
+                f"{item['thesis']} ({rcpt_str}{graft_tag}{risk_tag})"
+            )
 
     lines.extend(["", "## Bracket ledger", ""])
     for m in state["matches"]:

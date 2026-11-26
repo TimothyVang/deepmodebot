@@ -25,10 +25,10 @@ A **seam** is where one module meets another and where a test or a second implem
 4. **Report.** Copy `assets/architecture-review/report-template.html` to `docs/deepmodebot/architecture-<YYYY-MM-DD>.html` and fill one card per candidate:
    - title, badges, files, and a before and after diagram side by side;
    - one sentence each for problem and change, gains in locality, leverage, and test terms, the deletion-test line, and an ADR callout when one conflicts.
-   Use `GLOSSARY.md` names for domain concepts. Vary the diagrams (dependency graph, layer stack, call tree collapsing into one box); a card that needs a paragraph to explain needs a better diagram. End with the top recommendation.
+   Use `GLOSSARY.md` names for domain concepts. Vary the diagrams (dependency graph, layer stack, call tree collapsing into one box); a card that needs a paragraph to explain needs a better diagram. Include a complete **Ranked Leverage Matrix** across all surviving candidates (`Strong` → `Worth exploring` → `Speculative`, ordered by `caller fan-in × churn × complexity collapsed`) before naming `#1 (Recommended)`.
    Open the file (`start`, `open`, or `xdg-open`) and print its absolute path. Propose no interfaces yet. The report is a working artifact: leave it uncommitted unless the user wants it kept.
-   Done when the file has one filled card per surviving candidate and its absolute path is printed.
-5. **Pick.** Take the top recommendation and say so. In live mode (the user asked to choose), ask which card to explore and wait. Done when one candidate is named as the pick.
+   Done when the file has one filled card per surviving candidate, the complete Ranked Leverage Matrix is printed in chat (never collapsed to 1–3 items), and its absolute path is printed.
+5. **Pick (while preserving the full backlog).** Present all surviving candidates in ranked order so zero high-leverage deepening tasks are hidden, then highlight `#1 (Recommended)` as the initial pick (or in live mode when the user asked to choose, ask whether to run `#1`, a numbered subset, or all `Strong` items in sequence). Done when the full ranked list is visible and the active pick or wave is named.
 6. **Grill the pick** with the **grill** technique (`references/techniques/grill.md`): constraints, callers, the shape of the deepened module, what sits behind its seam, which tests survive and which move to the new interface. Keep the docs current as answers land, per the **domain-model** technique (`references/techniques/domain-model.md`):
    - a new module name for a concept missing from `GLOSSARY.md` → add the term;
    - a term that gets sharper in the discussion → update its entry;

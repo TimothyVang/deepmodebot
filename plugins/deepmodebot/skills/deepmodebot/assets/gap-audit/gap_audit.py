@@ -25,6 +25,7 @@ sys.dont_write_bytecode = True
 SKIP_DIRS = frozenset({
     ".git", ".scratch", ".worktrees", "__pycache__", "node_modules",
     ".venv", "venv", "target", "dist", "build", ".next", ".pytest_cache", ".lake",
+    ".playwright-mcp", ".turbo", "coverage", ".cache", "out", ".nuxt", ".svelte-kit",
 })
 
 TEST_PATH_RE = re.compile(
@@ -423,15 +424,14 @@ def _collect_repo_inventory(safe_root: Path) -> tuple[dict[str, str], set[str], 
     argparse_by_name: dict[str, list[tuple[str, set[str]]]] = {}
     asset_scripts: list[str] = []
 
+    has_plugins = (safe_root / "plugins").is_dir()
     for dirpath, dirnames, filenames in os.walk(safe_root):
         dirnames[:] = [d for d in sorted(dirnames) if d not in SKIP_DIRS and not (Path(dirpath) / d).is_symlink()]
         base = Path(dirpath)
         for name in sorted(filenames):
             p = base / name
-            if p.is_symlink() or not p.is_file():
-                continue
             try:
-                if p.stat().st_size > 2_097_152:
+                if p.is_symlink() or not p.is_file() or p.stat().st_size > 512_000:
                     continue
             except OSError:
                 continue
@@ -442,6 +442,8 @@ def _collect_repo_inventory(safe_root: Path) -> tuple[dict[str, str], set[str], 
                 live_paths.add(rel)
                 live_basenames.add(name)
             if suffix not in SCAN_TEXT_EXTS:
+                continue
+            if not has_plugins and suffix in {".json", ".yml", ".yaml", ".toml"}:
                 continue
             try:
                 txt = p.read_text(encoding="utf-8", errors="replace")

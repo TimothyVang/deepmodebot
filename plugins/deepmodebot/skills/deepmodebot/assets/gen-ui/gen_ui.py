@@ -1584,16 +1584,16 @@ def write_surface_artifacts(
 def generate_from_suggest(
     root: Path,
     slug: str = "suggest",
-    limit: int = 8,
+    limit: int = 0,
     open_browser: bool = False,
     precomputed: dict | None = None,
 ) -> dict:
     prompt_tools = _load_sibling("genui_prompt_tools", "prompt-tools/prompt_tools.py")
     report = precomputed if precomputed is not None else prompt_tools.suggest_prompts(root, limit=limit)
     spec = {
-        "title": f"Repo Gap, Overclaim & Hardcore Prompt Cockpit ({Path(report['root']).name})",
+        "title": f"Full-Scope High-Leverage Task & Gap Cockpit ({Path(report['root']).name})",
         "subtitle": report["root"],
-        "mode_badge": "A2UI 1.0 · /suggest",
+        "mode_badge": "A2UI 1.0 · /suggest · full-scope",
         "metrics": [
             {"label": "Code files", "value": report["code_file_count"], "tone": "neutral"},
             {"label": "Active diff", "value": report["diff_size"], "tone": "neutral"},
@@ -1608,7 +1608,7 @@ def generate_from_suggest(
                 "tone": "warn" if report["broken_link_hits"] > 0 else "ok",
             },
             {"label": "Verify skills", "value": len(report["verify_skills"]), "tone": "ok" if report["verify_skills"] else "warn"},
-            {"label": "Ranked prompts", "value": len(report["suggestions"]), "tone": "neutral"},
+            {"label": "High-leverage tasks", "value": f"{len(report['suggestions'])}/{report.get('total_leverage_tasks', len(report['suggestions']))}", "tone": "neutral"},
         ],
         "suggestions": report["suggestions"],
         "findings": [
@@ -1742,7 +1742,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_sug = sub.add_parser("from-suggest", help="Compile /suggest repo scan into A2UI v1.0 + interactive HTML cockpit.")
     p_sug.add_argument("--root", required=True)
     p_sug.add_argument("--slug", default="suggest")
-    p_sug.add_argument("--limit", type=int, default=8)
+    p_sug.add_argument("--limit", type=int, default=0, help="Max tasks to include (0 = full un-truncated scope, default).")
     p_sug.add_argument("--open", action="store_true")
     p_sug.add_argument("--json", action="store_true")
     p_sug.set_defaults(func=cmd_from_suggest)
