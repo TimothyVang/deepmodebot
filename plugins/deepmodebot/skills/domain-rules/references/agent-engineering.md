@@ -45,6 +45,8 @@ Audit every agent against all seven. Each names the failure it prevents.
 - Models attend best to the start and end of a long prompt. Put critical instructions and the primary document at the edges, never buried mid-prompt ("lost in the middle"). (AI-COURSE)
 - Before each call, prune stale tool outputs, intermediate reasoning, and redundant logs ("context rot"). (AI-COURSE, LAWS)
 - Load skill headers first and full instructions only when a task matches (progressive disclosure). (AI-COURSE)
+- Gate freeform memory writes to frontier models and store only verified facts or predictions not cheap to re-read from live state; weaker models write indiscriminate session logs that bloat memory and hurt progress. (FERMAT, 09:05-12:18)
+- Pair online session notes with periodic offline consolidation ("dreaming") over raw transcripts and notes to repair poisoned memories that cause repeat loops, fill dangling wiki placeholders, and build indexes; serve consolidated wikis alongside raw search rather than replacing it. (FERMAT, 12:42-18:05)
 
 ## Multi-agent
 
@@ -53,6 +55,7 @@ Audit every agent against all seven. Each names the failure it prevents.
 - Hand off typed, structured payloads, not free text. (AI-COURSE)
 - Enforce each role's tool permissions in infrastructure, so model output cannot reach tools outside the role. (AI-COURSE)
 - Route messages through a central orchestrator, not peer-to-peer, to keep flow predictable and stop agents messaging in circles. (AI-COURSE)
+- On long-horizon multi-agent tasks with frontier models, prefer simple general primitives (per-agent network-restricted sandboxes with tool-call monitoring, Git, and a shared SQL database for task DAGs, notes, and landing state) over bespoke domain-specific orchestration harnesses that ossify as models improve. (FERMAT, 02:28-06:15)
 
 ## Approval, sandbox, and untrusted input
 

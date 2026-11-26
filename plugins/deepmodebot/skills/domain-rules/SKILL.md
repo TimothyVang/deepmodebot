@@ -2,12 +2,12 @@
 name: domain-rules
 description: "Domain engineering rules for design/review: AI agents/LLMs, AWS networking, backend & high-scale perf, cache/data structures, languages, DevOps, debugging."
 metadata:
-  as-of: "2026-11-25"
+  as-of: "2026-11-26"
 ---
 
 # Engineering domain rules
 
-Distilled from 102 public 2026 engineering talks (full source key table: `references/sources.md`) and 450+ benchmarked server implementations (`high-scale-server-optimization.md`, `data-structures-and-cache-optimization.md`), current as of 2026-11-20. Read only the file your task touches.
+Distilled from 103 public 2026 engineering talks (full source key table: `references/sources.md`) and 450+ benchmarked server implementations (`high-scale-server-optimization.md`, `data-structures-and-cache-optimization.md`), current as of 2026-11-26. Read only the file your task touches.
 
 | File | Read when |
 |---|---|

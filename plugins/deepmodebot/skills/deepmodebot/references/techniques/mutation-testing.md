@@ -9,5 +9,6 @@
    - State/order swaps (reorder lock/write steps, return cached/empty value early).
 3. **Run the existing test suite per mutant.** Classify each as **killed** (a test failed for the right behavioral reason), **survived** (tests stayed green—check theater exposed!), or **equivalent** (observable behavior unchanged).
 4. **Kill surviving mutants with behavioral + property-based tests.** Replace tautological/mock-heavy assertions with observable behavior checks (`references/principles/test-behavior-not-implementation.md`) and add shrinkable property-based invariants (`Hypothesis`, `fast-check`, `proptest`) or coverage-guided fuzz harnesses (`cargo-fuzz`, `atheris`, `libFuzzer`) asserting round-trip, idempotence, conservation, or crash-freedom across generated inputs.
+   - For compilers, transpilers, optimizers, or ports, pair agent-written program generators with differential execution across reference and transformed modes (such as interpreter vs AOT vs type-stripped) and verify the harness fails on a seeded bug first (`https://www.youtube.com/watch?v=TvsF67C2F54`, 08:16-08:58, 17:53-18:02).
 
 **Done when** baseline and post-hardening mutant survival counts are measured on an isolated copy, every non-equivalent surviving mutant in critical paths is killed by a real behavioral or property-based test, and the working tree has zero leftover mutations.
