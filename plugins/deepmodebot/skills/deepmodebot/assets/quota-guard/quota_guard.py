@@ -77,6 +77,7 @@ def compute_quota_plan(
 
     subagent_models = {
         "scout": "flash_lite",
+        "researcher": "flash",
         "comment-sicko": "flash",
         "mechanical": "flash",
         "slice_worker": "flash" if (norm_size in ("S", "M") or lean_mode) else "inherit",

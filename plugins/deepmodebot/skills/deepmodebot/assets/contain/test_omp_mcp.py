@@ -644,5 +644,32 @@ class OmpMcpServerTests(unittest.TestCase):
         self.assertIn("2026-07-28", err["data"]["supportedProtocolVersions"])
 
 
+    def test_omp_task_supports_researcher_and_negative_space_scout(self):
+        tl = self.rpc_lines([
+            {"jsonrpc": "2.0", "id": 10, "method": "tools/list", "params": {}},
+            {
+                "jsonrpc": "2.0",
+                "id": 11,
+                "method": "tools/call",
+                "params": {
+                    "name": "omp_task",
+                    "arguments": {
+                        "agent": "researcher",
+                        "task": "Audit Cap'n Web RPC invariants",
+                        "cwd": str(self.workspace),
+                    },
+                },
+            },
+        ])
+        by_id = {r["id"]: r for r in tl}
+        task_tool = next(t for t in by_id[10]["result"]["tools"] if t["name"] == "omp_task")
+        self.assertIn("researcher", task_tool["inputSchema"]["properties"]["agent"]["enum"])
+        res = by_id[11]["result"]
+        self.assertFalse(res.get("isError"))
+        payload = json.loads(res["content"][0]["text"])
+        self.assertEqual(payload["agent"], "researcher")
+        inner = json.loads(payload["findings"])
+        self.assertIn("SOTA-vs-Repo Gap Matrix", " ".join(inner["args"]))
+
 if __name__ == "__main__":
     unittest.main()

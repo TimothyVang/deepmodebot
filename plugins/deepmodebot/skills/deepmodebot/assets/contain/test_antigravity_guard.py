@@ -480,5 +480,18 @@ class AntigravityGuardTests(unittest.TestCase):
         self.assertIn("unreadable hook input", err)
 
 
+    def test_research_slash_command_activates_containment(self):
+        conv = "conv-research-cmd"
+        self.run_hook({
+            "hookEventName": "PreInvocation",
+            "conversationId": conv,
+            "workspacePaths": [str(self.proj)],
+            "lastUserInput": "/research https://github.com/orgs/cloudflare/repositories",
+        })
+        denied, _ = self.run_hook(
+            self.pre_tool_payload("write_file", self.outside / "leak.md", conv_id=conv)
+        )
+        self.assertEqual(denied["decision"], "deny")
+
 if __name__ == "__main__":
     unittest.main()

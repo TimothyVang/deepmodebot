@@ -572,6 +572,166 @@ pub fn scan_added_lines(rel: &str, lines: &[(usize, String)], out: &mut Vec<Find
             });
         }
     }
+    if ext == "yml" || ext == "yaml" {
+        let norm = rel.replace('\\', "/");
+        if norm == ".github/dependabot.yml" || norm == ".github/dependabot.yaml" {
+            for (ln, line) in lines {
+                if line.trim_start().starts_with("package-ecosystem:") {
+                    let full = lines.iter().map(|(_, s)| s.as_str()).collect::<Vec<_>>().join("\n");
+                    if !full.contains("cooldown:") {
+                        out.push(Finding {
+                            severity: "P2",
+                            rule: "supply-chain-dependabot-cooldown",
+                            file: rel.to_string(),
+                            line: *ln,
+                            message: "Dependabot config adds ecosystem without `cooldown` window.".to_string(),
+                            fix: "Add `cooldown: { default-days: 7 }` to mitigate freshly published package compromises.",
+                        });
+                    }
+                    break;
+                }
+            }
+        }
+    }
+}
+
+fn scan_python_structural(
+    rel: &str,
+    txt: &str,
+    added: &[(usize, String)],
+    out: &mut Vec<Finding>,
+) {
+    let added_lines: BTreeSet<usize> = added.iter().map(|(ln, _)| *ln).collect();
+    let is_test = is_test_file(rel);
+    let all_lines: Vec<&str> = txt.lines().collect();
+
+    if !is_test {
+        for &ln in &added_lines {
+            if ln == 0 || ln > all_lines.len() {
+                continue;
+            }
+            let line = all_lines[ln - 1];
+            let code = line.split('#').next().unwrap_or("");
+            if let Some(pos) = code.find("subprocess.run(") {
+                let mut depth = 0i32;
+                let mut call_buf = String::new();
+                for j in (ln - 1)..all_lines.len().min(ln + 25) {
+                    let seg = if j == ln - 1 { &all_lines[j][pos..] } else { all_lines[j] };
+                    let seg_clean = seg.split('#').next().unwrap_or("");
+                    call_buf.push_str(seg_clean);
+                    call_buf.push(' ');
+                    for ch in seg_clean.chars() {
+                        if ch == '(' {
+                            depth += 1;
+                        } else if ch == ')' {
+                            depth -= 1;
+                        }
+                    }
+                    if depth <= 0 {
+                        break;
+                    }
+                }
+                if !call_buf.contains("timeout=") && !call_buf.contains("timeout =") && !call_buf.contains("**") {
+                    out.push(Finding {
+                        severity: "P1",
+                        rule: "safety-subprocess-timeout",
+                        file: rel.to_string(),
+                        line: ln,
+                        message: "`subprocess.run()` called without `timeout=`.".to_string(),
+                        fix: "Pass an explicit `timeout=` bound so child commands cannot hang forever.",
+                    });
+                }
+            }
+        }
+        return;
+    }
+
+    let mut i = 0;
+    while i < all_lines.len() {
+        let raw = all_lines[i];
+        let trimmed = raw.trim_start();
+        let def_rest = trimmed
+            .strip_prefix("def ")
+            .or_else(|| trimmed.strip_prefix("async def "));
+        if let Some(drest) = def_rest {
+            if drest.starts_with("test_") {
+                let fname: String = drest
+                    .chars()
+                    .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+                    .collect();
+                let def_ind = raw.len() - trimmed.len();
+                let start_ln = i + 1;
+                let mut j = i + 1;
+                let mut body_lines: Vec<(usize, &str)> = Vec::new();
+                while j < all_lines.len() {
+                    let bl = all_lines[j];
+                    let bc = bl.split('#').next().unwrap_or("").trim();
+                    if bc.is_empty() {
+                        j += 1;
+                        continue;
+                    }
+                    let b_ind = bl.len() - bl.trim_start().len();
+                    if b_ind <= def_ind {
+                        break;
+                    }
+                    body_lines.push((j + 1, bc));
+                    j += 1;
+                }
+                let end_ln = body_lines.last().map(|(l, _)| *l).unwrap_or(start_ln);
+                let touched = (start_ln..=end_ln).any(|l| added_lines.contains(&l));
+                if touched {
+                    if body_lines.is_empty()
+                        || body_lines.iter().all(|(_, s)| *s == "pass" || *s == "...")
+                    {
+                        out.push(Finding {
+                            severity: "P1",
+                            rule: "test-theater-empty",
+                            file: rel.to_string(),
+                            line: start_ln,
+                            message: format!("Empty test `{}` proves nothing.", fname),
+                            fix: "Assert real observable behavior or delete the placeholder test.",
+                        });
+                    } else {
+                        let mut has_oracle = false;
+                        for (bln, bs) in &body_lines {
+                            if *bs == "assert True" || bs.starts_with("assert True,") {
+                                has_oracle = true;
+                                out.push(Finding {
+                                    severity: "P1",
+                                    rule: "test-theater-tautology",
+                                    file: rel.to_string(),
+                                    line: *bln,
+                                    message: format!("`assert True` in `{}` is a tautology.", fname),
+                                    fix: "Assert a real output/state invariant that fails if the fix is reverted.",
+                                });
+                            } else if bs.starts_with("assert ")
+                                || bs.contains(".assert")
+                                || bs.contains("raises(")
+                                || bs.contains(".fail(")
+                                || bs.contains("verify(")
+                                || bs.contains("check(")
+                            {
+                                has_oracle = true;
+                            }
+                        }
+                        if !has_oracle {
+                            out.push(Finding {
+                                severity: "P1",
+                                rule: "test-theater-no-assert",
+                                file: rel.to_string(),
+                                line: start_ln,
+                                message: format!("Test `{}` has zero assertions.", fname),
+                                fix: "Add concrete behavioral assertions or delete the dead test.",
+                            });
+                        }
+                    }
+                }
+                i = j;
+                continue;
+            }
+        }
+        i += 1;
+    }
 }
 
 fn parse_xml_attr(tag: &str, key: &str) -> Option<String> {
@@ -895,6 +1055,11 @@ pub fn run(args: &[String]) -> ExitCode {
         let added = added_lines_for_file(&root, rel, staged);
         if !added.is_empty() {
             scan_added_lines(rel, &added, &mut local);
+        }
+        if rel.ends_with(".py") && !added.is_empty() {
+            if let Ok(py_txt) = fs::read_to_string(root.join(rel)) {
+                scan_python_structural(rel, &py_txt, &added, &mut local);
+            }
         }
         let is_ui = Path::new(rel)
             .extension()

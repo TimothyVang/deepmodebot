@@ -417,5 +417,11 @@ class AutoRouteLoopTests(unittest.TestCase):
         self.assertTrue(nqb["nested_anti_stacking"])
         self.assertEqual(nqb["max_subagents_per_task"], 0)
         self.assertEqual(nested_ver["locked_plan"]["panel_seats"], [])
+
+    def test_specialized_signal_detects_adversarial_research_and_gap_matrix(self):
+        sigs = autoroute.detect_specialized_signals("/research SOTA gaps in our repo vs cloudflare/agents")
+        self.assertIn("research", sigs)
+        cat = autoroute.discover_live_catalog(root=self.repo)
+        self.assertIn("research", cat["sibling_skills"])
 if __name__ == "__main__":
     unittest.main()

@@ -179,5 +179,25 @@ class PromptToolsTests(unittest.TestCase):
         gap_cards = [s for s in sug["suggestions"] if s["kind"] == "gap"]
         self.assertTrue(any("src/payments" in " ".join(s["evidence"]) for s in gap_cards))
 
+    def test_suggest_surfaces_gap_audit_flag_drift_and_hollow_stubs(self):
+        (self.repo / "scripts").mkdir(exist_ok=True)
+        (self.repo / "scripts" / "runner_cli.py").write_text(
+            "import argparse\np = argparse.ArgumentParser()\np.add_argument('--root')\n",
+            encoding="utf-8",
+        )
+        (self.repo / "README.md").write_text(
+            "# Demo\n\nRun `python scripts/runner_cli.py --root . --missing-opt`.\n",
+            encoding="utf-8",
+        )
+        (self.repo / "src" / "stubbed.py").write_text(
+            "def sync_orders():\n    pass\n",
+            encoding="utf-8",
+        )
+        sug = prompt_tools.suggest_prompts(self.repo, limit=10)
+        self.assertGreaterEqual(sug["gap_audit_hits"], 2)
+        titles = " ".join(s["title"].lower() for s in sug["suggestions"])
+        self.assertIn("flag drift", titles)
+        self.assertIn("hollow stub", titles)
+
 if __name__ == "__main__":
     unittest.main()

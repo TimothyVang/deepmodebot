@@ -38,6 +38,7 @@ const SLASH_COMMANDS = [
   "/deep",
   "/deepmodebot",
   "/suggest",
+  "/research",
   "/tournament",
   "/review-pr",
   "/land-pr",

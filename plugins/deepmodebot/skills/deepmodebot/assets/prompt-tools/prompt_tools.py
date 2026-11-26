@@ -464,7 +464,7 @@ def _scan_code_debt_and_tests(
                 tested_dirs.add(parent_rel)
                 if p.parent.name.lower() in {"tests", "test", "__tests__", "spec"} and p.parent.parent != root:
                     tested_dirs.add(p.parent.parent.relative_to(root).as_posix())
-                joined_test = "\n".join(lines[:400])
+                joined_test = "\n".join(lines)
                 for m_imp in IMPORT_REF_RE.finditer(joined_test):
                     raw_imp = next((g for g in m_imp.groups() if g), "")
                     clean_imp = raw_imp.replace("\\", "/").rstrip("/")
@@ -528,6 +528,10 @@ def suggest_prompts(root: Path, limit: int = 8) -> dict:
     if (ASSETS_DIR / "perf-audit" / "perf_audit.py").is_file():
         perf_audit = _load_sibling("deepmode_perf_audit_mod", "perf-audit/perf_audit.py")
         perf_findings = perf_audit.scan_paths(safe_root).get("findings", [])
+    gap_findings: list[dict] = []
+    if (ASSETS_DIR / "gap-audit" / "gap_audit.py").is_file():
+        gap_audit = _load_sibling("deepmode_gap_audit_mod", "gap-audit/gap_audit.py")
+        gap_findings = gap_audit.scan_repo(safe_root).get("findings", [])
     suggestions: list[dict] = []
 
     def add(priority: str, kind: str, title: str, evidence: list[str], prompt: str) -> None:
@@ -563,6 +567,52 @@ def suggest_prompts(root: Path, limit: int = 8) -> dict:
             f"/deep Full-scope gap and overclaim audit across docs: 1. Inspect all {len(overclaims)} flagged guarantee/coverage claim(s) "
             f"({', '.join(refs[:3])}). 2. For each claim, either prove it with a real command/test receipt or rewrite it to state exact tested bounds and limits. "
             f"3. Run doc/repo checks and self-grill, and report each claim's verdict with file:line evidence.",
+        )
+
+    drift_gaps = [
+        g for g in gap_findings
+        if g["rule"] in ("doc-script-flag-drift", "doc-cli-subcommand-drift", "stale-replaces-claim", "cross-lang-gate-drift")
+    ]
+    if drift_gaps:
+        refs = [f"{g['file']}:{g['line']} ({g['rule']})" for g in drift_gaps[:5]]
+        add(
+            "P0",
+            "gap",
+            "Eliminate doc-to-CLI flag drift, stale replacement claims, and cross-language gate drift",
+            refs,
+            f"/deep Full-scope spec-to-code and cross-language parity fix across {len(drift_gaps)} drift finding(s) "
+            f"({', '.join(refs[:4])}): "
+            f"1. Reconcile every documented CLI flag/subcommand, stale replacement comment, and Python-vs-Rust gate rule mismatch at the root. "
+            f"2. Add regression tests asserting 1:1 parity across docs, Python scripts, and native binaries. "
+            f"3. Prove gap_audit.py scan --root . exits 0 and run self-grill.",
+        )
+
+    silent_gaps = [g for g in gap_findings if g["rule"] in ("hollow-stub-body", "swallowed-exception")]
+    if silent_gaps:
+        refs = [f"{g['file']}:{g['line']} ({g['rule']})" for g in silent_gaps[:5]]
+        add(
+            "P1",
+            "gap",
+            "Replace hollow stub functions and silent swallowed exceptions with real behavior",
+            refs,
+            f"/deep [HARDCORE MODE] Full-scope elimination of {len(silent_gaps)} hollow stub / silent error black-hole(s) "
+            f"({', '.join(refs[:4])}): "
+            f"1. Replace every no-op `pass`/`NotImplementedError`/`todo!()` stub with a complete production implementation or explicit ABC/Protocol contract. "
+            f"2. Replace broad `except Exception: pass` and `.catch(() => {{}})` black-holes with narrow error handling and observable failure states. "
+            f"3. Prove gap_audit.py scan --root . exits 0, add failure-path tests, and run self-grill.",
+        )
+
+    unwired_gaps = [g for g in gap_findings if g["rule"] == "unwired-script-asset"]
+    if unwired_gaps:
+        refs = [f"{g['file']}:{g['line']} ({g['rule']})" for g in unwired_gaps[:5]]
+        add(
+            "P2",
+            "gap",
+            "Wire orphaned skill/tool scripts into active workflows or prune dead assets",
+            refs,
+            f"/deep Full-scope dead-seam audit for {len(unwired_gaps)} unwired script asset(s) ({', '.join(refs[:4])}): "
+            f"1. Inspect each unreferenced script and either wire it into its owning SKILL.md / CLI dispatcher with end-to-end tests or delete dead code. "
+            f"2. Prove gap_audit.py scan --root . reports 0 unwired assets and run self-grill.",
         )
 
     if diff["sensitive_paths"]:
@@ -715,6 +765,7 @@ def suggest_prompts(root: Path, limit: int = 8) -> dict:
         "broken_link_hits": len(broken_links),
         "debt_marker_hits": len(debt),
         "perf_audit_hits": len(perf_findings),
+        "gap_audit_hits": len(gap_findings),
         "suggestions": suggestions,
     }
 

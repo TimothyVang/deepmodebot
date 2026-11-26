@@ -225,6 +225,7 @@ function gate() {
     sec: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "security-audit", "static_sec_audit.py"),
     cleanup: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "cleanup", "self_cleanup.py"),
     agents: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "agents-md", "agents_md.py"),
+    gap: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "gap-audit", "gap_audit.py"),
   };
   const script = map[sub] || map.slop;
   const [exe, prefix] = py;

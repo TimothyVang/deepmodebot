@@ -3,11 +3,11 @@
 Use when: the user wants a cited explanation or a recommendation (how/why/are-we-sure), not a code change. Read-only. You own the answer: plan, route, write.
 
 ## Steps
-1. Route through the **how** technique (`references/techniques/how.md`); for motivation questions also the **why** technique (`references/techniques/why.md`). Delegate unknown-code mapping to `task` with `agent: "scout"`.
-   Done when every claim you plan to make has a file/symbol citation.
+1. Route through the **how** technique (`references/techniques/how.md`); for motivation questions also the **why** technique (`references/techniques/why.md`). Delegate unknown-code and negative-space mapping to `scout` (`invoke_subagent` / `Agent` / `task` / `spawn_agent`) and run `python -B "<this skill>/assets/gap-audit/gap_audit.py" scan --root "<root>" --advisory --json` when auditing repo health or "are we sure" questions.
+   Done when every positive and negative claim you plan to make has a file/symbol or scan citation.
 2. Throughput checkpoint stays one line: `throughput checkpoint: n/a, read-only investigation`.
-3. Produce the how-shaped output: Overview / Key Concepts / How It Works / Where Things Live / Gotchas. For a choice between alternatives, produce a recommendation with a tradeoffs table instead.
-   Done when every section is present, or the recommendation and table are.
+3. Produce the how-shaped output: Overview / Key Concepts / How It Works / Where Things Live / Gaps, Failure Modes & Gotchas. For a choice between alternatives, produce a conditional recommendation with a tradeoffs and disconfirmation table instead.
+   Done when every section (including negative-space gaps/omissions) is present, or the recommendation and table are.
 4. Apply the **unslop** technique (`references/techniques/unslop.md`) to the reply. Done when unslop's own `Done when` holds for the reply.
 
 ## Gates

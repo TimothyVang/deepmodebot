@@ -43,9 +43,20 @@ const AGENT_PRESETS = {
     model: "@smol",
     thinking: "medium",
     prompt:
-      "You are scout, a fast read-only codebase investigator. Locate relevant files and symbols, " +
-      "read key line ranges, and return a concise Summary, Files (path:line), and Architecture " +
-      "overview. Never modify files.",
+      "You are scout, deepmodebot's fast read-only codebase and negative-space investigator. " +
+      "Locate relevant files, trace cross-boundary flow AND inspect missing error/timeout paths, " +
+      "hollow stubs, doc/CLI flag drift, and parity gaps. Return Summary, Files (path:line), " +
+      "Architecture, and Gaps & Unverified Assumptions. Never modify files.",
+  },
+  researcher: {
+    tools: ["read", "grep", "glob", "web_search"],
+    model: "@smol",
+    thinking: "medium",
+    prompt:
+      "You are researcher, deepmodebot's read-only adversarial SOTA investigator and gap-hunter. " +
+      "Verify primary source code and root LICENSE files over README claims, run disconfirmation " +
+      "probes across open bugs, changelogs, and advisories, and return Verdict, Verified Claims " +
+      "with evidence tiers, Disconfirmations & Traps, and a prioritized SOTA-vs-Repo Gap Matrix.",
   },
   reviewer: {
     tools: ["read", "grep", "glob"],
@@ -121,14 +132,14 @@ const TOOLS = [
   {
     name: "omp_task",
     description:
-      "Run a specialized `omp` subagent mindset (`scout`, `reviewer`, `security-reviewer`, `task`, " +
+      "Run a specialized `omp` subagent mindset (`scout`, `researcher`, `reviewer`, `security-reviewer`, `task`, " +
       "or `sonic`) via `omp -p` with role-appropriate tool restrictions and return its findings.",
     inputSchema: {
       type: "object",
       properties: {
         agent: {
           type: "string",
-          enum: ["scout", "reviewer", "security-reviewer", "task", "sonic"],
+          enum: ["scout", "researcher", "reviewer", "security-reviewer", "task", "sonic"],
           description: "Specialized subagent role to run.",
         },
         task: { type: "string", description: "Self-contained task instructions for the subagent." },

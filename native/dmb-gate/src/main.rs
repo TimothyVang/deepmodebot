@@ -1,6 +1,7 @@
 mod agents;
 mod ci;
 mod cleanup;
+mod gap;
 mod guard;
 mod map;
 mod perf;
@@ -14,7 +15,7 @@ use std::process::ExitCode;
 
 fn print_help() {
     println!(
-        "dmb-gate 0.3.0 — zero-dependency parallel Rust engine (9 tools)\n\
+        "dmb-gate 0.3.0 — zero-dependency parallel Rust engine (10 tools)\n\
          Usage:\n\
            dmb-gate slop [--root DIR] [--staged] [--files ...] [--no-linters] [--allow-config-change] [--json]\n\
            dmb-gate ci [run] [--root DIR] [--cached] [--jobs a,b] [--json]\n\
@@ -25,6 +26,7 @@ fn print_help() {
            dmb-gate skill-check [DIR ...] [--json]\n\
            dmb-gate map [--root DIR] [--out FILE] [--json]\n\
            dmb-gate guard [--root DIR] [--path TARGET]\n\
+           dmb-gate gap [scan] [--root DIR] [--advisory] [--json]\n\
          (Omitting the subcommand defaults to `slop` for backwards compatibility.)"
     );
 }
@@ -52,6 +54,7 @@ fn main() -> ExitCode {
         "skill-check" => skill_check::run(&args[1..]),
         "map" => map::run(&args[1..]),
         "guard" => guard::run(&args[1..]),
+        "gap" => gap::run(&args[1..]),
         _ => slop::run(&args),
     }
 }
@@ -231,5 +234,40 @@ jobs:
             std::path::Path::new("C:/other/a.rs"),
             &[std::path::PathBuf::from("C:/other")]
         ));
+    }
+
+    #[test]
+    fn gap_scanner_detects_stubs_swallowed_errors_and_flag_drift() {
+        let tmp = std::env::temp_dir().join(format!("dmb-gap-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(tmp.join("scripts")).expect("mkdir scripts");
+        std::fs::create_dir_all(tmp.join("src")).expect("mkdir src");
+        std::fs::write(
+            tmp.join("scripts/cli_tool.py"),
+            "import argparse\np = argparse.ArgumentParser()\np.add_argument('--root')\n",
+        )
+        .expect("write cli_tool");
+        std::fs::write(
+            tmp.join("README.md"),
+            "Run `python scripts/cli_tool.py --root . --unknown-flag`.\n",
+        )
+        .expect("write readme");
+        std::fs::write(
+            tmp.join("src/svc.py"),
+            "def broken_stub():\n    pass\n\ndef blackhole():\n    try:\n        work()\n    except Exception:\n        pass\n",
+        )
+        .expect("write svc.py");
+        std::fs::write(
+            tmp.join("src/net.ts"),
+            "// replaces scripts/cli_tool.py\nexport function run(p: Promise<void>) { p.catch(() => {}); }\n",
+        )
+        .expect("write net.ts");
+        let (_, findings) = gap::scan_repo_gaps(&tmp);
+        let _ = std::fs::remove_dir_all(&tmp);
+        assert!(findings.iter().any(|f| f.rule == "doc-script-flag-drift"));
+        assert!(findings.iter().any(|f| f.rule == "hollow-stub-body"));
+        assert!(findings.iter().any(|f| f.rule == "swallowed-exception" && f.file == "src/svc.py"));
+        assert!(findings.iter().any(|f| f.rule == "swallowed-exception" && f.file == "src/net.ts"));
+        assert!(findings.iter().any(|f| f.rule == "stale-replaces-claim"));
     }
 }

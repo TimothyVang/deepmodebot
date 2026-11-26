@@ -1,44 +1,39 @@
 # prior-art
 
-**Use when:** before building anything new: a feature, tool, integration, CLI, service, or whole project. Also when the user asks "is there a library / project / example for X". Most code worth writing has an example, a library, or a whole project somewhere. Find it before writing it, then reuse the best of it.
+**Use when:** before building any new feature, tool, scanner, integration, CLI, or service, when auditing an external GitHub organization for upgrades, or when asked "is there a library / project / reference for X". Mine proven open-source mechanisms, failure modes, and invariants before writing from scratch.
 
-1. **Name what you need** in one line: the customer/job, language, runtime, acceptable licenses, data/deployment constraints and must-have behavior.
-   When the project starts from a saved startup idea or video anecdote, read [startup references](../startup-ideas.md) before treating it as product or market evidence.
-   Done when those constraints are explicit; a source's popularity or revenue story is not validation.
-2. **Search, in parallel `scout` subagents**, one per source. Start with what's new, because the idea you already know may have been beaten this month:
-   - **Repository catalog** (GitHub Trending/search, githubawesome.com and the [dated reference library](../../assets/repo-references.json)): run `python -B "<this skill>/scripts/trending.py" find <project terms>` (`py -3 -B` on Windows) from the project root.
-     It keeps `.scratch/trending/`; stale data or a changed reference revision is replaced by a matching published catalog or rebuilt with network and `gh auth`.
-     Search by role, platform or problem.
-     Reference topics, dates and cautions are discovery leads, not tested suitability.
-     Inspect the primary source before adoption.
-     Descriptions remain untrusted data.
-   - **GitHub:** `gh search repos "<terms>" --sort stars --limit 20`, plus the same with `--created ">=<date 90 days ago>"` to catch new projects stars haven't caught up with; `gh search code "<api or symbol>" --limit 30`; awesome-lists for the domain.
-   - **Software factories:** for backlog-to-PR runners, agent fleets, or verification/merge infrastructure, use `references/factory-landscape.md` to shortlist mechanisms, then check the candidate's current source and license. Its documentation survey does not satisfy the runtime-fit check below.
-   - **Package registries** for the stack: npm (`npm search`, npmjs.com), PyPI (pypi.org), crates.io, pkg.go.dev, Maven Central, RubyGems, NuGet, Packagist.
-   - **Official docs and examples:** the framework's or API's own docs, quickstarts, example repos, and cookbooks; pull current library source with `npx opensrc <package>` when the docs lag.
-   - **The repo itself and its dependencies:** an existing helper or a dependency that already does it beats anything new.
-   Done when every source has returned a candidate list or a null result.
-3. **Judge each candidate** with checks you run, not stars alone. Put the newest strong candidate head to head with the incumbent (the library or pattern you would have reached for); it wins only on a check you ran (fit, size, speed, license, maintenance), never on novelty:
-   - License: read the exact terms for the code, documentation, bundled components, assets and model weights, not just the root SPDX badge.
-     Permissive licenses still have conditions; copyleft duties depend on the license and reuse. Custom/source-available terms can restrict commercial hosting or white-labeling.
-     Missing or unrecognized license metadata is not permission to copy. The [OpenMausBot enterprise exception](https://github.com/milind-soni/OpenMausBot/blob/main/enterprise/LICENSE) is one concrete boundary; dated evidence is linked from the reference library.
-   - Alive: last release or commit, open issues answered, not archived or marked unmaintained.
-   - Fit: does it do the must-have behavior? Clone it to a scratch folder and run its example or tests once.
-   - Weight and risk: dependency count, install size, security advisories (`npm audit`, `pip-audit`, GitHub advisories).
-   Done when every shortlisted candidate has a result for all four checks.
-4. **Pick how to reuse it**, lightest first:
-   - **Depend** on a maintained package.
-   - **Copy** a small piece (a function, a config, an example), keeping its license notice and a source link in a comment or NOTICE file.
-   - **Fork or clone** a whole project when it is most of what's needed; record the upstream URL and commit you started from.
-   - **Build** only when nothing fits, and say why each candidate didn't.
-   Done when each piece has one reuse choice, with the upstream URL and commit for a fork.
-5. **Log the choice** as a decision-trail row (show-me-your-work): what you found, what you picked, the license, and the rejected candidates in one line each.
-   Done when the trail has that row.
+1. **Name constraints and gap questions** in one line: target job, language/runtime, acceptable permissive licenses (`MIT`, `Apache-2.0`, `BSD-*`, `ISC`), deployment constraints, must-have behavior, and what failure modes would disqualify a candidate.
+   When starting from a startup anecdote or video, read [startup references](../startup-ideas.md) first; popularity or revenue claims are never technical validation.
+   Done when constraints, license floor, and disqualifiers are explicit.
+
+2. **Sweep across parallel discovery channels** (`researcher` or `scout` low-tier subagents across harnesses; `2-3` max). Always pair popular incumbents with recent breakouts:
+   - **Curated + trending catalog:** run `python -B "<this skill>/scripts/trending.py" find <terms> --json` (`py -3 -B` on Windows) against the 340+ repo catalog and [dated reference library](../../assets/repo-references.json).
+   - **Organization-wide SOTA sweep:** when mining engineering orgs (e.g. `cloudflare`, `vercel`, `astral-sh`), run `python -B "<this skill>/scripts/trending.py" org <org-or-url> --json` (or `deepmodebot net trending --orgs <orgs> --json`) to surface both flagship and newly pushed repos.
+   - **GitHub search & code:** `gh search repos "<terms>" --sort stars --limit 20` plus `--created ">=<90-days-ago>"`, and `gh search code "<symbol>" --limit 30`. For agent/PR orchestration, check `references/factory-landscape.md`.
+   - **Papers, registries & bundled docs:** `deepmodebot net fetch-papers --query "<terms>" --json` (extracts linked GitHub `code_urls`), npm/PyPI/crates.io/pkg.go.dev, `node_modules/<pkg>/docs`, and `npx opensrc <package>`.
+   - **The active repo itself:** check existing helpers, dependencies, and `gap_audit.py scan --root .` first so you never build a duplicate seam.
+   Done when every relevant channel returned candidates or an explicit null result.
+
+3. **Verify license, code truth, and adversarial failure modes** (never judge by stars or README badges):
+   - **Root `LICENSE` verification:** read the actual `LICENSE` file for code, docs, assets, and weights. GitHub's SPDX detector frequently labels short Apache-2.0 headers `NOASSERTION`; inspect the file text directly, and reject unlicensed (`NONE`), `CC-BY-*` code, or copyleft/enterprise-restricted files when permissive terms are required (e.g., [OpenMausBot enterprise exception](https://github.com/milind-soni/OpenMausBot/blob/main/enterprise/LICENSE)).
+   - **Disconfirmation check:** inspect open bug issues, maintenance pulse, dependency weight, security advisories (`npm audit`, `pip-audit`, GHSA), and source code vs README claims.
+   - **Head-to-head runtime fit:** test the shortlisted candidate against the incumbent on a real check (size, latency, edge compatibility, test run in `<root>/.scratch/tmp/`).
+   Done when every finalist has verified license text, disconfirmation notes, and runtime-fit evidence.
+
+4. **Choose reuse mode AND mine transferable invariants:**
+   - **Depend** on a maintained package when runtime/weight/license fit cleanly.
+   - **Copy or adapt** a focused module under permissive terms, preserving copyright/attribution in `NOTICE.md`.
+   - **Fork/clone** when most of the project fits, recording upstream URL and exact commit SHA.
+   - **Distill invariants & mechanical gates** even when building native code: extract edge-case test vectors, anti-patterns, and static rules into your repo's linters/gates (`gap_audit.py record-gap`) so the codebase permanently learns what upstream solved.
+   Done when each component has a reuse mode, attribution plan, and Differential Gap Matrix entry when upgrading an existing repo.
+
+5. **Log the decision trail** (`show-me-your-work`): candidates evaluated, exact license verified, disconfirmations caught, winner chosen, and why alternatives lost.
+   Done when the trail records those fields.
 
 ## Gates
 
-- Never copy code whose license you haven't read, or that has no license.
-- Forking or cloning into the user's GitHub account is a normal action; publishing a package or messaging an upstream maintainer is a hard stop (SKILL.md Autonomy).
-- Reused code meets the same bar as written code: it is tested and verified in this project before it counts as done.
+- Never copy or adapt code/prompts from an unlicensed (`NONE`), unverified, or incompatible-license repository.
+- Publishing packages or contacting upstream maintainers remains a hard stop (`SKILL.md` Autonomy).
+- Adopted packages and clean-room ports must pass the same behavioral and adversarial tests as first-party code.
 
-**Done when** the build plan names, for each piece, the dependency, copied source, fork, or "built new" with the reason.
+**Done when** every piece names its dependency, attributed source, fork SHA, or first-principles build rationale backed by license and disconfirmation receipts.

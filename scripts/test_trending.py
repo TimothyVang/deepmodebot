@@ -709,6 +709,43 @@ class ReferenceDiscoveryTests(unittest.TestCase):
         for ln in rendered.splitlines():
             self.assertLessEqual(len(ln.encode("utf-8")), 760)
 
+    def test_weighted_token_find_and_org_sweep_classify_licenses(self):
+        e1 = self.entry("cloudflare/capnweb", 10)
+        e1["description"] = "Capability-based promise pipelining RPC runtime"
+        e1["topics"] = ["rpc", "workers"]
+        self.write_catalog({"updated": "2026-11-14", "sources": {},
+                            "reference_revision": catalog.REFERENCE_REVISION,
+                            "repos": {"cloudflare/capnweb": e1}})
+        out_find = io.StringIO()
+        with contextlib.redirect_stdout(out_find):
+            catalog.find(argparse.Namespace(out=self.out, terms=["capability workers"], limit=10, no_refresh=True, json=True))
+        parsed_find = json.loads(out_find.getvalue())
+        self.assertEqual(parsed_find["count"], 1)
+        self.assertEqual(parsed_find["results"][0]["name"], "cloudflare/capnweb")
+
+        fake_search = {
+            "items": [
+                {"full_name": "vercel/ai", "html_url": "https://github.com/vercel/ai", "stargazers_count": 15000,
+                 "language": "TypeScript", "license": {"spdx_id": "NOASSERTION"}, "pushed_at": "2026-11-14T00:00:00Z",
+                 "description": "AI SDK", "topics": ["ai"]},
+                {"full_name": "vercel/swr", "html_url": "https://github.com/vercel/swr", "stargazers_count": 30000,
+                 "language": "TypeScript", "license": {"spdx_id": "MIT"}, "pushed_at": "2026-11-14T00:00:00Z",
+                 "description": "Hooks", "topics": ["react"]},
+            ]
+        }
+        out_org = io.StringIO()
+        with patch.object(catalog, "github_token", return_value=None), \
+                patch.object(catalog, "fetch", return_value=json.dumps(fake_search)), \
+                contextlib.redirect_stdout(out_org):
+            catalog.org_sweep(argparse.Namespace(
+                orgs=["https://github.com/orgs/vercel/repositories"],
+                days=365, min_stars=10, limit=10, permissive_only=False, json=True,
+            ))
+        org_res = json.loads(out_org.getvalue())
+        by_name = {r["name"]: r for r in org_res["repos"]}
+        self.assertEqual(by_name["vercel/swr"]["license_disposition"], "verified-spdx-permissive")
+        self.assertEqual(by_name["vercel/ai"]["license_disposition"], "inspect-root-LICENSE-before-use")
+
 
 if __name__ == "__main__":
     unittest.main()

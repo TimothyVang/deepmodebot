@@ -31,7 +31,8 @@ func TestParseArxivXML(t *testing.T) {
     <id>http://arxiv.org/abs/2301.05062v2</id>
     <published>2023-01-12T18:00:00Z</published>
     <title>Tracr: Compiled Transformers</title>
-    <summary>Compiles RASP programs into weights.</summary>
+    <summary>Compiles RASP programs into weights. Code: https://github.com/google-deepmind/tracr.</summary>
+    <category term="cs.LG"/>
     <author><name>David Lindner</name></author>
   </entry>
 </feed>`
@@ -41,6 +42,12 @@ func TestParseArxivXML(t *testing.T) {
 	}
 	if len(papers) != 1 || papers[0].ID != "2301.05062" || papers[0].Date != "2023-01-12" {
 		t.Fatalf("unexpected paper: %+v", papers)
+	}
+	if len(papers[0].CodeURLs) != 1 || papers[0].CodeURLs[0] != "https://github.com/google-deepmind/tracr" {
+		t.Fatalf("expected extracted code_url, got: %+v", papers[0].CodeURLs)
+	}
+	if len(papers[0].Categories) != 1 || papers[0].Categories[0] != "cs.LG" {
+		t.Fatalf("expected category cs.LG, got: %+v", papers[0].Categories)
 	}
 }
 
@@ -96,5 +103,20 @@ func TestFetchTopicReposMockServer(t *testing.T) {
 	}
 	if len(items) != 1 || items[0].FullName != "a/b" || items[0].Topic != "rust" {
 		t.Fatalf("unexpected items: %+v", items)
+	}
+}
+
+func TestFetchOrgReposMockServer(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"items":[{"full_name":"cloudflare/capnweb","stargazers_count":3200,"language":"TypeScript","description":"RPC"}]}`))
+	}))
+	defer srv.Close()
+	items, err := fetchOrgRepos(context.Background(), srv.Client(), srv.URL, "https://github.com/orgs/cloudflare/repositories", 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].FullName != "cloudflare/capnweb" || items[0].Topic != "org:cloudflare" {
+		t.Fatalf("unexpected org items: %+v", items)
 	}
 }
