@@ -27,14 +27,18 @@ class QuotaGuardTests(unittest.TestCase):
         self.assertEqual(m_plan["panel_seats"], 0)
         self.assertEqual(m_plan["subagent_models"]["scout"], "flash_lite")
         self.assertEqual(m_plan["subagent_models"]["comment-sicko"], "flash")
+        self.assertEqual(m_plan["subagent_models"]["reviewer"], "flash")
+        self.assertEqual(m_plan["subagent_models"]["security-reviewer"], "flash")
+        self.assertEqual(m_plan["subagent_models"]["panel_verifier"], "flash")
 
         l_mid = compute_quota_plan(size="L", diff_lines=1200, is_sensitive=True, is_merge_gate=False)
         self.assertEqual(l_mid["panel_seats"], 0)
         self.assertEqual(l_mid["max_parallel_worktrees"], 2)
+        self.assertEqual(l_mid["subagent_models"]["reviewer"], "flash")
+        self.assertEqual(l_mid["subagent_models"]["panel_verifier"], "flash")
 
         l_merge = compute_quota_plan(size="L", diff_lines=1200, is_sensitive=True, is_merge_gate=True)
         self.assertEqual(l_merge["panel_seats"], 3)
-
     def test_checkpoint_roundtrip_and_transcript_audit_flags_runaway_multiplier(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp) / "app"
@@ -58,7 +62,7 @@ class QuotaGuardTests(unittest.TestCase):
             cdir.mkdir(parents=True)
             rows = []
             for idx in range(15):
-                role = f"explorer_r2_{idx}" if idx < 13 else f"worker_{idx}"
+                role = "Round 3 Verifier 1" if idx == 0 else (f"explorer_r2_{idx}" if idx < 13 else f"worker_{idx}")
                 rows.append(json.dumps({
                     "tool_calls": [{
                         "name": "invoke_subagent",
@@ -71,10 +75,12 @@ class QuotaGuardTests(unittest.TestCase):
             self.assertEqual(audit["subagent_spawns"], 15)
             self.assertEqual(audit["overhead_spawns"], 13)
             self.assertEqual(audit["inherit_model_spawns"], 15)
+            self.assertEqual(audit["heavy_reviewer_spawns"], 1)
             joined = " ".join(audit["warnings"])
             self.assertIn("HIGH_SUBAGENT_MULTIPLIER", joined)
             self.assertIn("OVERHEAD_DOMINATED", joined)
             self.assertIn("HEAVY_MODEL_INHERITANCE", joined)
+            self.assertIn("HEAVY_REVIEWER_BURN", joined)
             self.assertIn("RESPAWN_TAX", joined)
 
 

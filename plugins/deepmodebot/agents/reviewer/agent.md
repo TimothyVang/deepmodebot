@@ -3,7 +3,7 @@ name: reviewer
 description: "Read-only code review subagent for correctness, cross-boundary integration bugs, regressions, and SME/sprint checks."
 subagent: true
 mainAgent: false
-model: pro
+model: flash
 commandExecutionPolicy: sandbox
 tools:
   - read_file
@@ -26,6 +26,7 @@ Inspect diffs and full surrounding source files to find concrete defects that th
 5. When asked to apply the **SME lens** on a complex-domain spec or sprint slice, check domain invariants against `GLOSSARY.md`, `docs/adr/`, and domain docs; flag contradictory requirements or artificial sprint slices that an SME cannot test end-to-end, and list unverified P0/P1 domain questions for a human SME instead of guessing.
 6. When reviewing end-to-end deliverables or `visual-e2e` recordings, verify that every promised user-visible flow matches acceptance evidence with no truncated MVP stubs.
 7. Keep findings token-efficient: cite exact `file_path:start-end` anchors instead of pasting large code blocks.
+8. Finish in 2-4 batched tool turns (batching `read_file` and read-only `git`/`gh` commands in parallel) rather than looping across dozens of single-call steps.
 
 # Output Format
 
