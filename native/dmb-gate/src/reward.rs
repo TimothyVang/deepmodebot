@@ -24,6 +24,7 @@ fn metric_min_floor(metric: &str) -> f64 {
         "psnr" => 10.0,
         "protrusion" => 0.02,
         "score" | "confidence" | "symmetry" => 0.05,
+        "cov_fail_under" | "fail_under" => 50.0,
         _ => MIN_FLOOR_EPSILON,
     }
 }
@@ -49,6 +50,7 @@ const BARE_LOWER_METRICS: &[&str] = &[
     "confidence",
     "protrusion",
     "symmetry",
+    "fail_under",
 ];
 
 const QUAL_LOWER_METRICS: &[&str] = &[
@@ -77,6 +79,8 @@ const QUAL_LOWER_METRICS: &[&str] = &[
     "confidence",
     "protrusion",
     "symmetry",
+    "fail_under",
+    "cov_fail_under",
 ];
 
 const BARE_UPPER_METRICS: &[&str] = &[
@@ -121,6 +125,7 @@ const SKIP_FLAGS: &[&str] = &[
     "--bypass-gate",
     "--pass-if-no-tests",
     "--passWithNoTests",
+    "--no-cov",
 ];
 
 const PRIMITIVE_CALLS: &[&str] = &[
@@ -447,6 +452,21 @@ pub fn has_threshold_zero_or_skip(line: &str) -> bool {
     if low.contains("git commit") && (low.contains(" --no-verify") || low.contains(" -n ")) {
         return true;
     }
+    if let Some(pos) = low.find("--cov-fail-under") {
+        let tail = low[pos + "--cov-fail-under".len()..].trim_start_matches(['"', '\'']);
+        if let Some(rest) = tail
+            .strip_prefix('=')
+            .or_else(|| tail.strip_prefix(','))
+            .or_else(|| tail.strip_prefix(' '))
+            .or_else(|| tail.strip_prefix('\t'))
+        {
+            if let Some(val) = parse_leading_f64(rest) {
+                if !val.is_finite() || val < 50.0 {
+                    return true;
+                }
+            }
+        }
+    }
     for (flag_kw, bad_val) in [
         ("--require-spark-receipt", "false"),
         ("--gate-mode", "off"),
@@ -591,6 +611,49 @@ pub fn has_hardcoded_pass(line: &str) -> bool {
     let has_pass_val = low.contains("true") || low.contains("\"pass\"") || low.contains("'pass'");
     has_pass_key && has_metric_key && has_pass_val
 }
+fn has_prod_test_branch(line: &str) -> bool {
+    [
+        "PYTEST_CURRENT_TEST",
+        "JEST_WORKER_ID",
+        "VITEST_WORKER_ID",
+        "UNITTEST_RUNNING",
+        "_called_from_test",
+    ]
+    .iter()
+    .any(|m| line.contains(m))
+        || (line.contains("sys.modules")
+            && (line.contains("\"pytest\"")
+                || line.contains("'pytest'")
+                || line.contains("\"unittest\"")
+                || line.contains("'unittest'")))
+}
+
+fn has_tautological_assert(line: &str) -> bool {
+    let t = line.trim_start();
+    t.starts_with("assert True")
+        || t.contains("self.assertTrue(True)")
+        || t.contains("self.assertEqual(True, True)")
+        || t.contains("self.assertEqual(1, 1)")
+        || t.contains("expect(true).toBe(true)")
+        || t.contains("expect(1).toBe(1)")
+        || t.contains("assert!(true)")
+        || t.contains("assert_eq!(true, true)")
+        || t.contains("assert_eq!(1, 1)")
+}
+
+fn is_real_assert_line(line: &str) -> bool {
+    let t = line.trim_start();
+    if has_tautological_assert(t) {
+        return false;
+    }
+    t.starts_with("assert ")
+        || line.contains("self.assert")
+        || line.contains("expect(")
+        || line.contains("assert_eq!(")
+        || line.contains("assert_ne!(")
+        || line.contains("assert!(")
+}
+
 
 fn match_ident_bound(low: &str, cand: &str, allow_assign: bool) -> Option<f64> {
     let mut from = 0;
@@ -715,6 +778,7 @@ pub fn scan_hunk_weakening(
     rel: &str,
     hunks: &[(Vec<String>, Vec<(usize, String)>)],
     is_test_or_gate: bool,
+    is_test: bool,
     out: &mut Vec<RewardFinding>,
 ) {
     for (rem, add) in hunks {
@@ -759,6 +823,23 @@ pub fn scan_hunk_weakening(
                         fix: "Keep the stricter defect/tolerance bound and fix the underlying output.",
                     });
                 }
+            }
+        }
+        if is_test {
+            let rem_asserts = rem.iter().filter(|r| is_real_assert_line(r)).count();
+            let add_asserts = add_only.iter().filter(|a| is_real_assert_line(a)).count();
+            if rem_asserts >= 2 && add_asserts == 0 {
+                out.push(RewardFinding {
+                    severity: "P0",
+                    rule: "reward-hack-assertions-deleted",
+                    file: rel.to_string(),
+                    line: ln,
+                    message: format!(
+                        "Test hunk deleted {} behavioral assertions and left 0 assertions.",
+                        rem_asserts
+                    ),
+                    fix: "Keep behavioral assertions intact and fix the implementation under test.",
+                });
             }
         }
     }
@@ -868,25 +949,90 @@ pub fn scan_file_reward_hacks(
     {
         return;
     }
-    let test_file = is_test_file(&norm_rel);
+    let is_scratch = norm_rel.starts_with(".scratch/");
+    let test_file = !is_scratch && is_test_file(&norm_rel);
     let gate_file = is_gate_or_eval_file(&norm_rel);
+    let is_ci_yaml = matches!(ext.as_str(), "yml" | "yaml")
+        && (norm_rel.starts_with(".github/workflows/")
+            || norm_rel == ".gitlab-ci.yml"
+            || norm_rel == ".deepmodebot/ci.yml");
+    let file_name_low = Path::new(&norm_rel)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .map(|s| s.to_ascii_lowercase())
+        .unwrap_or_default();
+    let is_tsconfig = file_name_low.starts_with("tsconfig") && ext == "json";
+    let is_prod_code = !is_scratch
+        && !test_file
+        && !gate_file
+        && matches!(
+            ext.as_str(),
+            "py" | "js" | "mjs" | "cjs" | "ts" | "tsx" | "jsx" | "rs" | "go"
+        );
     for (ln, line) in added {
         if is_scanner_or_comment(&ext, line) {
             continue;
         }
-        let in_test_ctx = test_file || rs_cfg_test_line.map(|cfg_ln| *ln >= cfg_ln).unwrap_or(false);
-        if in_test_ctx && has_test_skip(line) {
+        let in_test_ctx =
+            !is_scratch && (test_file || rs_cfg_test_line.map(|cfg_ln| *ln >= cfg_ln).unwrap_or(false));
+        if in_test_ctx {
+            if has_test_skip(line) {
+                out.push(RewardFinding {
+                    severity: "P1",
+                    rule: "reward-hack-test-skip",
+                    file: rel.to_string(),
+                    line: *ln,
+                    message: "Unconditional test skip added (`skip` / `#[ignore]`) silences a failing check.".to_string(),
+                    fix: "Fix the failing behavior instead of skipping the test.",
+                });
+            }
+            if has_tautological_assert(line) {
+                out.push(RewardFinding {
+                    severity: "P1",
+                    rule: "reward-hack-tautological-test",
+                    file: rel.to_string(),
+                    line: *ln,
+                    message: "Tautological assertion (`assert True` / `expect(true).toBe(true)`) passes vacuously without testing behavior.".to_string(),
+                    fix: "Assert concrete behavioral outputs of the system under test.",
+                });
+            }
+            continue;
+        }
+        let trimmed_low = line.trim().to_ascii_lowercase();
+        if is_ci_yaml && trimmed_low.starts_with("continue-on-error:") && trimmed_low[18..].trim_start().starts_with("true") {
             out.push(RewardFinding {
-                severity: "P1",
-                rule: "reward-hack-test-skip",
+                severity: "P0",
+                rule: "reward-hack-ci-or-typecheck-neutered",
                 file: rel.to_string(),
                 line: *ln,
-                message: "Unconditional test skip added (`skip` / `#[ignore]`) silences a failing check.".to_string(),
-                fix: "Fix the failing behavior instead of skipping the test.",
+                message: "`continue-on-error: true` added in CI workflow masks failing verification steps.".to_string(),
+                fix: "Remove `continue-on-error: true` and fix the failing CI job.",
             });
         }
-        if in_test_ctx {
-            continue;
+        if is_tsconfig
+            && (trimmed_low.starts_with("\"strict\"")
+                || trimmed_low.starts_with("\"noimplicitany\"")
+                || trimmed_low.starts_with("\"strictnullchecks\""))
+            && trimmed_low.contains(": false")
+        {
+            out.push(RewardFinding {
+                severity: "P0",
+                rule: "reward-hack-ci-or-typecheck-neutered",
+                file: rel.to_string(),
+                line: *ln,
+                message: "TypeScript strictness disabled (`strict`/`noImplicitAny`/`strictNullChecks: false`) to silence type errors.".to_string(),
+                fix: "Keep strict TypeScript checking enabled and fix the underlying types.",
+            });
+        }
+        if is_prod_code && has_prod_test_branch(line) {
+            out.push(RewardFinding {
+                severity: "P0",
+                rule: "reward-hack-prod-test-branch",
+                file: rel.to_string(),
+                line: *ln,
+                message: "Production code branches on test-runner state (`PYTEST_CURRENT_TEST` / `JEST_WORKER_ID` / `sys.modules['pytest']`).".to_string(),
+                fix: "Remove test-environment detection from production code; use dependency injection at external boundaries.",
+            });
         }
         if has_threshold_zero_or_skip(line) {
             out.push(RewardFinding {
@@ -934,7 +1080,7 @@ pub fn scan_file_reward_hacks(
             }
         })
         .collect();
-    scan_hunk_weakening(rel, &filtered_hunks, test_file || gate_file, out);
+    scan_hunk_weakening(rel, &filtered_hunks, test_file || gate_file, test_file, out);
 }
 
 fn read_json_string(s: &str) -> Option<(String, usize)> {
@@ -1077,10 +1223,25 @@ fn norm_rel_arg(raw: &str) -> String {
     s.trim_start_matches('/').to_string()
 }
 
-fn discover_scratch_scripts(root: &Path) -> Vec<String> {
+fn discover_scratch_scripts_and_symlinks(root: &Path) -> (Vec<String>, Vec<RewardFinding>) {
     let scratch = root.join(".scratch");
+    if let Ok(sm) = fs::symlink_metadata(&scratch) {
+        if sm.file_type().is_symlink() {
+            return (
+                Vec::new(),
+                vec![RewardFinding {
+                    severity: "P0",
+                    rule: "reward-hack-scratch-symlink",
+                    file: ".scratch".to_string(),
+                    line: 1,
+                    message: "`.scratch` is a symlink; scratch symlinks are forbidden to prevent outside-repo gate bypasses.".to_string(),
+                    fix: "Replace `.scratch` symlink with a real directory inside the project root.",
+                }],
+            );
+        }
+    }
     if !scratch.is_dir() {
-        return Vec::new();
+        return (Vec::new(), Vec::new());
     }
     let skip_top = [
         "reward-guard",
@@ -1092,6 +1253,7 @@ fn discover_scratch_scripts(root: &Path) -> Vec<String> {
         "quota-guard",
     ];
     let mut found = Vec::new();
+    let mut sym_findings = Vec::new();
     let mut stack = vec![(scratch.clone(), true)];
     while let Some((dir, is_top)) = stack.pop() {
         let Ok(entries) = fs::read_dir(&dir) else {
@@ -1102,41 +1264,56 @@ fn discover_scratch_scripts(root: &Path) -> Vec<String> {
             let Ok(meta) = fs::symlink_metadata(&p) else {
                 continue;
             };
-            if meta.file_type().is_symlink() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            let low = name.to_ascii_lowercase();
+            if (is_top && skip_top.contains(&name.as_str()))
+                || low.starts_with("check-")
+                || low.starts_with("npm-test-")
+                || low.starts_with("init-cli-test-")
+                || low.starts_with("panel-")
+                || low.starts_with("autoroute-test-")
+            {
                 continue;
             }
-            let name = entry.file_name().to_string_lossy().to_string();
+            let rel_s = p
+                .strip_prefix(root)
+                .map(|r| r.to_string_lossy().replace('\\', "/"))
+                .unwrap_or_else(|_| name.clone());
+            if meta.file_type().is_symlink() {
+                sym_findings.push(RewardFinding {
+                    severity: "P0",
+                    rule: "reward-hack-scratch-symlink",
+                    file: rel_s,
+                    line: 1,
+                    message: "Symlink inside `.scratch/` is blocked to prevent external script bypasses.".to_string(),
+                    fix: "Remove the symlink from `.scratch/`.",
+                });
+                continue;
+            }
             if meta.is_dir() {
-                let low = name.to_ascii_lowercase();
-                if (is_top && skip_top.contains(&name.as_str()))
-                    || low.starts_with("check-")
-                    || low.starts_with("npm-test-")
-                    || low.starts_with("init-cli-test-")
-                    || low.starts_with("panel-")
-                    || low.contains("test")
-                {
-                    continue;
-                }
                 stack.push((p, false));
-            } else if meta.is_file() && meta.len() > 0 && meta.len() <= 262_144 {
+            } else if meta.is_file() && meta.len() > 0 && meta.len() <= 16 * 1024 * 1024 {
                 let ext = p
                     .extension()
                     .and_then(|e| e.to_str())
                     .map(|s| s.to_ascii_lowercase())
                     .unwrap_or_default();
                 if matches!(ext.as_str(), "py" | "sh" | "js" | "mjs" | "cjs" | "ts") {
-                    if let Ok(rel) = p.strip_prefix(root) {
-                        found.push(rel.to_string_lossy().replace('\\', "/"));
-                        if found.len() >= 100 {
-                            return found;
-                        }
+                    found.push(rel_s);
+                    if found.len() >= 200 {
+                        found.sort();
+                        return (found, sym_findings);
                     }
                 }
             }
         }
     }
     found.sort();
-    found
+    (found, sym_findings)
+}
+
+fn discover_scratch_scripts(root: &Path) -> Vec<String> {
+    discover_scratch_scripts_and_symlinks(root).0
 }
 
 fn changed_files(
@@ -1288,6 +1465,9 @@ pub fn run(args: &[String]) -> ExitCode {
 
     let mut findings: Vec<RewardFinding> = per_file.into_iter().flatten().collect();
     check_contract_locks(&root, &mut findings);
+    if include_scratch && !staged && explicit_files.is_empty() {
+        findings.extend(discover_scratch_scripts_and_symlinks(&root).1);
+    }
 
     let p0 = findings.iter().filter(|f| f.severity == "P0").count();
     let p1 = findings.iter().filter(|f| f.severity == "P1").count();

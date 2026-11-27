@@ -36,14 +36,15 @@ METRIC_FLOORS = {
     "fidelity": 0.50, "similarity": 0.50, "coverage": 0.50, "pass-rate": 0.50, "win-rate": 0.50,
     "clip": 0.15, "clip-score": 0.15, "ap": 0.15, "map": 0.15, "bleu": 0.15, "rouge": 0.15,
     "psnr": 10.0, "protrusion": 0.02, "score": 0.05, "confidence": 0.05, "symmetry": 0.05,
+    "cov-fail-under": 50.0,
 }
 MIN_FLAG_VAL_RE = re.compile(
-    r"(?:^|[\s;&|(])(['\"]?--(?:gate-)?mi(?:n(?:-([a-z0-9_-]*))?)?['\"]?(?:\s+|=)['\"]?\s*([-+]?(?:inf(?:inity)?|nan|(?:\d[\d_]*\.?[\d_]*|\.[\d_]+)(?:[eE][-+]?[\d_]+)?))\s*['\"]?)(?=$|[\s;&|)])",
+    r"(?:^|[\s;&|(])(['\"]?--(?:(?:gate-)?mi(?:n(?:-([a-z0-9_-]*))?)?|(cov-fail-under))['\"]?(?:\s+|=)['\"]?\s*([-+]?(?:inf(?:inity)?|nan|(?:\d[\d_]*\.?[\d_]*|\.[\d_]+)(?:[eE][-+]?[\d_]+)?))\s*['\"]?)(?=$|[\s;&|)])",
     re.I,
 )
 RULE_LEDGER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "rules", "rule_ledger.py")
 REWARD_HACK_CMD_RE = re.compile(
-    r"(?:^|[\s;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|skip-verify|skip-validation|bypass-gate|pass-if-no-tests|passWithNoTests)(?=$|[\s;&|)])"
+    r"(?:^|[\s;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|skip-verify|skip-validation|bypass-gate|pass-if-no-tests|passWithNoTests|no-cov)(?=$|[\s;&|)])"
     r"|(?:^|[\s;&|(])(?:--require-spark-receipt(?:\s+|=)['\"]?false|--gate-mode(?:\s+|=)['\"]?off|--measured-gates(?:\s+|=)['\"]?off|--check-360(?:\s+|=)['\"]?(?:false|0))['\"]?(?=$|[\s;&|)])"
     r"|\bgit\b[^\n;&|]*\bcommit\b[^\n;&|]*\s(?:-n|--no-verify)(?=$|[\s;&|)])"
     r"|\b(?:reward-guard\.db|contract-lock\.json|judge_verdicts)\b"
@@ -69,10 +70,10 @@ def check_bash_reward_hack(cmd_text):
         if not ln or re.match(r"^(?:grep|rg)\s+[^;&|`$]*$", ln):
             continue
         for fm in MIN_FLAG_VAL_RE.finditer(ln):
-            floor = _min_flag_floor(fm.group(2))
+            floor = _min_flag_floor(fm.group(3) or fm.group(2))
             if floor is not None:
                 try:
-                    val = float(fm.group(3))
+                    val = float(fm.group(4))
                     if not math.isfinite(val) or val < floor:
                         return fm.group(1).strip()
                 except ValueError:

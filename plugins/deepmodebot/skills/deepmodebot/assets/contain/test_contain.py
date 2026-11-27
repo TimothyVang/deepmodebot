@@ -179,6 +179,8 @@ class ClaudeGuard(GuardCase):
             "python gate.py --min 0.1",
             "python gate.py --min-iou=-0.5",
             "python gate.py --skip-reference",
+            "pytest --no-cov",
+            "pytest --cov-fail-under 20",
             "python spark3d.py generate --measured-gates off",
             "git commit --no-verify -m wip",
             'python -c "import sqlite3; sqlite3.connect(\'.scratch/reward-guard/x/reward-guard.db\')"',
@@ -189,6 +191,7 @@ class ClaudeGuard(GuardCase):
                 self.assertEqual(self.run_guard("Bash", bad_cmd, key="command"), "deny")
         for ok_cmd in (
             "python gate.py --min-iou 0.72",
+            "pytest --cov=app --cov-fail-under 80",
             'git commit -m "block --min-iou 0.0"',
             'rg "--min-iou 0.0" src/',
         ):

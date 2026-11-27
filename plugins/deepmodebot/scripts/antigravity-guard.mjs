@@ -49,12 +49,13 @@ const METRIC_FLOORS = {
   fidelity: 0.5, similarity: 0.5, coverage: 0.5, "pass-rate": 0.5, "win-rate": 0.5,
   clip: 0.15, "clip-score": 0.15, ap: 0.15, map: 0.15, bleu: 0.15, rouge: 0.15,
   psnr: 10.0, protrusion: 0.02, score: 0.05, confidence: 0.05, symmetry: 0.05,
+  "cov-fail-under": 50.0,
 };
 const MIN_FLAG_VAL_RE =
-  /(?:^|[\s;&|(])(['"]?--(?:gate-)?mi(?:n(?:-([a-z0-9_-]*))?)?['"]?(?:\s+|=)['"]?\s*([-+]?(?:inf(?:inity)?|nan|(?:\d[\d_]*\.?[\d_]*|\.[\d_]+)(?:e[-+]?[\d_]+)?))\s*['"]?)(?=$|[\s;&|)])/gi;
+  /(?:^|[\s;&|(])(['"]?--(?:(?:gate-)?mi(?:n(?:-([a-z0-9_-]*))?)?|(cov-fail-under))['"]?(?:\s+|=)['"]?\s*([-+]?(?:inf(?:inity)?|nan|(?:\d[\d_]*\.?[\d_]*|\.[\d_]+)(?:e[-+]?[\d_]+)?))\s*['"]?)(?=$|[\s;&|)])/gi;
 const REWARD_HACK_CMD_RE = new RegExp(
   [
-    String.raw`(?:^|[\s;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|skip-verify|skip-validation|bypass-gate|pass-if-no-tests|passWithNoTests)(?=$|[\s;&|)])`,
+    String.raw`(?:^|[\s;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|skip-verify|skip-validation|bypass-gate|pass-if-no-tests|passWithNoTests|no-cov)(?=$|[\s;&|)])`,
     String.raw`(?:^|[\s;&|(])(?:--require-spark-receipt(?:\s+|=)['"]?false|--gate-mode(?:\s+|=)['"]?off|--measured-gates(?:\s+|=)['"]?off|--check-360(?:\s+|=)['"]?(?:false|0))['"]?(?=$|[\s;&|)])`,
     String.raw`\bgit\b[^\n;&|]*\bcommit\b[^\n;&|]*\s(?:-n|--no-verify)(?=$|[\s;&|)])`,
     String.raw`\b(?:reward-guard\.db|contract-lock\.json|judge_verdicts)\b`,
@@ -166,8 +167,8 @@ function findShellRewardHack(rawCmd) {
     MIN_FLAG_VAL_RE.lastIndex = 0;
     let fm;
     while ((fm = MIN_FLAG_VAL_RE.exec(line)) !== null) {
-      const floor = minFlagFloor(fm[2]);
-      const val = parseGuardFloat(fm[3]);
+      const floor = minFlagFloor(fm[3] || fm[2]);
+      const val = parseGuardFloat(fm[4]);
       if (floor !== null && (!Number.isFinite(val) || val < floor)) return fm[1].trim();
     }
     const m = REWARD_HACK_CMD_RE.exec(line);

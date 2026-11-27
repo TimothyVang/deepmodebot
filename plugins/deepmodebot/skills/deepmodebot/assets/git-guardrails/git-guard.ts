@@ -77,10 +77,10 @@ const METRIC_FLOORS: Record<string, number> = {
 	accuracy: 0.5, acc: 0.5, precision: 0.5, recall: 0.5,
 	fidelity: 0.5, similarity: 0.5, coverage: 0.5, "pass-rate": 0.5, "win-rate": 0.5,
 	clip: 0.15, "clip-score": 0.15, ap: 0.15, map: 0.15, bleu: 0.15, rouge: 0.15,
-	psnr: 10.0, protrusion: 0.02, score: 0.05, confidence: 0.05, symmetry: 0.05,
+	psnr: 10.0, protrusion: 0.02, score: 0.05, confidence: 0.05, symmetry: 0.05, "cov-fail-under": 50.0,
 };
 const MIN_FLAG_RE =
-	/(?:^|[ ;&|(])(['"]?--(?:gate-)?mi(?:n(?:-([A-Za-z0-9_-]*))?)?['"]?(?: +|=)["']? *([-+]?(?:inf(?:inity)?|nan|(?:\d[\d_]*\.?[\d_]*|\.[\d_]+)(?:[eE][-+]?[\d_]+)?)) *["']?)(?= |;|&|\||\)|$)/gi;
+	/(?:^|[ ;&|(])(['"]?--(?:(?:gate-)?mi(?:n(?:-([A-Za-z0-9_-]*))?)?|(cov-fail-under))['"]?(?: +|=)["']? *([-+]?(?:inf(?:inity)?|nan|(?:\d[\d_]*\.?[\d_]*|\.[\d_]+)(?:[eE][-+]?[\d_]+)?)) *["']?)(?= |;|&|\||\)|$)/gi;
 
 function parseGuardFloat(raw: string): number {
 	const c = raw.trim().replace(/_/g, "");
@@ -93,14 +93,14 @@ function findSubFloorMinFlag(line: string): string | undefined {
 	MIN_FLAG_RE.lastIndex = 0;
 	let m: RegExpExecArray | null;
 	while ((m = MIN_FLAG_RE.exec(line)) !== null) {
-		const tok = (m[2] ?? "").toLowerCase().replace(/_/g, "-");
+		const tok = (m[3] || m[2] || "").toLowerCase().replace(/_/g, "-");
 		let floor: number | undefined = !tok ? 0.5 : Object.hasOwn(METRIC_FLOORS, tok) ? METRIC_FLOORS[tok] : undefined;
 		if (floor === undefined) {
 			for (const [k, v] of Object.entries(METRIC_FLOORS)) {
 				if (k.startsWith(tok) && (floor === undefined || v > floor)) floor = v;
 			}
 		}
-		const val = parseGuardFloat(m[3]);
+		const val = parseGuardFloat(m[4]);
 		if (floor !== undefined && (!Number.isFinite(val) || val < floor)) return m[1].trim();
 	}
 	return undefined;

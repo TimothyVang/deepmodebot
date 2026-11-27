@@ -80,6 +80,8 @@ BLOCKED = [
     "python gate.py --min-iou -0.5",
     "python gate.py --min-clip-score=1e-9",
     "python gate.py --skip-reference",
+    "pytest --no-cov",
+    "pytest --cov-fail-under 20",
     "python spark3d.py generate --gate-mode off",
     "python spark3d.py generate --measured-gates off",
     "python spark3d_fidelity_gate.py --require-spark-receipt false",
@@ -108,6 +110,7 @@ ALLOWED = [
     "python gate.py --min-iou 50e-2",
     "python gate.py --min-psnr 100e-1",
     "python gate.py --min-protrusion 0.03",
+    "pytest --cov=app --cov-fail-under 80",
 ]
 
 
