@@ -1278,6 +1278,8 @@ if ext == ".blend":
             if obj.data is not None:
                 obj.data.animation_data_clear()
             obj.hide_render = False
+            obj.visible_camera = True
+            obj.is_holdout = False
             bpy.context.scene.collection.objects.link(obj)
 elif ext in (".glb", ".gltf"):
     bpy.ops.import_scene.gltf(filepath=mesh_path)
@@ -1423,8 +1425,8 @@ def _render_3d_artifact_owned(mesh_file: Path, run_dir: Path) -> list[tuple[str,
         if not fp.is_file():
             raise ValueError(f"owned headless Blender render missing expected output `{fn}`")
         data = fp.read_bytes()
-        if data[:8] != b"\x89PNG\r\n\x1a\n" or len(data) < 24:
-            raise ValueError(f"owned headless Blender render `{fn}` is not a valid PNG")
+        if data[:8] != b"\x89PNG\r\n\x1a\n" or len(data) < 24 or data[12:16] != b"IHDR":
+            raise ValueError(f"owned headless Blender render `{fn}` is not a valid PNG with IHDR")
         w = int.from_bytes(data[16:20], "big")
         h = int.from_bytes(data[20:24], "big")
         if (w, h) != (384, 384):
@@ -1789,7 +1791,7 @@ def evaluate_verdict(root: Path, *, slug: str, state_dir: Path | None = None) ->
     allowed_producers = sql_producers
     pubkey_map = sql_pubkeys
     req_artifacts = sql_artifacts
-    if lock_json.is_file():
+    if lock_json.is_file() and not lock_json.is_symlink():
         try:
             ldata = json.loads(lock_json.read_text(encoding="utf-8"))
             if (

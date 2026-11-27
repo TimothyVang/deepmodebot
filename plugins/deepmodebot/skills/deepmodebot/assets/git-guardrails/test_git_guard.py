@@ -101,6 +101,9 @@ ALLOWED = [
     'git commit -m "fix: block --min-iou 0.0 and --skip-reference"',
     'rg "--min-iou 0.0" plugins/',
     "python gate.py --min-iou 0.72",
+    "python gate.py --min-iou 50e-2",
+    "python gate.py --min-psnr 100e-1",
+    "python gate.py --min-protrusion 0.03",
 ]
 
 

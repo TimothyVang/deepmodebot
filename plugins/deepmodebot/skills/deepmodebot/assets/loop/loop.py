@@ -217,7 +217,7 @@ def parse(goal_path):
             raise ValueError
     except ValueError:
         raise SystemExit(f"{goal_path}: rate_limit_backoff_seconds must be a positive finite number")
-    for args_key in ("harness_args", "escalate_harness_args", "fallback_harness_args"):
+    for args_key in ("harness_args", "escalate_harness_args", "fallback_harness_args", "reward_artifacts", "reward_references", "reward_producers"):
         if args_key in fields:
             try:
                 shlex.split(fields[args_key])
@@ -1761,16 +1761,16 @@ def evaluate_outer_reward_contract(fields, root, slug, holdout_dir):
             goal_log = root_p / ".scratch" / "goals" / slug
             goal_log.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(md_src, goal_log / "REWARD_GUARD.md")
-        needed = {"contract-locked-and-intact", "zero-static-reward-hacks"}
-        if producers:
-            needed.add("provenance-verified")
-        if refs:
-            needed.add("independent-judge-approved")
-        blocking = [g for g in verdict["failed_gates"] if g in needed]
-        if blocking:
+        optional_skipped = set()
+        if not producers:
+            optional_skipped.add("provenance-verified")
+        if not refs:
+            optional_skipped.add("independent-judge-approved")
+        blocking = [g for g in verdict["failed_gates"] if g not in optional_skipped]
+        if blocking or (not optional_skipped and verdict["verdict"] != "REWARD_GUARD_PASSED"):
             md_txt = md_src.read_text(encoding="utf-8") if md_src.is_file() else json.dumps(verdict)
-            return 1, f"[reward_guard failed] outer-supervisor verification rejected candidate ({blocking}):\n{md_txt}\n"
-    except ValueError as exc:
+            return 1, f"[reward_guard failed] outer-supervisor verification rejected candidate ({blocking or verdict['verdict']}):\n{md_txt}\n"
+    except (ValueError, OSError, subprocess.SubprocessError) as exc:
         return 1, f"[reward_guard failed] outer-supervisor verification error: {exc}\n"
     return 0, ""
 
