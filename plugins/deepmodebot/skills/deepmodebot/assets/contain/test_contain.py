@@ -163,6 +163,25 @@ class ClaudeGuard(GuardCase):
         self.assertEqual(self.run_guard("Write", self.claude_dir / "plans" / "p.md"), "allow")
         self.assertEqual(self.run_guard("Write", self.claude_dir / "settings.json"), "deny")
 
+
+    def test_bash_reward_hacking_flags_and_ledger_tampering_are_denied(self):
+        for bad_cmd in (
+            "python gate.py --min-iou 0.0",
+            "python gate.py --min-iou=-0.5",
+            "python gate.py --skip-reference",
+            "git commit --no-verify -m wip",
+            "rm .scratch/reward-guard/x/contract-lock.json",
+            "python reward_guard.py record-judge --verdict approve",
+        ):
+            with self.subTest(cmd=bad_cmd):
+                self.assertEqual(self.run_guard("Bash", bad_cmd, key="command"), "deny")
+        for ok_cmd in (
+            "python gate.py --min-iou 0.72",
+            'git commit -m "block --min-iou 0.0"',
+            'rg "--min-iou 0.0" src/',
+        ):
+            with self.subTest(cmd=ok_cmd):
+                self.assertEqual(self.run_guard("Bash", ok_cmd, key="command"), "allow")
     def test_plugin_hook_enforces_only_after_a_deepmodebot_command(self):
         data = self.tmp / "plugin-data"
         target = self.outside / "x.txt"

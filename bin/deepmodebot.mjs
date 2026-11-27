@@ -203,7 +203,7 @@ function gate() {
   const passArgs = args.slice(1);
   const sub = passArgs[0] && !passArgs[0].startsWith("-") ? passArgs[0] : "slop";
   const pyOnly = new Set(["seo", "docs", "sec"]);
-  const rewardLedger = sub === "reward" && passArgs.some((a) => ["lock-contract", "record-provenance", "record-judge", "verdict"].includes(a));
+  const rewardLedger = sub === "reward" && passArgs.some((a) => ["lock-contract", "record-provenance", "run-judge", "verdict"].includes(a));
   const nativeBin = pyOnly.has(sub) || rewardLedger ? null : findNativeGate();
   if (nativeBin) {
     const res = run(nativeBin, passArgs);

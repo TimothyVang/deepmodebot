@@ -64,7 +64,7 @@ Synthetic fake-harness unit tests in `test_loop.py` prove deterministic runner s
 ## Anti-reward-hacking gate (`reward_guard.py` and `dmb-gate reward`)
 
 For changes to `plugins/deepmodebot/skills/deepmodebot/assets/reward-guard/reward_guard.py`, `native/dmb-gate/src/reward.rs`, or `no-reward-hacking.md`, run `python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/reward-guard -p "test_*.py"` and `cargo test --manifest-path native/dmb-gate/Cargo.toml`.
-Exercise a disposable git repo under `.scratch/evidence/<slug>/` where a planted shortcut (`--min-iou 0.0`, `primitive_cube_add`, `@pytest.mark.skip`, and a lowered `MIN_IOU` bound) fails both `reward_guard.py scan` and `dmb-gate reward`, and verify `lock-contract` → `record-provenance` → `record-judge` → `verdict --strict` rejects tampered gates, unapproved primitive producers, skipped reference inputs, and self-judged verdicts before passing on verified receipts.
+Exercise a disposable git repo under `.scratch/evidence/<slug>/` where planted shortcuts (`--min-iou 0.0`, `.scratch/tmp/` `primitive_cube_add` script, `@pytest.mark.skip`, and a lowered `MIN_IOU` bound) fail both `reward_guard.py scan` and `dmb-gate reward`, PreToolUse hooks deny `--min-iou 0.0` / `record-judge`, and `lock-contract` → `record-provenance` (Ed25519 receipt) → `run-judge` (sealed `events.ndjson` transcript) → `verdict --strict` rejects forged signatures and copied receipts before passing.
 
 ## Completed-job cleanup
 

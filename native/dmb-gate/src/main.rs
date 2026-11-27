@@ -19,7 +19,7 @@ fn print_help() {
         "dmb-gate 0.3.0 — zero-dependency parallel Rust engine (11 tools)\n\
          Usage:\n\
            dmb-gate slop [--root DIR] [--staged] [--files ...] [--no-linters] [--allow-config-change] [--json]\n\
-           dmb-gate reward [scan] [--root DIR] [--base REF] [--staged] [--files ...] [--allow-primitives] [--advisory] [--json]\n\
+           dmb-gate reward [scan] [--root DIR] [--base REF] [--staged] [--files ...] [--allow-primitives] [--no-scratch] [--advisory] [--json]\n\
            dmb-gate ci [run] [--root DIR] [--cached] [--jobs a,b] [--json]\n\
            dmb-gate perf [--root DIR] [--files ...] [--fail-on-high] [--json]\n\
            dmb-gate ui [PATH] [--fail-on-p1] [--json]\n\

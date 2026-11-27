@@ -31,6 +31,20 @@ const WRITE_TOOLS = new Set([
   "replace_file_content",
   "multi_replace_file_content",
 ]);
+const SHELL_TOOLS = new Set(["run_command", "execute_command", "bash"]);
+const REWARD_HACK_CMD_RE =
+  /(?:^|[ ;&|(])--(?:gate-)?min-(?:iou|ssim|psnr|clip|clip-score|dice|f1|score|fidelity|similarity|coverage|accuracy|protrusion)(?:\s+|=)['"]?(?:-\d+(?:\.\d+)?|0+(?:\.0+)?|\d+(?:\.\d+)?e-[6-9]\d*)['"]?(?=$|[ ;&|)])|(?:^|[ ;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|bypass-gate)(?=$|[ ;&|)])|(?:^|[ ;&|(])(?:--require-spark-receipt(?:\s+|=)['"]?false|--gate-mode(?:\s+|=)['"]?off)['"]?(?=$|[ ;&|)])|\bgit\b[^\n;&|]*\bcommit\b[^\n;&|]*\s(?:-n|--no-verify)(?=$|[ ;&|)])|\bsqlite3\b[^\n;&|]*reward-guard\.db\b|\b(?:rm|del|unlink|Remove-Item)\b[^\n;&|]*(?:contract-lock\.json|reward-guard\.db)\b|\breward_guard\.py\b[^\n;&|]*\brecord-judge\b/i;
+
+function findShellRewardHack(rawCmd) {
+  const cleaned = String(rawCmd ?? "").replace(/(-m|--message)(=|\s+)("[^"]*"|'[^']*')/g, '$1 ""');
+  for (const rawLine of cleaned.replace(/\\\r?\n/g, " ").split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || /^(?:grep|rg)\s+[^;&|`$]*$/.test(line)) continue;
+    const m = REWARD_HACK_CMD_RE.exec(line);
+    if (m) return m[0].trim();
+  }
+  return null;
+}
 
 // Kept as explicit slash tokens so scripts/whitelabel.py rebrands both /deepmodebot: and /deep.
 const SLASH_PREFIX = "/deepmodebot:";
@@ -372,12 +386,24 @@ function main() {
 
   const toolCall = event.toolCall && typeof event.toolCall === "object" ? event.toolCall : {};
   const toolName = String(toolCall.name ?? "");
+  const args = toolCall.args && typeof toolCall.args === "object" ? toolCall.args : {};
+  if (SHELL_TOOLS.has(toolName)) {
+    const cmdStr = args.CommandLine ?? args.command ?? args.cmd ?? "";
+    const hit = findShellRewardHack(cmdStr);
+    if (hit) {
+      writeJsonAndExit({
+        decision: "deny",
+        reason: `deepmodebot anti-reward-hacking guard blocked "${hit}": builders may not zero thresholds, skip reference/verification gates, or tamper with provenance ledgers.`,
+      });
+      return;
+    }
+    writeJsonAndExit({ decision: "allow" });
+    return;
+  }
   if (!WRITE_TOOLS.has(toolName)) {
     writeJsonAndExit({ decision: "allow" });
     return;
   }
-
-  const args = toolCall.args && typeof toolCall.args === "object" ? toolCall.args : {};
   const target = args.Path ?? args.TargetFile ?? args.path ?? args.targetFile;
   if (typeof target !== "string" || !target.trim()) {
     writeJsonAndExit({ decision: "allow" });

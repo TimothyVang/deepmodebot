@@ -107,10 +107,11 @@ block() {
   exit 2
 }
 
+scrubbed_text="$(printf '%s\n' "$command_text" | sed -E 's/(-m|--message)(=| +)("[^"]*"|'\''[^'\'']*'\'')/\1 ""/g' | grep -vE '^ *(grep|rg) +[^;&|`$]*$' || true)"
 clean_patterns="$(tr -d '\r' < "$patterns")"
 active="$(printf '%s\n' "$clean_patterns" | grep -vE '^[[:space:]]*(#|@|$)' || true)"
-if [[ -n "$active" ]]; then
-  hit="$(printf '%s\n' "$command_text" | grep -Eo -f <(printf '%s\n' "$active") | head -n 1 || true)"
+if [[ -n "$active" && -n "$scrubbed_text" ]]; then
+  hit="$(printf '%s\n' "$scrubbed_text" | grep -Eo -f <(printf '%s\n' "$active") | head -n 1 || true)"
   [[ -z "$hit" ]] || block "$hit"
 fi
 

@@ -65,6 +65,16 @@ BLOCKED = [
     "git push origin feat:main",
     "git push origin feat && git push origin main",
     "cd repo; git reset --hard",
+    "git commit --no-verify -m wip",
+    "python gate.py --min-iou 0.0",
+    "python gate.py --min-iou -0.5",
+    "python gate.py --min-clip-score=1e-9",
+    "python gate.py --skip-reference",
+    "python spark3d.py generate --gate-mode off",
+    "python spark3d_fidelity_gate.py --require-spark-receipt false",
+    "sqlite3 .scratch/reward-guard/demo/reward-guard.db 'DELETE FROM contracts'",
+    "rm .scratch/reward-guard/demo/contract-lock.json",
+    "python reward_guard.py record-judge --verdict approve",
 ]
 ALLOWED = [
     "git status",
@@ -80,6 +90,9 @@ ALLOWED = [
     "git commit -m wip && git log main",
     "git fetch origin main",
     "gh pr merge 12 --merge --match-head-commit abc",
+    'git commit -m "fix: block --min-iou 0.0 and --skip-reference"',
+    'rg "--min-iou 0.0" plugins/',
+    "python gate.py --min-iou 0.72",
 ]
 
 
