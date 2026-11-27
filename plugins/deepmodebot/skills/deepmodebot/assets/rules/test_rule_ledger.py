@@ -263,7 +263,7 @@ class GuardTests(LedgerCase):
             "rm -rf .cursor",
             "git rm AGENTS.md",
             "cp .scratch/draft.md AGENTS.md",
-            f"cp -r {evil}/.claude .",
+            f"cp -r {evil.as_posix()}/.claude .",
             "ln -s AGENTS.md CLAUDE.md",
             "find . -name AGENTS.md -delete",
             "python3 -c \"open('AGENTS.md','a').write('x')\"",
