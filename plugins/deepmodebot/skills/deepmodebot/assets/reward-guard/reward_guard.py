@@ -109,7 +109,7 @@ QUAL_UPPER_METRICS = f"{BARE_UPPER_METRICS}|err|error|loss|tol|epsilon|eps"
 CLI_UPPER_METRICS = "|".join(m.replace("_", "-") for m in QUAL_UPPER_METRICS.split("|"))
 
 CLI_MIN_VAL_RE = re.compile(
-    rf"(?<![A-Za-z0-9_])--(?:gate-)?mi(?:n(?:-([A-Za-z0-9_-]*))?)?(?:\s+|=|,)\s*['\"]?\s*({FLOAT_PAT})\s*['\"]?(?![A-Za-z0-9_])",
+    rf"(?<![A-Za-z0-9_])--(?:(?:gate-)?mi(?:n(?:-([A-Za-z0-9_-]*))?)?|(cov-fail-under))(?:\s+|=|,)\s*['\"]?\s*({FLOAT_PAT})\s*['\"]?(?![A-Za-z0-9_])",
     re.I,
 )
 KWARG_MIN_VAL_RE = re.compile(
@@ -118,7 +118,6 @@ KWARG_MIN_VAL_RE = re.compile(
 )
 SKIP_GATE_FLAG_RE = re.compile(
     r"(?<![A-Za-z0-9_])--(?:skip-gates?|skip-verify|skip-validation|skip-reference|skip-fidelity|bypass-gate|pass-if-no-tests|passWithNoTests|no-cov)\b"
-    r"|(?<![A-Za-z0-9_])--cov-fail-under(?:\s+|=)['\"]?(?:-\d+(?:\.\d+)?|[0-4]?\d(?:\.\d+)?)['\"]?(?![A-Za-z0-9_])"
     r"|(?<![A-Za-z0-9_])(?:--require-spark-receipt(?:\s+|=)['\"]?false|--gate-mode(?:\s+|=)['\"]?off|--measured-gates(?:\s+|=)['\"]?off|--skip-heavy-renders(?:\s+|=)['\"]?(?:true|1)|--check-360(?:\s+|=)['\"]?(?:false|0))\b"
     r"|\bgit\s+commit\b[^\n]*\s(?:-n|--no-verify)\b"
     r"|\b(?:skip_reference|skip_validation|skip_fidelity|bypass_gate)\s*[:=]\s*(?:True|true|1)\b"
@@ -131,7 +130,7 @@ PROD_TEST_BRANCH_RE = re.compile(
 CI_CONTINUE_ON_ERROR_RE = re.compile(r"^\s*continue-on-error\s*:\s*true\b", re.I)
 TSCONFIG_WEAKEN_RE = re.compile(r"""^\s*['"](?:strict|noImplicitAny|strictNullChecks)['"]\s*:\s*false\b""")
 TAUTOLOGICAL_ASSERT_RE = re.compile(
-    r"^\s*(?:assert\s+True\b|self\.assertTrue\(\s*True\s*\)|self\.assertEqual\(\s*(True|False|0|1)\s*,\s*\1\s*\)"
+    r"^\s*(?:assert\s+True\s*(?:[,;#]|$)|self\.assertTrue\(\s*True\s*\)|self\.assertEqual\(\s*(True|False|0|1)\s*,\s*\1\s*\)"
     r"|expect\(\s*(true|false|0|1)\s*\)\.to(?:Be|StrictEqual|Equal)\(\s*\1\s*\)"
     r"|assert!\(\s*true\s*\)|assert_eq!\(\s*(true|false|0|1)\s*,\s*\1\s*\))"
 )
@@ -527,7 +526,7 @@ def _batch_diffs_for_files(
 ) -> dict[str, tuple[dict[int, str], list[tuple[list[str], list[tuple[int, str]]]]]]:
     if not files:
         return {}
-    valid = [f for f in files if (root / f).is_file() and not (root / f).is_symlink() and (root / f).stat().st_size <= 1_048_576]
+    valid = [f for f in files if (root / f).is_file() and not (root / f).is_symlink() and (root / f).stat().st_size <= MAX_SCRATCH_SCRIPT_BYTES]
     if not valid:
         return {}
     has_head = _git(root, "rev-parse", "--verify", "HEAD").returncode == 0
@@ -635,10 +634,24 @@ def _scan_hunk_weakening(
 ) -> list[dict]:
     findings: list[dict] = []
     for rem_lines, add_pairs in hunks:
-        if not rem_lines or not add_pairs:
+        if not rem_lines:
             continue
-        first_ln = add_pairs[0][0]
+        first_ln = add_pairs[0][0] if add_pairs else 1
         add_lines = [t for _, t in add_pairs]
+        if is_test:
+            rem_asserts = sum(1 for r in rem_lines if REAL_ASSERT_LINE_RE.search(r))
+            add_asserts = sum(1 for a in add_lines if REAL_ASSERT_LINE_RE.search(a))
+            if rem_asserts >= 2 and add_asserts == 0:
+                findings.append({
+                    "severity": "P0",
+                    "rule": "reward-hack-assertions-deleted",
+                    "file": rel,
+                    "line": first_ln,
+                    "message": f"Test hunk deleted {rem_asserts} behavioral assertions and left 0 assertions.",
+                    "fix": "Keep behavioral assertions intact and fix the implementation under test.",
+                })
+        if not add_pairs:
+            continue
         old_low = _extract_bounds_for_file(rem_lines, upper=False, is_test_or_gate=is_test_or_gate)
         new_low = _extract_bounds_for_file(add_lines, upper=False, is_test_or_gate=is_test_or_gate)
         for key, old_v in old_low.items():
@@ -663,28 +676,16 @@ def _scan_hunk_weakening(
                     "message": f"Error/defect upper bound `{key}` relaxed from `{old_v}` to `{new_up[key]}`.",
                     "fix": "Keep the stricter defect/tolerance bound and fix the underlying output.",
                 })
-        if is_test:
-            rem_asserts = sum(1 for r in rem_lines if REAL_ASSERT_LINE_RE.search(r))
-            add_asserts = sum(1 for a in add_lines if REAL_ASSERT_LINE_RE.search(a))
-            if rem_asserts >= 2 and add_asserts == 0:
-                findings.append({
-                    "severity": "P0",
-                    "rule": "reward-hack-assertions-deleted",
-                    "file": rel,
-                    "line": first_ln,
-                    "message": f"Test hunk deleted {rem_asserts} behavioral assertions and left 0 assertions.",
-                    "fix": "Keep behavioral assertions intact and fix the implementation under test.",
-                })
     return findings
 
 
 def _has_zero_or_sub_epsilon_threshold(norm_line: str) -> bool:
     for m in CLI_MIN_VAL_RE.finditer(norm_line):
-        floor = metric_min_floor(m.group(1) or "", allow_prefix=True)
+        floor = metric_min_floor(m.group(2) or m.group(1) or "", allow_prefix=True)
         if floor is None:
             continue
         try:
-            val = float(m.group(2))
+            val = float(m.group(3))
             if not math.isfinite(val) or val < floor:
                 return True
         except ValueError:

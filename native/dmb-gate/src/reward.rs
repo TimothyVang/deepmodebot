@@ -630,7 +630,11 @@ fn has_prod_test_branch(line: &str) -> bool {
 
 fn has_tautological_assert(line: &str) -> bool {
     let t = line.trim_start();
-    t.starts_with("assert True")
+    let py_taut = t.strip_prefix("assert True").is_some_and(|r| {
+        let rt = r.trim_start();
+        rt.is_empty() || rt.starts_with('#') || rt.starts_with(';') || rt.starts_with(',')
+    });
+    py_taut
         || t.contains("self.assertTrue(True)")
         || t.contains("self.assertEqual(True, True)")
         || t.contains("self.assertEqual(1, 1)")
@@ -782,11 +786,31 @@ pub fn scan_hunk_weakening(
     out: &mut Vec<RewardFinding>,
 ) {
     for (rem, add) in hunks {
-        if rem.is_empty() || add.is_empty() {
+        if rem.is_empty() {
             continue;
         }
-        let ln = add[0].0;
+        let ln = add.first().map_or(1, |(l, _)| *l);
         let add_only: Vec<String> = add.iter().map(|(_, s)| s.clone()).collect();
+        if is_test {
+            let rem_asserts = rem.iter().filter(|r| is_real_assert_line(r)).count();
+            let add_asserts = add_only.iter().filter(|a| is_real_assert_line(a)).count();
+            if rem_asserts >= 2 && add_asserts == 0 {
+                out.push(RewardFinding {
+                    severity: "P0",
+                    rule: "reward-hack-assertions-deleted",
+                    file: rel.to_string(),
+                    line: ln,
+                    message: format!(
+                        "Test hunk deleted {} behavioral assertions and left 0 assertions.",
+                        rem_asserts
+                    ),
+                    fix: "Keep behavioral assertions intact and fix the implementation under test.",
+                });
+            }
+        }
+        if add.is_empty() {
+            continue;
+        }
         let old_low = extract_metric_bounds(rem, false, is_test_or_gate);
         let new_low = extract_metric_bounds(&add_only, false, is_test_or_gate);
         for (k, old_v) in &old_low {
@@ -825,23 +849,6 @@ pub fn scan_hunk_weakening(
                 }
             }
         }
-        if is_test {
-            let rem_asserts = rem.iter().filter(|r| is_real_assert_line(r)).count();
-            let add_asserts = add_only.iter().filter(|a| is_real_assert_line(a)).count();
-            if rem_asserts >= 2 && add_asserts == 0 {
-                out.push(RewardFinding {
-                    severity: "P0",
-                    rule: "reward-hack-assertions-deleted",
-                    file: rel.to_string(),
-                    line: ln,
-                    message: format!(
-                        "Test hunk deleted {} behavioral assertions and left 0 assertions.",
-                        rem_asserts
-                    ),
-                    fix: "Keep behavioral assertions intact and fix the implementation under test.",
-                });
-            }
-        }
     }
 }
 
@@ -855,7 +862,7 @@ pub fn diff_file_hunks(
     let Ok(meta) = fs::symlink_metadata(&full) else {
         return (Vec::new(), Vec::new());
     };
-    if meta.file_type().is_symlink() || !meta.is_file() || meta.len() > 1_048_576 {
+    if meta.file_type().is_symlink() || !meta.is_file() || meta.len() > 16 * 1024 * 1024 {
         return (Vec::new(), Vec::new());
     }
     let has_head = git(root, &["rev-parse", "--verify", "HEAD"])
@@ -1073,7 +1080,7 @@ pub fn scan_file_reward_hacks(
                 .filter(|(ln, _)| rs_cfg_test_line.map(|cfg_ln| *ln < cfg_ln).unwrap_or(true))
                 .cloned()
                 .collect();
-            if kept.is_empty() {
+            if kept.is_empty() && !test_file {
                 None
             } else {
                 Some((rem.clone(), kept))
