@@ -1,6 +1,6 @@
 {
   "name": "deepmodebot",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "description": "Zero-human-thought Hardcore Mode autopilot ($deepmodebot:deepmodebot / /deep) for Codex, Claude Code, omp, and Google Antigravity: decodes messy prompts, clarifies ambiguous intent once upfront, and autonomously chains SOTA research, gap-audit, full-scope build, native gates, real-app proof, and verifier-gated PR review.",
   "author": {
     "name": "Timothy Vang",

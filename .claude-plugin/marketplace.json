@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "deepmodebot: rigorous agent engineering for omp, Claude Code, Codex, and Google Antigravity",
-    "version": "0.9.1"
+    "version": "0.10.0"
   },
   "plugins": [
     {
       "name": "deepmodebot",
       "source": "./plugins/deepmodebot",
       "description": "Rigorous agent engineering mode for omp, Claude Code, Codex, and Google Antigravity: /deep routes tasks to playbooks, enforces Full-Scope Completion, SME-in-the-loop incremental sprints, model/rate-limit resilience, root containment, real-app proof, and verifier-gated PR review.",
-      "version": "0.9.1",
+      "version": "0.10.0",
       "license": "MIT",
       "category": "development",
       "tags": [
