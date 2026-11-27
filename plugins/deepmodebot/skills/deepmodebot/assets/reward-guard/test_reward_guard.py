@@ -121,12 +121,16 @@ class RewardGuardTests(unittest.TestCase):
             encoding="utf-8",
         )
         (self.repo / "build_props.py").write_text(
-            "cmd1 = ['python', 'gate.py', '--min-iou', '0.25']\n"
-            "cmd2 = ['python', 'gate.py', '--measured-gates', 'off']\n",
+            "cmd1 = ['python', 'gate.py', '--min-iou', '+0.25']\n"
+            "cmd2 = ['python', 'gate.py', '--min-iou', '0.25e0']\n"
+            "cmd3 = ['python', 'gate.py', '--min-iou', '-.5']\n"
+            "cmd4 = ['python', 'gate.py', '--min-iou', '0.']\n"
+            "cmd5 = ['python', 'gate.py', '--min-i', '.1']\n"
+            "cfg = {'min_ssim': .4}\n",
             encoding="utf-8",
         )
         (self.repo / "clean_clip.py").write_text(
-            "cmd = ['python', 'gate.py', '--min-iou', '0.72', '--min-clip-score', '0.28']\n",
+            "cmd = ['python', 'gate.py', '--min-iou', '0.72', '--min-clip-score', '0.28', '--min-port', '80']\n",
             encoding="utf-8",
         )
         (self.repo / "gates/fidelity_gate.py").write_text(
@@ -146,6 +150,7 @@ class RewardGuardTests(unittest.TestCase):
             by_file.setdefault(f["file"], set()).add(f["rule"])
         self.assertIn("reward-hack-primitive-standin", by_file[".scratch/tmp/make_cones.py"])
         self.assertIn("reward-hack-threshold-zero", by_file["build_props.py"])
+        self.assertEqual(sum(1 for f in res["findings"] if f["file"] == "build_props.py" and f["rule"] == "reward-hack-threshold-zero"), 6)
         self.assertNotIn("clean_clip.py", by_file)
         self.assertIn("reward-hack-hardcoded-pass", by_file["gates/fidelity_gate.py"])
         self.assertIn("reward-hack-assertion-weakened", by_file["gates/fidelity_gate.py"])
@@ -285,6 +290,44 @@ class RewardGuardTests(unittest.TestCase):
             dc.commit()
         signed_eval = rg.evaluate_verdict(self.repo, slug="spark-sealed", state_dir=holdout)
         self.assertEqual(signed_eval["verdict"], "REWARD_GUARD_PASSED", signed_eval)
+
+        # Tampering SQLite trusted_pubkeys or required_producers without matching contract-lock.json fails closed!
+        with contextlib.closing(sqlite3.connect(dst_db)) as dc:
+            dc.execute("UPDATE contracts SET required_producers_json = '[]' WHERE slug = 'spark-sealed'")
+            dc.commit()
+        mismatch_eval = rg.evaluate_verdict(self.repo, slug="spark-sealed", state_dir=holdout)
+        self.assertEqual(mismatch_eval["verdict"], "REWARD_GUARD_BLOCKED")
+        self.assertIn("contract-locked-and-intact", mismatch_eval["failed_gates"])
+
+        # Clean judge-owned .blend rendering ignores 50% resolution_percentage and compositor hijacks when Blender is present.
+        try:
+            blender_exe = rg._find_blender_executable()
+        except ValueError:
+            blender_exe = None
+        if blender_exe is not None:
+            hijack_py = Path(self.tmp.name) / "make_hijack_blend.py"
+            hijack_blend = Path(self.tmp.name) / "hijack.blend"
+            hijack_py.write_text(
+                "import bpy, sys\n"
+                "out = sys.argv[sys.argv.index('--') + 1]\n"
+                "bpy.ops.wm.read_factory_settings(use_empty=True)\n"
+                "bpy.ops.mesh.primitive_cube_add(size=1.0)\n"
+                "s = bpy.context.scene\n"
+                "s.render.resolution_percentage = 50\n"
+                "s.render.use_compositing = True\n"
+                "bpy.ops.wm.save_as_mainfile(filepath=out)\n",
+                encoding="utf-8",
+            )
+            subprocess.run(
+                [str(blender_exe), "-b", "--factory-startup", "--python-exit-code", "1", "--python", str(hijack_py), "--", str(hijack_blend)],
+                check=True, capture_output=True, text=True,
+            )
+            rdir = Path(self.tmp.name) / "owned-blend-out"
+            rdir.mkdir()
+            rendered = rg._render_3d_artifact_owned(hijack_blend, rdir)
+            self.assertEqual(len(rendered), 3)
+            for _fn, _fp, data, _sha in rendered:
+                self.assertEqual((int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")), (384, 384))
 
 
 if __name__ == "__main__":

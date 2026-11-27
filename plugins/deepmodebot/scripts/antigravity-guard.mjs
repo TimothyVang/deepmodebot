@@ -32,25 +32,47 @@ const WRITE_TOOLS = new Set([
   "multi_replace_file_content",
 ]);
 const SHELL_TOOLS = new Set(["run_command", "execute_command", "bash"]);
+const METRIC_FLOORS = {
+  iou: 0.5, ssim: 0.5, dice: 0.5, f1: 0.5, auc: 0.5,
+  accuracy: 0.5, acc: 0.5, precision: 0.5, recall: 0.5,
+  fidelity: 0.5, similarity: 0.5, coverage: 0.5, "pass-rate": 0.5, "win-rate": 0.5,
+  clip: 0.15, "clip-score": 0.15, ap: 0.15, map: 0.15, bleu: 0.15, rouge: 0.15,
+  psnr: 10.0, protrusion: 0.02, score: 0.05, confidence: 0.05, symmetry: 0.05,
+};
+const MIN_FLAG_VAL_RE =
+  /(?:^|[\s;&|(])(--(?:gate-)?min-([a-z0-9_-]+)(?:\s+|=)['"]?([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)['"]?)(?=$|[\s;&|)])/gi;
 const REWARD_HACK_CMD_RE = new RegExp(
   [
-    String.raw`(?:^|[ ;&|(])--(?:gate-)?min-(?:iou|ssim|dice|f1|auc|accuracy|acc|precision|recall|fidelity|similarity|coverage|pass-rate|win-rate)(?:\s+|=)['"]?(?:-\d+(?:\.\d+)?|0+|0*\.[0-4]\d*|\d+(?:\.\d+)?e-(?:[2-9]|[1-9]\d+)|[0-4](?:\.\d+)?e-1)['"]?(?=$|[ ;&|)])`,
-    String.raw`(?:^|[ ;&|(])--(?:gate-)?min-(?:clip|clip-score|ap|map|bleu|rouge)(?:\s+|=)['"]?(?:-\d+(?:\.\d+)?|0+|0*\.(?:0\d*|1[0-4]\d*)|\d+(?:\.\d+)?e-(?:[2-9]|[1-9]\d+))['"]?(?=$|[ ;&|)])`,
-    String.raw`(?:^|[ ;&|(])--(?:gate-)?min-psnr(?:\s+|=)['"]?(?:-\d+(?:\.\d+)?|0*[0-9](?:\.\d+)?|\d+(?:\.\d+)?e-\d+)['"]?(?=$|[ ;&|)])`,
-    String.raw`(?:^|[ ;&|(])--(?:gate-)?min-(?:score|confidence|protrusion|symmetry)(?:\s+|=)['"]?(?:-\d+(?:\.\d+)?|0+|0*\.0+[0-1]?\d*|\d+(?:\.\d+)?e-(?:[2-9]|[1-9]\d+))['"]?(?=$|[ ;&|)])`,
-    String.raw`(?:^|[ ;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|skip-verify|skip-validation|bypass-gate|pass-if-no-tests|passWithNoTests)(?=$|[ ;&|)])`,
-    String.raw`(?:^|[ ;&|(])(?:--require-spark-receipt(?:\s+|=)['"]?false|--gate-mode(?:\s+|=)['"]?off|--measured-gates(?:\s+|=)['"]?off|--check-360(?:\s+|=)['"]?(?:false|0))['"]?(?=$|[ ;&|)])`,
-    String.raw`\bgit\b[^\n;&|]*\bcommit\b[^\n;&|]*\s(?:-n|--no-verify)(?=$|[ ;&|)])`,
+    String.raw`(?:^|[\s;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|skip-verify|skip-validation|bypass-gate|pass-if-no-tests|passWithNoTests)(?=$|[\s;&|)])`,
+    String.raw`(?:^|[\s;&|(])(?:--require-spark-receipt(?:\s+|=)['"]?false|--gate-mode(?:\s+|=)['"]?off|--measured-gates(?:\s+|=)['"]?off|--check-360(?:\s+|=)['"]?(?:false|0))['"]?(?=$|[\s;&|)])`,
+    String.raw`\bgit\b[^\n;&|]*\bcommit\b[^\n;&|]*\s(?:-n|--no-verify)(?=$|[\s;&|)])`,
     String.raw`\b(?:reward-guard\.db|contract-lock\.json|judge_verdicts)\b`,
     String.raw`\breward_guard\.py\b[^\n;&|]*\brecord-judge\b`,
   ].join("|"),
   "i",
 );
+
+function minFlagFloor(rawTok) {
+  const tok = rawTok.toLowerCase().replace(/_/g, "-");
+  if (Object.hasOwn(METRIC_FLOORS, tok)) return METRIC_FLOORS[tok];
+  const matches = Object.entries(METRIC_FLOORS)
+    .filter(([k]) => k.startsWith(tok))
+    .map(([, v]) => v);
+  return matches.length ? Math.max(...matches) : null;
+}
+
 function findShellRewardHack(rawCmd) {
   const cleaned = String(rawCmd ?? "").replace(/(-m|--message)(=|\s+)("[^"]*"|'[^']*')/g, '$1 ""');
   for (const rawLine of cleaned.replace(/\\\r?\n/g, " ").split(/\r?\n/)) {
     const line = rawLine.trim();
     if (!line || /^(?:grep|rg)\s+[^;&|`$]*$/.test(line)) continue;
+    MIN_FLAG_VAL_RE.lastIndex = 0;
+    let fm;
+    while ((fm = MIN_FLAG_VAL_RE.exec(line)) !== null) {
+      const floor = minFlagFloor(fm[2]);
+      const val = Number(fm[3]);
+      if (floor !== null && Number.isFinite(val) && val < floor) return fm[1].trim();
+    }
     const m = REWARD_HACK_CMD_RE.exec(line);
     if (m) return m[0].trim();
   }

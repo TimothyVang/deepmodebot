@@ -72,6 +72,33 @@ function resolveEffectiveCwd(line: string, matchStart: number, matchText: string
 	return cwd;
 }
 
+const METRIC_FLOORS: Record<string, number> = {
+	iou: 0.5, ssim: 0.5, dice: 0.5, f1: 0.5, auc: 0.5,
+	accuracy: 0.5, acc: 0.5, precision: 0.5, recall: 0.5,
+	fidelity: 0.5, similarity: 0.5, coverage: 0.5, "pass-rate": 0.5, "win-rate": 0.5,
+	clip: 0.15, "clip-score": 0.15, ap: 0.15, map: 0.15, bleu: 0.15, rouge: 0.15,
+	psnr: 10.0, protrusion: 0.02, score: 0.05, confidence: 0.05, symmetry: 0.05,
+};
+const MIN_FLAG_RE =
+	/(?:^|[ ;&|(])(--(?:gate-)?min-([A-Za-z0-9_-]+)(?: +|=)["']?([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)["']?)(?= |;|&|\||\)|$)/g;
+
+function findSubFloorMinFlag(line: string): string | undefined {
+	MIN_FLAG_RE.lastIndex = 0;
+	let m: RegExpExecArray | null;
+	while ((m = MIN_FLAG_RE.exec(line)) !== null) {
+		const tok = m[2].toLowerCase().replace(/_/g, "-");
+		let floor: number | undefined = Object.hasOwn(METRIC_FLOORS, tok) ? METRIC_FLOORS[tok] : undefined;
+		if (floor === undefined) {
+			for (const [k, v] of Object.entries(METRIC_FLOORS)) {
+				if (k.startsWith(tok) && (floor === undefined || v > floor)) floor = v;
+			}
+		}
+		const val = Number(m[3]);
+		if (floor !== undefined && Number.isFinite(val) && val < floor) return m[1].trim();
+	}
+	return undefined;
+}
+
 const watched: Record<string, string> = { bash: "command", eval: "code" };
 
 export default function gitGuard(pi: {
@@ -94,6 +121,17 @@ export default function gitGuard(pi: {
 			.replace(/\t/g, " ")
 			.split(/\r?\n/);
 		const branchCache = new Map<string, string | undefined>();
+		for (const rawLine of lines) {
+			const line = rawLine.replace(/(-m|--message)(=| +)("[^"]*"|'[^']*')/g, '$1 ""');
+			if (/^ *(grep|rg) +[^;&|`$]*$/.test(line)) continue;
+			const minHit = findSubFloorMinFlag(line);
+			if (minHit) {
+				return {
+					block: true,
+					reason: `Blocked by anti-reward-hacking guard: "${minHit}" sets a quality threshold below its metric floor.`,
+				};
+			}
+		}
 		for (const rule of rules) {
 			for (const rawLine of lines) {
 				const line = rawLine.replace(/(-m|--message)(=| +)("[^"]*"|'[^']*')/g, '$1 ""');

@@ -1423,6 +1423,9 @@ class ScanTextSlopCase(unittest.TestCase):
 
 
     def test_outer_supervisor_blocks_scratch_reward_hack_and_unverified_artifact(self):
+        sys.path.insert(0, str(LOOP.parent))
+        import loop as loop_mod
+
         with tempfile.TemporaryDirectory(prefix="loop-reward-guard-") as tmp:
             root = Path(tmp)
             subprocess.run(["git", "init", "-q", "-b", "main", str(root)], check=True, capture_output=True)
@@ -1436,6 +1439,28 @@ class ScanTextSlopCase(unittest.TestCase):
             subprocess.run(["git", "-C", str(root), "add", "."], check=True, capture_output=True)
             subprocess.run(["git", "-C", str(root), "commit", "-q", "-m", "init"], check=True, capture_output=True)
             (root / "goals").mkdir()
+
+            # 1. Holdout directory is strictly outside `root` even when TMP/TEMP points inside `.scratch/tmp`.
+            old_tmp = os.environ.get("TEMP")
+            os.environ["TEMP"] = str(root / ".scratch" / "tmp")
+            try:
+                hd = loop_mod._allocate_outside_holdout(str(root), "ship")
+                self.assertIsNone(loop_mod._rel_inside_root(hd, str(root)))
+                shutil.rmtree(hd, ignore_errors=True)
+            finally:
+                if old_tmp is not None:
+                    os.environ["TEMP"] = old_tmp
+
+            # 2. Incomplete reward_artifacts without references/producers is rejected at parse time.
+            bad_goal = root / "goals" / "incomplete.md"
+            bad_goal.write_text(
+                f'---\ngoal: bad\ncheck: "{sys.executable}" check.py\nprotect: check.py\nreward_artifacts: out/model.glb\nmax_iterations: 1\nmax_cost_usd: 1\n---\nPlan.\n',
+                encoding="utf-8",
+            )
+            bad_proc = subprocess.run([sys.executable, "-B", str(LOOP), "check", "goals/incomplete.md"], cwd=str(root), capture_output=True, text=True)
+            self.assertNotEqual(bad_proc.returncode, 0)
+
+            # 3. Clean scan + green check + unverified artifact reaches evaluate_outer_reward_contract and fails provenance!
             goal = root / "goals" / "ship.md"
             goal.write_text(
                 f'---\ngoal: generate real 3d ship\ncheck: "{sys.executable}" check.py\nprotect: check.py\n'
@@ -1443,22 +1468,20 @@ class ScanTextSlopCase(unittest.TestCase):
                 "max_iterations: 1\nmax_cost_usd: 1\n---\nPlan.\n",
                 encoding="utf-8",
             )
-            hack_agent = bin_dir / "hack_omp.py"
-            hack_agent.write_text(
+            clean_unverified_agent = bin_dir / "unverified_omp.py"
+            clean_unverified_agent.write_text(
                 "import os, pathlib, sys\n"
                 "assert 'DEEPMODEBOT_REWARD_STATE_DIR' not in os.environ\n"
                 "sys.stdin.read()\n"
-                "pathlib.Path('.scratch/tmp').mkdir(parents=True, exist_ok=True)\n"
-                "pathlib.Path('.scratch/tmp/cones.py').write_text('bpy.ops.mesh.primitive_cone_add()\\n', encoding='utf-8')\n"
                 "pathlib.Path('out').mkdir(exist_ok=True)\n"
-                "pathlib.Path('out/model.glb').write_bytes(b'fake-cube-glb')\n",
+                "pathlib.Path('out/model.glb').write_bytes(b'unverified-glb-bytes')\n",
                 encoding="utf-8",
             )
             if os.name == "nt":
-                (bin_dir / "omp.cmd").write_text(f'@"{sys.executable}" "{hack_agent}" %*\r\n', encoding="utf-8")
+                (bin_dir / "omp.cmd").write_text(f'@"{sys.executable}" "{clean_unverified_agent}" %*\r\n', encoding="utf-8")
             else:
                 omp = bin_dir / "omp"
-                omp.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{hack_agent}" "$@"\n', encoding="utf-8")
+                omp.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{clean_unverified_agent}" "$@"\n', encoding="utf-8")
                 omp.chmod(0o755)
             env = {**os.environ, "PATH": str(bin_dir) + os.pathsep + os.environ.get("PATH", ""), "DEEPMODEBOT_REWARD_STATE_DIR": "/secret"}
             proc = subprocess.run(
@@ -1468,6 +1491,17 @@ class ScanTextSlopCase(unittest.TestCase):
             self.assertNotEqual(proc.returncode, 0, proc.stdout + proc.stderr)
             summary = json.loads((root / ".scratch" / "goals" / "ship" / "latest-summary.json").read_text(encoding="utf-8"))
             self.assertEqual(summary["stage"], "reward_guard")
+            chk_logs = list((root / ".scratch" / "goals" / "ship").glob("*-check.log"))
+            self.assertTrue(any("outer-supervisor verification error" in p.read_text(encoding="utf-8") for p in chk_logs))
 
+            # 4. Check command that mutates a protected reward_references file exits 4 immediately!
+            (root / "mutate_ref.py").write_text("import pathlib; pathlib.Path('refs/art.png').write_bytes(b'tampered')\n", encoding="utf-8")
+            mut_goal = root / "goals" / "mut.md"
+            mut_goal.write_text(
+                f'---\ngoal: mut\ncheck: "{sys.executable}" mutate_ref.py\nprotect: none\nreward_references: refs/art.png\nreward_artifacts: out/model.glb\nmax_iterations: 1\nmax_cost_usd: 1\n---\nPlan.\n',
+                encoding="utf-8",
+            )
+            mut_proc = subprocess.run([sys.executable, "-B", str(LOOP), "run", "goals/mut.md", "--harness", "omp"], cwd=str(root), capture_output=True, text=True, env=env)
+            self.assertEqual(mut_proc.returncode, 4, mut_proc.stdout + mut_proc.stderr)
 if __name__ == "__main__":
     unittest.main()

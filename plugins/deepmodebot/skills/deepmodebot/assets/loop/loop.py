@@ -59,6 +59,7 @@ Exit codes: 0 done, 2 iteration cap, 3 stalled, 4 changed frontmatter or protect
 """
 import argparse
 import ast
+import atexit
 from collections import Counter
 import hashlib
 import io
@@ -237,6 +238,13 @@ def parse(goal_path):
     if "active_sprint" in fields:
         if not fields["active_sprint"].isdigit() or int(fields["active_sprint"]) < 1:
             raise SystemExit(f"{goal_path}: active_sprint must be a positive integer")
+    has_r_art = bool(fields.get("reward_artifacts", "").strip())
+    has_r_ref = bool(fields.get("reward_references", "").strip())
+    has_r_prod = bool(fields.get("reward_producers", "").strip())
+    if has_r_art and not (has_r_ref or has_r_prod):
+        raise SystemExit(f"{goal_path}: reward_artifacts requires reward_references and/or reward_producers")
+    if (has_r_ref or has_r_prod) and not has_r_art:
+        raise SystemExit(f"{goal_path}: reward_references and reward_producers require reward_artifacts")
     return fields, hashlib.sha256(match.group(1).encode()).hexdigest(), text[match.end():]
 
 
@@ -1670,6 +1678,32 @@ def diff_new_reward_hacks(current_tuple, baseline_tuple):
                 })
     return added
 
+def _allocate_outside_holdout(root, slug):
+    """Allocate supervisor-private holdout state strictly outside `root` even when TMP/TEMP points inside `.scratch`."""
+    root_abs = os.path.abspath(root)
+    candidates = [
+        os.path.join(os.path.expanduser("~"), ".deepmodebot-holdout"),
+        os.path.join(os.environ.get("LOCALAPPDATA") or "/tmp", "deepmodebot-holdout"),
+        os.path.dirname(root_abs),
+    ]
+    for base in candidates:
+        if not base:
+            continue
+        base_abs = os.path.abspath(base)
+        if _rel_inside_root(base_abs, root_abs) is not None or os.path.normcase(base_abs) == os.path.normcase(root_abs):
+            continue
+        try:
+            os.makedirs(base_abs, exist_ok=True)
+            d = tempfile.mkdtemp(prefix=f"dmb-loop-holdout-{slug}-", dir=base_abs)
+            if _rel_inside_root(d, root_abs) is None:
+                atexit.register(shutil.rmtree, d, True)
+                return d
+            shutil.rmtree(d, ignore_errors=True)
+        except OSError:
+            continue
+    raise SystemExit("unable to allocate supervisor holdout directory outside project root")
+
+
 def evaluate_outer_reward_contract(fields, root, slug, holdout_dir):
     """Outer-supervisor post-check verification: runs OUTSIDE the builder turn using a holdout state_dir."""
     from pathlib import Path
@@ -1678,6 +1712,8 @@ def evaluate_outer_reward_contract(fields, root, slug, holdout_dir):
     producers = shlex.split(fields.get("reward_producers", ""))
     if not artifacts:
         return 0, ""
+    if not (refs or producers):
+        return 1, "[reward_guard failed] incomplete reward contract: reward_artifacts requires reward_references and/or reward_producers\n"
     rg = _reward_guard_mod()
     root_p = Path(root)
     state_p = Path(holdout_dir)
@@ -1719,16 +1755,21 @@ def evaluate_outer_reward_contract(fields, root, slug, holdout_dir):
                     model=judge_model,
                     state_dir=state_p,
                 )
-        if producers and refs:
-            verdict = rg.evaluate_verdict(root_p, slug=slug_k, state_dir=state_p)
-            md_src = state_p / slug_k / "REWARD_GUARD.md"
-            if md_src.is_file():
-                goal_log = root_p / ".scratch" / "goals" / slug
-                goal_log.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(md_src, goal_log / "REWARD_GUARD.md")
-            if verdict["verdict"] != "REWARD_GUARD_PASSED":
-                md_txt = md_src.read_text(encoding="utf-8") if md_src.is_file() else json.dumps(verdict)
-                return 1, f"[reward_guard failed] outer-supervisor verification rejected candidate ({verdict['failed_gates']}):\n{md_txt}\n"
+        verdict = rg.evaluate_verdict(root_p, slug=slug_k, state_dir=state_p)
+        md_src = state_p / slug_k / "REWARD_GUARD.md"
+        if md_src.is_file():
+            goal_log = root_p / ".scratch" / "goals" / slug
+            goal_log.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(md_src, goal_log / "REWARD_GUARD.md")
+        needed = {"contract-locked-and-intact", "zero-static-reward-hacks"}
+        if producers:
+            needed.add("provenance-verified")
+        if refs:
+            needed.add("independent-judge-approved")
+        blocking = [g for g in verdict["failed_gates"] if g in needed]
+        if blocking:
+            md_txt = md_src.read_text(encoding="utf-8") if md_src.is_file() else json.dumps(verdict)
+            return 1, f"[reward_guard failed] outer-supervisor verification rejected candidate ({blocking}):\n{md_txt}\n"
     except ValueError as exc:
         return 1, f"[reward_guard failed] outer-supervisor verification error: {exc}\n"
     return 0, ""
@@ -1736,12 +1777,14 @@ def evaluate_outer_reward_contract(fields, root, slug, holdout_dir):
 
 def evaluate_gates(fields, root, protect, limits, slop_baseline=None, check_slop=False, slop_skip=(),
                    manifest_data=None, active_sprint=None, reward_baseline=None, check_reward=False,
-                   slug="goal", holdout_dir=None):
+                   slug="goal", holdout_dir=None, expected_protect_guard=None):
     """Run inner-loop and scope gates in order: fast_check -> slop_guard -> reward_guard -> manifest -> check -> outer_reward_contract."""
     manifest_summary = None
     fast_cmd = fields.get("fast_check", "").strip()
     if fast_cmd:
         f_code, f_out = run_check(fast_cmd, root, protect, limits["fast_check_minutes"])
+        if expected_protect_guard is not None and protect_digest(root, protect) != expected_protect_guard:
+            return 4, "[protect_guard failed] fast_check modified protected files\n", "tampered_protected", manifest_summary
         if f_code is None:
             return None, f_out, "fast_check", manifest_summary
         if f_code != 0:
@@ -1766,12 +1809,16 @@ def evaluate_gates(fields, root, protect, limits, slop_baseline=None, check_slop
         m_code, m_out, manifest_summary = evaluate_manifest(
             manifest_data, root, protect, limits["check_minutes"], active_sprint=active_sprint
         )
+        if expected_protect_guard is not None and protect_digest(root, protect) != expected_protect_guard:
+            return 4, "[protect_guard failed] manifest check modified protected files\n", "tampered_protected", manifest_summary
         if m_code is None:
             return None, m_out, "manifest", manifest_summary
         if m_code != 0:
             stage = "sme_gate" if manifest_summary.get("sme_gate_blocked") else "manifest"
             return m_code, m_out, stage, manifest_summary
     c_code, c_out = run_check(fields["check"], root, protect, limits["check_minutes"])
+    if expected_protect_guard is not None and protect_digest(root, protect) != expected_protect_guard:
+        return 4, "[protect_guard failed] check command modified protected files\n", "tampered_protected", manifest_summary
     if c_code is None:
         return None, c_out, "check", manifest_summary
     if c_code == 0 and holdout_dir is not None and fields.get("reward_artifacts", "").strip():
@@ -1779,7 +1826,6 @@ def evaluate_gates(fields, root, protect, limits, slop_baseline=None, check_slop
         if r_code != 0:
             return r_code, (c_out + ("\n" if c_out and not c_out.endswith("\n") else "") + r_out), "reward_guard", manifest_summary
     return c_code, c_out, ("pass" if c_code == 0 else "check"), manifest_summary
-
 def cost_cap(fields, harness, goal_path):
     """omp and Claude Code have a per-run cost flag; the playbook requires it for unattended runs."""
     cost = fields.get("max_cost_usd")
@@ -2194,7 +2240,8 @@ def main():
     slop_skip = {*own, *protect}
 
     has_reward_contract = bool(fields.get("reward_artifacts", "").strip())
-    holdout_dir = tempfile.mkdtemp(prefix=f"dmb-loop-holdout-{slug}-") if has_reward_contract else None
+    holdout_dir = _allocate_outside_holdout(root, slug) if has_reward_contract else None
+    guard = protect_digest(root, protect)
     try:
         if opts.action == "check":
             baseline = head_slop_counts(root, skip=slop_skip) if forbid_slop else Counter()
@@ -2202,7 +2249,7 @@ def main():
                 fields, root, protect, limits, slop_baseline=baseline,
                 check_slop=forbid_slop, slop_skip=slop_skip, manifest_data=manifest_data,
                 active_sprint=active_sprint, reward_baseline=Counter(), check_reward=forbid_reward_hacks,
-                slug=slug, holdout_dir=holdout_dir,
+                slug=slug, holdout_dir=holdout_dir, expected_protect_guard=guard,
             )
             stage_limit = limits["fast_check_minutes"] if stage == "fast_check" else limits["check_minutes"]
             timed_out = f"the {stage} ran past {stage_limit} minutes and was stopped"
@@ -2244,10 +2291,15 @@ def main():
         fields, root, protect, limits, slop_baseline=slop_baseline,
         check_slop=False, slop_skip=slop_skip, manifest_data=manifest_data,
         active_sprint=active_sprint, reward_baseline=reward_baseline, check_reward=False,
-        slug=slug, holdout_dir=holdout_dir,
+        slug=slug, holdout_dir=holdout_dir, expected_protect_guard=guard,
     )
     stage_limit = limits["fast_check_minutes"] if stage == "fast_check" else limits["check_minutes"]
     timed_out = f"the {stage} ran past {stage_limit} minutes and was stopped"
+    if stage == "tampered_protected":
+        print(f"{output.strip()}; stopping")
+        if holdout_dir:
+            shutil.rmtree(holdout_dir, ignore_errors=True)
+        return 4
     if code is None:
         print(f"{timed_out}; nothing was run")
         if holdout_dir:
@@ -2320,7 +2372,7 @@ def main():
     run_id = f"{time.strftime('%Y%m%dT%H%M%S')}-{os.getpid()}"
     run_started = time.time()
     summary_path = os.path.join(log_dir, f"{run_id}-summary.json")
-    guard = protect_digest(root, protect)
+    # `guard` frozen prior to preflight evaluate_gates so check commands cannot mutate protected files either.
     config_guard = guardrail_state(root, own) if protect_configs else {}
     if sprint_overridden:
         print(f"using CLI --sprint {active_sprint} override (goal frontmatter unchanged)")
@@ -2518,7 +2570,7 @@ def main():
             fields, root, protect, limits, slop_baseline=slop_baseline,
             check_slop=forbid_slop, slop_skip=slop_skip, manifest_data=manifest_data,
             active_sprint=active_sprint, reward_baseline=reward_baseline, check_reward=forbid_reward_hacks,
-            slug=slug, holdout_dir=holdout_dir,
+            slug=slug, holdout_dir=holdout_dir, expected_protect_guard=guard,
         )
         if iter_manifest_summary is not None:
             last_manifest_summary = iter_manifest_summary
@@ -2530,6 +2582,9 @@ def main():
             handle.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')}\t{run_id}\t{i}\t{harness}\t{harness_exit}\t"
                          f"{'timeout' if code is None else code}\t{time.time() - started:.0f}\t{stage}\n")
         print(f"iteration {i}: harness exit {harness_exit}, check exit {'timeout' if code is None else code} ({stage})")
+        if stage == "tampered_protected":
+            print(f"iteration {i}: check modified protected files; stopping")
+            return finish(4, "tampered_protected")
         if code == 0:
             deferred = last_manifest_summary.get("deferred_slices", []) if last_manifest_summary else []
             if deferred:

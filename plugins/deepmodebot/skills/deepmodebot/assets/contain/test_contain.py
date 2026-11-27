@@ -168,6 +168,11 @@ class ClaudeGuard(GuardCase):
         for bad_cmd in (
             "python gate.py --min-iou 0.0",
             "python gate.py --min-iou 0.25",
+            "python gate.py --min-iou +0.25",
+            "python gate.py --min-iou 0.25e0",
+            "python gate.py --min-iou -.5",
+            "python gate.py --min-iou 0.",
+            "python gate.py --min-i 0.1",
             "python gate.py --min-iou=-0.5",
             "python gate.py --skip-reference",
             "python spark3d.py generate --measured-gates off",

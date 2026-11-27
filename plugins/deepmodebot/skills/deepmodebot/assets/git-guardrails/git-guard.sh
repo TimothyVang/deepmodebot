@@ -113,6 +113,36 @@ active="$(printf '%s\n' "$clean_patterns" | grep -vE '^[[:space:]]*(#|@|$)' || t
 if [[ -n "$active" && -n "$scrubbed_text" ]]; then
   hit="$(printf '%s\n' "$scrubbed_text" | grep -Eo -f <(printf '%s\n' "$active") | head -n 1 || true)"
   [[ -z "$hit" ]] || block "$hit"
+  min_hit="$(printf '%s\n' "$scrubbed_text" | awk '
+    BEGIN {
+      split("iou ssim dice f1 auc accuracy acc precision recall fidelity similarity coverage pass-rate win-rate", m50, " ")
+      for (i in m50) fl[m50[i]] = 0.50
+      split("clip clip-score ap map bleu rouge", m15, " ")
+      for (i in m15) fl[m15[i]] = 0.15
+      fl["psnr"] = 10.0; fl["protrusion"] = 0.02; fl["score"] = 0.05; fl["confidence"] = 0.05; fl["symmetry"] = 0.05
+    }
+    {
+      s = $0
+      while (match(s, /(^|[ ;&|(])--(gate-)?min-[A-Za-z0-9_-]+( +|=)["'\'']?[-+]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][-+]?[0-9]+)?["'\'']?( |;|&|\||\)|$)/)) {
+        seg = substr(s, RSTART, RLENGTH)
+        s = substr(s, RSTART + RLENGTH - 1)
+        tok = seg
+        sub(/^.*--(gate-)?min-/, "", tok)
+        val = tok
+        sub(/^[A-Za-z0-9_-]+( +|=)["'\'']?/, "", val)
+        sub(/["'\'' ;&|)]*$/, "", val)
+        sub(/( +|=).*$/, "", tok)
+        tok = tolower(tok); gsub(/_/, "-", tok)
+        req = -1
+        if (tok in fl) { req = fl[tok] }
+        else {
+          for (k in fl) if (index(k, tok) == 1 && fl[k] > req) req = fl[k]
+        }
+        if (req >= 0 && (val + 0.0) < req) { print seg; exit 0 }
+      }
+    }
+  ')"
+  [[ -z "$min_hit" ]] || block "$min_hit"
 fi
 
 branch_rules="$(printf '%s\n' "$clean_patterns" | grep -E '^@branch ' || true)"

@@ -35,7 +35,7 @@ NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 HEX128_RE = re.compile(r"^[0-9a-fA-F]{128}$")
-FLOAT_PAT = r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?"
+FLOAT_PAT = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
 MIN_FLOOR_EPSILON = 1e-4
 SIMILARITY_01_METRICS = frozenset({
     "iou", "ssim", "dice", "f1", "auc", "accuracy", "acc",
@@ -49,23 +49,30 @@ DEFAULT_TRUSTED_PUBKEYS = {
     "dgx-spark": "dfeb0e4e0f02ac7131d185f46299751d92f91aceb850e246fcd4a69d6d249bad",
 }
 
+METRIC_FLOORS: dict[str, float] = {
+    **{k: 0.50 for k in SIMILARITY_01_METRICS},
+    **{k: 0.15 for k in RANK_COSINE_METRICS},
+    "psnr": 10.0,
+    "protrusion": 0.02,
+    "score": 0.05,
+    "confidence": 0.05,
+    "symmetry": 0.05,
+}
 
-def metric_min_floor(metric_raw: str) -> float:
+
+def metric_min_floor(metric_raw: str, *, allow_prefix: bool = False) -> float | None:
     m = metric_raw.strip().lower().replace("-", "_")
     for pref in ("gate_min_", "minimum_", "min_"):
         if m.startswith(pref):
             m = m[len(pref):]
             break
-    if m in SIMILARITY_01_METRICS:
-        return 0.50
-    if m in RANK_COSINE_METRICS:
-        return 0.15
-    if m == "psnr":
-        return 10.0
-    if m == "protrusion":
-        return 0.02
-    if m in {"score", "confidence", "symmetry"}:
-        return 0.05
+    if m in METRIC_FLOORS:
+        return METRIC_FLOORS[m]
+    if allow_prefix and m:
+        matches = [v for k, v in METRIC_FLOORS.items() if k.startswith(m)]
+        if matches:
+            return max(matches)
+        return None
     return MIN_FLOOR_EPSILON
 SCRATCH_INTERNAL_DIRS = frozenset({
     "reward-guard", "self-grill", "evidence", "goals", "gen-ui", "agents-md-backup", "quota-guard",
@@ -96,11 +103,11 @@ QUAL_UPPER_METRICS = f"{BARE_UPPER_METRICS}|err|error|loss|tol|epsilon|eps"
 CLI_UPPER_METRICS = "|".join(m.replace("_", "-") for m in QUAL_UPPER_METRICS.split("|"))
 
 CLI_MIN_VAL_RE = re.compile(
-    rf"(?<![A-Za-z0-9_])--(?:gate-)?min-({CLI_LOWER_METRICS})(?:\s+|=)['\"]?({FLOAT_PAT})['\"]?(?![A-Za-z0-9_.])",
+    rf"(?<![A-Za-z0-9_])--(?:gate-)?min-([A-Za-z0-9_-]+)(?:\s+|=|,)\s*['\"]?({FLOAT_PAT})['\"]?(?![A-Za-z0-9_])",
     re.I,
 )
 KWARG_MIN_VAL_RE = re.compile(
-    rf"\b(?:min|minimum)_({QUAL_LOWER_METRICS})\s*[:=]\s*['\"]?({FLOAT_PAT})['\"]?(?![A-Za-z0-9_.])",
+    rf"['\"]?\b(?:min|minimum)_({QUAL_LOWER_METRICS})\b['\"]?\s*[:=]\s*['\"]?({FLOAT_PAT})['\"]?(?![A-Za-z0-9_])",
     re.I,
 )
 SKIP_GATE_FLAG_RE = re.compile(
@@ -553,15 +560,23 @@ def _scan_hunk_weakening(rel: str, hunks: list[tuple[list[str], list[tuple[int, 
 
 
 def _has_zero_or_sub_epsilon_threshold(norm_line: str) -> bool:
-    for rx in (CLI_MIN_VAL_RE, KWARG_MIN_VAL_RE):
-        for m in rx.finditer(norm_line):
-            try:
-                if float(m.group(2)) < metric_min_floor(m.group(1)):
-                    return True
-            except ValueError:
-                continue
+    for m in CLI_MIN_VAL_RE.finditer(norm_line):
+        floor = metric_min_floor(m.group(1), allow_prefix=True)
+        if floor is None:
+            continue
+        try:
+            if float(m.group(2)) < floor:
+                return True
+        except ValueError:
+            continue
+    for m in KWARG_MIN_VAL_RE.finditer(norm_line):
+        floor = metric_min_floor(m.group(1), allow_prefix=False)
+        try:
+            if floor is not None and float(m.group(2)) < floor:
+                return True
+        except ValueError:
+            continue
     return bool(SKIP_GATE_FLAG_RE.search(norm_line))
-
 def _has_unconditional_test_skip(line: str) -> bool:
     s = line.lstrip()
     if s.startswith(('"', "'")):
@@ -581,9 +596,12 @@ def scan_added_lines_for_reward_hacks(
     norm_rel = _norm_rel(rel)
     ext = Path(norm_rel).suffix.lower()
     if ext == ".md" or norm_rel.endswith((
-        "assets/reward-guard/reward_guard.py", "native/dmb-gate/src/reward.rs",
-        "scripts/antigravity-guard.mjs", "assets/contain/claude_guard.py",
-        "assets/git-guardrails/git-guard-patterns.txt", "assets/git-guardrails/git-guard.ts",
+        "assets/reward-guard/reward_guard.py", "assets/reward-guard/test_reward_guard.py",
+        "native/dmb-gate/src/reward.rs", "scripts/antigravity-guard.mjs",
+        "assets/contain/claude_guard.py", "assets/contain/test_contain.py",
+        "assets/contain/test_antigravity_guard.py", "assets/git-guardrails/git-guard-patterns.txt",
+        "assets/git-guardrails/git-guard.ts", "assets/git-guardrails/git-guard.sh",
+        "assets/git-guardrails/test_git_guard.py",
     )):
         return []
     is_test = bool(TEST_FILE_RE.search(norm_rel))
@@ -867,7 +885,7 @@ def _parse_thresholds(raw_items: list[str]) -> dict[str, float]:
             is_lower = key.startswith(("min_", "minimum_", "gate_min_")) or key in (
                 SIMILARITY_01_METRICS | RANK_COSINE_METRICS | {"psnr", "protrusion", "score", "confidence", "symmetry"}
             )
-            floor = metric_min_floor(key)
+            floor = metric_min_floor(key) or MIN_FLOOR_EPSILON
             if is_lower and val < floor:
                 raise ValueError(f"refusing sub-floor minimum threshold `{key}={val}` (< {floor}; reward-hacking guard)")
             out[key] = val
@@ -1250,18 +1268,25 @@ from mathutils import Vector
 argv = sys.argv[sys.argv.index("--") + 1:]
 mesh_path, out_dir = argv[0], argv[1]
 ext = os.path.splitext(mesh_path)[1].lower()
+bpy.ops.wm.read_factory_settings(use_empty=True)
 if ext == ".blend":
-    bpy.ops.wm.open_mainfile(filepath=mesh_path)
+    with bpy.data.libraries.load(mesh_path, link=False) as (data_from, data_to):
+        data_to.objects = list(data_from.objects)
+    for obj in data_to.objects:
+        if obj is not None and obj.type == "MESH":
+            obj.animation_data_clear()
+            if obj.data is not None:
+                obj.data.animation_data_clear()
+            obj.hide_render = False
+            bpy.context.scene.collection.objects.link(obj)
+elif ext in (".glb", ".gltf"):
+    bpy.ops.import_scene.gltf(filepath=mesh_path)
+elif ext == ".fbx":
+    bpy.ops.import_scene.fbx(filepath=mesh_path)
+elif ext == ".obj":
+    bpy.ops.wm.obj_import(filepath=mesh_path)
 else:
-    bpy.ops.wm.read_factory_settings(use_empty=True)
-    if ext in (".glb", ".gltf"):
-        bpy.ops.import_scene.gltf(filepath=mesh_path)
-    elif ext == ".fbx":
-        bpy.ops.import_scene.fbx(filepath=mesh_path)
-    elif ext == ".obj":
-        bpy.ops.wm.obj_import(filepath=mesh_path)
-    else:
-        raise RuntimeError(f"Unsupported 3D extension: {ext}")
+    raise RuntimeError(f"Unsupported 3D extension: {ext}")
 
 bpy.context.view_layer.update()
 meshes = [o for o in bpy.context.scene.objects if o.type == "MESH" and not o.hide_render and len(o.data.vertices) > 0]
@@ -1285,13 +1310,15 @@ scene.cycles.device = "CPU"
 scene.cycles.samples = 10
 scene.cycles.use_denoising = False
 scene.cycles.max_bounces = 2
+scene.render.use_compositing = False
+scene.render.use_sequencer = False
 scene.render.resolution_x = 384
 scene.render.resolution_y = 384
+scene.render.resolution_percentage = 100
 scene.render.film_transparent = False
 scene.render.image_settings.file_format = "PNG"
 scene.render.image_settings.color_mode = "RGBA"
 scene.view_settings.view_transform = "Standard"
-
 world = bpy.data.worlds.new("JudgeWorld")
 scene.world = world
 world.use_nodes = True
@@ -1396,8 +1423,12 @@ def _render_3d_artifact_owned(mesh_file: Path, run_dir: Path) -> list[tuple[str,
         if not fp.is_file():
             raise ValueError(f"owned headless Blender render missing expected output `{fn}`")
         data = fp.read_bytes()
-        if data[:8] != b"\x89PNG\r\n\x1a\n":
+        if data[:8] != b"\x89PNG\r\n\x1a\n" or len(data) < 24:
             raise ValueError(f"owned headless Blender render `{fn}` is not a valid PNG")
+        w = int.from_bytes(data[16:20], "big")
+        h = int.from_bytes(data[20:24], "big")
+        if (w, h) != (384, 384):
+            raise ValueError(f"owned headless Blender render `{fn}` dimensions {(w, h)} != (384, 384)")
         rendered.append((fn, fp, data, hashlib.sha256(data).hexdigest()))
     return rendered
 
@@ -1745,11 +1776,42 @@ def evaluate_verdict(root: Path, *, slug: str, state_dir: Path | None = None) ->
         judge_rows = {r["artifact_path"]: dict(r) for r in conn.execute("SELECT * FROM judge_verdicts WHERE slug = ?", (slug,)).fetchall()}
 
     failed: list[str] = []
-    locked_gates = json.loads(contract["gates_json"] or "{}")
-    locked_refs = json.loads(contract["references_json"] or "{}")
-    pubkey_map = json.loads(contract["trusted_pubkeys_json"] or "{}")
+    sql_gates = json.loads(contract["gates_json"] or "{}")
+    sql_refs = json.loads(contract["references_json"] or "{}")
+    sql_thresholds = json.loads(contract["thresholds_json"] or "{}")
+    sql_producers = json.loads(contract["required_producers_json"] or "[]")
+    sql_pubkeys = json.loads(contract["trusted_pubkeys_json"] or "{}")
+    sql_artifacts = json.loads(contract["required_artifacts_json"] or "[]")
+
+    lock_ok = False
+    locked_gates = sql_gates
+    locked_refs = sql_refs
+    allowed_producers = sql_producers
+    pubkey_map = sql_pubkeys
+    req_artifacts = sql_artifacts
+    if lock_json.is_file():
+        try:
+            ldata = json.loads(lock_json.read_text(encoding="utf-8"))
+            if (
+                isinstance(ldata, dict)
+                and ldata.get("gates") == sql_gates
+                and ldata.get("references") == sql_refs
+                and ldata.get("thresholds") == sql_thresholds
+                and ldata.get("required_producers") == sql_producers
+                and ldata.get("trusted_pubkeys") == sql_pubkeys
+                and ldata.get("required_artifacts") == sql_artifacts
+            ):
+                lock_ok = True
+                locked_gates = ldata["gates"]
+                locked_refs = ldata["references"]
+                allowed_producers = ldata["required_producers"]
+                pubkey_map = ldata["trusted_pubkeys"]
+                req_artifacts = ldata["required_artifacts"]
+        except (OSError, ValueError):
+            lock_ok = False
+
     db_tamper = _verify_hash_map(root, slug, "gate/test", locked_gates) + _verify_hash_map(root, slug, "reference", locked_refs)
-    if not lock_json.is_file() or db_tamper:
+    if not lock_ok or db_tamper:
         failed.append("contract-locked-and-intact")
 
     scan_res = scan_reward_hacking(root, include_scratch=True)
@@ -1758,10 +1820,7 @@ def evaluate_verdict(root: Path, *, slug: str, state_dir: Path | None = None) ->
     if not scan_res["ok"]:
         failed.append("zero-static-reward-hacks")
 
-    req_artifacts = json.loads(contract["required_artifacts_json"])
     target_artifacts = req_artifacts or sorted(set(prov_rows.keys()) | set(judge_rows.keys()))
-    allowed_producers = json.loads(contract["required_producers_json"])
-
     if not target_artifacts:
         failed.extend(["provenance-verified", "independent-judge-approved"])
     else:

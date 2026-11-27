@@ -25,20 +25,33 @@ import time
 sys.dont_write_bytecode = True
 
 MARK_MAX_AGE_SECONDS = 30 * 24 * 3600
+METRIC_FLOORS = {
+    "iou": 0.50, "ssim": 0.50, "dice": 0.50, "f1": 0.50, "auc": 0.50,
+    "accuracy": 0.50, "acc": 0.50, "precision": 0.50, "recall": 0.50,
+    "fidelity": 0.50, "similarity": 0.50, "coverage": 0.50, "pass-rate": 0.50, "win-rate": 0.50,
+    "clip": 0.15, "clip-score": 0.15, "ap": 0.15, "map": 0.15, "bleu": 0.15, "rouge": 0.15,
+    "psnr": 10.0, "protrusion": 0.02, "score": 0.05, "confidence": 0.05, "symmetry": 0.05,
+}
+MIN_FLAG_VAL_RE = re.compile(
+    r"(?:^|[\s;&|(])(--(?:gate-)?min-([a-z0-9_-]+)(?:\s+|=)['\"]?([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)['\"]?)(?=$|[\s;&|)])",
+    re.I,
+)
 REWARD_HACK_CMD_RE = re.compile(
-    r"(?:^|[ ;&|(])--(?:gate-)?min-(?:iou|ssim|dice|f1|auc|accuracy|acc|precision|recall|fidelity|similarity|coverage|pass-rate|win-rate)(?:\s+|=)['\"]?(?:-\d+(?:\.\d+)?|0+|0*\.[0-4]\d*|\d+(?:\.\d+)?[eE]-(?:[2-9]|[1-9]\d+)|[0-4](?:\.\d+)?[eE]-1)['\"]?(?=$|[ ;&|)])"
-    r"|(?:^|[ ;&|(])--(?:gate-)?min-(?:clip|clip-score|ap|map|bleu|rouge)(?:\s+|=)['\"]?(?:-\d+(?:\.\d+)?|0+|0*\.(?:0\d*|1[0-4]\d*)|\d+(?:\.\d+)?[eE]-(?:[2-9]|[1-9]\d+))['\"]?(?=$|[ ;&|)])"
-    r"|(?:^|[ ;&|(])--(?:gate-)?min-psnr(?:\s+|=)['\"]?(?:-\d+(?:\.\d+)?|0*[0-9](?:\.\d+)?|\d+(?:\.\d+)?[eE]-\d+)['\"]?(?=$|[ ;&|)])"
-    r"|(?:^|[ ;&|(])--(?:gate-)?min-(?:score|confidence|protrusion|symmetry)(?:\s+|=)['\"]?(?:-\d+(?:\.\d+)?|0+|0*\.0+[0-1]?\d*|\d+(?:\.\d+)?[eE]-(?:[2-9]|[1-9]\d+))['\"]?(?=$|[ ;&|)])"
-    r"|(?:^|[ ;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|skip-verify|skip-validation|bypass-gate|pass-if-no-tests|passWithNoTests)(?=$|[ ;&|)])"
-    r"|(?:^|[ ;&|(])(?:--require-spark-receipt(?:\s+|=)['\"]?false|--gate-mode(?:\s+|=)['\"]?off|--measured-gates(?:\s+|=)['\"]?off|--check-360(?:\s+|=)['\"]?(?:false|0))['\"]?(?=$|[ ;&|)])"
-    r"|\bgit\b[^\n;&|]*\bcommit\b[^\n;&|]*\s(?:-n|--no-verify)(?=$|[ ;&|)])"
-    r"|\bsqlite3\b[^\n;&|]*reward-guard\.db\b"
-    r"|\b(?:rm|del|unlink|Remove-Item|mv|Move-Item|truncate)\b[^\n;&|]*(?:contract-lock\.json|reward-guard\.db)\b"
-    r"|\b(?:python3?|py|node|bun|deno|pwsh|powershell|perl|ruby)\b[^\n]*(?:-(?:c|e|Command)\b)[^\n]*(?:reward-guard\.db|contract-lock\.json|judge_verdicts|provenance_receipts)"
+    r"(?:^|[\s;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|skip-verify|skip-validation|bypass-gate|pass-if-no-tests|passWithNoTests)(?=$|[\s;&|)])"
+    r"|(?:^|[\s;&|(])(?:--require-spark-receipt(?:\s+|=)['\"]?false|--gate-mode(?:\s+|=)['\"]?off|--measured-gates(?:\s+|=)['\"]?off|--check-360(?:\s+|=)['\"]?(?:false|0))['\"]?(?=$|[\s;&|)])"
+    r"|\bgit\b[^\n;&|]*\bcommit\b[^\n;&|]*\s(?:-n|--no-verify)(?=$|[\s;&|)])"
+    r"|\b(?:reward-guard\.db|contract-lock\.json|judge_verdicts)\b"
     r"|\breward_guard\.py\b[^\n;&|]*\brecord-judge\b",
     re.I,
 )
+
+
+def _min_flag_floor(tok):
+    norm = tok.lower().replace("_", "-")
+    if norm in METRIC_FLOORS:
+        return METRIC_FLOORS[norm]
+    matches = [v for k, v in METRIC_FLOORS.items() if k.startswith(norm)]
+    return max(matches) if matches else None
 
 
 def check_bash_reward_hack(cmd_text):
@@ -47,6 +60,14 @@ def check_bash_reward_hack(cmd_text):
         ln = raw_ln.strip()
         if not ln or re.match(r"^(?:grep|rg)\s+[^;&|`$]*$", ln):
             continue
+        for fm in MIN_FLAG_VAL_RE.finditer(ln):
+            floor = _min_flag_floor(fm.group(2))
+            if floor is not None:
+                try:
+                    if float(fm.group(3)) < floor:
+                        return fm.group(1).strip()
+                except ValueError:
+                    pass
         m = REWARD_HACK_CMD_RE.search(ln)
         if m:
             return m.group(0).strip()

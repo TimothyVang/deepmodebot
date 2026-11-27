@@ -279,8 +279,10 @@ jobs:
         let mut out = Vec::new();
         let added = vec![
             (1usize, "bpy.ops.mesh.primitive_cube_add(size=2)".to_string()),
-            (2, "cmd = ['gate.py', '--min-iou', '0.25', '--measured-gates', 'off']".to_string()),
-            (3, "def f(): return {'verdict': 'PASS', 'iou': 1.0}".to_string()),
+            (2, "cmd = ['gate.py', '--min-iou', '+0.25', '--measured-gates', 'off']".to_string()),
+            (3, "cmd2 = ['gate.py', '--min-i', '.1', '--min-ssim', '0.25e0']".to_string()),
+            (4, "cfg = {'min_ssim': 0.4}".to_string()),
+            (5, "def f(): return {'verdict': 'PASS', 'iou': 1.0}".to_string()),
         ];
         let hunks = vec![(
             vec!["iou_floor = 0.72".to_string(), "mse_limit = 1e-6".to_string()],
@@ -293,6 +295,7 @@ jobs:
         assert!(out.iter().any(|f| f.rule == "reward-hack-primitive-standin"));
         assert!(out.iter().any(|f| f.rule == "reward-hack-threshold-zero"));
         assert!(out.iter().any(|f| f.rule == "reward-hack-hardcoded-pass"));
+        assert_eq!(out.iter().filter(|f| f.rule == "reward-hack-threshold-zero").count(), 3);
         assert_eq!(out.iter().filter(|f| f.rule == "reward-hack-assertion-weakened").count(), 2);
 
         let mut clean_app = Vec::new();
