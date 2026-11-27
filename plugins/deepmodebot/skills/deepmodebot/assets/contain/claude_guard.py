@@ -26,12 +26,16 @@ sys.dont_write_bytecode = True
 
 MARK_MAX_AGE_SECONDS = 30 * 24 * 3600
 REWARD_HACK_CMD_RE = re.compile(
-    r"(?:^|[ ;&|(])--(?:gate-)?min-(?:iou|ssim|psnr|clip|clip-score|dice|f1|score|fidelity|similarity|coverage|accuracy|protrusion)(?:\s+|=)['\"]?(?:-\d+(?:\.\d+)?|0+(?:\.0+)?|\d+(?:\.\d+)?[eE]-[6-9]\d*)['\"]?(?=$|[ ;&|)])"
-    r"|(?:^|[ ;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|bypass-gate)(?=$|[ ;&|)])"
-    r"|(?:^|[ ;&|(])(?:--require-spark-receipt(?:\s+|=)['\"]?false|--gate-mode(?:\s+|=)['\"]?off)['\"]?(?=$|[ ;&|)])"
+    r"(?:^|[ ;&|(])--(?:gate-)?min-(?:iou|ssim|dice|f1|auc|accuracy|acc|precision|recall|fidelity|similarity|coverage|pass-rate|win-rate)(?:\s+|=)['\"]?(?:-\d+(?:\.\d+)?|0+|0*\.[0-4]\d*|\d+(?:\.\d+)?[eE]-(?:[2-9]|[1-9]\d+)|[0-4](?:\.\d+)?[eE]-1)['\"]?(?=$|[ ;&|)])"
+    r"|(?:^|[ ;&|(])--(?:gate-)?min-(?:clip|clip-score|ap|map|bleu|rouge)(?:\s+|=)['\"]?(?:-\d+(?:\.\d+)?|0+|0*\.(?:0\d*|1[0-4]\d*)|\d+(?:\.\d+)?[eE]-(?:[2-9]|[1-9]\d+))['\"]?(?=$|[ ;&|)])"
+    r"|(?:^|[ ;&|(])--(?:gate-)?min-psnr(?:\s+|=)['\"]?(?:-\d+(?:\.\d+)?|0*[0-9](?:\.\d+)?|\d+(?:\.\d+)?[eE]-\d+)['\"]?(?=$|[ ;&|)])"
+    r"|(?:^|[ ;&|(])--(?:gate-)?min-(?:score|confidence|protrusion|symmetry)(?:\s+|=)['\"]?(?:-\d+(?:\.\d+)?|0+|0*\.0+[0-1]?\d*|\d+(?:\.\d+)?[eE]-(?:[2-9]|[1-9]\d+))['\"]?(?=$|[ ;&|)])"
+    r"|(?:^|[ ;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|skip-verify|skip-validation|bypass-gate|pass-if-no-tests|passWithNoTests)(?=$|[ ;&|)])"
+    r"|(?:^|[ ;&|(])(?:--require-spark-receipt(?:\s+|=)['\"]?false|--gate-mode(?:\s+|=)['\"]?off|--measured-gates(?:\s+|=)['\"]?off|--check-360(?:\s+|=)['\"]?(?:false|0))['\"]?(?=$|[ ;&|)])"
     r"|\bgit\b[^\n;&|]*\bcommit\b[^\n;&|]*\s(?:-n|--no-verify)(?=$|[ ;&|)])"
     r"|\bsqlite3\b[^\n;&|]*reward-guard\.db\b"
-    r"|\b(?:rm|del|unlink|Remove-Item)\b[^\n;&|]*(?:contract-lock\.json|reward-guard\.db)\b"
+    r"|\b(?:rm|del|unlink|Remove-Item|mv|Move-Item|truncate)\b[^\n;&|]*(?:contract-lock\.json|reward-guard\.db)\b"
+    r"|\b(?:python3?|py|node|bun|deno|pwsh|powershell|perl|ruby)\b[^\n]*(?:-(?:c|e|Command)\b)[^\n]*(?:reward-guard\.db|contract-lock\.json|judge_verdicts|provenance_receipts)"
     r"|\breward_guard\.py\b[^\n;&|]*\brecord-judge\b",
     re.I,
 )

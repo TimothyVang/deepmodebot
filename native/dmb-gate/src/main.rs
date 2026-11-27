@@ -279,7 +279,7 @@ jobs:
         let mut out = Vec::new();
         let added = vec![
             (1usize, "bpy.ops.mesh.primitive_cube_add(size=2)".to_string()),
-            (2, "cmd = ['gate.py', '--min-iou', '-0.5', '--min-clip-score', '1e-9', '--skip-reference']".to_string()),
+            (2, "cmd = ['gate.py', '--min-iou', '0.25', '--measured-gates', 'off']".to_string()),
             (3, "def f(): return {'verdict': 'PASS', 'iou': 1.0}".to_string()),
         ];
         let hunks = vec![(

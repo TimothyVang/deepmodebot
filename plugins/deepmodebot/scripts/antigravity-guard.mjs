@@ -32,9 +32,20 @@ const WRITE_TOOLS = new Set([
   "multi_replace_file_content",
 ]);
 const SHELL_TOOLS = new Set(["run_command", "execute_command", "bash"]);
-const REWARD_HACK_CMD_RE =
-  /(?:^|[ ;&|(])--(?:gate-)?min-(?:iou|ssim|psnr|clip|clip-score|dice|f1|score|fidelity|similarity|coverage|accuracy|protrusion)(?:\s+|=)['"]?(?:-\d+(?:\.\d+)?|0+(?:\.0+)?|\d+(?:\.\d+)?e-[6-9]\d*)['"]?(?=$|[ ;&|)])|(?:^|[ ;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|bypass-gate)(?=$|[ ;&|)])|(?:^|[ ;&|(])(?:--require-spark-receipt(?:\s+|=)['"]?false|--gate-mode(?:\s+|=)['"]?off)['"]?(?=$|[ ;&|)])|\bgit\b[^\n;&|]*\bcommit\b[^\n;&|]*\s(?:-n|--no-verify)(?=$|[ ;&|)])|\bsqlite3\b[^\n;&|]*reward-guard\.db\b|\b(?:rm|del|unlink|Remove-Item)\b[^\n;&|]*(?:contract-lock\.json|reward-guard\.db)\b|\breward_guard\.py\b[^\n;&|]*\brecord-judge\b/i;
-
+const REWARD_HACK_CMD_RE = new RegExp(
+  [
+    String.raw`(?:^|[ ;&|(])--(?:gate-)?min-(?:iou|ssim|dice|f1|auc|accuracy|acc|precision|recall|fidelity|similarity|coverage|pass-rate|win-rate)(?:\s+|=)['"]?(?:-\d+(?:\.\d+)?|0+|0*\.[0-4]\d*|\d+(?:\.\d+)?e-(?:[2-9]|[1-9]\d+)|[0-4](?:\.\d+)?e-1)['"]?(?=$|[ ;&|)])`,
+    String.raw`(?:^|[ ;&|(])--(?:gate-)?min-(?:clip|clip-score|ap|map|bleu|rouge)(?:\s+|=)['"]?(?:-\d+(?:\.\d+)?|0+|0*\.(?:0\d*|1[0-4]\d*)|\d+(?:\.\d+)?e-(?:[2-9]|[1-9]\d+))['"]?(?=$|[ ;&|)])`,
+    String.raw`(?:^|[ ;&|(])--(?:gate-)?min-psnr(?:\s+|=)['"]?(?:-\d+(?:\.\d+)?|0*[0-9](?:\.\d+)?|\d+(?:\.\d+)?e-\d+)['"]?(?=$|[ ;&|)])`,
+    String.raw`(?:^|[ ;&|(])--(?:gate-)?min-(?:score|confidence|protrusion|symmetry)(?:\s+|=)['"]?(?:-\d+(?:\.\d+)?|0+|0*\.0+[0-1]?\d*|\d+(?:\.\d+)?e-(?:[2-9]|[1-9]\d+))['"]?(?=$|[ ;&|)])`,
+    String.raw`(?:^|[ ;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|skip-verify|skip-validation|bypass-gate|pass-if-no-tests|passWithNoTests)(?=$|[ ;&|)])`,
+    String.raw`(?:^|[ ;&|(])(?:--require-spark-receipt(?:\s+|=)['"]?false|--gate-mode(?:\s+|=)['"]?off|--measured-gates(?:\s+|=)['"]?off|--check-360(?:\s+|=)['"]?(?:false|0))['"]?(?=$|[ ;&|)])`,
+    String.raw`\bgit\b[^\n;&|]*\bcommit\b[^\n;&|]*\s(?:-n|--no-verify)(?=$|[ ;&|)])`,
+    String.raw`\b(?:reward-guard\.db|contract-lock\.json|judge_verdicts)\b`,
+    String.raw`\breward_guard\.py\b[^\n;&|]*\brecord-judge\b`,
+  ].join("|"),
+  "i",
+);
 function findShellRewardHack(rawCmd) {
   const cleaned = String(rawCmd ?? "").replace(/(-m|--message)(=|\s+)("[^"]*"|'[^']*')/g, '$1 ""');
   for (const rawLine of cleaned.replace(/\\\r?\n/g, " ").split(/\r?\n/)) {

@@ -167,9 +167,12 @@ class ClaudeGuard(GuardCase):
     def test_bash_reward_hacking_flags_and_ledger_tampering_are_denied(self):
         for bad_cmd in (
             "python gate.py --min-iou 0.0",
+            "python gate.py --min-iou 0.25",
             "python gate.py --min-iou=-0.5",
             "python gate.py --skip-reference",
+            "python spark3d.py generate --measured-gates off",
             "git commit --no-verify -m wip",
+            'python -c "import sqlite3; sqlite3.connect(\'.scratch/reward-guard/x/reward-guard.db\')"',
             "rm .scratch/reward-guard/x/contract-lock.json",
             "python reward_guard.py record-judge --verdict approve",
         ):

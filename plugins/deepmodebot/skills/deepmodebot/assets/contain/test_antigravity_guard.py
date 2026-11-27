@@ -494,13 +494,19 @@ class AntigravityGuardTests(unittest.TestCase):
         self.assertEqual(denied["decision"], "deny")
 
     def test_run_command_blocks_reward_hacking_bypass_flags_and_allows_normal_commands(self):
-        denied, _ = self.run_hook(
-            self.pre_tool_payload("run_command", "python gate.py --min-iou 0.0", arg_key="CommandLine"),
-            cli_args=("enforce",),
-        )
-        self.assertEqual(denied["decision"], "deny")
+        for bad in (
+            "python gate.py --min-iou 0.0",
+            "python gate.py --min-iou 0.25",
+            "python spark3d.py generate --measured-gates off",
+            'python -c "import sqlite3; sqlite3.connect(\'.scratch/reward-guard/x/reward-guard.db\')"',
+        ):
+            denied, _ = self.run_hook(
+                self.pre_tool_payload("run_command", bad, arg_key="CommandLine"),
+                cli_args=("enforce",),
+            )
+            self.assertEqual(denied["decision"], "deny", bad)
         allowed, _ = self.run_hook(
-            self.pre_tool_payload("run_command", "python gate.py --min-iou 0.72", arg_key="CommandLine"),
+            self.pre_tool_payload("run_command", "python gate.py --min-iou 0.72 --min-clip-score 0.28", arg_key="CommandLine"),
             cli_args=("enforce",),
         )
         self.assertEqual(allowed, {"decision": "allow"})

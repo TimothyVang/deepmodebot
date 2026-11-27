@@ -14,8 +14,19 @@ pub struct RewardFinding {
     pub fix: &'static str,
 }
 
-const MIN_FLOOR_EPSILON: f64 = 1e-6;
+const MIN_FLOOR_EPSILON: f64 = 1e-4;
 
+fn metric_min_floor(metric: &str) -> f64 {
+    match metric {
+        "iou" | "ssim" | "dice" | "f1" | "auc" | "accuracy" | "acc" | "precision" | "recall"
+        | "fidelity" | "similarity" | "coverage" | "pass_rate" | "win_rate" => 0.50,
+        "clip" | "clip_score" | "ap" | "map" | "bleu" | "rouge" => 0.15,
+        "psnr" => 10.0,
+        "protrusion" => 0.02,
+        "score" | "confidence" | "symmetry" => 0.05,
+        _ => MIN_FLOOR_EPSILON,
+    }
+}
 const BARE_LOWER_METRICS: &[&str] = &[
     "iou",
     "ssim",
@@ -280,27 +291,30 @@ fn parse_leading_f64(raw: &str) -> Option<f64> {
 pub fn has_threshold_zero_or_skip(line: &str) -> bool {
     let low = line.to_ascii_lowercase();
     for m in QUAL_LOWER_METRICS {
-        let cli_flag = format!("--min-{}", m.replace('_', "-"));
-        let mut cfrom = 0;
-        while let Some(rel) = low[cfrom..].find(&cli_flag) {
-            let pos = cfrom + rel;
-            let end = pos + cli_flag.len();
-            cfrom = end;
-            if pos > 0
-                && (low.as_bytes()[pos - 1].is_ascii_alphanumeric()
-                    || low.as_bytes()[pos - 1] == b'_')
-            {
-                continue;
-            }
-            let tail = low[end..].trim_start_matches(['"', '\'']);
-            if let Some(rest) = tail
-                .strip_prefix('=')
-                .or_else(|| tail.strip_prefix(','))
-                .or_else(|| tail.strip_prefix(' '))
-            {
-                if let Some(val) = parse_leading_f64(rest) {
-                    if val <= MIN_FLOOR_EPSILON {
-                        return true;
+        let floor = metric_min_floor(m);
+        for flag_pref in ["--min-", "--gate-min-"] {
+            let cli_flag = format!("{}{}", flag_pref, m.replace('_', "-"));
+            let mut cfrom = 0;
+            while let Some(rel) = low[cfrom..].find(&cli_flag) {
+                let pos = cfrom + rel;
+                let end = pos + cli_flag.len();
+                cfrom = end;
+                if pos > 0
+                    && (low.as_bytes()[pos - 1].is_ascii_alphanumeric()
+                        || low.as_bytes()[pos - 1] == b'_')
+                {
+                    continue;
+                }
+                let tail = low[end..].trim_start_matches(['"', '\'']);
+                if let Some(rest) = tail
+                    .strip_prefix('=')
+                    .or_else(|| tail.strip_prefix(','))
+                    .or_else(|| tail.strip_prefix(' '))
+                {
+                    if let Some(val) = parse_leading_f64(rest) {
+                        if val < floor {
+                            return true;
+                        }
                     }
                 }
             }
@@ -328,7 +342,7 @@ pub fn has_threshold_zero_or_skip(line: &str) -> bool {
                     .or_else(|| rest.strip_prefix(':'))
                 {
                     if let Some(val) = parse_leading_f64(val_part) {
-                        if val <= MIN_FLOOR_EPSILON {
+                        if val < floor {
                             return true;
                         }
                     }
@@ -341,8 +355,29 @@ pub fn has_threshold_zero_or_skip(line: &str) -> bool {
             return true;
         }
     }
-    if low.contains("git commit") && low.contains(" --no-verify") {
+    if low.contains("git commit") && (low.contains(" --no-verify") || low.contains(" -n ")) {
         return true;
+    }
+    for (flag_kw, bad_val) in [
+        ("--require-spark-receipt", "false"),
+        ("--gate-mode", "off"),
+        ("--measured-gates", "off"),
+        ("--skip-heavy-renders", "true"),
+        ("--check-360", "false"),
+    ] {
+        if let Some(pos) = low.find(flag_kw) {
+            let tail = low[pos + flag_kw.len()..].trim_start_matches(['"', '\'']);
+            if let Some(rest) = tail
+                .strip_prefix('=')
+                .or_else(|| tail.strip_prefix(','))
+                .or_else(|| tail.strip_prefix(' '))
+            {
+                let val = rest.trim_start_matches([' ', '"', '\'']);
+                if val.starts_with(bad_val) {
+                    return true;
+                }
+            }
+        }
     }
     for kw in ["skip_reference", "skip_validation", "skip_fidelity", "bypass_gate"] {
         if let Some(pos) = low.find(kw) {

@@ -42,10 +42,13 @@ git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]
 
 # Bypasses verification hooks, zeroes quality thresholds, or tampers with reward-guard ledgers
 git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +commit( +[^ ;&|]+)* +(-n|--no-verify)( |;|&|\||\)|$)
-(^|[ ;&|(])--(gate-)?min-(iou|ssim|psnr|clip|clip-score|dice|f1|score|fidelity|similarity|coverage|accuracy|protrusion)( +|=)["']?(-[0-9]+(\.[0-9]+)?|0+(\.0+)?|[0-9]+(\.[0-9]+)?[eE]-[6-9][0-9]*)["']?( |;|&|\||\)|$)
-(^|[ ;&|(])--(skip-reference|skip-fidelity|skip-gates?|bypass-gate)( |;|&|\||\)|$)
-(^|[ ;&|(])(--require-spark-receipt( +|=)["']?false|--gate-mode( +|=)["']?off)["']?( |;|&|\||\)|$)
-(sqlite3( +[^ ;&|]+)* +[^ ;&|]*reward-guard\.db|(rm|del|unlink)( +[^ ;&|]+)* +[^ ;&|]*(contract-lock\.json|reward-guard\.db)|reward_guard\.py( +[^ ;&|]+)* +record-judge)( |;|&|\||\)|$)
+(^|[ ;&|(])--(gate-)?min-(iou|ssim|dice|f1|auc|accuracy|acc|precision|recall|fidelity|similarity|coverage|pass-rate|win-rate)( +|=)["']?(-[0-9]+(\.[0-9]+)?|0+|0*\.[0-4][0-9]*|[0-9]+(\.[0-9]+)?[eE]-([2-9]|[1-9][0-9]+)|[0-4](\.[0-9]+)?[eE]-1)["']?( |;|&|\||\)|$)
+(^|[ ;&|(])--(gate-)?min-(clip|clip-score|ap|map|bleu|rouge)( +|=)["']?(-[0-9]+(\.[0-9]+)?|0+|0*\.(0[0-9]*|1[0-4][0-9]*)|[0-9]+(\.[0-9]+)?[eE]-([2-9]|[1-9][0-9]+))["']?( |;|&|\||\)|$)
+(^|[ ;&|(])--(gate-)?min-psnr( +|=)["']?(-[0-9]+(\.[0-9]+)?|0*[0-9](\.[0-9]+)?|[0-9]+(\.[0-9]+)?[eE]-[0-9]+)["']?( |;|&|\||\)|$)
+(^|[ ;&|(])--(gate-)?min-(score|confidence|protrusion|symmetry)( +|=)["']?(-[0-9]+(\.[0-9]+)?|0+|0*\.0+[0-1]?[0-9]*|[0-9]+(\.[0-9]+)?[eE]-([2-9]|[1-9][0-9]+))["']?( |;|&|\||\)|$)
+(^|[ ;&|(])--(skip-reference|skip-fidelity|skip-gates?|skip-verify|skip-validation|bypass-gate|pass-if-no-tests|passWithNoTests)( |;|&|\||\)|$)
+(^|[ ;&|(])(--require-spark-receipt( +|=)["']?false|--gate-mode( +|=)["']?off|--measured-gates( +|=)["']?off|--check-360( +|=)["']?(false|0))["']?( |;|&|\||\)|$)
+(reward-guard\.db|contract-lock\.json|judge_verdicts|reward_guard\.py +[^;&|]*record-judge)
 
 # Strict mode: remove the # below to block every push, so only the human pushes.
 # git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +push( |;|&|\||\)|$)

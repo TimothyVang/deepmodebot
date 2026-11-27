@@ -71,6 +71,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 import tokenize
 
@@ -198,7 +199,7 @@ def parse(goal_path):
                 raise ValueError
         except ValueError:
             raise SystemExit(f"{goal_path}: {key} must be a positive number of minutes")
-    for key, default in (("forbid_slop", True), ("protect_configs", True), ("revert_on_fail", False)):
+    for key, default in (("forbid_slop", True), ("forbid_reward_hacks", True), ("protect_configs", True), ("revert_on_fail", False)):
         parse_bool(fields, key, default, goal_path)
     retries = fields.get("rate_limit_retries", RATE_LIMIT_DEFAULTS["rate_limit_retries"])
     if not retries.isdigit():
@@ -531,6 +532,16 @@ def protected_paths(fields, root, goal_path):
         if m_key not in seen:
             seen.add(m_key)
             paths.append(manifest_rel)
+    for ref_entry in shlex.split(fields.get("reward_references", "")):
+        ref_full = os.path.normpath(os.path.join(root, ref_entry))
+        ref_rel = _rel_inside_root(ref_full, root)
+        if ref_rel is None or not os.path.isfile(ref_full):
+            raise SystemExit(f"{goal_path}: reward_references path {ref_entry!r} must be an existing file inside root")
+        r_norm = ref_rel.replace(os.sep, "/")
+        r_key = os.path.normcase(r_norm)
+        if r_key not in seen:
+            seen.add(r_key)
+            paths.append(r_norm)
     if protect_configs:
         for cfg in discover_guardrail_configs(root):
             key = os.path.normcase(cfg)
@@ -1578,9 +1589,155 @@ def evaluate_manifest(manifest_data, root, protect, minutes, active_sprint=None)
     return 0, "\n".join(lines) + "\n", make_summary(passed, True, results)
 
 
+_REWARD_GUARD_MOD = None
+
+
+def _reward_guard_mod():
+    global _REWARD_GUARD_MOD
+    if _REWARD_GUARD_MOD is None:
+        import importlib.util
+        rg_path = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "reward-guard", "reward_guard.py"))
+        spec = importlib.util.spec_from_file_location("dmb_loop_reward_guard", rg_path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _REWARD_GUARD_MOD = mod
+    return _REWARD_GUARD_MOD
+
+
+def scan_repo_reward_hacks(root, skip=()):
+    """Zero-subprocess in-process reward-hack scan over working tree + .scratch scripts."""
+    rg = _reward_guard_mod()
+    from pathlib import Path
+    root_p = Path(root)
+    candidates = list(walk_files(root, ".", skip))
+    candidates.extend(rg._discover_scratch_scripts(root_p))
+    findings = []
+    bounds_map = {}
+    seen_rels = set()
+    for rel in candidates:
+        if rel in seen_rels:
+            continue
+        seen_rels.add(rel)
+        full = os.path.join(root, rel)
+        try:
+            if os.path.islink(full) or os.path.getsize(full) > 262_144:
+                continue
+            with open(full, encoding="utf-8", errors="replace") as fh:
+                txt = fh.read()
+        except OSError:
+            continue
+        lines_list = txt.splitlines()
+        added = {idx: ln for idx, ln in enumerate(lines_list, 1)}
+        findings.extend(rg.scan_added_lines_for_reward_hacks(rel, added, full_text=txt))
+        is_tg = bool(rg.TEST_FILE_RE.search(rel) or rg.GATE_OR_EVAL_FILE_RE.search(rel))
+        low_b = rg._extract_bounds_for_file(lines_list, upper=False, is_test_or_gate=is_tg)
+        up_b = rg._extract_bounds_for_file(lines_list, upper=True, is_test_or_gate=is_tg)
+        if low_b or up_b:
+            bounds_map[rel] = (low_b, up_b)
+    return findings, bounds_map
+
+
+def reward_hack_counts(scan_tuple):
+    findings, bounds_map = scan_tuple
+    return Counter((f["file"], f["rule"]) for f in findings), bounds_map
+
+
+def diff_new_reward_hacks(current_tuple, baseline_tuple):
+    current_findings, cur_bounds = current_tuple
+    baseline_counts, base_bounds = baseline_tuple if isinstance(baseline_tuple, tuple) else (Counter(), {})
+    seen = Counter()
+    added = []
+    for f in current_findings:
+        key = (f["file"], f["rule"])
+        seen[key] += 1
+        if seen[key] > baseline_counts[key]:
+            added.append(f)
+    for rel, (old_low, old_up) in base_bounds.items():
+        cur_low, cur_up = cur_bounds.get(rel, ({}, {}))
+        for k, ov in old_low.items():
+            if k in cur_low and ov > 0 and cur_low[k] < ov:
+                added.append({
+                    "file": rel, "line": 1, "severity": "P0",
+                    "rule": "reward-hack-assertion-weakened",
+                    "message": f"Lowered quality bound `{k}` from {ov} to {cur_low[k]}.",
+                })
+        for k, ov in old_up.items():
+            if k in cur_up and cur_up[k] > ov:
+                added.append({
+                    "file": rel, "line": 1, "severity": "P0",
+                    "rule": "reward-hack-assertion-weakened",
+                    "message": f"Raised defect tolerance `{k}` from {ov} to {cur_up[k]}.",
+                })
+    return added
+
+def evaluate_outer_reward_contract(fields, root, slug, holdout_dir):
+    """Outer-supervisor post-check verification: runs OUTSIDE the builder turn using a holdout state_dir."""
+    from pathlib import Path
+    artifacts = shlex.split(fields.get("reward_artifacts", ""))
+    refs = shlex.split(fields.get("reward_references", ""))
+    producers = shlex.split(fields.get("reward_producers", ""))
+    if not artifacts:
+        return 0, ""
+    rg = _reward_guard_mod()
+    root_p = Path(root)
+    state_p = Path(holdout_dir)
+    slug_k = re.sub(r"[^a-z0-9]+", "-", slug.lower()).strip("-") or "goal"
+    try:
+        rg.lock_contract(
+            root_p,
+            slug=slug_k,
+            references=refs,
+            required_producers=producers,
+            artifacts=artifacts,
+            force=True,
+            state_dir=state_p,
+        )
+        explicit_receipt = fields.get("reward_receipt", "").strip()
+        judge_model = fields.get("reward_judge_model", "").strip() or rg.DEFAULT_JUDGE_MODEL
+        for art in artifacts:
+            norm_art, _, _ = rg._hash_repo_file(root_p, art)
+            if producers:
+                rec_rel = explicit_receipt
+                if not rec_rel:
+                    art_dir = os.path.dirname(norm_art)
+                    cand1 = f"{art_dir}/spark_job_receipt.json".lstrip("/")
+                    cand2 = f"{norm_art}.receipt.json"
+                    rec_rel = cand1 if (root_p / cand1).is_file() else cand2
+                rg.record_provenance(
+                    root_p,
+                    slug=slug_k,
+                    artifact_rel=norm_art,
+                    receipt_rel=rec_rel,
+                    inputs=refs,
+                    state_dir=state_p,
+                )
+            if refs:
+                rg.run_judge(
+                    root_p,
+                    slug=slug_k,
+                    artifact_rel=norm_art,
+                    model=judge_model,
+                    state_dir=state_p,
+                )
+        if producers and refs:
+            verdict = rg.evaluate_verdict(root_p, slug=slug_k, state_dir=state_p)
+            md_src = state_p / slug_k / "REWARD_GUARD.md"
+            if md_src.is_file():
+                goal_log = root_p / ".scratch" / "goals" / slug
+                goal_log.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(md_src, goal_log / "REWARD_GUARD.md")
+            if verdict["verdict"] != "REWARD_GUARD_PASSED":
+                md_txt = md_src.read_text(encoding="utf-8") if md_src.is_file() else json.dumps(verdict)
+                return 1, f"[reward_guard failed] outer-supervisor verification rejected candidate ({verdict['failed_gates']}):\n{md_txt}\n"
+    except ValueError as exc:
+        return 1, f"[reward_guard failed] outer-supervisor verification error: {exc}\n"
+    return 0, ""
+
+
 def evaluate_gates(fields, root, protect, limits, slop_baseline=None, check_slop=False, slop_skip=(),
-                   manifest_data=None, active_sprint=None):
-    """Run inner-loop and scope gates in order: fast_check -> slop_guard -> manifest -> check."""
+                   manifest_data=None, active_sprint=None, reward_baseline=None, check_reward=False,
+                   slug="goal", holdout_dir=None):
+    """Run inner-loop and scope gates in order: fast_check -> slop_guard -> reward_guard -> manifest -> check -> outer_reward_contract."""
     manifest_summary = None
     fast_cmd = fields.get("fast_check", "").strip()
     if fast_cmd:
@@ -1596,6 +1753,15 @@ def evaluate_gates(fields, root, protect, limits, slop_baseline=None, check_slop
             report = "[slop_guard failed] newly introduced code-slop patterns must be fixed at the root cause:\n"
             report += "\n".join(item[4] for item in added) + "\n"
             return 1, report, "slop_guard", manifest_summary
+    if check_reward:
+        cur_rh = scan_repo_reward_hacks(root)
+        added_rh = diff_new_reward_hacks(cur_rh, reward_baseline if reward_baseline is not None else Counter())
+        if added_rh:
+            report = "[reward_guard failed] newly introduced reward-hacking patterns blocked by outer supervisor:\n"
+            report += "\n".join(
+                f"  {f['file']}:{f['line']} [{f['severity']}:{f['rule']}] {f['message']}" for f in added_rh
+            ) + "\n"
+            return 1, report, "reward_guard", manifest_summary
     if manifest_data is not None:
         m_code, m_out, manifest_summary = evaluate_manifest(
             manifest_data, root, protect, limits["check_minutes"], active_sprint=active_sprint
@@ -1608,8 +1774,11 @@ def evaluate_gates(fields, root, protect, limits, slop_baseline=None, check_slop
     c_code, c_out = run_check(fields["check"], root, protect, limits["check_minutes"])
     if c_code is None:
         return None, c_out, "check", manifest_summary
+    if c_code == 0 and holdout_dir is not None and fields.get("reward_artifacts", "").strip():
+        r_code, r_out = evaluate_outer_reward_contract(fields, root, slug, holdout_dir)
+        if r_code != 0:
+            return r_code, (c_out + ("\n" if c_out and not c_out.endswith("\n") else "") + r_out), "reward_guard", manifest_summary
     return c_code, c_out, ("pass" if c_code == 0 else "check"), manifest_summary
-
 
 def cost_cap(fields, harness, goal_path):
     """omp and Claude Code have a per-run cost flag; the playbook requires it for unattended runs."""
@@ -1938,6 +2107,7 @@ def main():
     explicit_none = fields["protect"].strip().lower() == "none"
     protect_configs = parse_bool(fields, "protect_configs", not explicit_none, opts.goal)
     forbid_slop = parse_bool(fields, "forbid_slop", True, opts.goal)
+    forbid_reward_hacks = parse_bool(fields, "forbid_reward_hacks", True, opts.goal)
     revert_on_fail = parse_bool(fields, "revert_on_fail", False, opts.goal)
     manifest_arg = fields.get("manifest", "").strip()
     manifest_rel, manifest_data = load_manifest(manifest_arg, root, opts.goal) if manifest_arg else ("", None)
@@ -2023,31 +2193,39 @@ def main():
     own = {goal_rel, ".scratch", *(os.path.relpath(path, root).replace(os.sep, "/") for path in (tmp, log_dir))}
     slop_skip = {*own, *protect}
 
-    if opts.action == "check":
-        baseline = head_slop_counts(root, skip=slop_skip) if forbid_slop else Counter()
-        code, output, stage, _ = evaluate_gates(
-            fields, root, protect, limits, slop_baseline=baseline,
-            check_slop=forbid_slop, slop_skip=slop_skip, manifest_data=manifest_data,
-            active_sprint=active_sprint,
-        )
-        stage_limit = limits["fast_check_minutes"] if stage == "fast_check" else limits["check_minutes"]
-        timed_out = f"the {stage} ran past {stage_limit} minutes and was stopped"
-        absent = [path for path in protect if not os.path.lexists(os.path.join(root, path))]
-        print(f"goal ok: {fields['goal']}\nprotected: {protect_text}")
-        if manifest_rel:
-            sprint_note = (
-                f", active_sprint={active_sprint}" + (" (CLI override)" if sprint_overridden else "")
-                if active_sprint is not None else ""
+    has_reward_contract = bool(fields.get("reward_artifacts", "").strip())
+    holdout_dir = tempfile.mkdtemp(prefix=f"dmb-loop-holdout-{slug}-") if has_reward_contract else None
+    try:
+        if opts.action == "check":
+            baseline = head_slop_counts(root, skip=slop_skip) if forbid_slop else Counter()
+            code, output, stage, _ = evaluate_gates(
+                fields, root, protect, limits, slop_baseline=baseline,
+                check_slop=forbid_slop, slop_skip=slop_skip, manifest_data=manifest_data,
+                active_sprint=active_sprint, reward_baseline=Counter(), check_reward=forbid_reward_hacks,
+                slug=slug, holdout_dir=holdout_dir,
             )
-            print(f"manifest: {manifest_rel} ({len(manifest_data['slices'])} slices{sprint_note})")
-        if fast_cmd:
-            print(f"fast_check: {fast_cmd}")
-        print(f"guards: forbid_slop={forbid_slop} protect_configs={protect_configs} revert_on_fail={revert_on_fail}")
-        if absent:
-            print(f"absent, must stay absent: {' '.join(absent)}")
-        print(f"{timed_out if code is None else f'check exit {code} ({stage})'}{' (already done)' if code == 0 else ''}\n"
-              f"{output[-4000:].strip()}")
-        return 0
+            stage_limit = limits["fast_check_minutes"] if stage == "fast_check" else limits["check_minutes"]
+            timed_out = f"the {stage} ran past {stage_limit} minutes and was stopped"
+            absent = [path for path in protect if not os.path.lexists(os.path.join(root, path))]
+            print(f"goal ok: {fields['goal']}\nprotected: {protect_text}")
+            if manifest_rel:
+                sprint_note = (
+                    f", active_sprint={active_sprint}" + (" (CLI override)" if sprint_overridden else "")
+                    if active_sprint is not None else ""
+                )
+                print(f"manifest: {manifest_rel} ({len(manifest_data['slices'])} slices{sprint_note})")
+            if fast_cmd:
+                print(f"fast_check: {fast_cmd}")
+            print(f"guards: forbid_slop={forbid_slop} protect_configs={protect_configs} revert_on_fail={revert_on_fail}")
+            if absent:
+                print(f"absent, must stay absent: {' '.join(absent)}")
+            print(f"{timed_out if code is None else f'check exit {code} ({stage})'}{' (already done)' if code == 0 else ''}\n"
+                  f"{output[-4000:].strip()}")
+            return 0
+    finally:
+        if opts.action == "check" and holdout_dir:
+            shutil.rmtree(holdout_dir, ignore_errors=True)
+    # (handled inside try/finally block above for opts.action == "check")
 
     base = None
     if revert_on_fail:
@@ -2061,15 +2239,19 @@ def main():
             raise SystemExit(f"revert_on_fail requires a clean working tree outside {goal_rel} (found: {sample})")
 
     slop_baseline = slop_counts(scan_repo_slop(root, skip=slop_skip)) if forbid_slop else Counter()
+    reward_baseline = reward_hack_counts(scan_repo_reward_hacks(root)) if forbid_reward_hacks else Counter()
     code, output, stage, last_manifest_summary = evaluate_gates(
         fields, root, protect, limits, slop_baseline=slop_baseline,
         check_slop=False, slop_skip=slop_skip, manifest_data=manifest_data,
-        active_sprint=active_sprint,
+        active_sprint=active_sprint, reward_baseline=reward_baseline, check_reward=False,
+        slug=slug, holdout_dir=holdout_dir,
     )
     stage_limit = limits["fast_check_minutes"] if stage == "fast_check" else limits["check_minutes"]
     timed_out = f"the {stage} ran past {stage_limit} minutes and was stopped"
     if code is None:
         print(f"{timed_out}; nothing was run")
+        if holdout_dir:
+            shutil.rmtree(holdout_dir, ignore_errors=True)
         return 5
     if code == 0:
         os.makedirs(log_dir, exist_ok=True)
@@ -2120,6 +2302,8 @@ def main():
             )
         else:
             print("check already passes; nothing to do")
+        if holdout_dir:
+            shutil.rmtree(holdout_dir, ignore_errors=True)
         return 0
 
     os.makedirs(tmp, exist_ok=True)
@@ -2131,7 +2315,7 @@ def main():
     if not os.path.exists(trail):
         with open(trail, "w", encoding="utf-8") as handle:
             handle.write("ts\trun\titeration\tharness\tharness_exit\tcheck_exit\tseconds\tstage\n")
-    env = {k: v for k, v in os.environ.items() if k not in API_KEY_VARS}
+    env = {k: v for k, v in os.environ.items() if k not in API_KEY_VARS and k != "DEEPMODEBOT_REWARD_STATE_DIR"}
     env.update(TMPDIR=tmp, TMP=tmp, TEMP=tmp)
     run_id = f"{time.strftime('%Y%m%dT%H%M%S')}-{os.getpid()}"
     run_started = time.time()
@@ -2204,6 +2388,8 @@ def main():
         with open(tmp_latest, "w", encoding="utf-8") as handle:
             handle.write(encoded)
         os.replace(tmp_latest, latest_summary_path)
+        if holdout_dir:
+            shutil.rmtree(holdout_dir, ignore_errors=True)
         return exit_code
 
     if stage == "sme_gate" or (
@@ -2331,7 +2517,8 @@ def main():
         code, output, stage, iter_manifest_summary = evaluate_gates(
             fields, root, protect, limits, slop_baseline=slop_baseline,
             check_slop=forbid_slop, slop_skip=slop_skip, manifest_data=manifest_data,
-            active_sprint=active_sprint,
+            active_sprint=active_sprint, reward_baseline=reward_baseline, check_reward=forbid_reward_hacks,
+            slug=slug, holdout_dir=holdout_dir,
         )
         if iter_manifest_summary is not None:
             last_manifest_summary = iter_manifest_summary

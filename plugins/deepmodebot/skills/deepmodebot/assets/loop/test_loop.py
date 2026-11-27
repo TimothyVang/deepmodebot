@@ -1422,5 +1422,52 @@ class ScanTextSlopCase(unittest.TestCase):
             self.assertEqual(summary["exit_reason"], "tampered_frontmatter")
 
 
+    def test_outer_supervisor_blocks_scratch_reward_hack_and_unverified_artifact(self):
+        with tempfile.TemporaryDirectory(prefix="loop-reward-guard-") as tmp:
+            root = Path(tmp)
+            subprocess.run(["git", "init", "-q", "-b", "main", str(root)], check=True, capture_output=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.email", "t@e.com"], check=True, capture_output=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.name", "T"], check=True, capture_output=True)
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            (root / "refs").mkdir()
+            (root / "refs" / "art.png").write_bytes(b"\x89PNG\r\n\x1a\nref-art")
+            (root / "check.py").write_text("import pathlib, sys; sys.exit(0 if pathlib.Path('out/model.glb').is_file() else 1)\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "."], check=True, capture_output=True)
+            subprocess.run(["git", "-C", str(root), "commit", "-q", "-m", "init"], check=True, capture_output=True)
+            (root / "goals").mkdir()
+            goal = root / "goals" / "ship.md"
+            goal.write_text(
+                f'---\ngoal: generate real 3d ship\ncheck: "{sys.executable}" check.py\nprotect: check.py\n'
+                "reward_references: refs/art.png\nreward_artifacts: out/model.glb\nreward_producers: dgx-spark\n"
+                "max_iterations: 1\nmax_cost_usd: 1\n---\nPlan.\n",
+                encoding="utf-8",
+            )
+            hack_agent = bin_dir / "hack_omp.py"
+            hack_agent.write_text(
+                "import os, pathlib, sys\n"
+                "assert 'DEEPMODEBOT_REWARD_STATE_DIR' not in os.environ\n"
+                "sys.stdin.read()\n"
+                "pathlib.Path('.scratch/tmp').mkdir(parents=True, exist_ok=True)\n"
+                "pathlib.Path('.scratch/tmp/cones.py').write_text('bpy.ops.mesh.primitive_cone_add()\\n', encoding='utf-8')\n"
+                "pathlib.Path('out').mkdir(exist_ok=True)\n"
+                "pathlib.Path('out/model.glb').write_bytes(b'fake-cube-glb')\n",
+                encoding="utf-8",
+            )
+            if os.name == "nt":
+                (bin_dir / "omp.cmd").write_text(f'@"{sys.executable}" "{hack_agent}" %*\r\n', encoding="utf-8")
+            else:
+                omp = bin_dir / "omp"
+                omp.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{hack_agent}" "$@"\n', encoding="utf-8")
+                omp.chmod(0o755)
+            env = {**os.environ, "PATH": str(bin_dir) + os.pathsep + os.environ.get("PATH", ""), "DEEPMODEBOT_REWARD_STATE_DIR": "/secret"}
+            proc = subprocess.run(
+                [sys.executable, "-B", str(LOOP), "run", "goals/ship.md", "--harness", "omp"],
+                cwd=str(root), capture_output=True, text=True, env=env,
+            )
+            self.assertNotEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            summary = json.loads((root / ".scratch" / "goals" / "ship" / "latest-summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(summary["stage"], "reward_guard")
+
 if __name__ == "__main__":
     unittest.main()

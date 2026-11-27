@@ -1,8 +1,12 @@
-"""Behavioral red-to-green tests for Ed25519 provenance, sealed vision run-judge, and scratch scanning."""
+"""Adversarial red-to-green tests for Cracks 1-5 in reward_guard.py."""
 
+import contextlib
 import hashlib
 import importlib.util
+import inspect
 import json
+import os
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -24,8 +28,8 @@ def _git(repo: Path, *args: str) -> None:
     subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, text=True, timeout=30)
 
 
-def _sign_spark_receipt(priv: Ed25519PrivateKey, glb_path: Path, host: str = "dgx-spark", job_id: str = "spark-88412a") -> dict:
-    outputs = [{"file": glb_path.name, "bytes": glb_path.stat().st_size, "sha256": hashlib.sha256(glb_path.read_bytes()).hexdigest()}]
+def _sign_spark_receipt(priv: Ed25519PrivateKey, art_path: Path, host: str = "dgx-spark", job_id: str = "spark-88412a") -> dict:
+    outputs = [{"file": art_path.name, "bytes": art_path.stat().st_size, "sha256": hashlib.sha256(art_path.read_bytes()).hexdigest()}]
     payload_dict = {
         "host": host,
         "job_id": job_id,
@@ -40,9 +44,52 @@ def _sign_spark_receipt(priv: Ed25519PrivateKey, glb_path: Path, host: str = "dg
     return {"schema": "spark3d.provenance_receipt.v1", **payload_dict, "receipt_ed25519_sig": sig}
 
 
+def _install_fake_omp_bin(bin_dir: Path, mode_file: Path) -> None:
+    shim_py = bin_dir / "fake_omp.py"
+    shim_py.write_text(
+        """import json, pathlib, sys
+args = sys.argv[1:]
+assert "--no-tools" in args and "--mode" in args
+prompt_txt = pathlib.Path("prompt.txt").read_text(encoding="utf-8")
+inp = json.loads(prompt_txt.split("INPUT DATA:\\n", 1)[1])
+mode = pathlib.Path(r'''""" + str(mode_file) + """''').read_text(encoding="utf-8").strip()
+payload = {
+    "schema_version": 1,
+    "artifact_sha256": inp["artifact_sha256"],
+    "vision_available": True,
+    "verdict": "approve",
+    "open_p0_p1": 0,
+    "is_primitive_or_shortcut": (mode == "shortcut"),
+    "reference_observations": [{"ref": r["ref"], "finding": "Detailed Ghibli workbench with curved brass tools."} for r in inp["references"]],
+    "render_observations": [{"render": r["render"], "finding": "Side-by-side silhouette and clay topology inspection."} for r in inp["candidate_renders"]],
+    "goal_match_notes": "Side-by-side multi-angle comparison against the locked Ghibli reference painting.",
+    "shortcut_audit": "Audited untextured clay and textured views for primitive cubes, cones, or flat slabs.",
+}
+print(json.dumps({
+    "type": "message_end",
+    "message": {
+        "role": "assistant",
+        "provider": "test-prov",
+        "model": "smol",
+        "credentialId": "cred-1",
+        "stopReason": "stop",
+        "content": [{"type": "text", "text": json.dumps(payload)}],
+    },
+}))
+""",
+        encoding="utf-8",
+    )
+    if os.name == "nt":
+        (bin_dir / "omp.cmd").write_text(f'@"{sys.executable}" "{shim_py}" %*\r\n', encoding="utf-8")
+    else:
+        omp = bin_dir / "omp"
+        omp.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{shim_py}" "$@"\n', encoding="utf-8")
+        omp.chmod(0o755)
+
+
 class RewardGuardTests(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory(prefix="reward-guard-test-")
+        self.tmp = tempfile.TemporaryDirectory(prefix="reward-guard-test-", ignore_cleanup_errors=True)
         self.addCleanup(self.tmp.cleanup)
         self.repo = Path(self.tmp.name) / "repo"
         self.repo.mkdir()
@@ -67,19 +114,23 @@ class RewardGuardTests(unittest.TestCase):
         _git(self.repo, "add", ".")
         _git(self.repo, "commit", "-q", "-m", "init")
 
-    def test_scan_catches_scratch_primitive_scripts_negative_scientific_thresholds_and_skips(self):
+    def test_scan_catches_sub_050_iou_gap_scratch_primitives_and_mode_off(self):
         (self.repo / ".scratch/tmp").mkdir(parents=True)
         (self.repo / ".scratch/tmp/make_cones.py").write_text(
             "import bpy\nbpy.ops.mesh.primitive_cube_add(size=2)\ncreate_cone(radius=1)\n",
             encoding="utf-8",
         )
         (self.repo / "build_props.py").write_text(
-            "cmd1 = ['python', 'gate.py', '--min-iou', '-0.5']\n"
-            "cmd2 = ['python', 'gate.py', '--min-clip-score', '1e-9', '--skip-reference']\n",
+            "cmd1 = ['python', 'gate.py', '--min-iou', '0.25']\n"
+            "cmd2 = ['python', 'gate.py', '--measured-gates', 'off']\n",
+            encoding="utf-8",
+        )
+        (self.repo / "clean_clip.py").write_text(
+            "cmd = ['python', 'gate.py', '--min-iou', '0.72', '--min-clip-score', '0.28']\n",
             encoding="utf-8",
         )
         (self.repo / "gates/fidelity_gate.py").write_text(
-            "MIN_IOU = 1e-9\nMAX_HOLES = 12\ndef check(iou, holes):\n    return {'verdict': 'PASS', 'iou': 1.0}\n",
+            "MIN_IOU = 0.30\nMAX_HOLES = 12\ndef check(iou, holes):\n    return {'verdict': 'PASS', 'iou': 1.0}\n",
             encoding="utf-8",
         )
         (self.repo / "tests/test_gate.py").write_text(
@@ -95,124 +146,145 @@ class RewardGuardTests(unittest.TestCase):
             by_file.setdefault(f["file"], set()).add(f["rule"])
         self.assertIn("reward-hack-primitive-standin", by_file[".scratch/tmp/make_cones.py"])
         self.assertIn("reward-hack-threshold-zero", by_file["build_props.py"])
+        self.assertNotIn("clean_clip.py", by_file)
         self.assertIn("reward-hack-hardcoded-pass", by_file["gates/fidelity_gate.py"])
         self.assertIn("reward-hack-assertion-weakened", by_file["gates/fidelity_gate.py"])
         self.assertIn("reward-hack-test-skip", by_file["tests/test_gate.py"])
         self.assertNotIn("app.py", by_file)
 
-    def test_ed25519_provenance_rejects_forged_receipts_and_sealed_run_judge_verifies_transcript(self):
-        real_priv = Ed25519PrivateKey.from_private_bytes(hashlib.sha256(b"spark-secret-seed").digest())
-        real_pub = real_priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()
-        attacker_priv = Ed25519PrivateKey.from_private_bytes(hashlib.sha256(b"attacker-local-key").digest())
-
+    def test_no_runner_injection_rejects_3d_render_swap_and_sqlite_forgery_without_spark_ed25519(self):
+        # Crack 2: runner= injection parameter is permanently removed from run_judge.
+        self.assertNotIn("runner", inspect.signature(rg.run_judge).parameters)
         with self.assertRaises(SystemExit):
             rg.build_parser().parse_args(["record-judge", "--slug", "x"])
+        with self.assertRaises(ValueError):
+            rg._parse_thresholds(["min_iou=0.25"])
 
+        farm_priv = Ed25519PrivateKey.from_private_bytes(hashlib.sha256(b"farm-secret-seed").digest())
+        farm_pub = farm_priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()
+        spark_priv = Ed25519PrivateKey.from_private_bytes(hashlib.sha256(b"spark-secret-seed").digest())
+        spark_pub = spark_priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()
+
+        holdout = Path(self.tmp.name) / "outer-holdout"
         rg.lock_contract(
             self.repo,
-            slug="ghibli-3d",
-            gates=["gates/fidelity_gate.py", ".github/workflows/ci.yml"],
+            slug="render-2d",
+            gates=["gates/fidelity_gate.py"],
+            references=["refs/painting.png"],
+            thresholds=["min_iou=0.72"],
+            required_producers=["render-farm"],
+            trusted_pubkeys=[f"render-farm={farm_pub}"],
+            artifacts=["out/poster.png"],
+            state_dir=holdout,
+        )
+        (self.repo / "out").mkdir()
+        poster = self.repo / "out/poster.png"
+        poster.write_bytes(b"\x89PNG\r\n\x1a\nrendered-ghibli-poster-output")
+        dummy_glb = self.repo / "out/model.glb"
+        dummy_glb.write_bytes(b"glTF\x02\x00\x00\x00mesh")
+
+        # Crack 1: 3D mesh artifact rejects caller-supplied --renders to block 1-pixel ref swap.
+        with self.assertRaises(ValueError):
+            rg.run_judge(
+                self.repo, slug="render-2d", artifact_rel="out/model.glb",
+                renders=["out/poster.png"], state_dir=holdout,
+            )
+        dummy_glb.unlink()
+
+        rec_p = self.repo / "out/receipt.json"
+        rec_p.write_text(json.dumps(_sign_spark_receipt(farm_priv, poster, host="render-farm")), encoding="utf-8")
+        _git(self.repo, "add", "out")
+        _git(self.repo, "commit", "-q", "-m", "add poster")
+
+        rg.record_provenance(
+            self.repo, slug="render-2d", artifact_rel="out/poster.png",
+            receipt_rel="out/receipt.json", inputs=["refs/painting.png"], state_dir=holdout,
+        )
+
+        bin_dir = Path(self.tmp.name) / "fake-bin"
+        bin_dir.mkdir()
+        mode_file = Path(self.tmp.name) / "judge-mode.txt"
+        _install_fake_omp_bin(bin_dir, mode_file)
+        old_path = os.environ.get("PATH", "")
+        os.environ["PATH"] = str(bin_dir) + os.pathsep + old_path
+        try:
+            mode_file.write_text("shortcut", encoding="utf-8")
+            blocked = rg.run_judge(self.repo, slug="render-2d", artifact_rel="out/poster.png", state_dir=holdout)
+            self.assertEqual(blocked["verdict"], "REWARD_GUARD_BLOCKED")
+
+            mode_file.write_text("approve", encoding="utf-8")
+            passed = rg.run_judge(self.repo, slug="render-2d", artifact_rel="out/poster.png", state_dir=holdout)
+            self.assertEqual(passed["verdict"], "REWARD_GUARD_PASSED", passed)
+        finally:
+            os.environ["PATH"] = old_path
+
+        # Crack 2: When required_producers includes dgx-spark, forging SQLite without dgx-spark's Ed25519 verdict_sig fails closed!
+        rg.lock_contract(
+            self.repo,
+            slug="spark-sealed",
+            gates=["gates/fidelity_gate.py"],
             references=["refs/painting.png"],
             thresholds=["min_iou=0.72"],
             required_producers=["dgx-spark"],
-            trusted_pubkeys=[f"dgx-spark={real_pub}"],
-            artifacts=["out/workstation.glb"],
+            trusted_pubkeys=[f"dgx-spark={spark_pub}"],
+            artifacts=["out/poster.png"],
+            state_dir=holdout,
         )
-
-        (self.repo / "out").mkdir()
-        glb = self.repo / "out/workstation.glb"
-        glb.write_bytes(b"glTF\x02\x00\x00\x00sculpted-dgx-spark-mesh")
-        render_png = self.repo / "out/turntable.png"
-        render_png.write_bytes(b"\x89PNG\r\n\x1a\nrendered-6view-clay-and-beauty-sheet")
-
-        forged_rec = self.repo / "out/forged_receipt.json"
-        forged_rec.write_text(json.dumps(_sign_spark_receipt(attacker_priv, glb)), encoding="utf-8")
-        with self.assertRaises(ValueError):
-            rg.record_provenance(
-                self.repo, slug="ghibli-3d", artifact_rel="out/workstation.glb",
-                receipt_rel="out/forged_receipt.json", inputs=["refs/painting.png"],
-            )
-        forged_rec.unlink()
-
-        other_glb = self.repo / "out/other.glb"
-        other_glb.write_bytes(b"different-mesh-bytes")
-        copied_rec = self.repo / "out/copied_receipt.json"
-        copied_rec.write_text(json.dumps(_sign_spark_receipt(real_priv, other_glb)), encoding="utf-8")
-        with self.assertRaises(ValueError):
-            rg.record_provenance(
-                self.repo, slug="ghibli-3d", artifact_rel="out/workstation.glb",
-                receipt_rel="out/copied_receipt.json", inputs=["refs/painting.png"],
-            )
-        copied_rec.unlink()
-        other_glb.unlink()
-
-        valid_rec = self.repo / "out/spark_job_receipt.json"
-        valid_rec.write_text(json.dumps(_sign_spark_receipt(real_priv, glb)), encoding="utf-8")
-        _git(self.repo, "add", "out")
-        _git(self.repo, "commit", "-q", "-m", "add verified spark output")
-
-        prov = rg.record_provenance(
-            self.repo, slug="ghibli-3d", artifact_rel="out/workstation.glb",
-            receipt_rel="out/spark_job_receipt.json", inputs=["refs/painting.png"],
+        spark_rec = self.repo / "out/spark_receipt.json"
+        spark_rec.write_text(json.dumps(_sign_spark_receipt(spark_priv, poster, host="dgx-spark")), encoding="utf-8")
+        _git(self.repo, "add", "out/spark_receipt.json")
+        _git(self.repo, "commit", "-q", "-m", "add spark receipt")
+        rg.record_provenance(
+            self.repo, slug="spark-sealed", artifact_rel="out/poster.png",
+            receipt_rel="out/spark_receipt.json", inputs=["refs/painting.png"], state_dir=holdout,
         )
-        self.assertEqual(prov["signature_scheme"], "ed25519")
-
-        art_sha = hashlib.sha256(glb.read_bytes()).hexdigest()
-
-        def _shortcut_runner(_prompt: str, attachments: list[Path], work: Path) -> tuple[str, str]:
-            self.assertEqual(len(attachments), 2)
-            payload = {
-                "schema_version": 1,
-                "artifact_sha256": art_sha,
-                "vision_available": True,
-                "verdict": "approve",
-                "open_p0_p1": 0,
-                "is_primitive_or_shortcut": True,
-                "reference_observations": [{"ref": "refs/painting.png", "finding": "Detailed Ghibli workbench with curved brass tools."}],
-                "render_observations": [{"render": "out/turntable.png", "finding": "Mesh consists of primitive boxes and glued cones."}],
-                "goal_match_notes": "Primitive boxes fail to match the painted silhouette and carved brass details.",
-                "shortcut_audit": "Detected primitive cubes and cones substituting for sculpted 3D geometry.",
-            }
-            reply = json.dumps(payload)
-            (work / "events.ndjson").write_text(
-                json.dumps({"type": "message_end", "message": {"role": "assistant", "provider": "openai-codex", "model": "gpt-6-astra", "credentialId": "cred-1", "stopReason": "stop", "content": [{"type": "text", "text": reply}]}}) + "\n",
-                encoding="utf-8",
+        # Copy real transcript from render-2d into spark-sealed SQLite WITHOUT dgx-spark Ed25519 verdict_sig:
+        src_db = holdout / "render-2d" / "reward-guard.db"
+        dst_db = holdout / "spark-sealed" / "reward-guard.db"
+        with contextlib.closing(sqlite3.connect(src_db)) as sc:
+            sc.row_factory = sqlite3.Row
+            jv = dict(sc.execute("SELECT * FROM judge_verdicts").fetchone())
+        for sub in (holdout / "render-2d").glob("judge-*"):
+            target_sub = (holdout / "spark-sealed") / sub.name
+            target_sub.mkdir(exist_ok=True)
+            for f in sub.iterdir():
+                if f.is_file():
+                    (target_sub / f.name).write_bytes(f.read_bytes())
+        with contextlib.closing(sqlite3.connect(dst_db)) as dc:
+            dc.execute(
+                """INSERT INTO judge_verdicts(
+                       slug, artifact_path, artifact_sha256, judge_model, credential_id,
+                       transcript_path, transcript_sha256, renders_json, compared_refs_json,
+                       verdict, open_p0_p1, is_shortcut, goal_match_notes, shortcut_audit,
+                       verdict_signer, verdict_sig, created_at
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    "spark-sealed", jv["artifact_path"], jv["artifact_sha256"], jv["judge_model"], jv["credential_id"],
+                    jv["transcript_path"], jv["transcript_sha256"], jv["renders_json"], jv["compared_refs_json"],
+                    "approve", 0, 0, jv["goal_match_notes"], jv["shortcut_audit"],
+                    "dgx-spark", "00" * 64, jv["created_at"],
+                ),
             )
-            return reply, "cred-1"
+            dc.commit()
+        forged_eval = rg.evaluate_verdict(self.repo, slug="spark-sealed", state_dir=holdout)
+        self.assertEqual(forged_eval["verdict"], "REWARD_GUARD_BLOCKED")
+        self.assertIn("independent-judge-approved", forged_eval["failed_gates"])
 
-        blocked = rg.run_judge(
-            self.repo, slug="ghibli-3d", artifact_rel="out/workstation.glb",
-            renders=["out/turntable.png"], runner=_shortcut_runner,
+        # Sign canonical verdict with real spark_priv -> passes offline Ed25519 verification!
+        v_canon = rg.canonical_verdict_payload(
+            slug="spark-sealed",
+            artifact_sha256=jv["artifact_sha256"],
+            transcript_sha256=jv["transcript_sha256"],
+            renders_sha256=json.loads(jv["renders_json"]),
+            refs_sha256=json.loads(jv["compared_refs_json"]),
+            verdict="approve",
         )
-        self.assertEqual(blocked["verdict"], "REWARD_GUARD_BLOCKED")
-        self.assertIn("independent-judge-approved", blocked["failed_gates"])
-
-        def _approve_runner(_prompt: str, attachments: list[Path], work: Path) -> tuple[str, str]:
-            self.assertEqual(len(attachments), 2)
-            payload = {
-                "schema_version": 1,
-                "artifact_sha256": art_sha,
-                "vision_available": True,
-                "verdict": "approve",
-                "open_p0_p1": 0,
-                "is_primitive_or_shortcut": False,
-                "reference_observations": [{"ref": "refs/painting.png", "finding": "Detailed Ghibli workbench with curved brass tools."}],
-                "render_observations": [{"render": "out/turntable.png", "finding": "Sculpted 6-view clay and PBR renders match workbench silhouette and brass tools."}],
-                "goal_match_notes": "Side-by-side 6-angle render matches the Ghibli workstation painting silhouette and brass tools.",
-                "shortcut_audit": "Inspected clay and beauty turntables; sculpted topology with zero primitive boxes or cones.",
-            }
-            reply = json.dumps(payload)
-            (work / "events.ndjson").write_text(
-                json.dumps({"type": "message_end", "message": {"role": "assistant", "provider": "openai-codex", "model": "gpt-6-astra", "credentialId": "cred-1", "stopReason": "stop", "content": [{"type": "text", "text": reply}]}}) + "\n",
-                encoding="utf-8",
-            )
-            return reply, "cred-1"
-
-        passed = rg.run_judge(
-            self.repo, slug="ghibli-3d", artifact_rel="out/workstation.glb",
-            renders=["out/turntable.png"], runner=_approve_runner,
-        )
-        self.assertEqual(passed["verdict"], "REWARD_GUARD_PASSED", passed)
+        real_v_sig = spark_priv.sign(v_canon).hex()
+        with contextlib.closing(sqlite3.connect(dst_db)) as dc:
+            dc.execute("UPDATE judge_verdicts SET verdict_sig = ? WHERE slug = 'spark-sealed'", (real_v_sig,))
+            dc.commit()
+        signed_eval = rg.evaluate_verdict(self.repo, slug="spark-sealed", state_dir=holdout)
+        self.assertEqual(signed_eval["verdict"], "REWARD_GUARD_PASSED", signed_eval)
 
 
 if __name__ == "__main__":
