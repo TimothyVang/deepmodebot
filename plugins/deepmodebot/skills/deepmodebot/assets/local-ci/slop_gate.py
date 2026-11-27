@@ -580,6 +580,9 @@ def run_slop_gate(
     findings.extend(_check_policy_xml(resolved_root, changed))
     if reward_mod is not None:
         findings.extend(reward_mod._check_locked_contracts(resolved_root))
+    rules_path = ASSETS_DIR / "rules" / "rule_ledger.py"
+    if rules_path.is_file():
+        findings.extend(_load_mod("dmb_rule_ledger", rules_path).check(resolved_root, staged=staged)["findings"])
 
     counts = {"P0": 0, "P1": 0, "P2": 0}
     for f in findings:

@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import hashlib
+import importlib.util
 import json
 import math
 import re
@@ -39,6 +40,24 @@ PRIORITY_WEIGHT = {0: 4.0, 1: 2.4, 2: 1.4, 3: 0.7}
 DECAY_LAMBDA_PER_DAY = {0: 0.004, 1: 0.02, 2: 0.05, 3: 0.18}
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 FTS_TOKEN_RE = re.compile(r"[A-Za-z0-9_]{2,}")
+RULE_LEDGER_PY = Path(__file__).resolve().parent.parent / "rules" / "rule_ledger.py"
+RULE_MEMORY_PREFIX = "memory:"
+
+
+def _rule_approvals(root: Path) -> dict | None:
+    """Owner-approved rule hashes (rule_ledger.py); None when the repo has no rule ledger.
+
+    With a ledger, `convention` records are rules: recall drops the ones the owner has not approved.
+    """
+    mod = sys.modules.get("dmb_rule_ledger")
+    if mod is None:
+        if not RULE_LEDGER_PY.is_file():
+            return None
+        spec = importlib.util.spec_from_file_location("dmb_rule_ledger", RULE_LEDGER_PY)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = mod
+        spec.loader.exec_module(mod)
+    return mod.trusted_approvals(root)
 
 
 def resolve_main_root(start: Path) -> Path:
@@ -253,7 +272,9 @@ def recall_memories(
 ) -> dict:
     db_file = db_path_for(root)
     if not db_file.exists():
-        return {"db": str(db_file), "repo": resolve_main_root(root).name, "budget_tokens": budget_tokens, "used_tokens": 0, "items": []}
+        return {"db": str(db_file), "repo": resolve_main_root(root).name, "budget_tokens": budget_tokens, "used_tokens": 0,
+                "items": [], "pending_rules": 0}
+    approvals = _rule_approvals(root)
 
     now = time.time()
     with connect_db(db_file, readonly=not touch_hits) as conn:
@@ -282,6 +303,11 @@ def recall_memories(
             else:
                 sql += " AND priority = 0"
         rows = conn.execute(sql, params).fetchall()
+        hidden = 0
+        if approvals is not None:
+            kept = [r for r in rows if r["kind"] != "convention"
+                    or approvals.get(RULE_MEMORY_PREFIX + r["key"]) == hashlib.sha256(r["content"].encode("utf-8")).hexdigest()]
+            hidden, rows = len(rows) - len(kept), kept
 
         scored = []
         for r in rows:
@@ -327,6 +353,7 @@ def recall_memories(
         "budget_tokens": budget_tokens,
         "used_tokens": used,
         "items": packed,
+        "pending_rules": hidden,
     }
 
 
@@ -336,6 +363,8 @@ def format_xml(payload: dict) -> str:
         f'count="{len(payload["items"])}" '
         f'tokens="{payload["used_tokens"]}/{payload["budget_tokens"]}"'
     )
+    if payload.get("pending_rules"):
+        attrs += f' unapproved-conventions-hidden="{payload["pending_rules"]}"'
     lines = [f"<deepmode-memory {attrs}>"]
     for item in payload["items"]:
         src = f' src="{xml_escape(item["source"])}"' if item["source"] else ""
@@ -353,6 +382,7 @@ def format_yaml(payload: dict) -> str:
         f"repo: {json.dumps(payload['repo'])}",
         f"budget_tokens: {payload['budget_tokens']}",
         f"used_tokens: {payload['used_tokens']}",
+        f"pending_rules: {payload.get('pending_rules', 0)}",
         "items:",
     ]
     for item in payload["items"]:

@@ -13,8 +13,12 @@ The allowed roots are the worktree holding the session's cwd and its main checko
 worktree, e.g. one under <root>/.worktrees/ or an Orca workspace), or the cwd itself outside git. Also allowed:
 Claude Code's own plan and project-memory dirs, and any `extraWriteRoots` listed in a root's .deepmodebot.json
 (only paths the user named).
-Bash, MCP tools and hook programs are not covered here.
+Rule approval (../rules/rule_ledger.py) runs in every PreToolUse mode, active session or not: in a repo whose owner
+turned it on, Write/Edit/NotebookEdit on agent rule files or the ledger are denied, and so are Bash commands that
+write them; the owner-only `rules init|approve|reject|rotate` commands are denied everywhere.
+Other Bash, MCP tools and hook programs are not covered here.
 """
+import importlib.util
 import json
 import os
 import re
@@ -25,6 +29,7 @@ import time
 sys.dont_write_bytecode = True
 
 MARK_MAX_AGE_SECONDS = 30 * 24 * 3600
+RULE_LEDGER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "rules", "rule_ledger.py")
 REWARD_HACK_CMD_RE = re.compile(
     r"(?:^|[ ;&|(])--(?:gate-)?min-(?:iou|ssim|psnr|clip|clip-score|dice|f1|score|fidelity|similarity|coverage|accuracy|protrusion)(?:\s+|=)['\"]?(?:-\d+(?:\.\d+)?|0+(?:\.0+)?|\d+(?:\.\d+)?[eE]-[6-9]\d*)['\"]?(?=$|[ ;&|)])"
     r"|(?:^|[ ;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|bypass-gate)(?=$|[ ;&|)])"
@@ -95,6 +100,40 @@ def allowed_roots(roots):
     return [real(r) for r in allowed]
 
 
+def rule_hints():
+    """Lowercase fragments that any rule path or owner rule command contains (from rules/rule-paths.json)."""
+    try:
+        with open(os.path.join(os.path.dirname(RULE_LEDGER), "rule-paths.json"), encoding="utf-8") as handle:
+            spec = json.load(handle)
+    except (OSError, ValueError):
+        return []
+    dirs = [str(d).lower().strip("/") for d in spec.get("dirs", [])]
+    named = [str(n).lower() for n in spec.get("names", []) + spec.get("files", [])]
+    return named + dirs + [d.split("/")[0] for d in dirs] + ["deepmodebot", "rule_ledger"]
+
+
+def rule_guard_reason(event, tool_name, tool_input):
+    """Why rule approval denies this tool call, or None (see rules/rule_ledger.py guard)."""
+    if tool_name == "Bash":
+        paths, command = [], str(tool_input.get("command") or "")
+    elif tool_name in ("Write", "Edit", "NotebookEdit"):
+        paths, command = [tool_input.get("file_path") or tool_input.get("notebook_path")], ""
+    else:
+        return None
+    paths = [p for p in paths if isinstance(p, str) and p]
+    text = " ".join([command, *paths]).lower()
+    if not os.path.isfile(RULE_LEDGER) or not any(h in text for h in rule_hints()):
+        return None
+    mod = sys.modules.get("dmb_rule_ledger")
+    if mod is None:
+        spec = importlib.util.spec_from_file_location("dmb_rule_ledger", RULE_LEDGER)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = mod
+        spec.loader.exec_module(mod)
+    cwd = event.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    return mod.guard(cwd, paths=paths, command=command)
+
+
 def deny(reason):
     print(json.dumps({"hookSpecificOutput": {
         "hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": reason}}))
@@ -132,11 +171,15 @@ def main():
                     pass
             open(mark, "w").close()
         return 0
-    if mode == "if-active" and not (mark and os.path.exists(mark)):
-        return 0
     tool_name = event.get("tool_name")
     tool_input = event.get("tool_input")
     if not isinstance(tool_input, dict):
+        return 0
+    rule_reason = rule_guard_reason(event, tool_name, tool_input)
+    if rule_reason:
+        deny(rule_reason)
+        return 0
+    if mode == "if-active" and not (mark and os.path.exists(mark)):
         return 0
     if tool_name == "Bash":
         bad = check_bash_reward_hack(tool_input.get("command") or "")

@@ -52,11 +52,17 @@ jobs:
       - "plugins/deepmodebot/skills/deepmodebot/assets/cleanup/*.py"
       - "plugins/deepmodebot/skills/deepmodebot/assets/gen-ui/*.py"
       - "plugins/deepmodebot/skills/deepmodebot/assets/reward-guard/*.py"
+      - "plugins/deepmodebot/skills/deepmodebot/assets/rules/*"
+      - "plugins/deepmodebot/skills/deepmodebot/assets/contain/*"
+      - "plugins/deepmodebot/scripts/antigravity-guard.mjs"
+      - "plugins/deepmodebot/hooks/hooks.json"
     steps:
       - name: Run repo scripts and UI audit tests
         run: python -B -m unittest discover -s scripts -p "test_*.py"
       - name: Run core asset tests (memory, local-ci, reward-guard, setup, e2e, workspace-map, prompt-tools, agents-md, cleanup, gen-ui)
         run: python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/memory -p "test_*.py" && python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/local-ci -p "test_*.py" && python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/reward-guard -p "test_*.py" && python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/setup -p "test_*.py" && python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/e2e -p "test_*.py" && python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/workspace-map -p "test_*.py" && python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/prompt-tools -p "test_*.py" && python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/agents-md -p "test_*.py" && python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/cleanup -p "test_*.py" && python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/gen-ui -p "test_*.py"
+      - name: Run rule approval tests (ledger, gate, and the Claude Code, omp and Antigravity hooks)
+        run: python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/rules -p "test_*.py" && python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/contain -p "test_rule_hooks.py"
 
   anti-slop:
     timeout-minutes: 2

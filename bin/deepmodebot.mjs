@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
@@ -41,7 +42,11 @@ Usage: deepmodebot <command>
              --check                          exit 1 if project setup is incomplete
     --install-hooks  install <1s .git/hooks/pre-commit running zero-token slop gate
     --dependabot     also generate .github/dependabot.yml with 7-day cooldown
-  gate [sub]         Run parallel check gate (slop|reward|ci|perf|ui|seo|docs|sec|cleanup|agents|skill-check|map|guard|gap)
+  gate [sub]         Run parallel check gate (slop|reward|ci|perf|ui|seo|docs|sec|cleanup|agents|skill-check|map|guard|gap|rules)
+  rules [sub]        Track and approve the rules AI agents load in this repo (AGENTS.md, CLAUDE.md, .cursor/rules, skills, ...)
+             status | review | log            what is approved, what waits, and every past decision
+             init | approve <id>|--all | reject <id>|--all | rotate
+                                              owner only: asks for the owner passphrase on this terminal
   net [sub]          Run native concurrent Go engine (trending|pr-overlap|fetch-papers|webhook)
   build-native       Compile zero-dep Rust (dmb-gate) and Go (dmb-net) release binaries
   update             Upgrade this npm package, then re-sync the tools setup configured (--quiet for the hourly task)
@@ -202,7 +207,7 @@ function findNativeGate() {
 function gate() {
   const passArgs = args.slice(1);
   const sub = passArgs[0] && !passArgs[0].startsWith("-") ? passArgs[0] : "slop";
-  const pyOnly = new Set(["seo", "docs", "sec"]);
+  const pyOnly = new Set(["seo", "docs", "sec", "rules"]);
   const rewardLedger = sub === "reward" && passArgs.some((a) => ["lock-contract", "record-provenance", "run-judge", "verdict"].includes(a));
   const nativeBin = pyOnly.has(sub) || rewardLedger ? null : findNativeGate();
   if (nativeBin) {
@@ -216,6 +221,7 @@ function gate() {
     return 1;
   }
   const rest = passArgs[0] === sub ? passArgs.slice(1) : passArgs;
+  if (sub === "rules" && rest[0] !== "check") rest.unshift("check");
   const map = {
     slop: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "local-ci", "slop_gate.py"),
     reward: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "reward-guard", "reward_guard.py"),
@@ -228,12 +234,27 @@ function gate() {
     cleanup: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "cleanup", "self_cleanup.py"),
     agents: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "agents-md", "agents_md.py"),
     gap: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "gap-audit", "gap_audit.py"),
+    rules: join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "rules", "rule_ledger.py"),
   };
   const script = map[sub] || map.slop;
   const [exe, prefix] = py;
   const res = run(exe, [...prefix, script, ...rest]);
   if (res.out.trim()) console.log(res.out.trim());
   return res.code;
+}
+
+// Interactive: the owner types the passphrase into this terminal, so the child shares our stdio.
+function rules() {
+  const py = findPython();
+  if (!py) {
+    console.error("python 3 not found on PATH");
+    return 1;
+  }
+  const script = join(pkgRoot, "plugins", "deepmodebot", "skills", "deepmodebot", "assets", "rules", "rule_ledger.py");
+  const passArgs = args.slice(1);
+  const [exe, prefix] = py;
+  const res = spawnSync(exe, [...prefix, script, ...(passArgs.length ? passArgs : ["status"])], { stdio: "inherit", windowsHide: true });
+  return res.status ?? 1;
 }
 
 function findNativeNet() {
@@ -369,7 +390,7 @@ function uninstall() {
   return 0;
 }
 
-const commands = { setup, init, gate, net, "build-native": buildNative, update, doctor, uninstall, version: () => (console.log(version), 0), help: () => (console.log(HELP), 0) };
+const commands = { setup, init, gate, rules, net, "build-native": buildNative, update, doctor, uninstall, version: () => (console.log(version), 0), help: () => (console.log(HELP), 0) };
 const handler = flag("version") ? commands.version : flag("help") || flag("h") ? commands.help : commands[cmd];
 if (!handler) {
   console.error(`Unknown command: ${cmd}\n\n${HELP}`);

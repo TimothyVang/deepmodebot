@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 from xml.sax.saxutils import escape as xml_escape
@@ -168,6 +169,12 @@ def _install_pre_commit_hook(root: Path) -> str | None:
     git_dir = root / ".git"
     if not git_dir.is_dir() or git_dir.is_symlink():
         return None
+    hooks_path = subprocess.run(["git", "-C", str(root), "config", "--get", "core.hooksPath"], capture_output=True,
+                                text=True, check=False, timeout=10).stdout.strip()
+    if hooks_path:
+        return (f"skipped .git/hooks/pre-commit: git runs hooks from core.hooksPath={hooks_path}, so add "
+                f"`python3 -B {(ASSETS_DIR / 'rules' / 'rule_ledger.py').as_posix()} check --root . --staged` and "
+                f"`python3 -B {(ASSETS_DIR / 'local-ci' / 'slop_gate.py').as_posix()} --root . --staged` to its pre-commit")
     hooks_dir = git_dir / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
     hook = hooks_dir / "pre-commit"
@@ -176,13 +183,19 @@ def _install_pre_commit_hook(root: Path) -> str | None:
     if hook.is_file() and "deepmodebot:slop-gate" not in hook.read_text(encoding="utf-8", errors="replace"):
         return "skipped .git/hooks/pre-commit (custom hook already exists)"
     slop_py = (ASSETS_DIR / "local-ci" / "slop_gate.py").resolve().as_posix()
+    rules_py = (ASSETS_DIR / "rules" / "rule_ledger.py").resolve().as_posix()
     native_bin = (ASSETS_DIR.parents[4] / "native" / "dmb-gate" / "target" / "release" / "dmb-gate").resolve().as_posix()
     script = (
         "#!/bin/sh\n"
         "# deepmodebot:slop-gate\n"
         "set -e\n"
-        f'if [ -x "{native_bin}.exe" ]; then exec "{native_bin}.exe" --root . --staged; fi\n'
-        f'if [ -x "{native_bin}" ]; then exec "{native_bin}" --root . --staged; fi\n'
+        "rules_check() {\n"
+        "  [ -f .deepmodebot/rules/ledger.json ] || git cat-file -e HEAD:.deepmodebot/rules/ledger.json 2>/dev/null || return 0\n"
+        f'  if command -v py >/dev/null 2>&1; then py -3 -B "{rules_py}" check --root . --staged; '
+        f'else python3 -B "{rules_py}" check --root . --staged; fi\n'
+        "}\n"
+        f'if [ -x "{native_bin}.exe" ]; then rules_check; exec "{native_bin}.exe" --root . --staged; fi\n'
+        f'if [ -x "{native_bin}" ]; then rules_check; exec "{native_bin}" --root . --staged; fi\n'
         f'if command -v py >/dev/null 2>&1; then exec py -3 -B "{slop_py}" --root . --staged; fi\n'
         f'exec python3 -B "{slop_py}" --root . --staged\n'
     )
@@ -249,8 +262,15 @@ def bootstrap_project(root: Path, *, with_dependabot: bool = False, install_hook
             actions.append(hook_note)
 
     plan = agents_mod.planned(str(r), False)
+    rules_mod = _load("dmb_rule_ledger", "rules/rule_ledger.py")
+    owner_approval = rules_mod.ledger_enabled(r)
     for name, (path, current, wanted) in plan.items():
-        if wanted != current:
+        if wanted == current:
+            continue
+        if owner_approval:
+            prop = rules_mod.propose(r, name, wanted.encode("utf-8"), "refresh the deepmodebot managed block", by="deepmodebot init")
+            actions.append(f"proposed {name} as [{prop['id']}] for the owner (`deepmodebot rules approve {prop['id']}`)")
+        else:
             agents_mod.write(path, wanted)
             actions.append(f"{'updated' if current else 'created'} {name}")
 
