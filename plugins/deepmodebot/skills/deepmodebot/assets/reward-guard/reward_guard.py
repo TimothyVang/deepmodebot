@@ -40,6 +40,7 @@ MIN_FLOOR_EPSILON = 1e-4
 SIMILARITY_01_METRICS = frozenset({
     "iou", "ssim", "dice", "f1", "auc", "accuracy", "acc",
     "precision", "recall", "fidelity", "similarity", "coverage", "pass_rate", "win_rate",
+    "ndcg", "mrr", "hit_rate", "r2", "spearman", "pearson",
 })
 RANK_COSINE_METRICS = frozenset({"clip", "clip_score", "ap", "map", "bleu", "rouge"})
 MESH_3D_EXTS = frozenset({".glb", ".gltf", ".fbx", ".blend", ".obj"})
@@ -94,17 +95,23 @@ GATE_OR_EVAL_FILE_RE = re.compile(
     re.I,
 )
 SCANNER_META_RE = re.compile(
-    r"""(?:re\.compile\s*\(|Regex::new|THRESHOLD_ZERO_RE|CLI_MIN_VAL_RE|SKIP_GATE_RE|PRIMITIVE_STANDIN_RE|HARDCODED_PASS_RE|TEST_SKIP_RE|REWARD_HACK_CMD_RE|"rule"\s*:|rule:\s*"|Zero, negative, or near-zero quality threshold|Zeroed quality threshold|Goodhart / Anti-Reward-Hacking|`--min-)"""
+    r"""(?:re\.compile\s*\(|Regex::new|THRESHOLD_ZERO_RE|CLI_MIN_VAL_RE|SKIP_GATE_RE|PRIMITIVE_STANDIN_RE|HARDCODED_PASS_RE|TEST_SKIP_RE|REWARD_HACK_CMD_RE|SNAPSHOT_OVERWRITE_RE|PACKAGE_NOOP_SCRIPT_RE|E2E_API_STUB_RE|ML_EVAL_LEAKAGE_RE|PROD_INTEGRITY_BYPASS_RE|"rule"\s*:|rule:\s*"|Zero, negative, or near-zero quality threshold|Zeroed quality threshold|Goodhart / Anti-Reward-Hacking|`--min-)"""
 )
 
 BARE_LOWER_METRICS = (
     "iou|ssim|psnr|clip_score|dice|f1|auc|bleu|rouge|accuracy|"
-    "precision|recall|fidelity|similarity|coverage|pass_rate|win_rate|score|confidence|protrusion|symmetry|fail_under"
+    "precision|recall|fidelity|similarity|coverage|pass_rate|win_rate|score|confidence|protrusion|symmetry|fail_under|"
+    "throughput|qps|rps|tps|fps|ops_per_sec|tok_per_sec|speedup|ndcg|mrr|hit_rate|sharpe|r2|spearman|pearson"
 )
 QUAL_LOWER_METRICS = f"{BARE_LOWER_METRICS}|clip|acc|ap|map|cov_fail_under"
 CLI_LOWER_METRICS = "|".join(m.replace("_", "-") for m in QUAL_LOWER_METRICS.split("|"))
 
-BARE_UPPER_METRICS = "mse|mae|rmse|lpips|chamfer|hausdorff|drift|tolerance|holes|non_manifold"
+BARE_UPPER_METRICS = (
+    "mse|mae|rmse|lpips|chamfer|hausdorff|drift|tolerance|holes|non_manifold|"
+    "latency|latency_ms|p50|p95|p99|p99_ms|ttft|ttft_ms|max_ms|duration_ms|"
+    "memory_mb|rss_mb|heap_mb|allocs|bundle_kb|perplexity|ppl|wer|cer|fpr|fnr|"
+    "max_diff_pixel_ratio|max_diff_pixels"
+)
 QUAL_UPPER_METRICS = f"{BARE_UPPER_METRICS}|err|error|loss|tol|epsilon|eps"
 CLI_UPPER_METRICS = "|".join(m.replace("_", "-") for m in QUAL_UPPER_METRICS.split("|"))
 
@@ -120,25 +127,69 @@ SKIP_GATE_FLAG_RE = re.compile(
     r"(?<![A-Za-z0-9_])--(?:skip-gates?|skip-verify|skip-validation|skip-reference|skip-fidelity|bypass-gate|pass-if-no-tests|passWithNoTests|no-cov)\b"
     r"|(?<![A-Za-z0-9_])(?:--require-spark-receipt(?:\s+|=)['\"]?false|--gate-mode(?:\s+|=)['\"]?off|--measured-gates(?:\s+|=)['\"]?off|--skip-heavy-renders(?:\s+|=)['\"]?(?:true|1)|--check-360(?:\s+|=)['\"]?(?:false|0))\b"
     r"|\bgit\s+commit\b[^\n]*\s(?:-n|--no-verify)\b"
+    r"|\bgo\s+test\b[^\n;&|]*\s-run(?:=|\s+)['\"]?\^\$['\"]?(?=$|[\s;&|)])"
     r"|\b(?:skip_reference|skip_validation|skip_fidelity|bypass_gate)\s*[:=]\s*(?:True|true|1)\b"
     r"|\b(?:check_reference|verify_reference|enforce_provenance)\s*[:=]\s*(?:False|false|0)\b",
+    re.I,
+)
+SNAPSHOT_OVERWRITE_RE = re.compile(
+    r"(?<![A-Za-z0-9_])--(?:update-snapshots|snapshot-update|overwrite-snapshots)\b"
+    r"|\b(?:jest|vitest|playwright\s+test)\b[^\n;&|]*\s-u(?=$|[\s;&|)])"
+    r"|\bcargo\s+(?:[^\n;&|]+\s+)?insta\s+accept\b"
+    r"|\b(?:UPDATE_SNAPSHOTS|SNAPSHOT_UPDATE|INSTA_UPDATE)\s*=\s*['\"]?(?:1|true|always|all)\b",
+    re.I,
+)
+PACKAGE_NOOP_SCRIPT_RE = re.compile(
+    r'^\s*"(?:test|check|typecheck|lint|verify)"\s*:\s*"(?:echo(?:\s+[^"&|;]*)?|true|exit\s+0|:)"\s*,?\s*$',
     re.I,
 )
 PROD_TEST_BRANCH_RE = re.compile(
     r"""(?:\b(?:PYTEST_CURRENT_TEST|JEST_WORKER_ID|VITEST_WORKER_ID|UNITTEST_RUNNING|_called_from_test)\b|['"](?:pytest|unittest)['"]\s+in\s+sys\.modules)"""
 )
 CI_CONTINUE_ON_ERROR_RE = re.compile(r"^\s*continue-on-error\s*:\s*true\b", re.I)
-TSCONFIG_WEAKEN_RE = re.compile(r"""^\s*['"](?:strict|noImplicitAny|strictNullChecks)['"]\s*:\s*false\b""")
+TSCONFIG_WEAKEN_RE = re.compile(
+    r"""^\s*['"](?:strict|noImplicitAny|strictNullChecks|strictFunctionTypes|strictBindCallApply|noImplicitReturns|noEmitOnError|checkJs)['"]\s*:\s*false\b"""
+)
+PY_TYPECHECK_WEAKEN_RE = re.compile(
+    r"""^\s*(?:ignore_errors\s*=\s*true|(?:disallow_untyped_defs|check_untyped_defs)\s*=\s*false|['"]?typeCheckingMode['"]?\s*[:=]\s*['"]off['"])\b""",
+    re.I,
+)
+RS_CRATE_ALLOW_RE = re.compile(
+    r"^\s*#!\s*\[\s*allow\s*\(\s*(?:warnings|unused|dead_code|clippy::all)\s*\)\s*\]"
+)
+BIOME_DISABLE_RE = re.compile(r'^\s*"enabled"\s*:\s*false\b')
+E2E_FILE_RE = re.compile(r"(?:^|/)(?:e2e|cypress|playwright)/|\.(?:e2e|pw)\.[^/]+$", re.I)
+E2E_API_STUB_RE = re.compile(
+    r"""(?:page|context)\.route\s*\(\s*['"`][^'"`]*(?:/api/|/graphql|/trpc)|cy\.intercept\s*\([^)]*(?:/api/|/graphql|/trpc)"""
+)
+VISUAL_RATIO_RE = re.compile(r"\bmaxDiffPixelRatio\s*:\s*([0-9]*\.?[0-9]+)")
+VISUAL_PIXELS_RE = re.compile(r"\bmaxDiffPixels\s*:\s*(\d+)")
+A11Y_DISABLE_RE = re.compile(r"\.disableRules\s*\(\s*\[")
+TRAIN_FILE_RE = re.compile(r"(?:^|/)(?:train|finetune|sft|rlhf|pretrain)[^/]*\.py$", re.I)
+ML_EVAL_LEAKAGE_RE = re.compile(
+    r"\.(?:fit|train_on_batch)\s*\(\s*(?:X_test|x_test|test_x|test_dataset|eval_dataset|val_dataset)\b"
+    r"|\btrain_dataset\s*=\s*(?:test_dataset|eval_dataset)\b"
+)
+ML_SPLIT_TEST_LOAD_RE = re.compile(r"\bload_dataset\s*\([^)]*\bsplit\s*=\s*['\"]test['\"]")
+PROD_INTEGRITY_BYPASS_RE = re.compile(
+    r"\bNODE_TLS_REJECT_UNAUTHORIZED\s*=\s*['\"]?0['\"]?"
+    r"|\bInsecureSkipVerify\s*:\s*true\b"
+    r"|\bdanger_accept_invalid_certs\s*\(\s*true\s*\)"
+    r"|\b(?:requests|httpx)\.(?:get|post|put|delete|patch|request|Client|AsyncClient)\s*\([^)]*\bverify\s*=\s*False\b"
+    r"|\bPRAGMA\s+foreign_keys\s*=\s*(?:OFF|0)\b"
+    r"|\bSET\s+FOREIGN_KEY_CHECKS\s*=\s*0\b",
+    re.I,
+)
 TAUTOLOGICAL_ASSERT_RE = re.compile(
     r"^\s*(?:assert\s+True\s*(?:[,;#]|$)|self\.assertTrue\(\s*True\s*\)|self\.assertEqual\(\s*(True|False|0|1)\s*,\s*\1\s*\)"
     r"|expect\(\s*(true|false|0|1)\s*\)\.to(?:Be|StrictEqual|Equal)\(\s*\1\s*\)"
     r"|assert!\(\s*true\s*\)|assert_eq!\(\s*(true|false|0|1)\s*,\s*\1\s*\))"
 )
 REAL_ASSERT_LINE_RE = re.compile(
-    r"\b(?:assert\s+(?!True\b)|self\.assert\w+\s*\(|expect\s*\(|assert_(?:eq|ne)!\s*\(|assert!\s*\((?!\s*true\s*\))|require\.(?:Equal|NoError|True)\s*\()"
+    r"^\s*(?![\"'])(?:.*\b(?:assert\s+(?!True\b)|self\.assert\w+\s*\(|expect\s*\(|assert_(?:eq|ne)!\s*\(|assert!\s*\((?!\s*true\s*\))|require\.(?:Equal|NoError|True)\s*\())"
 )
 TEST_SKIP_DECORATOR_RE = re.compile(
-    r"^\s*(?:@(?:pytest\.mark|unittest)\.skip\b(?!If|Unless)|#\s*\[\s*ignore\b|(?:it|test|describe)\.skip\s*\(\s*(?:['\"`)]|$))"
+    r"^\s*(?:@(?:pytest\.mark|unittest)\.skip\b(?!If|Unless)|@pytest\.mark\.xfail\b(?![^\n]*\bstrict\s*=\s*True\b)|#\s*\[\s*ignore\b|(?:it|test|describe)\.skip\s*\(\s*(?:['\"`)]|$))"
 )
 TOP_PYTEST_SKIP_RE = re.compile(r"^ {0,4}(?:pytest|unittest)\.skip\s*\(")
 PRIMITIVE_STANDIN_RE = re.compile(
@@ -147,7 +198,7 @@ PRIMITIVE_STANDIN_RE = re.compile(
     r"|create_(?:cube|cone|cylinder|uv_sphere|icosphere)\s*\()"
 )
 HARDCODED_PASS_RE = re.compile(
-    r"""\breturn\s*\{\s*['"](?:pass|passed|ok|verdict)['"]\s*:\s*(?:True|true|['"]PASS['"])\s*,\s*['"](?:iou|ssim|psnr|score|fidelity)['"]\s*:\s*1\.0\b"""
+    r"""\breturn\s*\{\s*['"](?:pass|passed|ok|verdict)['"]\s*:\s*(?:True|true|['"]PASS['"])\s*,\s*['"](?:iou|ssim|psnr|score|fidelity|accuracy|f1|auc|bleu|rouge|ndcg|pass_rate|win_rate|coverage|throughput|speedup)['"]\s*:\s*(?:1\.0|100\.0)\b"""
 )
 QUAL_LOWER_BOUND_RE = re.compile(
     rf"\b((?:min_|minimum_)(?:{QUAL_LOWER_METRICS})|(?:{QUAL_LOWER_METRICS})(?:_threshold|_min|_floor))\s*(>=|>|=|:)\s*({FLOAT_PAT})"
@@ -719,23 +770,31 @@ def scan_added_lines_for_reward_hacks(
     ext = Path(norm_rel).suffix.lower()
     if ext == ".md" or norm_rel.endswith((
         "assets/reward-guard/reward_guard.py", "assets/reward-guard/test_reward_guard.py",
-        "native/dmb-gate/src/reward.rs", "scripts/antigravity-guard.mjs",
+        "native/dmb-gate/src/reward.rs", "native/dmb-gate/src/main.rs", "scripts/antigravity-guard.mjs",
         "assets/contain/claude_guard.py", "assets/contain/test_contain.py",
         "assets/contain/test_antigravity_guard.py", "assets/git-guardrails/git-guard-patterns.txt",
         "assets/git-guardrails/git-guard.ts", "assets/git-guardrails/git-guard.sh",
-        "assets/git-guardrails/test_git_guard.py",
+        "assets/git-guardrails/test_git_guard.py", "assets/self-grill/test_self_grill.py",
     )):
         return []
     is_scratch = norm_rel.startswith(".scratch/")
     is_test = (not is_scratch) and bool(TEST_FILE_RE.search(norm_rel))
+    is_e2e_test = (not is_scratch) and bool(E2E_FILE_RE.search(norm_rel))
     is_gate = bool(GATE_OR_EVAL_FILE_RE.search(norm_rel))
+    fname_low = Path(norm_rel).name.lower()
     is_ci_yaml = ext in (".yml", ".yaml") and (
         norm_rel.startswith(".github/workflows/") or norm_rel == ".gitlab-ci.yml" or norm_rel == ".deepmodebot/ci.yml"
     )
-    is_tsconfig = Path(norm_rel).name.lower().startswith("tsconfig") and ext == ".json"
+    is_tsconfig = fname_low.startswith("tsconfig") and ext == ".json"
+    is_pkg_json = fname_low == "package.json"
+    is_py_type_cfg = fname_low in ("pyproject.toml", "mypy.ini", ".mypy.ini", "setup.cfg", "pyrightconfig.json")
+    is_biome_cfg = fname_low in ("biome.json", "biome.jsonc")
+    is_pw_cfg = fname_low.startswith("playwright.config.")
+    is_train_py = bool(TRAIN_FILE_RE.search(norm_rel))
     is_prod_code = (
         (not is_scratch)
         and (not is_test)
+        and (not is_e2e_test)
         and (not is_gate)
         and ext in (".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".rs", ".go")
     )
@@ -744,16 +803,46 @@ def scan_added_lines_for_reward_hacks(
     for ln, line in sorted(added_lines.items()):
         if _is_comment_or_scanner_line(ext, line):
             continue
-        in_test_ctx = (not is_scratch) and (is_test or (rs_cfg_test_line is not None and ln >= rs_cfg_test_line))
+        in_test_ctx = (not is_scratch) and (is_test or is_e2e_test or (rs_cfg_test_line is not None and ln >= rs_cfg_test_line))
+        if in_test_ctx or is_pw_cfg or is_gate:
+            m_rat = VISUAL_RATIO_RE.search(line)
+            m_pix = VISUAL_PIXELS_RE.search(line)
+            if (m_rat and float(m_rat.group(1)) > 0.10) or (m_pix and int(m_pix.group(1)) >= 5000):
+                findings.append({
+                    "severity": "P0",
+                    "rule": "reward-hack-visual-tolerance-inflated",
+                    "file": rel,
+                    "line": ln,
+                    "message": "Visual regression diff tolerance inflated (`maxDiffPixelRatio > 0.10` or `maxDiffPixels >= 5000`) to mask broken UI.",
+                    "fix": "Keep tight screenshot tolerances and fix the visual layout regression.",
+                })
+            if A11Y_DISABLE_RE.search(line):
+                findings.append({
+                    "severity": "P1",
+                    "rule": "reward-hack-a11y-disabled",
+                    "file": rel,
+                    "line": ln,
+                    "message": "Accessibility audit rules disabled (`disableRules([...])`) to force a passing check.",
+                    "fix": "Fix the underlying accessibility violation instead of disabling Axe rules.",
+                })
         if in_test_ctx:
+            if is_e2e_test and E2E_API_STUB_RE.search(line):
+                findings.append({
+                    "severity": "P1",
+                    "rule": "reward-hack-e2e-api-stubbed",
+                    "file": rel,
+                    "line": ln,
+                    "message": "E2E spec intercepts/stubs `/api/`, `/graphql`, or `/trpc` backend routes instead of exercising the real server.",
+                    "fix": "Run E2E specs against the live backend service; reserve route mocks for unit tests or 3rd-party external APIs.",
+                })
             if _has_unconditional_test_skip(line):
                 findings.append({
                     "severity": "P1",
                     "rule": "reward-hack-test-skip",
                     "file": rel,
                     "line": ln,
-                    "message": "Unconditional test skip added (`skip` / `#[ignore]`) silences a failing check.",
-                    "fix": "Fix the failing behavior instead of skipping the test.",
+                    "message": "Unconditional test skip or non-strict `xfail` added (`skip` / `xfail` / `#[ignore]`) silences a failing check.",
+                    "fix": "Fix the failing behavior instead of skipping or xfailing the test.",
                 })
             if TAUTOLOGICAL_ASSERT_RE.search(line):
                 findings.append({
@@ -765,23 +854,29 @@ def scan_added_lines_for_reward_hacks(
                     "fix": "Assert concrete behavioral outputs of the system under test.",
                 })
             continue
-        if is_ci_yaml and CI_CONTINUE_ON_ERROR_RE.search(line):
+        if is_pkg_json and PACKAGE_NOOP_SCRIPT_RE.search(line):
             findings.append({
                 "severity": "P0",
-                "rule": "reward-hack-ci-or-typecheck-neutered",
+                "rule": "reward-hack-noop-script",
                 "file": rel,
                 "line": ln,
-                "message": "`continue-on-error: true` added in CI workflow masks failing verification steps.",
-                "fix": "Remove `continue-on-error: true` and fix the failing CI job.",
+                "message": "`package.json` verification script (`test`/`check`/`typecheck`/`lint`) replaced with a no-op (`echo`/`true`/`exit 0`).",
+                "fix": "Wire `package.json` scripts to the real test runner, typechecker, and linter.",
             })
-        if is_tsconfig and TSCONFIG_WEAKEN_RE.search(line):
+        if (
+            (is_ci_yaml and CI_CONTINUE_ON_ERROR_RE.search(line))
+            or (is_tsconfig and TSCONFIG_WEAKEN_RE.search(line))
+            or (is_py_type_cfg and PY_TYPECHECK_WEAKEN_RE.search(line))
+            or (is_biome_cfg and BIOME_DISABLE_RE.search(line))
+            or (ext == ".rs" and is_prod_code and RS_CRATE_ALLOW_RE.search(line))
+        ):
             findings.append({
                 "severity": "P0",
                 "rule": "reward-hack-ci-or-typecheck-neutered",
                 "file": rel,
                 "line": ln,
-                "message": "TypeScript strictness disabled (`strict`/`noImplicitAny`/`strictNullChecks: false`) to silence type errors.",
-                "fix": "Keep strict TypeScript checking enabled and fix the underlying types.",
+                "message": "CI, typechecker, or compiler gate neutered (`continue-on-error: true`, `tsconfig`/`mypy`/`pyright` strictness off, `biome` disabled, or crate `#![allow(...)]`).",
+                "fix": "Keep strict CI/compiler/typechecker gates enabled and fix the underlying errors.",
             })
         if is_prod_code and PROD_TEST_BRANCH_RE.search(line):
             findings.append({
@@ -792,6 +887,33 @@ def scan_added_lines_for_reward_hacks(
                 "message": "Production code branches on test-runner state (`PYTEST_CURRENT_TEST` / `JEST_WORKER_ID` / `sys.modules['pytest']`).",
                 "fix": "Remove test-environment detection from production code; use dependency injection at external boundaries.",
             })
+        if is_prod_code and PROD_INTEGRITY_BYPASS_RE.search(line):
+            findings.append({
+                "severity": "P0",
+                "rule": "reward-hack-integrity-bypass",
+                "file": rel,
+                "line": ln,
+                "message": "Production code disables TLS certificate verification (`verify=False` / `InsecureSkipVerify`) or DB foreign-key checks.",
+                "fix": "Keep TLS verification and relational foreign-key constraints enabled and fix the root configuration/schema bug.",
+            })
+        if ML_EVAL_LEAKAGE_RE.search(line) or ((is_train_py or is_scratch) and ML_SPLIT_TEST_LOAD_RE.search(line)):
+            findings.append({
+                "severity": "P0",
+                "rule": "reward-hack-eval-leakage",
+                "file": rel,
+                "line": ln,
+                "message": "Training script fits on or loads `test`/`eval` split directly (train-on-test data leakage).",
+                "fix": "Train strictly on training splits and hold out validation/test splits for evaluation only.",
+            })
+        if SNAPSHOT_OVERWRITE_RE.search(line):
+            findings.append({
+                "severity": "P0",
+                "rule": "reward-hack-snapshot-overwrite",
+                "file": rel,
+                "line": ln,
+                "message": "Unattended snapshot overwrite flag (`--update-snapshots`, `-u`, `cargo insta accept`, `INSTA_UPDATE=always`) rewrites golden expectations.",
+                "fix": "Verify outputs against locked snapshots instead of overwriting golden baselines.",
+            })
         norm_line = _normalized_arg_pairs(line)
         if _has_zero_or_sub_epsilon_threshold(norm_line):
             findings.append({
@@ -799,8 +921,8 @@ def scan_added_lines_for_reward_hacks(
                 "rule": "reward-hack-threshold-zero",
                 "file": rel,
                 "line": ln,
-                "message": "Sub-floor quality/coverage threshold (e.g. `--min-iou < 0.50`, `--cov-fail-under < 50`, `--no-cov`) or gate skip flag bypasses real evaluation.",
-                "fix": "Keep evaluation thresholds above their floor and remove skip flags.",
+                "message": "Sub-floor quality/coverage threshold, gate skip flag, or empty `go test -run=^$` filter bypasses real evaluation.",
+                "fix": "Keep evaluation thresholds above their floor and run the real test suite.",
             })
         if include_primitives and not allow_primitives and PRIMITIVE_STANDIN_RE.search(line):
             findings.append({
@@ -821,11 +943,8 @@ def scan_added_lines_for_reward_hacks(
                 "fix": "Compute the metric from real runtime output against the contract.",
             })
     if hunks:
-        if rs_cfg_test_line is not None:
-            pre_hunks = [(r, [(ln, t) for ln, t in a if ln < rs_cfg_test_line]) for r, a in hunks]
-            findings.extend(_scan_hunk_weakening(rel, [(r, a) for r, a in pre_hunks if a], is_test_or_gate=is_test or is_gate, is_test=is_test))
-        else:
-            findings.extend(_scan_hunk_weakening(rel, hunks, is_test_or_gate=is_test or is_gate, is_test=is_test))
+        has_test_block = is_test or is_e2e_test or (rs_cfg_test_line is not None)
+        findings.extend(_scan_hunk_weakening(rel, hunks, is_test_or_gate=has_test_block or is_gate, is_test=has_test_block))
     return findings
 
 

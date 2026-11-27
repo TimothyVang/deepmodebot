@@ -50,7 +50,7 @@ FINISH_LINE = """## Finish line
 4. Passing tests or a working demo mean "this part works", not "the request is done".
 5. When you shrink or skip a part, say so at that moment, not in a caveats list at the end.
 6. When asked "are we done?", answer with the list first.
-7. Hitting a metric by weakening a check, skipping a reference, or substituting primitive stand-ins is reward hacking, not done.
+7. Passing a check by weakening tests/types/thresholds, stubbing the system under test, overwriting snapshots, or faking outputs is reward hacking, not done.
 """
 
 

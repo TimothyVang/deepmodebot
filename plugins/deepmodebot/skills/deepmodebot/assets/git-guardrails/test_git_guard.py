@@ -89,6 +89,11 @@ BLOCKED = [
     'python -c "import sqlite3; sqlite3.connect(\'.scratch/reward-guard/demo/reward-guard.db\')"',
     "rm .scratch/reward-guard/demo/contract-lock.json",
     "python reward_guard.py record-judge --verdict approve",
+    "playwright test --update-snapshots",
+    "vitest run -u",
+    "cargo insta accept",
+    "INSTA_UPDATE=always cargo test",
+    "go test ./... -run=^$",
 ]
 ALLOWED = [
     "git status",

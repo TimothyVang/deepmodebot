@@ -355,12 +355,80 @@ jobs:
             None,
             &mut univ,
         );
+        reward::scan_file_reward_hacks(
+            "package.json",
+            &[(5usize, "    \"test\": \"echo ok\",".to_string()), (6usize, "    \"lint\": \"echo err && exit 1\"".to_string())],
+            &[],
+            false,
+            false,
+            None,
+            &mut univ,
+        );
+        reward::scan_file_reward_hacks(
+            "train_classifier.py",
+            &[(9usize, "    model.fit(X_test, y_test)".to_string())],
+            &[],
+            false,
+            false,
+            None,
+            &mut univ,
+        );
+        reward::scan_file_reward_hacks(
+            "e2e/checkout.spec.ts",
+            &[
+                (4usize, "  await page.route('**/api/orders', r => r.fulfill({ status: 200 }));".to_string()),
+                (5usize, "  await expect(page).toHaveScreenshot({ maxDiffPixelRatio: 0.45 });".to_string()),
+            ],
+            &[],
+            false,
+            false,
+            None,
+            &mut univ,
+        );
+        reward::scan_file_reward_hacks(
+            "src/client.py",
+            &[(12usize, "    return httpx.get(url, verify=False)".to_string())],
+            &[],
+            false,
+            false,
+            None,
+            &mut univ,
+        );
+        reward::scan_file_reward_hacks(
+            "src/lib.rs",
+            &[(1usize, "#![allow(warnings)]".to_string())],
+            &[(
+                vec!["        assert_eq!(add(1, 2), 3);".to_string(), "        assert_ne!(add(1, 2), 0);".to_string()],
+                Vec::new(),
+            )],
+            false,
+            false,
+            Some(10),
+            &mut univ,
+        );
+        reward::scan_file_reward_hacks(
+            "benchmarks/bench_api.py",
+            &[(3usize, "    assert p99_ms <= 500.0".to_string())],
+            &[(
+                vec!["    assert p99_ms <= 50.0".to_string(), "    assert throughput >= 1000.0".to_string()],
+                vec![(3usize, "    assert p99_ms <= 500.0".to_string()), (4usize, "    assert throughput >= 200.0".to_string())],
+            )],
+            false,
+            false,
+            None,
+            &mut univ,
+        );
         assert!(univ.iter().any(|f| f.rule == "reward-hack-prod-test-branch"));
-        assert_eq!(univ.iter().filter(|f| f.rule == "reward-hack-ci-or-typecheck-neutered").count(), 2);
+        assert_eq!(univ.iter().filter(|f| f.rule == "reward-hack-ci-or-typecheck-neutered").count(), 3);
+        assert_eq!(univ.iter().filter(|f| f.rule == "reward-hack-noop-script").count(), 1);
+        assert!(univ.iter().any(|f| f.rule == "reward-hack-eval-leakage"));
+        assert!(univ.iter().any(|f| f.rule == "reward-hack-e2e-api-stubbed"));
+        assert!(univ.iter().any(|f| f.rule == "reward-hack-visual-tolerance-inflated"));
+        assert!(univ.iter().any(|f| f.rule == "reward-hack-integrity-bypass"));
         assert!(univ.iter().any(|f| f.file == ".scratch/test_gate.sh" && f.rule == "reward-hack-threshold-zero"));
         assert_eq!(univ.iter().filter(|f| f.rule == "reward-hack-tautological-test").count(), 1);
-        assert!(univ.iter().any(|f| f.rule == "reward-hack-assertions-deleted"));
-
+        assert_eq!(univ.iter().filter(|f| f.rule == "reward-hack-assertions-deleted").count(), 2);
+        assert_eq!(univ.iter().filter(|f| f.rule == "reward-hack-assertion-weakened").count(), 2);
         assert_eq!(
             reward::find_rs_cfg_test_line("#[cfg(test)]\nuse std::sync::Mutex;\npub fn prod() {}\n"),
             None

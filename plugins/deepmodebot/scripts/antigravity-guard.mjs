@@ -55,8 +55,9 @@ const MIN_FLAG_VAL_RE =
   /(?:^|[\s;&|(])(['"]?--(?:(?:gate-)?mi(?:n(?:-([a-z0-9_-]*))?)?|(cov-fail-under))['"]?(?:\s+|=)['"]?\s*([-+]?(?:inf(?:inity)?|nan|(?:\d[\d_]*\.?[\d_]*|\.[\d_]+)(?:e[-+]?[\d_]+)?))\s*['"]?)(?=$|[\s;&|)])/gi;
 const REWARD_HACK_CMD_RE = new RegExp(
   [
-    String.raw`(?:^|[\s;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|skip-verify|skip-validation|bypass-gate|pass-if-no-tests|passWithNoTests|no-cov)(?=$|[\s;&|)])`,
+    String.raw`(?:^|[\s;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|skip-verify|skip-validation|bypass-gate|pass-if-no-tests|passWithNoTests|no-cov|update-snapshots|snapshot-update|overwrite-snapshots)(?=$|[\s;&|)])`,
     String.raw`(?:^|[\s;&|(])(?:--require-spark-receipt(?:\s+|=)['"]?false|--gate-mode(?:\s+|=)['"]?off|--measured-gates(?:\s+|=)['"]?off|--check-360(?:\s+|=)['"]?(?:false|0))['"]?(?=$|[\s;&|)])`,
+    String.raw`(?:^|[\s;&|(])(?:(?:jest|vitest|playwright\s+test)\b[^\n;&|]*\s-u|cargo\b[^\n;&|]*\sinsta\s+accept|(?:UPDATE_SNAPSHOTS|SNAPSHOT_UPDATE|INSTA_UPDATE)=['"]?(?:1|true|always|all)['"]?|go\s+test\b[^\n;&|]*\s-run(?:=|\s+)['"]?\^\$['"]?)(?=$|[\s;&|)])`,
     String.raw`\bgit\b[^\n;&|]*\bcommit\b[^\n;&|]*\s(?:-n|--no-verify)(?=$|[\s;&|)])`,
     String.raw`\b(?:reward-guard\.db|contract-lock\.json|judge_verdicts)\b`,
     String.raw`\breward_guard\.py\b[^\n;&|]*\brecord-judge\b`,

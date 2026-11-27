@@ -1003,16 +1003,19 @@ def build_questions(
                 "no-reward-hacking",
                 "critical",
                 "integrity",
-                f"Goodhart / Anti-Reward-Hacking violation: diff triggers {len(rh_list)} reward-hack signal(s) ({locs}). Restore full thresholds/tests, replace primitive stand-ins with real upstream outputs + provenance receipts (reward_guard.py), and verify side-by-side against the reference goal.",
+                f"Goodhart / Anti-Reward-Hacking violation: diff triggers {len(rh_list)} reward-hack signal(s) ({locs}). Restore strict tests/types/thresholds/snapshots, remove prod test-env or TLS/FK bypasses, run real backends/generators instead of stubs/primitives, and verify via reward_guard.py.",
                 "reward-hacks",
             )
-        elif any(re.search(r"(?:gate|eval|bench|score|metric|validat|render|mesh|spark|fidelity)", p, re.I) for p in files):
+        elif test_paths or schema_paths or any(
+            re.search(r"(?:gate|eval|bench|perf|score|metric|validat|e2e|playwright|cypress|train|render|mesh|spark|fidelity)", p, re.I)
+            for p in files
+        ):
             add(
                 "no-reward-hacking",
                 "critical",
                 "integrity",
-                "Goodhart / Anti-Reward-Hacking check: did you keep every test/reference threshold intact (zero --min-iou 0 or .skip), record upstream build provenance (job_id + SHA-256), and confirm via an independent judge that the output fulfills the real goal rather than gaming scalar metrics?",
-                "eval-or-pipeline-touched",
+                "Goodhart / Anti-Reward-Hacking check (all domains): did you keep assertions, snapshots, coverage, typecheck/CI strictness, latency/quality bounds, and TLS/FK checks intact (zero test-env branches, E2E /api/ stubs, train-on-test leakage, or primitive stand-ins), and prove the real goal holds?",
+                "verification-or-eval-touched",
             )
         add(
             "gaps-and-overclaims",

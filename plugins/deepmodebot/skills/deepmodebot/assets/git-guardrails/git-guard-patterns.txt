@@ -42,8 +42,9 @@ git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]
 
 # Bypasses verification hooks, zeroes quality thresholds, or tampers with reward-guard ledgers
 git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +commit( +[^ ;&|]+)* +(-n|--no-verify)( |;|&|\||\)|$)
-(^|[ ;&|(])--(skip-reference|skip-fidelity|skip-gates?|skip-verify|skip-validation|bypass-gate|pass-if-no-tests|passWithNoTests|no-cov)( |;|&|\||\)|$)
+(^|[ ;&|(])--(skip-reference|skip-fidelity|skip-gates?|skip-verify|skip-validation|bypass-gate|pass-if-no-tests|passWithNoTests|no-cov|update-snapshots|snapshot-update|overwrite-snapshots)( |;|&|\||\)|$)
 (^|[ ;&|(])(--require-spark-receipt( +|=)["']?false|--gate-mode( +|=)["']?off|--measured-gates( +|=)["']?off|--check-360( +|=)["']?(false|0))["']?( |;|&|\||\)|$)
+(^|[ ;&|(])((jest|vitest|playwright +test)( +[^ ;&|]+)* +-u|cargo( +[^ ;&|]+)* +insta +accept|(UPDATE_SNAPSHOTS|SNAPSHOT_UPDATE|INSTA_UPDATE)=["']?(1|true|always|all)["']?|go +test( +[^ ;&|]+)* +-run(=| +)["']?\^\$["']?)( |;|&|\||\)|$)
 (reward-guard\.db|contract-lock\.json|judge_verdicts|reward_guard\.py +[^;&|]*record-judge)
 
 # Strict mode: remove the # below to block every push, so only the human pushes.

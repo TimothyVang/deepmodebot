@@ -19,7 +19,8 @@ const MIN_FLOOR_EPSILON: f64 = 1e-4;
 fn metric_min_floor(metric: &str) -> f64 {
     match metric {
         "iou" | "ssim" | "dice" | "f1" | "auc" | "accuracy" | "acc" | "precision" | "recall"
-        | "fidelity" | "similarity" | "coverage" | "pass_rate" | "win_rate" => 0.50,
+        | "fidelity" | "similarity" | "coverage" | "pass_rate" | "win_rate" | "ndcg" | "mrr"
+        | "hit_rate" | "r2" | "spearman" | "pearson" => 0.50,
         "clip" | "clip_score" | "ap" | "map" | "bleu" | "rouge" => 0.15,
         "psnr" => 10.0,
         "protrusion" => 0.02,
@@ -29,92 +30,35 @@ fn metric_min_floor(metric: &str) -> f64 {
     }
 }
 const BARE_LOWER_METRICS: &[&str] = &[
-    "iou",
-    "ssim",
-    "psnr",
-    "clip_score",
-    "dice",
-    "f1",
-    "auc",
-    "bleu",
-    "rouge",
-    "accuracy",
-    "precision",
-    "recall",
-    "fidelity",
-    "similarity",
-    "coverage",
-    "pass_rate",
-    "win_rate",
-    "score",
-    "confidence",
-    "protrusion",
-    "symmetry",
-    "fail_under",
+    "iou", "ssim", "psnr", "clip_score", "dice", "f1", "auc", "bleu", "rouge", "accuracy",
+    "precision", "recall", "fidelity", "similarity", "coverage", "pass_rate", "win_rate",
+    "score", "confidence", "protrusion", "symmetry", "fail_under",
+    "throughput", "qps", "rps", "tps", "fps", "ops_per_sec", "tok_per_sec", "speedup",
+    "ndcg", "mrr", "hit_rate", "sharpe", "r2", "spearman", "pearson",
 ];
 
 const QUAL_LOWER_METRICS: &[&str] = &[
-    "iou",
-    "ssim",
-    "psnr",
-    "clip",
-    "clip_score",
-    "dice",
-    "f1",
-    "auc",
-    "ap",
-    "map",
-    "bleu",
-    "rouge",
-    "accuracy",
-    "acc",
-    "precision",
-    "recall",
-    "fidelity",
-    "similarity",
-    "coverage",
-    "pass_rate",
-    "win_rate",
-    "score",
-    "confidence",
-    "protrusion",
-    "symmetry",
-    "fail_under",
-    "cov_fail_under",
+    "iou", "ssim", "psnr", "clip", "clip_score", "dice", "f1", "auc", "ap", "map", "bleu",
+    "rouge", "accuracy", "acc", "precision", "recall", "fidelity", "similarity", "coverage",
+    "pass_rate", "win_rate", "score", "confidence", "protrusion", "symmetry", "fail_under",
+    "cov_fail_under", "throughput", "qps", "rps", "tps", "fps", "ops_per_sec", "tok_per_sec",
+    "speedup", "ndcg", "mrr", "hit_rate", "sharpe", "r2", "spearman", "pearson",
 ];
 
 const BARE_UPPER_METRICS: &[&str] = &[
-    "mse",
-    "mae",
-    "rmse",
-    "lpips",
-    "chamfer",
-    "hausdorff",
-    "drift",
-    "tolerance",
-    "holes",
-    "non_manifold",
+    "mse", "mae", "rmse", "lpips", "chamfer", "hausdorff", "drift", "tolerance", "holes",
+    "non_manifold", "latency", "latency_ms", "p50", "p95", "p99", "p99_ms", "ttft", "ttft_ms",
+    "max_ms", "duration_ms", "memory_mb", "rss_mb", "heap_mb", "allocs", "bundle_kb",
+    "perplexity", "ppl", "wer", "cer", "fpr", "fnr", "max_diff_pixel_ratio", "max_diff_pixels",
 ];
 
 const QUAL_UPPER_METRICS: &[&str] = &[
-    "mse",
-    "mae",
-    "rmse",
-    "lpips",
-    "chamfer",
-    "hausdorff",
-    "drift",
-    "tolerance",
-    "holes",
-    "non_manifold",
-    "err",
-    "error",
-    "loss",
-    "tol",
-    "epsilon",
-    "eps",
+    "mse", "mae", "rmse", "lpips", "chamfer", "hausdorff", "drift", "tolerance", "holes",
+    "non_manifold", "latency", "latency_ms", "p50", "p95", "p99", "p99_ms", "ttft", "ttft_ms",
+    "max_ms", "duration_ms", "memory_mb", "rss_mb", "heap_mb", "allocs", "bundle_kb",
+    "perplexity", "ppl", "wer", "cer", "fpr", "fnr", "max_diff_pixel_ratio", "max_diff_pixels",
+    "err", "error", "loss", "tol", "epsilon", "eps",
 ];
-
 const SKIP_FLAGS: &[&str] = &[
     "--skip-gate",
     "--skip-gates",
@@ -225,6 +169,11 @@ fn is_scanner_or_comment(ext: &str, line: &str) -> bool {
         "TEST_SKIP_RE",
         "TEST_SKIP_DECORATOR_RE",
         "REWARD_HACK_CMD_RE",
+        "SNAPSHOT_OVERWRITE_RE",
+        "PACKAGE_NOOP_SCRIPT_RE",
+        "E2E_API_STUB_RE",
+        "ML_EVAL_LEAKAGE_RE",
+        "PROD_INTEGRITY_BYPASS_RE",
         "\"rule\":",
         "rule: \"",
         "Zeroed quality threshold",
@@ -510,6 +459,16 @@ pub fn has_threshold_zero_or_skip(line: &str) -> bool {
             }
         }
     }
+    if low.contains("go test")
+        && (low.contains("-run=^$")
+            || low.contains("-run ^$")
+            || low.contains("-run=\"^$\"")
+            || low.contains("-run='^$'")
+            || low.contains("-run \"^$\"")
+            || low.contains("-run '^$'"))
+    {
+        return true;
+    }
     false
 }
 
@@ -520,6 +479,9 @@ pub fn has_test_skip(line: &str) -> bool {
         return false;
     }
     if t.starts_with("#[ignore") || t.starts_with("# [ignore") {
+        return true;
+    }
+    if t.starts_with("@pytest.mark.xfail") && !t.contains("strict=True") && !t.contains("strict = True") {
         return true;
     }
     for pat in ["@pytest.mark.skip", "@unittest.skip"] {
@@ -579,38 +541,27 @@ pub fn has_primitive_standin(line: &str) -> bool {
 
 pub fn has_hardcoded_pass(line: &str) -> bool {
     let low = line.to_ascii_lowercase();
-    if !low.contains("return") || !low.contains('{') || !low.contains("1.0") {
+    if !low.contains("return") || !low.contains('{') || (!low.contains("1.0") && !low.contains("100.0")) {
         return false;
     }
     let has_pass_key = [
-        "\"pass\"",
-        "'pass'",
-        "\"passed\"",
-        "'passed'",
-        "\"ok\"",
-        "'ok'",
-        "\"verdict\"",
-        "'verdict'",
+        "\"pass\"", "'pass'", "\"passed\"", "'passed'", "\"ok\"", "'ok'", "\"verdict\"", "'verdict'",
     ]
     .iter()
     .any(|k| low.contains(k));
     let has_metric_key = [
-        "\"iou\"",
-        "'iou'",
-        "\"ssim\"",
-        "'ssim'",
-        "\"psnr\"",
-        "'psnr'",
-        "\"score\"",
-        "'score'",
-        "\"fidelity\"",
-        "'fidelity'",
+        "\"iou\"", "'iou'", "\"ssim\"", "'ssim'", "\"psnr\"", "'psnr'", "\"score\"", "'score'",
+        "\"fidelity\"", "'fidelity'", "\"accuracy\"", "'accuracy'", "\"f1\"", "'f1'", "\"auc\"", "'auc'",
+        "\"bleu\"", "'bleu'", "\"rouge\"", "'rouge'", "\"ndcg\"", "'ndcg'", "\"pass_rate\"", "'pass_rate'",
+        "\"win_rate\"", "'win_rate'", "\"coverage\"", "'coverage'", "\"throughput\"", "'throughput'",
+        "\"speedup\"", "'speedup'",
     ]
     .iter()
     .any(|k| low.contains(k));
     let has_pass_val = low.contains("true") || low.contains("\"pass\"") || low.contains("'pass'");
     has_pass_key && has_metric_key && has_pass_val
 }
+
 fn has_prod_test_branch(line: &str) -> bool {
     [
         "PYTEST_CURRENT_TEST",
@@ -626,6 +577,177 @@ fn has_prod_test_branch(line: &str) -> bool {
                 || line.contains("'pytest'")
                 || line.contains("\"unittest\"")
                 || line.contains("'unittest'")))
+}
+
+fn is_e2e_file(rel: &str) -> bool {
+    let low = rel.to_ascii_lowercase();
+    low.starts_with("e2e/")
+        || low.starts_with("cypress/")
+        || low.starts_with("playwright/")
+        || low.contains("/e2e/")
+        || low.contains("/cypress/")
+        || low.contains("/playwright/")
+        || low.contains(".e2e.")
+        || low.contains(".pw.")
+}
+
+fn has_snapshot_overwrite(line: &str) -> bool {
+    let low = line.to_ascii_lowercase();
+    if ["--update-snapshots", "--snapshot-update", "--overwrite-snapshots"]
+        .iter()
+        .any(|f| low.contains(f))
+    {
+        return true;
+    }
+    if low.contains("cargo ") && low.contains("insta accept") {
+        return true;
+    }
+    for env_k in ["update_snapshots=", "snapshot_update=", "insta_update="] {
+        if let Some(pos) = low.find(env_k) {
+            let v = low[pos + env_k.len()..].trim_start_matches(['"', '\'']);
+            if v.starts_with('1') || v.starts_with("true") || v.starts_with("always") || v.starts_with("all") {
+                return true;
+            }
+        }
+    }
+    for runner in ["jest ", "vitest ", "playwright test "] {
+        if let Some(pos) = low.find(runner) {
+            let tail = &low[pos + runner.len()..];
+            for tok in tail.split(|c: char| c.is_ascii_whitespace() || matches!(c, ';' | '&' | '|' | ')')) {
+                if tok == "-u" {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+fn is_package_noop_script(line: &str) -> bool {
+    let t = line.trim().trim_end_matches(',').trim();
+    for key in ["\"test\"", "\"check\"", "\"typecheck\"", "\"lint\"", "\"verify\""] {
+        if let Some(rest) = t.strip_prefix(key) {
+            let Some(val_part) = rest.trim_start().strip_prefix(':') else {
+                continue;
+            };
+            let v = val_part.trim();
+            if let Some(inner) = v.strip_prefix('"').and_then(|s| s.strip_suffix('"')) {
+                let cmd = inner.trim().to_ascii_lowercase();
+                if cmd == "true" || cmd == "exit 0" || cmd == ":" {
+                    return true;
+                }
+                if (cmd == "echo" || cmd.starts_with("echo "))
+                    && !cmd.contains("&&")
+                    && !cmd.contains("||")
+                    && !cmd.contains(';')
+                    && !cmd.contains('|')
+                {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+fn has_tsconfig_weaken(trimmed_low: &str) -> bool {
+    [
+        "\"strict\"",
+        "\"noimplicitany\"",
+        "\"strictnullchecks\"",
+        "\"strictfunctiontypes\"",
+        "\"strictbindcallapply\"",
+        "\"noimplicitreturns\"",
+        "\"noemitonerror\"",
+        "\"checkjs\"",
+    ]
+    .iter()
+    .any(|k| trimmed_low.starts_with(k))
+        && trimmed_low.contains(": false")
+}
+
+fn has_py_typecheck_weaken(trimmed_low: &str) -> bool {
+    let compact: String = trimmed_low.chars().filter(|c| !c.is_ascii_whitespace()).collect();
+    compact.starts_with("ignore_errors=true")
+        || compact.starts_with("disallow_untyped_defs=false")
+        || compact.starts_with("check_untyped_defs=false")
+        || compact.contains("typecheckingmode=\"off\"")
+        || compact.contains("\"typecheckingmode\":\"off\"")
+}
+
+fn has_rs_crate_allow(line: &str) -> bool {
+    let compact: String = line.chars().filter(|c| !c.is_ascii_whitespace()).collect();
+    compact.starts_with("#![allow(warnings)]")
+        || compact.starts_with("#![allow(unused)]")
+        || compact.starts_with("#![allow(dead_code)]")
+        || compact.starts_with("#![allow(clippy::all)]")
+}
+
+fn has_e2e_api_stub(line: &str) -> bool {
+    let is_route = line.contains("page.route(") || line.contains("context.route(") || line.contains("cy.intercept(");
+    is_route && (line.contains("/api/") || line.contains("/graphql") || line.contains("/trpc"))
+}
+
+fn has_inflated_visual_tolerance(line: &str) -> bool {
+    if let Some(pos) = line.find("maxDiffPixelRatio") {
+        if let Some(colon) = line[pos..].find(':') {
+            if let Some(v) = parse_leading_f64(&line[pos + colon + 1..]) {
+                if v > 0.10 {
+                    return true;
+                }
+            }
+        }
+    }
+    if let Some(pos) = line.find("maxDiffPixels") {
+        if let Some(colon) = line[pos..].find(':') {
+            if let Some(v) = parse_leading_f64(&line[pos + colon + 1..]) {
+                if v >= 5000.0 {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+fn has_ml_eval_leakage(line: &str, is_train_or_scratch: bool) -> bool {
+    for prefix in [".fit(", ".train_on_batch("] {
+        if let Some(pos) = line.find(prefix) {
+            let arg = line[pos + prefix.len()..].trim_start();
+            if [
+                "X_test", "x_test", "test_x", "test_dataset", "eval_dataset", "val_dataset",
+            ]
+            .iter()
+            .any(|bad| arg.starts_with(bad) && !arg[bad.len()..].chars().next().is_some_and(|c| c.is_ascii_alphanumeric() || c == '_'))
+            {
+                return true;
+            }
+        }
+    }
+    let compact: String = line.chars().filter(|c| !c.is_ascii_whitespace()).collect();
+    if compact.contains("train_dataset=test_dataset") || compact.contains("train_dataset=eval_dataset") {
+        return true;
+    }
+    is_train_or_scratch
+        && line.contains("load_dataset(")
+        && (compact.contains("split=\"test\"") || compact.contains("split='test'"))
+}
+
+fn has_prod_integrity_bypass(line: &str) -> bool {
+    let compact: String = line.chars().filter(|c| !c.is_ascii_whitespace()).collect();
+    let low = compact.to_ascii_lowercase();
+    if low.contains("node_tls_reject_unauthorized=0")
+        || low.contains("node_tls_reject_unauthorized=\"0\"")
+        || low.contains("node_tls_reject_unauthorized='0'")
+        || low.contains("insecureskipverify:true")
+        || low.contains("danger_accept_invalid_certs(true)")
+        || low.contains("pragmaforeign_keys=off")
+        || low.contains("pragmaforeign_keys=0")
+        || low.contains("setforeign_key_checks=0")
+    {
+        return true;
+    }
+    (line.contains("requests.") || line.contains("httpx.")) && compact.contains("verify=False")
 }
 
 fn has_tautological_assert(line: &str) -> bool {
@@ -647,7 +769,7 @@ fn has_tautological_assert(line: &str) -> bool {
 
 fn is_real_assert_line(line: &str) -> bool {
     let t = line.trim_start();
-    if has_tautological_assert(t) {
+    if t.starts_with('"') || t.starts_with('\'') || has_tautological_assert(t) {
         return false;
     }
     t.starts_with("assert ")
@@ -657,7 +779,6 @@ fn is_real_assert_line(line: &str) -> bool {
         || line.contains("assert_ne!(")
         || line.contains("assert!(")
 }
-
 
 fn match_ident_bound(low: &str, cand: &str, allow_assign: bool) -> Option<f64> {
     let mut from = 0;
@@ -945,6 +1066,7 @@ pub fn scan_file_reward_hacks(
         || norm_rel.ends_with("assets/reward-guard/reward_guard.py")
         || norm_rel.ends_with("assets/reward-guard/test_reward_guard.py")
         || norm_rel.ends_with("native/dmb-gate/src/reward.rs")
+        || norm_rel.ends_with("native/dmb-gate/src/main.rs")
         || norm_rel.ends_with("scripts/antigravity-guard.mjs")
         || norm_rel.ends_with("assets/contain/claude_guard.py")
         || norm_rel.ends_with("assets/contain/test_contain.py")
@@ -953,11 +1075,13 @@ pub fn scan_file_reward_hacks(
         || norm_rel.ends_with("assets/git-guardrails/git-guard.ts")
         || norm_rel.ends_with("assets/git-guardrails/git-guard.sh")
         || norm_rel.ends_with("assets/git-guardrails/test_git_guard.py")
+        || norm_rel.ends_with("assets/self-grill/test_self_grill.py")
     {
         return;
     }
     let is_scratch = norm_rel.starts_with(".scratch/");
     let test_file = !is_scratch && is_test_file(&norm_rel);
+    let e2e_file = !is_scratch && is_e2e_file(&norm_rel);
     let gate_file = is_gate_or_eval_file(&norm_rel);
     let is_ci_yaml = matches!(ext.as_str(), "yml" | "yaml")
         && (norm_rel.starts_with(".github/workflows/")
@@ -969,8 +1093,20 @@ pub fn scan_file_reward_hacks(
         .map(|s| s.to_ascii_lowercase())
         .unwrap_or_default();
     let is_tsconfig = file_name_low.starts_with("tsconfig") && ext == "json";
+    let is_pkg_json = file_name_low == "package.json";
+    let is_py_type_cfg = matches!(
+        file_name_low.as_str(),
+        "pyproject.toml" | "mypy.ini" | ".mypy.ini" | "setup.cfg" | "pyrightconfig.json"
+    );
+    let is_biome_cfg = matches!(file_name_low.as_str(), "biome.json" | "biome.jsonc");
+    let is_pw_cfg = file_name_low.starts_with("playwright.config.");
+    let is_train_py = ext == "py"
+        && ["train", "finetune", "sft", "rlhf", "pretrain"]
+            .iter()
+            .any(|p| file_name_low.starts_with(p));
     let is_prod_code = !is_scratch
         && !test_file
+        && !e2e_file
         && !gate_file
         && matches!(
             ext.as_str(),
@@ -980,17 +1116,51 @@ pub fn scan_file_reward_hacks(
         if is_scanner_or_comment(&ext, line) {
             continue;
         }
-        let in_test_ctx =
-            !is_scratch && (test_file || rs_cfg_test_line.map(|cfg_ln| *ln >= cfg_ln).unwrap_or(false));
+        let in_test_ctx = !is_scratch
+            && (test_file
+                || e2e_file
+                || rs_cfg_test_line.map(|cfg_ln| *ln >= cfg_ln).unwrap_or(false));
+        if in_test_ctx || is_pw_cfg || gate_file {
+            if has_inflated_visual_tolerance(line) {
+                out.push(RewardFinding {
+                    severity: "P0",
+                    rule: "reward-hack-visual-tolerance-inflated",
+                    file: rel.to_string(),
+                    line: *ln,
+                    message: "Visual regression diff tolerance inflated (`maxDiffPixelRatio > 0.10` or `maxDiffPixels >= 5000`) to mask broken UI.".to_string(),
+                    fix: "Keep tight screenshot tolerances and fix the visual layout regression.",
+                });
+            }
+            if line.contains(".disableRules([") || line.contains(".disableRules( [") {
+                out.push(RewardFinding {
+                    severity: "P1",
+                    rule: "reward-hack-a11y-disabled",
+                    file: rel.to_string(),
+                    line: *ln,
+                    message: "Accessibility audit rules disabled (`disableRules([...])`) to force a passing check.".to_string(),
+                    fix: "Fix the underlying accessibility violation instead of disabling Axe rules.",
+                });
+            }
+        }
         if in_test_ctx {
+            if e2e_file && has_e2e_api_stub(line) {
+                out.push(RewardFinding {
+                    severity: "P1",
+                    rule: "reward-hack-e2e-api-stubbed",
+                    file: rel.to_string(),
+                    line: *ln,
+                    message: "E2E spec intercepts/stubs `/api/`, `/graphql`, or `/trpc` backend routes instead of exercising the real server.".to_string(),
+                    fix: "Run E2E specs against the live backend service; reserve route mocks for unit tests or 3rd-party external APIs.",
+                });
+            }
             if has_test_skip(line) {
                 out.push(RewardFinding {
                     severity: "P1",
                     rule: "reward-hack-test-skip",
                     file: rel.to_string(),
                     line: *ln,
-                    message: "Unconditional test skip added (`skip` / `#[ignore]`) silences a failing check.".to_string(),
-                    fix: "Fix the failing behavior instead of skipping the test.",
+                    message: "Unconditional test skip or non-strict `xfail` added (`skip` / `xfail` / `#[ignore]`) silences a failing check.".to_string(),
+                    fix: "Fix the failing behavior instead of skipping or xfailing the test.",
                 });
             }
             if has_tautological_assert(line) {
@@ -1006,29 +1176,31 @@ pub fn scan_file_reward_hacks(
             continue;
         }
         let trimmed_low = line.trim().to_ascii_lowercase();
-        if is_ci_yaml && trimmed_low.starts_with("continue-on-error:") && trimmed_low[18..].trim_start().starts_with("true") {
+        if is_pkg_json && is_package_noop_script(line) {
             out.push(RewardFinding {
                 severity: "P0",
-                rule: "reward-hack-ci-or-typecheck-neutered",
+                rule: "reward-hack-noop-script",
                 file: rel.to_string(),
                 line: *ln,
-                message: "`continue-on-error: true` added in CI workflow masks failing verification steps.".to_string(),
-                fix: "Remove `continue-on-error: true` and fix the failing CI job.",
+                message: "`package.json` verification script (`test`/`check`/`typecheck`/`lint`) replaced with a no-op (`echo`/`true`/`exit 0`).".to_string(),
+                fix: "Wire `package.json` scripts to the real test runner, typechecker, and linter.",
             });
         }
-        if is_tsconfig
-            && (trimmed_low.starts_with("\"strict\"")
-                || trimmed_low.starts_with("\"noimplicitany\"")
-                || trimmed_low.starts_with("\"strictnullchecks\""))
-            && trimmed_low.contains(": false")
+        if (is_ci_yaml
+            && trimmed_low.starts_with("continue-on-error:")
+            && trimmed_low[18..].trim_start().starts_with("true"))
+            || (is_tsconfig && has_tsconfig_weaken(&trimmed_low))
+            || (is_py_type_cfg && has_py_typecheck_weaken(&trimmed_low))
+            || (is_biome_cfg && trimmed_low.starts_with("\"enabled\"") && trimmed_low.contains(": false"))
+            || (ext == "rs" && is_prod_code && has_rs_crate_allow(line))
         {
             out.push(RewardFinding {
                 severity: "P0",
                 rule: "reward-hack-ci-or-typecheck-neutered",
                 file: rel.to_string(),
                 line: *ln,
-                message: "TypeScript strictness disabled (`strict`/`noImplicitAny`/`strictNullChecks: false`) to silence type errors.".to_string(),
-                fix: "Keep strict TypeScript checking enabled and fix the underlying types.",
+                message: "CI, typechecker, or compiler gate neutered (`continue-on-error: true`, `tsconfig`/`mypy`/`pyright` strictness off, `biome` disabled, or crate `#![allow(...)]`).".to_string(),
+                fix: "Keep strict CI/compiler/typechecker gates enabled and fix the underlying errors.",
             });
         }
         if is_prod_code && has_prod_test_branch(line) {
@@ -1041,14 +1213,44 @@ pub fn scan_file_reward_hacks(
                 fix: "Remove test-environment detection from production code; use dependency injection at external boundaries.",
             });
         }
+        if is_prod_code && has_prod_integrity_bypass(line) {
+            out.push(RewardFinding {
+                severity: "P0",
+                rule: "reward-hack-integrity-bypass",
+                file: rel.to_string(),
+                line: *ln,
+                message: "Production code disables TLS certificate verification (`verify=False` / `InsecureSkipVerify`) or DB foreign-key checks.".to_string(),
+                fix: "Keep TLS verification and relational foreign-key constraints enabled and fix the root configuration/schema bug.",
+            });
+        }
+        if has_ml_eval_leakage(line, is_train_py || is_scratch) {
+            out.push(RewardFinding {
+                severity: "P0",
+                rule: "reward-hack-eval-leakage",
+                file: rel.to_string(),
+                line: *ln,
+                message: "Training script fits on or loads `test`/`eval` split directly (train-on-test data leakage).".to_string(),
+                fix: "Train strictly on training splits and hold out validation/test splits for evaluation only.",
+            });
+        }
+        if has_snapshot_overwrite(line) {
+            out.push(RewardFinding {
+                severity: "P0",
+                rule: "reward-hack-snapshot-overwrite",
+                file: rel.to_string(),
+                line: *ln,
+                message: "Unattended snapshot overwrite flag (`--update-snapshots`, `-u`, `cargo insta accept`, `INSTA_UPDATE=always`) rewrites golden expectations.".to_string(),
+                fix: "Verify outputs against locked snapshots instead of overwriting golden baselines.",
+            });
+        }
         if has_threshold_zero_or_skip(line) {
             out.push(RewardFinding {
                 severity: "P0",
                 rule: "reward-hack-threshold-zero",
                 file: rel.to_string(),
                 line: *ln,
-                message: "Sub-floor quality threshold (e.g. `--min-iou < 0.50` / `min_*` below metric floor) or gate/reference skip flag bypasses real evaluation.".to_string(),
-                fix: "Score directly against the reference artwork/contract above the metric floor (`>= 0.50` for IoU/SSIM/F1/fidelity) and remove skip flags.",
+                message: "Sub-floor quality/coverage threshold, gate skip flag, or empty `go test -run=^$` filter bypasses real evaluation.".to_string(),
+                fix: "Keep evaluation thresholds above their floor and run the real test suite.",
             });
         }
         if include_primitives && !allow_primitives && has_primitive_standin(line) {
@@ -1072,22 +1274,8 @@ pub fn scan_file_reward_hacks(
             });
         }
     }
-    let filtered_hunks: Vec<(Vec<String>, Vec<(usize, String)>)> = hunks
-        .iter()
-        .filter_map(|(rem, add)| {
-            let kept: Vec<(usize, String)> = add
-                .iter()
-                .filter(|(ln, _)| rs_cfg_test_line.map(|cfg_ln| *ln < cfg_ln).unwrap_or(true))
-                .cloned()
-                .collect();
-            if kept.is_empty() && !test_file {
-                None
-            } else {
-                Some((rem.clone(), kept))
-            }
-        })
-        .collect();
-    scan_hunk_weakening(rel, &filtered_hunks, test_file || gate_file, test_file, out);
+    let has_test_block = test_file || e2e_file || rs_cfg_test_line.is_some();
+    scan_hunk_weakening(rel, hunks, has_test_block || gate_file, has_test_block, out);
 }
 
 fn read_json_string(s: &str) -> Option<(String, usize)> {

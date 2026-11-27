@@ -186,6 +186,10 @@ class ClaudeGuard(GuardCase):
             'python -c "import sqlite3; sqlite3.connect(\'.scratch/reward-guard/x/reward-guard.db\')"',
             "rm .scratch/reward-guard/x/contract-lock.json",
             "python reward_guard.py record-judge --verdict approve",
+            "playwright test --update-snapshots",
+            "vitest run -u",
+            "cargo insta accept",
+            "go test ./... -run=^$",
         ):
             with self.subTest(cmd=bad_cmd):
                 self.assertEqual(self.run_guard("Bash", bad_cmd, key="command"), "deny")
@@ -194,6 +198,8 @@ class ClaudeGuard(GuardCase):
             "pytest --cov=app --cov-fail-under 80",
             'git commit -m "block --min-iou 0.0"',
             'rg "--min-iou 0.0" src/',
+            "git push -u origin feat",
+            "python -u app.py",
         ):
             with self.subTest(cmd=ok_cmd):
                 self.assertEqual(self.run_guard("Bash", ok_cmd, key="command"), "allow")

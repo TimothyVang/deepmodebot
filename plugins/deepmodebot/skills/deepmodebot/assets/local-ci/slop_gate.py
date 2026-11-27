@@ -579,6 +579,16 @@ def run_slop_gate(
 
     findings.extend(_check_policy_xml(resolved_root, changed))
     if reward_mod is not None:
+        if not staged and not explicit_files:
+            sc_files, sym_findings = reward_mod._discover_scratch_scripts_and_symlinks(resolved_root)
+            findings.extend(sym_findings)
+            for srel in sc_files:
+                stxt = _read_text_safe(resolved_root, srel)
+                if stxt is not None:
+                    sadded = {i: ln for i, ln in enumerate(stxt.splitlines(), 1)}
+                    findings.extend(
+                        reward_mod.scan_added_lines_for_reward_hacks(srel, sadded, [([], list(sadded.items()))], include_primitives=False, full_text=stxt)
+                    )
         findings.extend(reward_mod._check_locked_contracts(resolved_root))
     rules_path = ASSETS_DIR / "rules" / "rule_ledger.py"
     if rules_path.is_file():

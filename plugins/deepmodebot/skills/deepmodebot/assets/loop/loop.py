@@ -2278,6 +2278,17 @@ def main():
     own = {goal_rel, ".scratch", *(os.path.relpath(path, root).replace(os.sep, "/") for path in (tmp, log_dir))}
     slop_skip = {*own, *protect}
 
+    base = None
+    if opts.action != "check" and revert_on_fail:
+        head = git(root, "rev-parse", "--verify", "HEAD")
+        if head.returncode != 0:
+            raise SystemExit("revert_on_fail requires a git repo with at least one commit")
+        base = head.stdout.strip()
+        pre_dirty = dirty_paths_outside(root, own)
+        if pre_dirty:
+            sample = ", ".join(rel for _, rel in pre_dirty[:5])
+            raise SystemExit(f"revert_on_fail requires a clean working tree outside {goal_rel} (found: {sample})")
+
     has_reward_contract = bool(fields.get("reward_artifacts", "").strip()) or parse_bool(fields, "reward_judge", False, opts.goal)
     holdout_dir = _allocate_outside_holdout(root, slug) if has_reward_contract else None
     supervisor_seed = os.urandom(32) if has_reward_contract else None
@@ -2315,17 +2326,6 @@ def main():
         if opts.action == "check" and holdout_dir:
             shutil.rmtree(holdout_dir, ignore_errors=True)
     # (handled inside try/finally block above for opts.action == "check")
-
-    base = None
-    if revert_on_fail:
-        head = git(root, "rev-parse", "--verify", "HEAD")
-        if head.returncode != 0:
-            raise SystemExit("revert_on_fail requires a git repo with at least one commit")
-        base = head.stdout.strip()
-        pre_dirty = dirty_paths_outside(root, own)
-        if pre_dirty:
-            sample = ", ".join(rel for _, rel in pre_dirty[:5])
-            raise SystemExit(f"revert_on_fail requires a clean working tree outside {goal_rel} (found: {sample})")
 
     slop_baseline = slop_counts(scan_repo_slop(root, skip=slop_skip)) if forbid_slop else Counter()
     reward_baseline = reward_hack_counts(scan_repo_reward_hacks(root)) if forbid_reward_hacks else Counter()
