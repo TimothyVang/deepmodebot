@@ -1,6 +1,6 @@
 {
   "name": "deepmodebot",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "description": "Install and auto-update the deepmodebot plugin in Claude Code, omp, Codex, and Google Antigravity from one npm package.",
   "license": "MIT",
   "type": "module",

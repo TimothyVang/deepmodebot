@@ -5,9 +5,12 @@
 // (pruning marks older than 30 days) and injects workspace-map output inside git repos via
 // injectSteps (deduplicated across tool-loop invocations and subsequent turns). PreToolUse blocks
 // file writes outside the project root once active (or unconditionally when invoked with CLI
-// argument "enforce"). Shell/command tools (run_command), workflows (run_workflow), and MCP tools
-// are not covered here. Always exits 0 because Antigravity treats non-zero hook exits as execution
-// errors and fails open.
+// argument "enforce"). Rule approval (skills/deepmodebot/assets/rules/rule_ledger.py) applies in
+// every conversation: in a repo whose owner turned it on, file writes to agent rule files or the
+// ledger and shell commands that write them are denied, and the owner-only
+// `rules init|approve|reject|rotate` commands are denied everywhere. Other shell commands,
+// workflows (run_workflow), and MCP tools are not covered here. Always exits 0 because
+// Antigravity treats non-zero hook exits as execution errors and fails open.
 
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
@@ -23,6 +26,14 @@ const WORKSPACE_MAP_SCRIPT = path.resolve(
   "../skills/deepmodebot/assets/workspace-map/workspace_map.py",
 );
 const caseless = process.platform === "win32" || process.platform === "darwin";
+const RULES_DIR = path.resolve(SCRIPT_DIR, "../skills/deepmodebot/assets/rules");
+const RULE_LEDGER = path.join(RULES_DIR, "rule_ledger.py");
+const LEDGER_REL = path.join(".deepmodebot", "rules", "ledger.json");
+const PYTHONS =
+  process.platform === "win32"
+    ? [["py", ["-3", "-B"]], ["python3", ["-B"]], ["python", ["-B"]]]
+    : [["python3", ["-B"]], ["python", ["-B"]]];
+const RULES = loadRuleSpec();
 
 const WRITE_TOOLS = new Set([
   "write_file",
@@ -40,7 +51,7 @@ const METRIC_FLOORS = {
   psnr: 10.0, protrusion: 0.02, score: 0.05, confidence: 0.05, symmetry: 0.05,
 };
 const MIN_FLAG_VAL_RE =
-  /(?:^|[\s;&|(])(--(?:gate-)?mi(?:n(?:-([a-z0-9_-]*))?)?(?:\s+|=)['"]?\s*([-+]?(?:inf(?:inity)?|nan|(?:\d[\d_]*\.?[\d_]*|\.[\d_]+)(?:e[-+]?[\d_]+)?))\s*['"]?)(?=$|[\s;&|)])/gi;
+  /(?:^|[\s;&|(])(['"]?--(?:gate-)?mi(?:n(?:-([a-z0-9_-]*))?)?['"]?(?:\s+|=)['"]?\s*([-+]?(?:inf(?:inity)?|nan|(?:\d[\d_]*\.?[\d_]*|\.[\d_]+)(?:e[-+]?[\d_]+)?))\s*['"]?)(?=$|[\s;&|)])/gi;
 const REWARD_HACK_CMD_RE = new RegExp(
   [
     String.raw`(?:^|[\s;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|skip-verify|skip-validation|bypass-gate|pass-if-no-tests|passWithNoTests)(?=$|[\s;&|)])`,
@@ -66,6 +77,85 @@ function parseGuardFloat(raw) {
   if (/^[-+]?inf(?:inity)?$/i.test(c)) return c.startsWith("-") ? -Infinity : Infinity;
   if (/^[-+]?nan$/i.test(c)) return NaN;
   return Number(c);
+}
+
+// rule-paths.json, lowercased, for the cheap pre-check that decides whether rule_ledger.py needs to run at all.
+function loadRuleSpec() {
+  try {
+    const spec = JSON.parse(fs.readFileSync(path.join(RULES_DIR, "rule-paths.json"), "utf8"));
+    const low = xs => (Array.isArray(xs) ? xs.map(x => String(x).toLowerCase().replace(/^\/+|\/+$/g, "")) : []);
+    const names = low(spec.names);
+    const dirs = low(spec.dirs);
+    const files = low(spec.files);
+    return {
+      names: new Set(names),
+      dirs: dirs.map(d => `/${d}/`),
+      files: files.map(f => `/${f}`),
+      hints: [...names, ...files, ...dirs, ...dirs.map(d => d.split("/")[0]), "deepmodebot", "rule_ledger"],
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function mayBeRulePath(abs) {
+  if (!RULES) return false;
+  const p = abs.toLowerCase().replace(/\\/g, "/");
+  return (
+    RULES.names.has(p.slice(p.lastIndexOf("/") + 1)) ||
+    p.includes("/.deepmodebot/rules") ||
+    RULES.dirs.some(d => p.includes(d)) ||
+    RULES.files.some(f => p.endsWith(f))
+  );
+}
+
+// Whether the repo holding `abs` has an owner rule ledger in its working tree.
+function ledgerNear(abs) {
+  let dir = path.dirname(abs);
+  while (true) {
+    if (fs.existsSync(path.join(dir, LEDGER_REL))) return true;
+    if (fs.existsSync(path.join(dir, ".git"))) return false;
+    const parent = path.dirname(dir);
+    if (parent === dir) return false;
+    dir = parent;
+  }
+}
+
+// rule_ledger.py guard verdict: a deny reason, "" to allow, or null when no Python could run it.
+function pythonGuard(request) {
+  for (const [exe, prefix] of PYTHONS) {
+    try {
+      const out = execFileSync(exe, [...prefix, RULE_LEDGER, "guard"], {
+        input: JSON.stringify(request),
+        encoding: "utf8",
+        timeout: 8_000,
+        stdio: ["pipe", "pipe", "ignore"],
+        windowsHide: true,
+        env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1" },
+      });
+      const verdict = JSON.parse(out);
+      return verdict && verdict.block ? String(verdict.reason) : "";
+    } catch (err) {
+      if (err && err.code === "ENOENT") continue;
+      return "";
+    }
+  }
+  return null;
+}
+
+// Python runs only for shell commands in a ledger repo or naming a rule path or owner command, and for writes whose
+// target (or resolved target) looks like a rule path.
+function ruleDenyReason(cwd, paths, command) {
+  const candidates = paths.filter(p => mayBeRulePath(absolute(p, cwd)) || mayBeRulePath(real(absolute(p, cwd))));
+  const lowered = command.toLowerCase().replace(/\\/g, "/");
+  const hinted = Boolean(RULES && RULES.hints.some(h => lowered.includes(h)));
+  const shell = command !== "" && (hinted || ledgerNear(path.join(cwd, "_")));
+  if (candidates.length === 0 && !shell) return "";
+  const verdict = pythonGuard({ cwd, paths: candidates, command: shell ? command : "" });
+  if (verdict !== null) return verdict;
+  return candidates.some(p => ledgerNear(absolute(p, cwd)))
+    ? "deepmodebot rule approval needs Python 3 on PATH to check rule files; install it, then retry."
+    : "";
 }
 
 function findShellRewardHack(rawCmd) {
@@ -419,14 +509,29 @@ function main() {
     return;
   }
 
+  const toolCall = event.toolCall && typeof event.toolCall === "object" ? event.toolCall : {};
+  const toolName = String(toolCall.name ?? "");
+  const args = toolCall.args && typeof toolCall.args === "object" ? toolCall.args : {};
+  const sessionCwd = resolveSessionCwd(event);
+  const ruleTarget = args.Path ?? args.TargetFile ?? args.path ?? args.targetFile;
+  const ruleCwd = SHELL_TOOLS.has(toolName) && typeof (args.Cwd ?? args.cwd) === "string"
+    ? absolute(String(args.Cwd ?? args.cwd), sessionCwd)
+    : sessionCwd;
+  const ruleReason = SHELL_TOOLS.has(toolName)
+    ? ruleDenyReason(ruleCwd, [], String(args.CommandLine ?? args.command ?? args.cmd ?? ""))
+    : WRITE_TOOLS.has(toolName) && typeof ruleTarget === "string" && ruleTarget.trim()
+      ? ruleDenyReason(sessionCwd, [ruleTarget.trim()], "")
+      : "";
+  if (ruleReason) {
+    writeJsonAndExit({ decision: "deny", reason: ruleReason });
+    return;
+  }
+
   if (mode !== "enforce" && !(markPath && fs.existsSync(markPath))) {
     writeJsonAndExit({ decision: "allow" });
     return;
   }
 
-  const toolCall = event.toolCall && typeof event.toolCall === "object" ? event.toolCall : {};
-  const toolName = String(toolCall.name ?? "");
-  const args = toolCall.args && typeof toolCall.args === "object" ? toolCall.args : {};
   if (SHELL_TOOLS.has(toolName)) {
     const cmdStr = args.CommandLine ?? args.command ?? args.cmd ?? "";
     const hit = findShellRewardHack(cmdStr);

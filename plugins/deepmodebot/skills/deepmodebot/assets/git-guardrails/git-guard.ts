@@ -80,7 +80,7 @@ const METRIC_FLOORS: Record<string, number> = {
 	psnr: 10.0, protrusion: 0.02, score: 0.05, confidence: 0.05, symmetry: 0.05,
 };
 const MIN_FLAG_RE =
-	/(?:^|[ ;&|(])(--(?:gate-)?mi(?:n(?:-([A-Za-z0-9_-]*))?)?(?: +|=)["']? *([-+]?(?:inf(?:inity)?|nan|(?:\d[\d_]*\.?[\d_]*|\.[\d_]+)(?:[eE][-+]?[\d_]+)?)) *["']?)(?= |;|&|\||\)|$)/gi;
+	/(?:^|[ ;&|(])(['"]?--(?:gate-)?mi(?:n(?:-([A-Za-z0-9_-]*))?)?['"]?(?: +|=)["']? *([-+]?(?:inf(?:inity)?|nan|(?:\d[\d_]*\.?[\d_]*|\.[\d_]+)(?:[eE][-+]?[\d_]+)?)) *["']?)(?= |;|&|\||\)|$)/gi;
 
 function parseGuardFloat(raw: string): number {
 	const c = raw.trim().replace(/_/g, "");
