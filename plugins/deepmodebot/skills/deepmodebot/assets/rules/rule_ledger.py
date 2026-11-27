@@ -181,6 +181,11 @@ def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _eol(data: bytes | None) -> bytes | None:
+    """Text with CRLF line ends as LF, the way git stores it, so an autocrlf checkout hashes like the index."""
+    return data.replace(b"\r\n", b"\n") if data and b"\r\n" in data and b"\0" not in data else data
+
+
 def _cat_blobs(root: Path, specs: list[str]) -> dict[str, bytes | None]:
     specs = [s for s in specs if "\n" not in s]
     res: dict[str, bytes | None] = {s: None for s in specs}
@@ -218,7 +223,7 @@ class Source:
         if self.mode != "work":
             prefix = ":" if self.mode == "index" else self.ref + ":"
             blobs = _cat_blobs(self.root, [prefix + r for r in rels])
-            return {r: blobs.get(prefix + r) for r in rels}
+            return {r: _eol(blobs.get(prefix + r)) for r in rels}
         out: dict[str, bytes | None] = {}
         for rel in rels:
             path = self.root / rel
@@ -226,7 +231,7 @@ class Source:
                 if path.is_symlink():
                     out[rel] = os.readlink(path).encode("utf-8", "surrogateescape")
                 else:
-                    out[rel] = path.read_bytes() if path.is_file() else None
+                    out[rel] = _eol(path.read_bytes()) if path.is_file() else None
             except OSError:
                 out[rel] = None
         return out
@@ -716,7 +721,7 @@ def _approve_bytes(root: Path, ledger: dict, item: str, data: bytes, *, link: bo
     sha = _sha(data)
     blob = f"{APPROVED_REL}/{sha}"
     existing = _target(root, blob)
-    if not (existing.is_file() and _sha(existing.read_bytes()) == sha):
+    if not (existing.is_file() and _sha(_eol(existing.read_bytes())) == sha):
         _safe_write(root, blob, data)
     ledger["approved"][item] = sha
     links = set(ledger.get("links") or [])

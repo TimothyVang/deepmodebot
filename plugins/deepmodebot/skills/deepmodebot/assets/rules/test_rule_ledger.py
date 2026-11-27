@@ -202,6 +202,14 @@ class TamperTests(LedgerCase):
         git(self.repo, "add", "AGENTS.md")
         self.assertEqual(self.blocking(staged=True), [("rules-unapproved", "AGENTS.md")])
 
+    def test_crlf_checkouts_match_the_lf_index(self):
+        git(self.repo, "config", "core.autocrlf", "true")
+        (self.repo / "AGENTS.md").write_bytes(b"# Rules\r\n- Run the tests.\r\n")
+        rl.init_ledger(self.repo, OWNER)
+        self.commit_all()
+        self.assertEqual(self.blocking(), [])
+        self.assertEqual(self.blocking(staged=True), [])
+
 
 class MemoryTests(LedgerCase):
     def test_agent_conventions_stay_out_of_recall_until_approved(self):
