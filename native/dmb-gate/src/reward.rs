@@ -208,6 +208,7 @@ fn is_scanner_or_comment(ext: &str, line: &str) -> bool {
         "HARDCODED_PASS_RE",
         "TEST_SKIP_RE",
         "TEST_SKIP_DECORATOR_RE",
+        "REWARD_HACK_CMD_RE",
         "\"rule\":",
         "rule: \"",
         "Zeroed quality threshold",
@@ -731,6 +732,10 @@ pub fn scan_file_reward_hacks(
     if ext == "md"
         || norm_rel.ends_with("assets/reward-guard/reward_guard.py")
         || norm_rel.ends_with("native/dmb-gate/src/reward.rs")
+        || norm_rel.ends_with("scripts/antigravity-guard.mjs")
+        || norm_rel.ends_with("assets/contain/claude_guard.py")
+        || norm_rel.ends_with("assets/git-guardrails/git-guard-patterns.txt")
+        || norm_rel.ends_with("assets/git-guardrails/git-guard.ts")
     {
         return;
     }
@@ -943,7 +948,75 @@ fn norm_rel_arg(raw: &str) -> String {
     s.trim_start_matches('/').to_string()
 }
 
-fn changed_files(root: &Path, staged: bool, explicit: &[String], base: Option<&str>) -> Vec<String> {
+fn discover_scratch_scripts(root: &Path) -> Vec<String> {
+    let scratch = root.join(".scratch");
+    if !scratch.is_dir() {
+        return Vec::new();
+    }
+    let skip_top = [
+        "reward-guard",
+        "self-grill",
+        "evidence",
+        "goals",
+        "gen-ui",
+        "agents-md-backup",
+        "quota-guard",
+    ];
+    let mut found = Vec::new();
+    let mut stack = vec![(scratch.clone(), true)];
+    while let Some((dir, is_top)) = stack.pop() {
+        let Ok(entries) = fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let p = entry.path();
+            let Ok(meta) = fs::symlink_metadata(&p) else {
+                continue;
+            };
+            if meta.file_type().is_symlink() {
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy().to_string();
+            if meta.is_dir() {
+                let low = name.to_ascii_lowercase();
+                if (is_top && skip_top.contains(&name.as_str()))
+                    || low.starts_with("check-")
+                    || low.starts_with("npm-test-")
+                    || low.starts_with("init-cli-test-")
+                    || low.starts_with("panel-")
+                    || low.contains("test")
+                {
+                    continue;
+                }
+                stack.push((p, false));
+            } else if meta.is_file() && meta.len() > 0 && meta.len() <= 262_144 {
+                let ext = p
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .map(|s| s.to_ascii_lowercase())
+                    .unwrap_or_default();
+                if matches!(ext.as_str(), "py" | "sh" | "js" | "mjs" | "cjs" | "ts") {
+                    if let Ok(rel) = p.strip_prefix(root) {
+                        found.push(rel.to_string_lossy().replace('\\', "/"));
+                        if found.len() >= 100 {
+                            return found;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    found.sort();
+    found
+}
+
+fn changed_files(
+    root: &Path,
+    staged: bool,
+    explicit: &[String],
+    base: Option<&str>,
+    include_scratch: bool,
+) -> Vec<String> {
     if !explicit.is_empty() {
         let mut set = BTreeSet::new();
         for raw in explicit {
@@ -991,9 +1064,16 @@ fn changed_files(root: &Path, staged: bool, explicit: &[String], base: Option<&s
             }
         }
     }
-    set.into_iter()
+    let mut clean: BTreeSet<String> = set
+        .into_iter()
         .filter(|f| !f.starts_with(".scratch/") && !f.starts_with(".worktrees/"))
-        .collect()
+        .collect();
+    if include_scratch && !staged {
+        for sf in discover_scratch_scripts(root) {
+            clean.insert(sf);
+        }
+    }
+    clean.into_iter().collect()
 }
 
 pub fn run(args: &[String]) -> ExitCode {
@@ -1001,10 +1081,10 @@ pub fn run(args: &[String]) -> ExitCode {
     let mut base_ref: Option<String> = None;
     let mut staged = false;
     let mut allow_primitives = false;
+    let mut include_scratch = true;
     let mut advisory = false;
     let mut as_json = false;
     let mut explicit_files: Vec<String> = Vec::new();
-
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -1025,6 +1105,10 @@ pub fn run(args: &[String]) -> ExitCode {
                 allow_primitives = true;
                 i += 1;
             }
+            "--no-scratch" => {
+                include_scratch = false;
+                i += 1;
+            }
             "--advisory" => {
                 advisory = true;
                 i += 1;
@@ -1040,12 +1124,15 @@ pub fn run(args: &[String]) -> ExitCode {
                     i += 1;
                 }
             }
-            _ => i += 1,
+            other => {
+                eprintln!("dmb-gate reward error: unknown or forbidden argument `{}` (self-reported `record-judge` is banned; use `run-judge`).", other);
+                return ExitCode::from(2);
+            }
         }
     }
 
     let root = fs::canonicalize(&root).unwrap_or(root);
-    let changed = changed_files(&root, staged, &explicit_files, base_ref.as_deref());
+    let changed = changed_files(&root, staged, &explicit_files, base_ref.as_deref(), include_scratch);
     let per_file = parallel_map(&changed, |rel| {
         let mut local = Vec::new();
         let (mut added, hunks) = diff_file_hunks(&root, rel, staged, base_ref.as_deref());

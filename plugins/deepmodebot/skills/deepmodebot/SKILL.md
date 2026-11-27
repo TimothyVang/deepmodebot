@@ -3,7 +3,7 @@ name: deepmodebot
 description: "Hardcore Mode engineering orchestrator (/deep, Deepmodebot, non-trivial engineering): LLM autoroute, Confession + Adaptive Prosecutor, quota-safe delegation, real-app proof."
 hooks:
   PreToolUse:
-    - matcher: "Write|Edit|NotebookEdit"
+    - matcher: "Write|Edit|NotebookEdit|Bash"
       hooks:
         - type: command
           command: 'for f in "${CLAUDE_PLUGIN_ROOT:-/nonexistent}/skills/deepmodebot/assets/contain/claude-guard.sh" "${CLAUDE_PROJECT_DIR:-.}/.claude/skills/deepmodebot/assets/contain/claude-guard.sh" "$HOME/.claude/skills/deepmodebot/assets/contain/claude-guard.sh"; do if [ -f "$f" ]; then exec "${BASH:-bash}" "$f" enforce; fi; done; exit 0'

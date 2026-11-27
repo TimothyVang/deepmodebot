@@ -40,5 +40,12 @@ git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]
 @branch (main|master|trunk) git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +push( +-[^ ]+)*( +[^- ;&|)][^ ;&|)]*)?( +-[^ ]+)* *(;|&|\||\)|$)
 @branch (main|master|trunk) git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +push( +[^ ;&|]+)* +["']?(HEAD|@)["']?( |;|&|\||\)|$)
 
+# Bypasses verification hooks, zeroes quality thresholds, or tampers with reward-guard ledgers
+git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +commit( +[^ ;&|]+)* +(-n|--no-verify)( |;|&|\||\)|$)
+(^|[ ;&|(])--(gate-)?min-(iou|ssim|psnr|clip|clip-score|dice|f1|score|fidelity|similarity|coverage|accuracy|protrusion)( +|=)["']?(-[0-9]+(\.[0-9]+)?|0+(\.0+)?|[0-9]+(\.[0-9]+)?[eE]-[6-9][0-9]*)["']?( |;|&|\||\)|$)
+(^|[ ;&|(])--(skip-reference|skip-fidelity|skip-gates?|bypass-gate)( |;|&|\||\)|$)
+(^|[ ;&|(])(--require-spark-receipt( +|=)["']?false|--gate-mode( +|=)["']?off)["']?( |;|&|\||\)|$)
+(sqlite3( +[^ ;&|]+)* +[^ ;&|]*reward-guard\.db|(rm|del|unlink)( +[^ ;&|]+)* +[^ ;&|]*(contract-lock\.json|reward-guard\.db)|reward_guard\.py( +[^ ;&|]+)* +record-judge)( |;|&|\||\)|$)
+
 # Strict mode: remove the # below to block every push, so only the human pushes.
 # git( +(-[cC]|--git-dir|--work-tree|--namespace) +("[^"]*"|'[^']*'|[^ "'-])("[^"]*"|'[^']*'|[^ "'])*| +-("[^"]*"|'[^']*'|[^ "';&|])+)* +push( |;|&|\||\)|$)

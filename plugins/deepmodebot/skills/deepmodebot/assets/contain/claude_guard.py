@@ -25,6 +25,28 @@ import time
 sys.dont_write_bytecode = True
 
 MARK_MAX_AGE_SECONDS = 30 * 24 * 3600
+REWARD_HACK_CMD_RE = re.compile(
+    r"(?:^|[ ;&|(])--(?:gate-)?min-(?:iou|ssim|psnr|clip|clip-score|dice|f1|score|fidelity|similarity|coverage|accuracy|protrusion)(?:\s+|=)['\"]?(?:-\d+(?:\.\d+)?|0+(?:\.0+)?|\d+(?:\.\d+)?[eE]-[6-9]\d*)['\"]?(?=$|[ ;&|)])"
+    r"|(?:^|[ ;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|bypass-gate)(?=$|[ ;&|)])"
+    r"|(?:^|[ ;&|(])(?:--require-spark-receipt(?:\s+|=)['\"]?false|--gate-mode(?:\s+|=)['\"]?off)['\"]?(?=$|[ ;&|)])"
+    r"|\bgit\b[^\n;&|]*\bcommit\b[^\n;&|]*\s(?:-n|--no-verify)(?=$|[ ;&|)])"
+    r"|\bsqlite3\b[^\n;&|]*reward-guard\.db\b"
+    r"|\b(?:rm|del|unlink|Remove-Item)\b[^\n;&|]*(?:contract-lock\.json|reward-guard\.db)\b"
+    r"|\breward_guard\.py\b[^\n;&|]*\brecord-judge\b",
+    re.I,
+)
+
+
+def check_bash_reward_hack(cmd_text):
+    cleaned = re.sub(r"(-m|--message)(=|\s+)(\"[^\"]*\"|'[^']*')", r'\1 ""', str(cmd_text or ""))
+    for raw_ln in cleaned.replace("\\\r\n", " ").replace("\\\n", " ").splitlines():
+        ln = raw_ln.strip()
+        if not ln or re.match(r"^(?:grep|rg)\s+[^;&|`$]*$", ln):
+            continue
+        m = REWARD_HACK_CMD_RE.search(ln)
+        if m:
+            return m.group(0).strip()
+    return None
 
 
 def real(path):
@@ -112,10 +134,16 @@ def main():
         return 0
     if mode == "if-active" and not (mark and os.path.exists(mark)):
         return 0
-    if event.get("tool_name") not in ("Write", "Edit", "NotebookEdit"):
-        return 0
+    tool_name = event.get("tool_name")
     tool_input = event.get("tool_input")
     if not isinstance(tool_input, dict):
+        return 0
+    if tool_name == "Bash":
+        bad = check_bash_reward_hack(tool_input.get("command") or "")
+        if bad:
+            deny(f"deepmodebot anti-reward-hacking guard blocked `{bad}`: builders may not zero thresholds, skip reference/verification gates, or tamper with provenance ledgers.")
+        return 0
+    if tool_name not in ("Write", "Edit", "NotebookEdit"):
         return 0
     target = tool_input.get("file_path") or tool_input.get("notebook_path")
     if not isinstance(target, str) or not target:

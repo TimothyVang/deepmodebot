@@ -50,14 +50,17 @@ test("deepmodebot gate reward blocks threshold zeroing and enforces provenance +
   execFileSync("git", ["add", "."], { cwd: demo });
   execFileSync("git", ["commit", "-q", "-m", "init"], { cwd: demo });
 
+  mkdirSync(join(demo, ".scratch", "tmp"), { recursive: true });
+  writeFileSync(join(demo, ".scratch", "tmp", "cones.py"), "bpy.ops.mesh.primitive_cone_add(radius1=1)\n");
   writeFileSync(join(demo, "hack.py"), "cmd = ['gate.py', '--min-iou', '0.0']\n");
   const scanBad = spawnSync(process.execPath, [cliBin, "gate", "reward", "--root", demo, "--json"], { encoding: "utf8" });
   assert.equal(scanBad.status, 1, scanBad.stdout + scanBad.stderr);
   const parsedBad = JSON.parse(scanBad.stdout);
   assert.equal(parsedBad.ok, false);
   assert.equal(parsedBad.findings.some((f) => f.rule === "reward-hack-threshold-zero"), true);
+  assert.equal(parsedBad.findings.some((f) => f.rule === "reward-hack-primitive-standin" && f.file === ".scratch/tmp/cones.py"), true);
   rmSync(join(demo, "hack.py"));
-
+  rmSync(join(demo, ".scratch", "tmp", "cones.py"));
   const lockRun = spawnSync(
     process.execPath,
     [cliBin, "gate", "reward", "lock-contract", "--root", demo, "--slug", "corsair", "--gates", "gates/gate.py", "--references", "refs/concept.png", "--thresholds", "min_iou=0.75", "--required-producers", "dgx-spark", "--artifacts", "mesh.glb"],
@@ -67,4 +70,6 @@ test("deepmodebot gate reward blocks threshold zeroing and enforces provenance +
 
   const blockedVerdict = spawnSync(process.execPath, [cliBin, "gate", "reward", "verdict", "--root", demo, "--slug", "corsair", "--strict"], { encoding: "utf8" });
   assert.equal(blockedVerdict.status, 1);
+  const rejectSelfJudge = spawnSync(process.execPath, [cliBin, "gate", "reward", "record-judge", "--slug", "corsair"], { encoding: "utf8" });
+  assert.notEqual(rejectSelfJudge.status, 0);
 });

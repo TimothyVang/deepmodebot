@@ -95,7 +95,9 @@ export default function gitGuard(pi: {
 			.split(/\r?\n/);
 		const branchCache = new Map<string, string | undefined>();
 		for (const rule of rules) {
-			for (const line of lines) {
+			for (const rawLine of lines) {
+				const line = rawLine.replace(/(-m|--message)(=| +)("[^"]*"|'[^']*')/g, '$1 ""');
+				if (/^ *(grep|rg) +[^;&|`$]*$/.test(line)) continue;
 				const hit = rule.command.exec(line);
 				if (!hit) continue;
 				if (rule.branch) {
@@ -109,12 +111,14 @@ export default function gitGuard(pi: {
 					}
 					if (!branch || !rule.branch.test(branch)) continue;
 				}
+				const isRewardHack = /^ *(--(gate-)?min-|--skip-|--bypass-gate|--require-spark-receipt|--gate-mode|sqlite3|rm|del|unlink|reward_guard\.py)/.test(hit[0]) || /--no-verify| -n( |$)/.test(hit[0]);
 				return {
 					block: true,
-					reason:
-						`Blocked by the git guard: "${hit[0]}" can destroy work or rewrite shared history. ` +
-						"Use a safe form instead (git stash, a new branch, git push --force-with-lease to your own feature branch, " +
-						"a PR for the default branch), or ask the user to run it themselves.",
+					reason: isRewardHack
+						? `Blocked by anti-reward-hacking guard: "${hit[0].trim()}" weakens a test/fidelity gate, skips verification, or tampers with provenance ledgers.`
+						: `Blocked by the git guard: "${hit[0]}" can destroy work or rewrite shared history. ` +
+							"Use a safe form instead (git stash, a new branch, git push --force-with-lease to your own feature branch, " +
+							"a PR for the default branch), or ask the user to run it themselves.",
 				};
 			}
 		}

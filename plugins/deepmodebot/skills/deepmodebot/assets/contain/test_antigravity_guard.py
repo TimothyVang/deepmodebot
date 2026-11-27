@@ -133,7 +133,7 @@ class AntigravityGuardTests(unittest.TestCase):
         pre_tool = group["PreToolUse"]
         self.assertEqual(
             pre_tool[0]["matcher"],
-            "write_file|edit_file|write_to_file|replace_file_content|multi_replace_file_content",
+            "write_file|edit_file|write_to_file|replace_file_content|multi_replace_file_content|run_command|execute_command|bash",
         )
         self.assertEqual(pre_tool[0]["hooks"][0]["command"], "node ./scripts/antigravity-guard.mjs")
 
@@ -492,6 +492,18 @@ class AntigravityGuardTests(unittest.TestCase):
             self.pre_tool_payload("write_file", self.outside / "leak.md", conv_id=conv)
         )
         self.assertEqual(denied["decision"], "deny")
+
+    def test_run_command_blocks_reward_hacking_bypass_flags_and_allows_normal_commands(self):
+        denied, _ = self.run_hook(
+            self.pre_tool_payload("run_command", "python gate.py --min-iou 0.0", arg_key="CommandLine"),
+            cli_args=("enforce",),
+        )
+        self.assertEqual(denied["decision"], "deny")
+        allowed, _ = self.run_hook(
+            self.pre_tool_payload("run_command", "python gate.py --min-iou 0.72", arg_key="CommandLine"),
+            cli_args=("enforce",),
+        )
+        self.assertEqual(allowed, {"decision": "allow"})
 
 if __name__ == "__main__":
     unittest.main()
