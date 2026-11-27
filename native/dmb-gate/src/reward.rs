@@ -14,8 +14,19 @@ pub struct RewardFinding {
     pub fix: &'static str,
 }
 
-const MIN_FLOOR_EPSILON: f64 = 1e-6;
+const MIN_FLOOR_EPSILON: f64 = 1e-4;
 
+fn metric_min_floor(metric: &str) -> f64 {
+    match metric {
+        "iou" | "ssim" | "dice" | "f1" | "auc" | "accuracy" | "acc" | "precision" | "recall"
+        | "fidelity" | "similarity" | "coverage" | "pass_rate" | "win_rate" => 0.50,
+        "clip" | "clip_score" | "ap" | "map" | "bleu" | "rouge" => 0.15,
+        "psnr" => 10.0,
+        "protrusion" => 0.02,
+        "score" | "confidence" | "symmetry" => 0.05,
+        _ => MIN_FLOOR_EPSILON,
+    }
+}
 const BARE_LOWER_METRICS: &[&str] = &[
     "iou",
     "ssim",
@@ -238,23 +249,48 @@ fn parse_leading_f64(raw: &str) -> Option<f64> {
     let t = raw
         .trim_start()
         .trim_start_matches([',', ' ', '\t'])
-        .trim_start_matches(['"', '\'']);
+        .trim_start_matches(['"', '\''])
+        .trim_start();
+    let low = t.to_ascii_lowercase();
+    for (tok, v) in [
+        ("-infinity", f64::NEG_INFINITY),
+        ("+infinity", f64::INFINITY),
+        ("infinity", f64::INFINITY),
+        ("-inf", f64::NEG_INFINITY),
+        ("+inf", f64::INFINITY),
+        ("inf", f64::INFINITY),
+        ("-nan", f64::NAN),
+        ("+nan", f64::NAN),
+        ("nan", f64::NAN),
+    ] {
+        if let Some(rest) = low.strip_prefix(tok) {
+            if rest.is_empty() || (!rest.as_bytes()[0].is_ascii_alphanumeric() && rest.as_bytes()[0] != b'_') {
+                return Some(v);
+            }
+        }
+    }
     let bytes = t.as_bytes();
     let mut i = 0;
     if i < bytes.len() && (bytes[i] == b'-' || bytes[i] == b'+') {
         i += 1;
     }
-    let start_digits = i;
-    while i < bytes.len() && bytes[i].is_ascii_digit() {
+    let mut digits_seen = 0usize;
+    while i < bytes.len() && (bytes[i].is_ascii_digit() || bytes[i] == b'_') {
+        if bytes[i].is_ascii_digit() {
+            digits_seen += 1;
+        }
         i += 1;
     }
     if i < bytes.len() && bytes[i] == b'.' {
         i += 1;
-        while i < bytes.len() && bytes[i].is_ascii_digit() {
+        while i < bytes.len() && (bytes[i].is_ascii_digit() || bytes[i] == b'_') {
+            if bytes[i].is_ascii_digit() {
+                digits_seen += 1;
+            }
             i += 1;
         }
     }
-    if i == start_digits {
+    if digits_seen == 0 {
         return None;
     }
     if i < bytes.len() && (bytes[i] == b'e' || bytes[i] == b'E') {
@@ -264,7 +300,7 @@ fn parse_leading_f64(raw: &str) -> Option<f64> {
             i += 1;
         }
         let exp_digits = i;
-        while i < bytes.len() && bytes[i].is_ascii_digit() {
+        while i < bytes.len() && (bytes[i].is_ascii_digit() || bytes[i] == b'_') {
             i += 1;
         }
         if i == exp_digits {
@@ -274,21 +310,84 @@ fn parse_leading_f64(raw: &str) -> Option<f64> {
     if i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_') {
         return None;
     }
-    t[..i].parse::<f64>().ok()
+    let cleaned: String = t[..i].chars().filter(|c| *c != '_').collect();
+    cleaned.parse::<f64>().ok()
+}
+
+fn prefix_metric_floor(tok: &str) -> Option<f64> {
+    let norm = tok.replace('-', "_");
+    if QUAL_LOWER_METRICS.contains(&norm.as_str()) {
+        return Some(metric_min_floor(&norm));
+    }
+    if norm.is_empty() {
+        return None;
+    }
+    let mut best: Option<f64> = None;
+    for m in QUAL_LOWER_METRICS {
+        if m.starts_with(&norm) {
+            let f = metric_min_floor(m);
+            best = Some(best.map_or(f, |b| b.max(f)));
+        }
+    }
+    best
 }
 
 pub fn has_threshold_zero_or_skip(line: &str) -> bool {
     let low = line.to_ascii_lowercase();
-    for m in QUAL_LOWER_METRICS {
-        let cli_flag = format!("--min-{}", m.replace('_', "-"));
+    for flag_pref in ["--min-", "--gate-min-"] {
         let mut cfrom = 0;
-        while let Some(rel) = low[cfrom..].find(&cli_flag) {
+        while let Some(rel) = low[cfrom..].find(flag_pref) {
             let pos = cfrom + rel;
-            let end = pos + cli_flag.len();
-            cfrom = end;
+            let name_start = pos + flag_pref.len();
+            cfrom = name_start;
             if pos > 0
                 && (low.as_bytes()[pos - 1].is_ascii_alphanumeric()
                     || low.as_bytes()[pos - 1] == b'_')
+            {
+                continue;
+            }
+            let name_len = low[name_start..]
+                .bytes()
+                .take_while(|b| b.is_ascii_alphanumeric() || *b == b'-' || *b == b'_')
+                .count();
+            if name_len == 0 {
+                continue;
+            }
+            let tok = &low[name_start..name_start + name_len];
+            let Some(floor) = prefix_metric_floor(tok) else {
+                continue;
+            };
+            let tail = low[name_start + name_len..].trim_start_matches(['"', '\'']);
+            if let Some(rest) = tail
+                .strip_prefix('=')
+                .or_else(|| tail.strip_prefix(','))
+                .or_else(|| tail.strip_prefix(' '))
+                .or_else(|| tail.strip_prefix('\t'))
+            {
+                if let Some(val) = parse_leading_f64(rest) {
+                    if !val.is_finite() || val < floor {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    for bare_pref in ["--min", "--mi", "--gate-min", "--gate-mi"] {
+        let mut bfrom = 0;
+        while let Some(rel) = low[bfrom..].find(bare_pref) {
+            let pos = bfrom + rel;
+            let end = pos + bare_pref.len();
+            bfrom = end;
+            if pos > 0
+                && (low.as_bytes()[pos - 1].is_ascii_alphanumeric()
+                    || low.as_bytes()[pos - 1] == b'_')
+            {
+                continue;
+            }
+            if end < low.len()
+                && (low.as_bytes()[end].is_ascii_alphanumeric()
+                    || low.as_bytes()[end] == b'-'
+                    || low.as_bytes()[end] == b'_')
             {
                 continue;
             }
@@ -297,14 +396,18 @@ pub fn has_threshold_zero_or_skip(line: &str) -> bool {
                 .strip_prefix('=')
                 .or_else(|| tail.strip_prefix(','))
                 .or_else(|| tail.strip_prefix(' '))
+                .or_else(|| tail.strip_prefix('\t'))
             {
                 if let Some(val) = parse_leading_f64(rest) {
-                    if val <= MIN_FLOOR_EPSILON {
+                    if !val.is_finite() || val < 0.50 {
                         return true;
                     }
                 }
             }
         }
+    }
+    for m in QUAL_LOWER_METRICS {
+        let floor = metric_min_floor(m);
         for pref in ["min_", "minimum_"] {
             let kw = format!("{}{}", pref, m);
             let mut from = 0;
@@ -321,14 +424,14 @@ pub fn has_threshold_zero_or_skip(line: &str) -> bool {
                 if !prev_ok || !next_ok {
                     continue;
                 }
-                let rest = low[end..].trim_start();
+                let rest = low[end..].trim_start_matches(['"', '\'']).trim_start();
                 if let Some(val_part) = rest
                     .strip_prefix('=')
                     .filter(|s| !s.starts_with('='))
                     .or_else(|| rest.strip_prefix(':'))
                 {
                     if let Some(val) = parse_leading_f64(val_part) {
-                        if val <= MIN_FLOOR_EPSILON {
+                        if !val.is_finite() || val < floor {
                             return true;
                         }
                     }
@@ -341,8 +444,29 @@ pub fn has_threshold_zero_or_skip(line: &str) -> bool {
             return true;
         }
     }
-    if low.contains("git commit") && low.contains(" --no-verify") {
+    if low.contains("git commit") && (low.contains(" --no-verify") || low.contains(" -n ")) {
         return true;
+    }
+    for (flag_kw, bad_val) in [
+        ("--require-spark-receipt", "false"),
+        ("--gate-mode", "off"),
+        ("--measured-gates", "off"),
+        ("--skip-heavy-renders", "true"),
+        ("--check-360", "false"),
+    ] {
+        if let Some(pos) = low.find(flag_kw) {
+            let tail = low[pos + flag_kw.len()..].trim_start_matches(['"', '\'']);
+            if let Some(rest) = tail
+                .strip_prefix('=')
+                .or_else(|| tail.strip_prefix(','))
+                .or_else(|| tail.strip_prefix(' '))
+            {
+                let val = rest.trim_start_matches([' ', '"', '\'']);
+                if val.starts_with(bad_val) {
+                    return true;
+                }
+            }
+        }
     }
     for kw in ["skip_reference", "skip_validation", "skip_fidelity", "bypass_gate"] {
         if let Some(pos) = low.find(kw) {
@@ -731,11 +855,16 @@ pub fn scan_file_reward_hacks(
         .unwrap_or_default();
     if ext == "md"
         || norm_rel.ends_with("assets/reward-guard/reward_guard.py")
+        || norm_rel.ends_with("assets/reward-guard/test_reward_guard.py")
         || norm_rel.ends_with("native/dmb-gate/src/reward.rs")
         || norm_rel.ends_with("scripts/antigravity-guard.mjs")
         || norm_rel.ends_with("assets/contain/claude_guard.py")
+        || norm_rel.ends_with("assets/contain/test_contain.py")
+        || norm_rel.ends_with("assets/contain/test_antigravity_guard.py")
         || norm_rel.ends_with("assets/git-guardrails/git-guard-patterns.txt")
         || norm_rel.ends_with("assets/git-guardrails/git-guard.ts")
+        || norm_rel.ends_with("assets/git-guardrails/git-guard.sh")
+        || norm_rel.ends_with("assets/git-guardrails/test_git_guard.py")
     {
         return;
     }
@@ -765,8 +894,8 @@ pub fn scan_file_reward_hacks(
                 rule: "reward-hack-threshold-zero",
                 file: rel.to_string(),
                 line: *ln,
-                message: "Zero, negative, or near-zero quality threshold (`--min-iou 0` / `min_*<=1e-6`) or gate/reference skip flag bypasses real evaluation.".to_string(),
-                fix: "Score directly against the reference artwork/contract with a positive threshold and remove skip flags.",
+                message: "Sub-floor quality threshold (e.g. `--min-iou < 0.50` / `min_*` below metric floor) or gate/reference skip flag bypasses real evaluation.".to_string(),
+                fix: "Score directly against the reference artwork/contract above the metric floor (`>= 0.50` for IoU/SSIM/F1/fidelity) and remove skip flags.",
             });
         }
         if include_primitives && !allow_primitives && has_primitive_standin(line) {

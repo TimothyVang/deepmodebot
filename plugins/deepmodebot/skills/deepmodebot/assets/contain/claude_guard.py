@@ -21,6 +21,7 @@ Other Bash, MCP tools and hook programs are not covered here.
 import importlib.util
 import json
 import os
+import math
 import re
 import subprocess
 import sys
@@ -29,17 +30,36 @@ import time
 sys.dont_write_bytecode = True
 
 MARK_MAX_AGE_SECONDS = 30 * 24 * 3600
+METRIC_FLOORS = {
+    "iou": 0.50, "ssim": 0.50, "dice": 0.50, "f1": 0.50, "auc": 0.50,
+    "accuracy": 0.50, "acc": 0.50, "precision": 0.50, "recall": 0.50,
+    "fidelity": 0.50, "similarity": 0.50, "coverage": 0.50, "pass-rate": 0.50, "win-rate": 0.50,
+    "clip": 0.15, "clip-score": 0.15, "ap": 0.15, "map": 0.15, "bleu": 0.15, "rouge": 0.15,
+    "psnr": 10.0, "protrusion": 0.02, "score": 0.05, "confidence": 0.05, "symmetry": 0.05,
+}
+MIN_FLAG_VAL_RE = re.compile(
+    r"(?:^|[\s;&|(])(['\"]?--(?:gate-)?mi(?:n(?:-([a-z0-9_-]*))?)?['\"]?(?:\s+|=)['\"]?\s*([-+]?(?:inf(?:inity)?|nan|(?:\d[\d_]*\.?[\d_]*|\.[\d_]+)(?:[eE][-+]?[\d_]+)?))\s*['\"]?)(?=$|[\s;&|)])",
+    re.I,
+)
 RULE_LEDGER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "rules", "rule_ledger.py")
 REWARD_HACK_CMD_RE = re.compile(
-    r"(?:^|[ ;&|(])--(?:gate-)?min-(?:iou|ssim|psnr|clip|clip-score|dice|f1|score|fidelity|similarity|coverage|accuracy|protrusion)(?:\s+|=)['\"]?(?:-\d+(?:\.\d+)?|0+(?:\.0+)?|\d+(?:\.\d+)?[eE]-[6-9]\d*)['\"]?(?=$|[ ;&|)])"
-    r"|(?:^|[ ;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|bypass-gate)(?=$|[ ;&|)])"
-    r"|(?:^|[ ;&|(])(?:--require-spark-receipt(?:\s+|=)['\"]?false|--gate-mode(?:\s+|=)['\"]?off)['\"]?(?=$|[ ;&|)])"
-    r"|\bgit\b[^\n;&|]*\bcommit\b[^\n;&|]*\s(?:-n|--no-verify)(?=$|[ ;&|)])"
-    r"|\bsqlite3\b[^\n;&|]*reward-guard\.db\b"
-    r"|\b(?:rm|del|unlink|Remove-Item)\b[^\n;&|]*(?:contract-lock\.json|reward-guard\.db)\b"
+    r"(?:^|[\s;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|skip-verify|skip-validation|bypass-gate|pass-if-no-tests|passWithNoTests)(?=$|[\s;&|)])"
+    r"|(?:^|[\s;&|(])(?:--require-spark-receipt(?:\s+|=)['\"]?false|--gate-mode(?:\s+|=)['\"]?off|--measured-gates(?:\s+|=)['\"]?off|--check-360(?:\s+|=)['\"]?(?:false|0))['\"]?(?=$|[\s;&|)])"
+    r"|\bgit\b[^\n;&|]*\bcommit\b[^\n;&|]*\s(?:-n|--no-verify)(?=$|[\s;&|)])"
+    r"|\b(?:reward-guard\.db|contract-lock\.json|judge_verdicts)\b"
     r"|\breward_guard\.py\b[^\n;&|]*\brecord-judge\b",
     re.I,
 )
+
+
+def _min_flag_floor(tok):
+    norm = (tok or "").lower().replace("_", "-")
+    if not norm:
+        return 0.50
+    if norm in METRIC_FLOORS:
+        return METRIC_FLOORS[norm]
+    matches = [v for k, v in METRIC_FLOORS.items() if k.startswith(norm)]
+    return max(matches) if matches else None
 
 
 def check_bash_reward_hack(cmd_text):
@@ -48,6 +68,15 @@ def check_bash_reward_hack(cmd_text):
         ln = raw_ln.strip()
         if not ln or re.match(r"^(?:grep|rg)\s+[^;&|`$]*$", ln):
             continue
+        for fm in MIN_FLAG_VAL_RE.finditer(ln):
+            floor = _min_flag_floor(fm.group(2))
+            if floor is not None:
+                try:
+                    val = float(fm.group(3))
+                    if not math.isfinite(val) or val < floor:
+                        return fm.group(1).strip()
+                except ValueError:
+                    pass
         m = REWARD_HACK_CMD_RE.search(ln)
         if m:
             return m.group(0).strip()

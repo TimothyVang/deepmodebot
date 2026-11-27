@@ -43,8 +43,41 @@ const WRITE_TOOLS = new Set([
   "multi_replace_file_content",
 ]);
 const SHELL_TOOLS = new Set(["run_command", "execute_command", "bash"]);
-const REWARD_HACK_CMD_RE =
-  /(?:^|[ ;&|(])--(?:gate-)?min-(?:iou|ssim|psnr|clip|clip-score|dice|f1|score|fidelity|similarity|coverage|accuracy|protrusion)(?:\s+|=)['"]?(?:-\d+(?:\.\d+)?|0+(?:\.0+)?|\d+(?:\.\d+)?e-[6-9]\d*)['"]?(?=$|[ ;&|)])|(?:^|[ ;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|bypass-gate)(?=$|[ ;&|)])|(?:^|[ ;&|(])(?:--require-spark-receipt(?:\s+|=)['"]?false|--gate-mode(?:\s+|=)['"]?off)['"]?(?=$|[ ;&|)])|\bgit\b[^\n;&|]*\bcommit\b[^\n;&|]*\s(?:-n|--no-verify)(?=$|[ ;&|)])|\bsqlite3\b[^\n;&|]*reward-guard\.db\b|\b(?:rm|del|unlink|Remove-Item)\b[^\n;&|]*(?:contract-lock\.json|reward-guard\.db)\b|\breward_guard\.py\b[^\n;&|]*\brecord-judge\b/i;
+const METRIC_FLOORS = {
+  iou: 0.5, ssim: 0.5, dice: 0.5, f1: 0.5, auc: 0.5,
+  accuracy: 0.5, acc: 0.5, precision: 0.5, recall: 0.5,
+  fidelity: 0.5, similarity: 0.5, coverage: 0.5, "pass-rate": 0.5, "win-rate": 0.5,
+  clip: 0.15, "clip-score": 0.15, ap: 0.15, map: 0.15, bleu: 0.15, rouge: 0.15,
+  psnr: 10.0, protrusion: 0.02, score: 0.05, confidence: 0.05, symmetry: 0.05,
+};
+const MIN_FLAG_VAL_RE =
+  /(?:^|[\s;&|(])(['"]?--(?:gate-)?mi(?:n(?:-([a-z0-9_-]*))?)?['"]?(?:\s+|=)['"]?\s*([-+]?(?:inf(?:inity)?|nan|(?:\d[\d_]*\.?[\d_]*|\.[\d_]+)(?:e[-+]?[\d_]+)?))\s*['"]?)(?=$|[\s;&|)])/gi;
+const REWARD_HACK_CMD_RE = new RegExp(
+  [
+    String.raw`(?:^|[\s;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|skip-verify|skip-validation|bypass-gate|pass-if-no-tests|passWithNoTests)(?=$|[\s;&|)])`,
+    String.raw`(?:^|[\s;&|(])(?:--require-spark-receipt(?:\s+|=)['"]?false|--gate-mode(?:\s+|=)['"]?off|--measured-gates(?:\s+|=)['"]?off|--check-360(?:\s+|=)['"]?(?:false|0))['"]?(?=$|[\s;&|)])`,
+    String.raw`\bgit\b[^\n;&|]*\bcommit\b[^\n;&|]*\s(?:-n|--no-verify)(?=$|[\s;&|)])`,
+    String.raw`\b(?:reward-guard\.db|contract-lock\.json|judge_verdicts)\b`,
+    String.raw`\breward_guard\.py\b[^\n;&|]*\brecord-judge\b`,
+  ].join("|"),
+  "i",
+);
+
+function minFlagFloor(rawTok) {
+  const tok = (rawTok ?? "").toLowerCase().replace(/_/g, "-");
+  if (!tok) return 0.5;
+  if (Object.hasOwn(METRIC_FLOORS, tok)) return METRIC_FLOORS[tok];
+  const matches = Object.entries(METRIC_FLOORS)
+    .filter(([k]) => k.startsWith(tok))
+    .map(([, v]) => v);
+  return matches.length ? Math.max(...matches) : null;
+}
+function parseGuardFloat(raw) {
+  const c = String(raw).trim().replace(/_/g, "");
+  if (/^[-+]?inf(?:inity)?$/i.test(c)) return c.startsWith("-") ? -Infinity : Infinity;
+  if (/^[-+]?nan$/i.test(c)) return NaN;
+  return Number(c);
+}
 
 // rule-paths.json, lowercased, for the cheap pre-check that decides whether rule_ledger.py needs to run at all.
 function loadRuleSpec() {
@@ -130,6 +163,13 @@ function findShellRewardHack(rawCmd) {
   for (const rawLine of cleaned.replace(/\\\r?\n/g, " ").split(/\r?\n/)) {
     const line = rawLine.trim();
     if (!line || /^(?:grep|rg)\s+[^;&|`$]*$/.test(line)) continue;
+    MIN_FLAG_VAL_RE.lastIndex = 0;
+    let fm;
+    while ((fm = MIN_FLAG_VAL_RE.exec(line)) !== null) {
+      const floor = minFlagFloor(fm[2]);
+      const val = parseGuardFloat(fm[3]);
+      if (floor !== null && (!Number.isFinite(val) || val < floor)) return fm[1].trim();
+    }
     const m = REWARD_HACK_CMD_RE.exec(line);
     if (m) return m[0].trim();
   }

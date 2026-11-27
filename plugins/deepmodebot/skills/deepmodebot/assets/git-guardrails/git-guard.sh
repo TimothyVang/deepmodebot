@@ -113,6 +113,46 @@ active="$(printf '%s\n' "$clean_patterns" | grep -vE '^[[:space:]]*(#|@|$)' || t
 if [[ -n "$active" && -n "$scrubbed_text" ]]; then
   hit="$(printf '%s\n' "$scrubbed_text" | grep -Eo -f <(printf '%s\n' "$active") | head -n 1 || true)"
   [[ -z "$hit" ]] || block "$hit"
+  min_hit="$(printf '%s\n' "$scrubbed_text" | awk '
+    BEGIN {
+      split("iou ssim dice f1 auc accuracy acc precision recall fidelity similarity coverage pass-rate win-rate", m50, " ")
+      for (i in m50) fl[m50[i]] = 0.50
+      split("clip clip-score ap map bleu rouge", m15, " ")
+      for (i in m15) fl[m15[i]] = 0.15
+      fl["psnr"] = 10.0; fl["protrusion"] = 0.02; fl["score"] = 0.05; fl["confidence"] = 0.05; fl["symmetry"] = 0.05
+    }
+    {
+      s = tolower($0)
+      while (match(s, /(^|[ ;&|(])["'\'']?--(gate-)?mi(n(-[a-z0-9_-]*)?)?["'\'']?( +|=)["'\'']? *[-+]?(inf(inity)?|nan|([0-9][0-9_]*\.?[0-9_]*|\.[0-9_]+)(e[-+]?[0-9_]+)?) *["'\'']?( |;|&|\||\)|$)/)) {
+        seg = substr(s, RSTART, RLENGTH)
+        s = substr(s, RSTART + RLENGTH - 1)
+        tok = seg
+        sub(/^.*--(gate-)?mi(n-?)?/, "", tok)
+        val = seg
+        sub(/^.*--(gate-)?mi(n(-[a-z0-9_-]*)?)?["'\'']?( +|=)["'\'']? */, "", val)
+        sub(/ *["'\'' ;&|)]*$/, "", val)
+        if (seg ~ /--(gate-)?min-[a-z0-9_-]+/) {
+          sub(/["'\'']?( +|=).*$/, "", tok)
+          gsub(/_/, "-", tok)
+        } else {
+          tok = ""
+        }
+        gsub(/_/, "", val)
+        req = -1
+        if (tok == "") { req = 0.50 }
+        else if (tok in fl) { req = fl[tok] }
+        else {
+          for (k in fl) if (index(k, tok) == 1 && fl[k] > req) req = fl[k]
+        }
+        if (req >= 0) {
+          if (val ~ /^[-+]?(inf(inity)?|nan)$/) { print seg; exit 0 }
+          nv = val + 0.0
+          if (nv != nv || nv + 1.0 == nv && (nv > 1e307 || nv < -1e307) || nv < req) { print seg; exit 0 }
+        }
+      }
+    }
+  ')"
+  [[ -z "$min_hit" ]] || block "$min_hit"
 fi
 
 branch_rules="$(printf '%s\n' "$clean_patterns" | grep -E '^@branch ' || true)"

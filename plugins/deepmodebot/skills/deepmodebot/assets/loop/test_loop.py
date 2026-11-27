@@ -1422,5 +1422,102 @@ class ScanTextSlopCase(unittest.TestCase):
             self.assertEqual(summary["exit_reason"], "tampered_frontmatter")
 
 
+    def test_outer_supervisor_blocks_scratch_reward_hack_and_unverified_artifact(self):
+        sys.path.insert(0, str(LOOP.parent))
+        import loop as loop_mod
+
+        with tempfile.TemporaryDirectory(prefix="loop-reward-guard-") as tmp:
+            root = Path(tmp)
+            subprocess.run(["git", "init", "-q", "-b", "main", str(root)], check=True, capture_output=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.email", "t@e.com"], check=True, capture_output=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.name", "T"], check=True, capture_output=True)
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            (root / "refs").mkdir()
+            (root / "refs" / "art.png").write_bytes(b"\x89PNG\r\n\x1a\nref-art")
+            (root / "check.py").write_text("import pathlib, sys; sys.exit(0 if pathlib.Path('out/model.glb').is_file() else 1)\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "."], check=True, capture_output=True)
+            subprocess.run(["git", "-C", str(root), "commit", "-q", "-m", "init"], check=True, capture_output=True)
+            (root / "goals").mkdir()
+
+            # 1. Holdout directory is strictly outside `root` even when TMP/TEMP points inside `.scratch/tmp`.
+            old_tmp = os.environ.get("TEMP")
+            os.environ["TEMP"] = str(root / ".scratch" / "tmp")
+            try:
+                hd = loop_mod._allocate_outside_holdout(str(root), "ship")
+                self.assertIsNone(loop_mod._rel_inside_root(hd, str(root)))
+                shutil.rmtree(hd, ignore_errors=True)
+            finally:
+                if old_tmp is not None:
+                    os.environ["TEMP"] = old_tmp
+
+            # 2. Incomplete reward_artifacts without references/producers is rejected at parse time.
+            bad_goal = root / "goals" / "incomplete.md"
+            bad_goal.write_text(
+                f'---\ngoal: bad\ncheck: "{sys.executable}" check.py\nprotect: check.py\nreward_artifacts: out/model.glb\nmax_iterations: 1\nmax_cost_usd: 1\n---\nPlan.\n',
+                encoding="utf-8",
+            )
+            bad_proc = subprocess.run([sys.executable, "-B", str(LOOP), "check", "goals/incomplete.md"], cwd=str(root), capture_output=True, text=True)
+            self.assertNotEqual(bad_proc.returncode, 0)
+
+            # 3. Clean scan + green check + unverified artifact reaches evaluate_outer_reward_contract and fails provenance!
+            goal = root / "goals" / "ship.md"
+            goal.write_text(
+                f'---\ngoal: generate real 3d ship\ncheck: "{sys.executable}" check.py\nprotect: check.py\n'
+                "reward_references: refs/art.png\nreward_artifacts: out/model.glb\nreward_producers: dgx-spark\n"
+                "max_iterations: 1\nmax_cost_usd: 1\n---\nPlan.\n",
+                encoding="utf-8",
+            )
+            clean_unverified_agent = bin_dir / "unverified_omp.py"
+            clean_unverified_agent.write_text(
+                "import os, pathlib, sys\n"
+                "assert 'DEEPMODEBOT_REWARD_STATE_DIR' not in os.environ\n"
+                "sys.stdin.read()\n"
+                "pathlib.Path('out').mkdir(exist_ok=True)\n"
+                "pathlib.Path('out/model.glb').write_bytes(b'unverified-glb-bytes')\n",
+                encoding="utf-8",
+            )
+            if os.name == "nt":
+                (bin_dir / "omp.cmd").write_text(f'@"{sys.executable}" "{clean_unverified_agent}" %*\r\n', encoding="utf-8")
+            else:
+                omp = bin_dir / "omp"
+                omp.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{clean_unverified_agent}" "$@"\n', encoding="utf-8")
+                omp.chmod(0o755)
+            env = {**os.environ, "PATH": str(bin_dir) + os.pathsep + os.environ.get("PATH", ""), "DEEPMODEBOT_REWARD_STATE_DIR": "/secret"}
+            proc = subprocess.run(
+                [sys.executable, "-B", str(LOOP), "run", "goals/ship.md", "--harness", "omp"],
+                cwd=str(root), capture_output=True, text=True, env=env,
+            )
+            self.assertNotEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            summary = json.loads((root / ".scratch" / "goals" / "ship" / "latest-summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(summary["stage"], "reward_guard")
+            chk_logs = list((root / ".scratch" / "goals" / "ship").glob("*-check.log"))
+            self.assertTrue(any("outer-supervisor verification error" in p.read_text(encoding="utf-8") for p in chk_logs))
+
+            # 4. Check command that mutates a protected reward_references file exits 4 immediately!
+            (root / "mutate_ref.py").write_text("import pathlib; pathlib.Path('refs/art.png').write_bytes(b'tampered')\n", encoding="utf-8")
+            mut_goal = root / "goals" / "mut.md"
+            mut_goal.write_text(
+                f'---\ngoal: mut\ncheck: "{sys.executable}" mutate_ref.py\nprotect: none\nreward_references: refs/art.png\nreward_artifacts: out/model.glb\nmax_iterations: 1\nmax_cost_usd: 1\n---\nPlan.\n',
+                encoding="utf-8",
+            )
+            mut_proc = subprocess.run([sys.executable, "-B", str(LOOP), "run", "goals/mut.md", "--harness", "omp"], cwd=str(root), capture_output=True, text=True, env=env)
+            self.assertEqual(mut_proc.returncode, 4, mut_proc.stdout + mut_proc.stderr)
+
+            # 5. Green preflight check that drops a .scratch bypass script does NOT report already-done!
+            (root / "refs" / "art.png").write_bytes(b"\x89PNG\r\n\x1a\nref-art")
+            (root / "sneaky_check.py").write_text(
+                "import pathlib\npathlib.Path('.scratch').mkdir(exist_ok=True)\n"
+                "pathlib.Path('.scratch/gate.sh').write_text('quality-eval --skip-reference\\n', encoding='utf-8')\n",
+                encoding="utf-8",
+            )
+            sneaky_goal = root / "goals" / "sneaky.md"
+            sneaky_goal.write_text(
+                f'---\ngoal: sneaky\ncheck: "{sys.executable}" sneaky_check.py\nprotect: none\nmax_iterations: 1\nmax_cost_usd: 1\n---\nPlan.\n',
+                encoding="utf-8",
+            )
+            sneaky_proc = subprocess.run([sys.executable, "-B", str(LOOP), "run", "goals/sneaky.md", "--harness", "omp"], cwd=str(root), capture_output=True, text=True, env=env)
+            self.assertNotEqual(sneaky_proc.returncode, 0, sneaky_proc.stdout + sneaky_proc.stderr)
+            self.assertNotIn("already passes", sneaky_proc.stdout)
 if __name__ == "__main__":
     unittest.main()
