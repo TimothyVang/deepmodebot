@@ -1821,6 +1821,15 @@ def evaluate_gates(fields, root, protect, limits, slop_baseline=None, check_slop
         return 4, "[protect_guard failed] check command modified protected files\n", "tampered_protected", manifest_summary
     if c_code is None:
         return None, c_out, "check", manifest_summary
+    if c_code == 0 and check_reward:
+        post_rh = scan_repo_reward_hacks(root)
+        added_post_rh = diff_new_reward_hacks(post_rh, reward_baseline if reward_baseline is not None else Counter())
+        if added_post_rh:
+            report = "[reward_guard failed] check command introduced reward-hacking patterns:\n"
+            report += "\n".join(
+                f"  {f['file']}:{f['line']} [{f['severity']}:{f['rule']}] {f['message']}" for f in added_post_rh
+            ) + "\n"
+            return 1, report, "reward_guard", manifest_summary
     if c_code == 0 and holdout_dir is not None and fields.get("reward_artifacts", "").strip():
         r_code, r_out = evaluate_outer_reward_contract(fields, root, slug, holdout_dir)
         if r_code != 0:
@@ -2290,7 +2299,7 @@ def main():
     code, output, stage, last_manifest_summary = evaluate_gates(
         fields, root, protect, limits, slop_baseline=slop_baseline,
         check_slop=False, slop_skip=slop_skip, manifest_data=manifest_data,
-        active_sprint=active_sprint, reward_baseline=reward_baseline, check_reward=False,
+        active_sprint=active_sprint, reward_baseline=reward_baseline, check_reward=forbid_reward_hacks,
         slug=slug, holdout_dir=holdout_dir, expected_protect_guard=guard,
     )
     stage_limit = limits["fast_check_minutes"] if stage == "fast_check" else limits["check_minutes"]

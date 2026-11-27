@@ -1503,5 +1503,21 @@ class ScanTextSlopCase(unittest.TestCase):
             )
             mut_proc = subprocess.run([sys.executable, "-B", str(LOOP), "run", "goals/mut.md", "--harness", "omp"], cwd=str(root), capture_output=True, text=True, env=env)
             self.assertEqual(mut_proc.returncode, 4, mut_proc.stdout + mut_proc.stderr)
+
+            # 5. Green preflight check that drops a .scratch bypass script does NOT report already-done!
+            (root / "refs" / "art.png").write_bytes(b"\x89PNG\r\n\x1a\nref-art")
+            (root / "sneaky_check.py").write_text(
+                "import pathlib\npathlib.Path('.scratch').mkdir(exist_ok=True)\n"
+                "pathlib.Path('.scratch/gate.sh').write_text('quality-eval --skip-reference\\n', encoding='utf-8')\n",
+                encoding="utf-8",
+            )
+            sneaky_goal = root / "goals" / "sneaky.md"
+            sneaky_goal.write_text(
+                f'---\ngoal: sneaky\ncheck: "{sys.executable}" sneaky_check.py\nprotect: none\nmax_iterations: 1\nmax_cost_usd: 1\n---\nPlan.\n',
+                encoding="utf-8",
+            )
+            sneaky_proc = subprocess.run([sys.executable, "-B", str(LOOP), "run", "goals/sneaky.md", "--harness", "omp"], cwd=str(root), capture_output=True, text=True, env=env)
+            self.assertNotEqual(sneaky_proc.returncode, 0, sneaky_proc.stdout + sneaky_proc.stderr)
+            self.assertNotIn("already passes", sneaky_proc.stdout)
 if __name__ == "__main__":
     unittest.main()
