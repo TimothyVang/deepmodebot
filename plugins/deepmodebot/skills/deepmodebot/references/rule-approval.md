@@ -8,7 +8,7 @@ Mechanics behind the `SKILL.md` rule approval rule. Code: `assets/rules/rule_led
 - Everything under rule, skill, agent and command folders: `.claude/{rules,skills,agents,commands}`, `.omp/{rules,skills,agents,commands}`, `.agents/{rules,skills,workflows}`, `.cursor/rules`, `.windsurf/rules`, `.devin/{rules,skills}`, `.roo/rules`, `.kiro/steering`, `.continue/rules`, `.amazonq/rules`, `.github/instructions`, `.codex/{rules,agents}`.
 - Settings that grant agents permissions or pick their rule files: `.claude/settings.json`, `.claude/settings.local.json`, `.codex/config.toml`, `.gemini/settings.json`, `.github/copilot-instructions.md`, `.omp/RULES.md`, `.omp/SYSTEM.md`, `.deepmodebot.json`, `.deepmodebot/policy.xml`.
 - `convention` records in the project memory (`.scratch/deepmode-memory.db`).
-- Gitignored rule files count too; working-tree checks list them. Paths under `.git`, `node_modules`, `.scratch` or `.worktrees` never count, so drafts in `.scratch/` are free.
+- Gitignored rule files (`CLAUDE.local.md`, `.claude/settings.local.json`) are personal: the hooks block agent writes to them, but the ledger never stores them, so their text never lands in git. Paths under `.git`, `node_modules`, `.scratch` or `.worktrees` never count, so drafts in `.scratch/` are free.
 - A rule path may be a symlink only to another rule path (`CLAUDE.md -> AGENTS.md`). A link to anything else is refused at `init` and fails the gate, because its target could change unseen.
 
 ## Owner workflow

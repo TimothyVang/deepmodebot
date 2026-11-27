@@ -106,18 +106,15 @@ class RuleError(Exception):
     """A refused ledger action; the message is shown to the user as is."""
 
 
-def _load_spec() -> tuple[frozenset, tuple, frozenset, tuple]:
+def _load_spec() -> tuple[frozenset, tuple, frozenset]:
     data = json.loads((HERE / "rule-paths.json").read_text(encoding="utf-8"))
     names = frozenset(n.lower() for n in data["names"])
     dirs = tuple("/" + d.lower().strip("/") + "/" for d in data["dirs"])
     files = frozenset(f.lower() for f in data["files"])
-    pathspecs = tuple([f":(glob,icase)**/{n}" for n in data["names"]]
-                      + [f":(glob,icase)**/{d.strip('/')}/**" for d in data["dirs"]]
-                      + [f":(icase){f}" for f in data["files"]])
-    return names, dirs, files, pathspecs
+    return names, dirs, files
 
 
-RULE_NAMES, RULE_DIRS, RULE_FILES, RULE_PATHSPECS = _load_spec()
+RULE_NAMES, RULE_DIRS, RULE_FILES = _load_spec()
 
 
 def norm_rel(raw: str) -> str:
@@ -238,6 +235,7 @@ class Source:
         return self.read_many([rel])[rel]
 
     def paths(self) -> list[str]:
+        """Every file git tracks or would track; gitignored files are personal and stay out of the ledger."""
         if self.mode == "index":
             return self._git_list("ls-files", "-z", "--cached") or []
         if self.mode == "ref":
@@ -249,10 +247,6 @@ class Source:
                 dirnames[:] = [d for d in dirnames if d not in SKIP_SEGMENTS]
                 base = Path(folder).relative_to(self.root)
                 listed += [(base / n).as_posix() for n in filenames]
-        else:
-            listed += self._git_list("ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--",
-                                     *RULE_PATHSPECS) or []
-        listed += [n for n in os.listdir(self.root) if n.lower() in RULE_NAMES]
         return sorted({p for p in listed if os.path.lexists(self.root / p)})
 
     def links(self) -> dict[str, str]:
@@ -1636,6 +1630,9 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_rotate(root)
     except (RuleError, OSError) as exc:
         print(f"rules: {exc}", file=sys.stderr)
+        return 1
+    except EOFError:
+        print("rules: the owner passphrase must be typed on a terminal", file=sys.stderr)
         return 1
 
 
