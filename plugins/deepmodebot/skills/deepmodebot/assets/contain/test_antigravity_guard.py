@@ -502,6 +502,10 @@ class AntigravityGuardTests(unittest.TestCase):
             "python gate.py --min-iou -.5",
             "python gate.py --min-iou 0.",
             "python gate.py --min-i 0.1",
+            "python gate.py --min-iou=-inf",
+            "python gate.py --min-iou=-1e999",
+            "python gate.py --min-iou 0.0_1",
+            "python gate.py --min 0.1",
             "python spark3d.py generate --measured-gates off",
             'python -c "import sqlite3; sqlite3.connect(\'.scratch/reward-guard/x/reward-guard.db\')"',
         ):

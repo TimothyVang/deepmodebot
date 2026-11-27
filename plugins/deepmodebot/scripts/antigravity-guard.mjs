@@ -40,7 +40,7 @@ const METRIC_FLOORS = {
   psnr: 10.0, protrusion: 0.02, score: 0.05, confidence: 0.05, symmetry: 0.05,
 };
 const MIN_FLAG_VAL_RE =
-  /(?:^|[\s;&|(])(--(?:gate-)?min-([a-z0-9_-]+)(?:\s+|=)['"]?([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)['"]?)(?=$|[\s;&|)])/gi;
+  /(?:^|[\s;&|(])(--(?:gate-)?mi(?:n(?:-([a-z0-9_-]*))?)?(?:\s+|=)['"]?\s*([-+]?(?:inf(?:inity)?|nan|(?:\d[\d_]*\.?[\d_]*|\.[\d_]+)(?:e[-+]?[\d_]+)?))\s*['"]?)(?=$|[\s;&|)])/gi;
 const REWARD_HACK_CMD_RE = new RegExp(
   [
     String.raw`(?:^|[\s;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|skip-verify|skip-validation|bypass-gate|pass-if-no-tests|passWithNoTests)(?=$|[\s;&|)])`,
@@ -53,12 +53,19 @@ const REWARD_HACK_CMD_RE = new RegExp(
 );
 
 function minFlagFloor(rawTok) {
-  const tok = rawTok.toLowerCase().replace(/_/g, "-");
+  const tok = (rawTok ?? "").toLowerCase().replace(/_/g, "-");
+  if (!tok) return 0.5;
   if (Object.hasOwn(METRIC_FLOORS, tok)) return METRIC_FLOORS[tok];
   const matches = Object.entries(METRIC_FLOORS)
     .filter(([k]) => k.startsWith(tok))
     .map(([, v]) => v);
   return matches.length ? Math.max(...matches) : null;
+}
+function parseGuardFloat(raw) {
+  const c = String(raw).trim().replace(/_/g, "");
+  if (/^[-+]?inf(?:inity)?$/i.test(c)) return c.startsWith("-") ? -Infinity : Infinity;
+  if (/^[-+]?nan$/i.test(c)) return NaN;
+  return Number(c);
 }
 
 function findShellRewardHack(rawCmd) {
@@ -70,8 +77,8 @@ function findShellRewardHack(rawCmd) {
     let fm;
     while ((fm = MIN_FLAG_VAL_RE.exec(line)) !== null) {
       const floor = minFlagFloor(fm[2]);
-      const val = Number(fm[3]);
-      if (floor !== null && Number.isFinite(val) && val < floor) return fm[1].trim();
+      const val = parseGuardFloat(fm[3]);
+      if (floor !== null && (!Number.isFinite(val) || val < floor)) return fm[1].trim();
     }
     const m = REWARD_HACK_CMD_RE.exec(line);
     if (m) return m[0].trim();

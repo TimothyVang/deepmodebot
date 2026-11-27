@@ -123,22 +123,33 @@ if [[ -n "$active" && -n "$scrubbed_text" ]]; then
     }
     {
       s = $0
-      while (match(s, /(^|[ ;&|(])--(gate-)?min-[A-Za-z0-9_-]+( +|=)["'\'']?[-+]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][-+]?[0-9]+)?["'\'']?( |;|&|\||\)|$)/)) {
+      while (match(s, /(^|[ ;&|(])--(gate-)?mi(n(-[A-Za-z0-9_-]*)?)?( +|=)["'\'']? *[-+]?(inf(inity)?|INF(INITY)?|[Ii]nf(inity)?|[Nn][Aa][Nn]|([0-9][0-9_]*\.?[0-9_]*|\.[0-9_]+)([eE][-+]?[0-9_]+)?) *["'\'']?( |;|&|\||\)|$)/)) {
         seg = substr(s, RSTART, RLENGTH)
         s = substr(s, RSTART + RLENGTH - 1)
         tok = seg
-        sub(/^.*--(gate-)?min-/, "", tok)
-        val = tok
-        sub(/^[A-Za-z0-9_-]+( +|=)["'\'']?/, "", val)
-        sub(/["'\'' ;&|)]*$/, "", val)
-        sub(/( +|=).*$/, "", tok)
-        tok = tolower(tok); gsub(/_/, "-", tok)
+        sub(/^.*--(gate-)?mi(n-?)?/, "", tok)
+        val = seg
+        sub(/^.*--(gate-)?mi(n(-[A-Za-z0-9_-]*)?)?( +|=)["'\'']? */, "", val)
+        sub(/ *["'\'' ;&|)]*$/, "", val)
+        if (seg ~ /--(gate-)?min-[A-Za-z0-9_-]+/) {
+          sub(/( +|=).*$/, "", tok)
+          tok = tolower(tok); gsub(/_/, "-", tok)
+        } else {
+          tok = ""
+        }
+        gsub(/_/, "", val)
+        lv = tolower(val)
         req = -1
-        if (tok in fl) { req = fl[tok] }
+        if (tok == "") { req = 0.50 }
+        else if (tok in fl) { req = fl[tok] }
         else {
           for (k in fl) if (index(k, tok) == 1 && fl[k] > req) req = fl[k]
         }
-        if (req >= 0 && (val + 0.0) < req) { print seg; exit 0 }
+        if (req >= 0) {
+          if (lv ~ /^[-+]?(inf(inity)?|nan)$/) { print seg; exit 0 }
+          nv = val + 0.0
+          if (nv < req || nv > 1e300 || nv < -1e300) { print seg; exit 0 }
+        }
       }
     }
   ')"

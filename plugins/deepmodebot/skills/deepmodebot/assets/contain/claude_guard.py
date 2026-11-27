@@ -17,6 +17,7 @@ Bash, MCP tools and hook programs are not covered here.
 """
 import json
 import os
+import math
 import re
 import subprocess
 import sys
@@ -33,7 +34,7 @@ METRIC_FLOORS = {
     "psnr": 10.0, "protrusion": 0.02, "score": 0.05, "confidence": 0.05, "symmetry": 0.05,
 }
 MIN_FLAG_VAL_RE = re.compile(
-    r"(?:^|[\s;&|(])(--(?:gate-)?min-([a-z0-9_-]+)(?:\s+|=)['\"]?([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)['\"]?)(?=$|[\s;&|)])",
+    r"(?:^|[\s;&|(])(--(?:gate-)?mi(?:n(?:-([a-z0-9_-]*))?)?(?:\s+|=)['\"]?\s*([-+]?(?:inf(?:inity)?|nan|(?:\d[\d_]*\.?[\d_]*|\.[\d_]+)(?:[eE][-+]?[\d_]+)?))\s*['\"]?)(?=$|[\s;&|)])",
     re.I,
 )
 REWARD_HACK_CMD_RE = re.compile(
@@ -47,7 +48,9 @@ REWARD_HACK_CMD_RE = re.compile(
 
 
 def _min_flag_floor(tok):
-    norm = tok.lower().replace("_", "-")
+    norm = (tok or "").lower().replace("_", "-")
+    if not norm:
+        return 0.50
     if norm in METRIC_FLOORS:
         return METRIC_FLOORS[norm]
     matches = [v for k, v in METRIC_FLOORS.items() if k.startswith(norm)]
@@ -64,7 +67,8 @@ def check_bash_reward_hack(cmd_text):
             floor = _min_flag_floor(fm.group(2))
             if floor is not None:
                 try:
-                    if float(fm.group(3)) < floor:
+                    val = float(fm.group(3))
+                    if not math.isfinite(val) or val < floor:
                         return fm.group(1).strip()
                 except ValueError:
                     pass

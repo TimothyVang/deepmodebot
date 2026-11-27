@@ -35,7 +35,7 @@ NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 HEX128_RE = re.compile(r"^[0-9a-fA-F]{128}$")
-FLOAT_PAT = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
+FLOAT_PAT = r"[-+]?(?:inf(?:inity)?|nan|(?:\d[\d_]*\.?[\d_]*|\.[\d_]+)(?:[eE][-+]?[\d_]+)?)"
 MIN_FLOOR_EPSILON = 1e-4
 SIMILARITY_01_METRICS = frozenset({
     "iou", "ssim", "dice", "f1", "auc", "accuracy", "acc",
@@ -68,7 +68,9 @@ def metric_min_floor(metric_raw: str, *, allow_prefix: bool = False) -> float | 
             break
     if m in METRIC_FLOORS:
         return METRIC_FLOORS[m]
-    if allow_prefix and m:
+    if allow_prefix:
+        if not m:
+            return 0.50
         matches = [v for k, v in METRIC_FLOORS.items() if k.startswith(m)]
         if matches:
             return max(matches)
@@ -103,11 +105,11 @@ QUAL_UPPER_METRICS = f"{BARE_UPPER_METRICS}|err|error|loss|tol|epsilon|eps"
 CLI_UPPER_METRICS = "|".join(m.replace("_", "-") for m in QUAL_UPPER_METRICS.split("|"))
 
 CLI_MIN_VAL_RE = re.compile(
-    rf"(?<![A-Za-z0-9_])--(?:gate-)?min-([A-Za-z0-9_-]+)(?:\s+|=|,)\s*['\"]?({FLOAT_PAT})['\"]?(?![A-Za-z0-9_])",
+    rf"(?<![A-Za-z0-9_])--(?:gate-)?mi(?:n(?:-([A-Za-z0-9_-]*))?)?(?:\s+|=|,)\s*['\"]?\s*({FLOAT_PAT})\s*['\"]?(?![A-Za-z0-9_])",
     re.I,
 )
 KWARG_MIN_VAL_RE = re.compile(
-    rf"['\"]?\b(?:min|minimum)_({QUAL_LOWER_METRICS})\b['\"]?\s*[:=]\s*['\"]?({FLOAT_PAT})['\"]?(?![A-Za-z0-9_])",
+    rf"['\"]?\b(?:min|minimum)_({QUAL_LOWER_METRICS})\b['\"]?\s*[:=]\s*['\"]?\s*({FLOAT_PAT})\s*['\"]?(?![A-Za-z0-9_])",
     re.I,
 )
 SKIP_GATE_FLAG_RE = re.compile(
@@ -561,18 +563,20 @@ def _scan_hunk_weakening(rel: str, hunks: list[tuple[list[str], list[tuple[int, 
 
 def _has_zero_or_sub_epsilon_threshold(norm_line: str) -> bool:
     for m in CLI_MIN_VAL_RE.finditer(norm_line):
-        floor = metric_min_floor(m.group(1), allow_prefix=True)
+        floor = metric_min_floor(m.group(1) or "", allow_prefix=True)
         if floor is None:
             continue
         try:
-            if float(m.group(2)) < floor:
+            val = float(m.group(2))
+            if not math.isfinite(val) or val < floor:
                 return True
         except ValueError:
             continue
     for m in KWARG_MIN_VAL_RE.finditer(norm_line):
         floor = metric_min_floor(m.group(1), allow_prefix=False)
         try:
-            if floor is not None and float(m.group(2)) < floor:
+            val = float(m.group(2))
+            if floor is not None and (not math.isfinite(val) or val < floor):
                 return True
         except ValueError:
             continue
@@ -882,6 +886,8 @@ def _parse_thresholds(raw_items: list[str]) -> dict[str, float]:
             k, v = part.split("=", 1)
             key = k.strip().lower().replace("-", "_")
             val = float(v.strip())
+            if not math.isfinite(val):
+                raise ValueError(f"refusing non-finite threshold `{key}={v.strip()}` (reward-hacking guard)")
             is_lower = key.startswith(("min_", "minimum_", "gate_min_")) or key in (
                 SIMILARITY_01_METRICS | RANK_COSINE_METRICS | {"psnr", "protrusion", "score", "confidence", "symmetry"}
             )

@@ -280,7 +280,7 @@ jobs:
         let added = vec![
             (1usize, "bpy.ops.mesh.primitive_cube_add(size=2)".to_string()),
             (2, "cmd = ['gate.py', '--min-iou', '+0.25', '--measured-gates', 'off']".to_string()),
-            (3, "cmd2 = ['gate.py', '--min-i', '.1', '--min-ssim', '0.25e0']".to_string()),
+            (3, "cmd2 = ['gate.py', '--min-i', '.1', '--min-iou', '-inf', '--min', '0.0_1']".to_string()),
             (4, "cfg = {'min_ssim': 0.4}".to_string()),
             (5, "def f(): return {'verdict': 'PASS', 'iou': 1.0}".to_string()),
         ];

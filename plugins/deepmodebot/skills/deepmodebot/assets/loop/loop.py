@@ -250,8 +250,7 @@ def parse(goal_path):
 
 def git(root, *args):
     return subprocess.run(["git", "-C", root, *args], capture_output=True, text=True, encoding="utf-8",
-                          errors="replace", creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-
+                          errors="replace", timeout=30, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
 
 def project_root(path):
     abs_path = os.path.abspath(path)
@@ -1128,7 +1127,7 @@ def revert_failed_iteration(root, goal_path, allowed, base):
             tracked.append(rel)
     if tracked:
         restore = subprocess.run(["git", "-C", root, "checkout", "-q", "--pathspec-from-file=-", "--pathspec-file-nul"],
-                                 input="\0".join(tracked), capture_output=True, text=True, encoding="utf-8")
+                                 input="\0".join(tracked), capture_output=True, text=True, encoding="utf-8", timeout=30)
         if restore.returncode != 0:
             raise SystemExit(f"revert_on_fail could not restore tracked files: {restore.stderr.strip()}")
     with open(goal_path, "wb") as handle:
@@ -1679,25 +1678,26 @@ def diff_new_reward_hacks(current_tuple, baseline_tuple):
     return added
 
 def _allocate_outside_holdout(root, slug):
-    """Allocate supervisor-private holdout state strictly outside `root` even when TMP/TEMP points inside `.scratch`."""
-    root_abs = os.path.abspath(root)
+    """Allocate supervisor-private holdout state strictly outside `realpath(root)` (blocking NTFS junctions/symlinks)."""
+    root_real = os.path.realpath(root)
     candidates = [
         os.path.join(os.path.expanduser("~"), ".deepmodebot-holdout"),
         os.path.join(os.environ.get("LOCALAPPDATA") or "/tmp", "deepmodebot-holdout"),
-        os.path.dirname(root_abs),
+        os.path.dirname(root_real),
     ]
     for base in candidates:
         if not base:
             continue
-        base_abs = os.path.abspath(base)
-        if _rel_inside_root(base_abs, root_abs) is not None or os.path.normcase(base_abs) == os.path.normcase(root_abs):
-            continue
         try:
-            os.makedirs(base_abs, exist_ok=True)
-            d = tempfile.mkdtemp(prefix=f"dmb-loop-holdout-{slug}-", dir=base_abs)
-            if _rel_inside_root(d, root_abs) is None:
-                atexit.register(shutil.rmtree, d, True)
-                return d
+            os.makedirs(base, exist_ok=True)
+            base_real = os.path.realpath(base)
+            if _rel_inside_root(base_real, root_real) is not None or os.path.normcase(base_real) == os.path.normcase(root_real):
+                continue
+            d = tempfile.mkdtemp(prefix=f"dmb-loop-holdout-{slug}-", dir=base_real)
+            d_real = os.path.realpath(d)
+            if _rel_inside_root(d_real, root_real) is None and os.path.normcase(d_real) != os.path.normcase(root_real):
+                atexit.register(shutil.rmtree, d_real, True)
+                return d_real
             shutil.rmtree(d, ignore_errors=True)
         except OSError:
             continue

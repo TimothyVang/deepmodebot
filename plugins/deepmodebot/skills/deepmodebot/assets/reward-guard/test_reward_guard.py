@@ -126,6 +126,7 @@ class RewardGuardTests(unittest.TestCase):
             "cmd3 = ['python', 'gate.py', '--min-iou', '-.5']\n"
             "cmd4 = ['python', 'gate.py', '--min-iou', '0.']\n"
             "cmd5 = ['python', 'gate.py', '--min-i', '.1']\n"
+            "cmd6 = ['python', 'gate.py', '--min-iou', '-inf', '--min', '0.0_1']\n"
             "cfg = {'min_ssim': .4}\n",
             encoding="utf-8",
         )
@@ -150,7 +151,7 @@ class RewardGuardTests(unittest.TestCase):
             by_file.setdefault(f["file"], set()).add(f["rule"])
         self.assertIn("reward-hack-primitive-standin", by_file[".scratch/tmp/make_cones.py"])
         self.assertIn("reward-hack-threshold-zero", by_file["build_props.py"])
-        self.assertEqual(sum(1 for f in res["findings"] if f["file"] == "build_props.py" and f["rule"] == "reward-hack-threshold-zero"), 6)
+        self.assertEqual(sum(1 for f in res["findings"] if f["file"] == "build_props.py" and f["rule"] == "reward-hack-threshold-zero"), 7)
         self.assertNotIn("clean_clip.py", by_file)
         self.assertIn("reward-hack-hardcoded-pass", by_file["gates/fidelity_gate.py"])
         self.assertIn("reward-hack-assertion-weakened", by_file["gates/fidelity_gate.py"])

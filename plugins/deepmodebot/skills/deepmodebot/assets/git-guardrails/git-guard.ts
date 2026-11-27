@@ -80,21 +80,28 @@ const METRIC_FLOORS: Record<string, number> = {
 	psnr: 10.0, protrusion: 0.02, score: 0.05, confidence: 0.05, symmetry: 0.05,
 };
 const MIN_FLAG_RE =
-	/(?:^|[ ;&|(])(--(?:gate-)?min-([A-Za-z0-9_-]+)(?: +|=)["']?([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)["']?)(?= |;|&|\||\)|$)/g;
+	/(?:^|[ ;&|(])(--(?:gate-)?mi(?:n(?:-([A-Za-z0-9_-]*))?)?(?: +|=)["']? *([-+]?(?:inf(?:inity)?|nan|(?:\d[\d_]*\.?[\d_]*|\.[\d_]+)(?:[eE][-+]?[\d_]+)?)) *["']?)(?= |;|&|\||\)|$)/gi;
+
+function parseGuardFloat(raw: string): number {
+	const c = raw.trim().replace(/_/g, "");
+	if (/^[-+]?inf(?:inity)?$/i.test(c)) return c.startsWith("-") ? -Infinity : Infinity;
+	if (/^[-+]?nan$/i.test(c)) return NaN;
+	return Number(c);
+}
 
 function findSubFloorMinFlag(line: string): string | undefined {
 	MIN_FLAG_RE.lastIndex = 0;
 	let m: RegExpExecArray | null;
 	while ((m = MIN_FLAG_RE.exec(line)) !== null) {
-		const tok = m[2].toLowerCase().replace(/_/g, "-");
-		let floor: number | undefined = Object.hasOwn(METRIC_FLOORS, tok) ? METRIC_FLOORS[tok] : undefined;
+		const tok = (m[2] ?? "").toLowerCase().replace(/_/g, "-");
+		let floor: number | undefined = !tok ? 0.5 : Object.hasOwn(METRIC_FLOORS, tok) ? METRIC_FLOORS[tok] : undefined;
 		if (floor === undefined) {
 			for (const [k, v] of Object.entries(METRIC_FLOORS)) {
 				if (k.startsWith(tok) && (floor === undefined || v > floor)) floor = v;
 			}
 		}
-		const val = Number(m[3]);
-		if (floor !== undefined && Number.isFinite(val) && val < floor) return m[1].trim();
+		const val = parseGuardFloat(m[3]);
+		if (floor !== undefined && (!Number.isFinite(val) || val < floor)) return m[1].trim();
 	}
 	return undefined;
 }
