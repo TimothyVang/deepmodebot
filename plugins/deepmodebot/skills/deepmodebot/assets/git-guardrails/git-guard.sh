@@ -119,19 +119,21 @@ if [[ -n "$active" && -n "$scrubbed_text" ]]; then
       for (i in m50) fl[m50[i]] = 0.50
       split("clip clip-score ap map bleu rouge", m15, " ")
       for (i in m15) fl[m15[i]] = 0.15
-      fl["psnr"] = 10.0; fl["protrusion"] = 0.02; fl["score"] = 0.05; fl["confidence"] = 0.05; fl["symmetry"] = 0.05
+      fl["psnr"] = 10.0; fl["protrusion"] = 0.02; fl["score"] = 0.05; fl["confidence"] = 0.05; fl["symmetry"] = 0.05; fl["cov-fail-under"] = 50.0
     }
     {
       s = tolower($0)
-      while (match(s, /(^|[ ;&|(])["'\'']?--(gate-)?mi(n(-[a-z0-9_-]*)?)?["'\'']?( +|=)["'\'']? *[-+]?(inf(inity)?|nan|([0-9][0-9_]*\.?[0-9_]*|\.[0-9_]+)(e[-+]?[0-9_]+)?) *["'\'']?( |;|&|\||\)|$)/)) {
+      while (match(s, /(^|[ ;&|(])["'\'']?--((gate-)?mi(n(-[a-z0-9_-]*)?)?|cov-fail-under)["'\'']?( +|=)["'\'']? *[-+]?(inf(inity)?|nan|([0-9][0-9_]*\.?[0-9_]*|\.[0-9_]+)(e[-+]?[0-9_]+)?) *["'\'']?( |;|&|\||\)|$)/)) {
         seg = substr(s, RSTART, RLENGTH)
         s = substr(s, RSTART + RLENGTH - 1)
-        tok = seg
-        sub(/^.*--(gate-)?mi(n-?)?/, "", tok)
         val = seg
-        sub(/^.*--(gate-)?mi(n(-[a-z0-9_-]*)?)?["'\'']?( +|=)["'\'']? */, "", val)
+        sub(/^.*--((gate-)?mi(n(-[a-z0-9_-]*)?)?|cov-fail-under)["'\'']?( +|=)["'\'']? */, "", val)
         sub(/ *["'\'' ;&|)]*$/, "", val)
-        if (seg ~ /--(gate-)?min-[a-z0-9_-]+/) {
+        if (seg ~ /--cov-fail-under/) {
+          tok = "cov-fail-under"
+        } else if (seg ~ /--(gate-)?min-[a-z0-9_-]+/) {
+          tok = seg
+          sub(/^.*--(gate-)?min-/, "", tok)
           sub(/["'\'']?( +|=).*$/, "", tok)
           gsub(/_/, "-", tok)
         } else {

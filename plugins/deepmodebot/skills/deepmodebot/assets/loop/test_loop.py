@@ -1519,5 +1519,17 @@ class ScanTextSlopCase(unittest.TestCase):
             sneaky_proc = subprocess.run([sys.executable, "-B", str(LOOP), "run", "goals/sneaky.md", "--harness", "omp"], cwd=str(root), capture_output=True, text=True, env=env)
             self.assertNotEqual(sneaky_proc.returncode, 0, sneaky_proc.stdout + sneaky_proc.stderr)
             self.assertNotIn("already passes", sneaky_proc.stdout)
+
+            # 6. fast_check or check that creates tests/conftest.py exits 4 (tampered_configs)!
+            (root / ".scratch" / "gate.sh").unlink(missing_ok=True)
+            (root / "tests").mkdir(exist_ok=True)
+            (root / "make_conftest.py").write_text("import pathlib; pathlib.Path('tests/conftest.py').write_text('x = 1\\n')\n", encoding="utf-8")
+            cfg_goal = root / "goals" / "cfg.md"
+            cfg_goal.write_text(
+                f'---\ngoal: cfg\ncheck: "{sys.executable}" make_conftest.py\nprotect: check.py\nmax_iterations: 1\nmax_cost_usd: 1\n---\nPlan.\n',
+                encoding="utf-8",
+            )
+            cfg_proc = subprocess.run([sys.executable, "-B", str(LOOP), "run", "goals/cfg.md", "--harness", "omp"], cwd=str(root), capture_output=True, text=True, env=env)
+            self.assertEqual(cfg_proc.returncode, 4, cfg_proc.stdout + cfg_proc.stderr)
 if __name__ == "__main__":
     unittest.main()
