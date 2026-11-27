@@ -75,16 +75,18 @@ class ProjectSetupTests(unittest.TestCase):
         self.assertIn("rule_ledger.py check --root . --staged", note)
         self.assertFalse((self.repo / ".git/hooks/pre-commit").exists())
 
-    def test_with_owner_rule_approval_on_the_managed_block_is_proposed_not_written(self):
+    def test_with_owner_rule_approval_on_managed_rule_files_are_proposed_not_written(self):
         rl = ps._load("dmb_rule_ledger", "rules/rule_ledger.py")
         rl.KDF_ITERATIONS = 1_000
         (self.repo / "AGENTS.md").write_text("# Team rules\n- Small PRs.\n", encoding="utf-8")
         rl.init_ledger(self.repo, "owner passphrase")
         res = ps.bootstrap_project(self.repo)
         self.assertEqual((self.repo / "AGENTS.md").read_text(encoding="utf-8"), "# Team rules\n- Small PRs.\n")
+        self.assertFalse((self.repo / ".deepmodebot/policy.xml").exists())
+        expected = [".deepmodebot/policy.xml", "AGENTS.md", "CLAUDE.md"]
         proposed = [a for a in res["actions"] if a.startswith("proposed ")]
-        self.assertEqual([a.split()[1] for a in proposed], ["AGENTS.md", "CLAUDE.md"])
-        self.assertEqual(sorted(p["item"] for p in rl.load_proposals(self.repo)), ["AGENTS.md", "CLAUDE.md"])
+        self.assertEqual([a.split()[1] for a in proposed], expected)
+        self.assertEqual(sorted(p["item"] for p in rl.load_proposals(self.repo)), expected)
 
 
 if __name__ == "__main__":

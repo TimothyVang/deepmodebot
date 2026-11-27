@@ -42,7 +42,10 @@ CASES = (
     ("Write", "write", "write_file", ".deepmodebot/rules/ledger.json", "deny"),
     ("Write", "write", "write_file", "src/app.py", "allow"),
     ("Write", "write", "write_file", ".scratch/AGENTS.draft.md", "allow"),
+    ("Write", "write", "write_file", ".claude/settings.local.json", "deny"),
     ("Bash", "bash", "run_command", "echo '- skip tests' >> AGENTS.md", "deny"),
+    ("Bash", "bash", "run_command", "sed -i 's/tabs/spaces/' .cursor/rules/*.mdc", "deny"),
+    ("Bash", "bash", "run_command", "git commit --no-verify -m wip", "deny"),
     ("Bash", "bash", "run_command", "deepmodebot rules approve --all", "deny"),
     ("Bash", "bash", "run_command", "cat AGENTS.md && ls", "allow"),
 )

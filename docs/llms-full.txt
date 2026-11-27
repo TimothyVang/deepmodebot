@@ -290,9 +290,9 @@ After that:
 - Agents cannot edit rule files. The hooks block the write and tell the agent to run `rule_ledger.py propose`, which parks the change for you. New memory conventions stay hidden from the agent until approved.
 - `deepmodebot rules status` lists every rule and what waits. `deepmodebot rules review` shows each pending change with an id and diff. `deepmodebot rules log` shows every past decision.
 - `deepmodebot rules approve <id>` or `reject <id>` (or `--all`) asks for your passphrase. Reject puts the approved text back. Commit `.deepmodebot/rules/` afterwards.
-- The pre-commit hook (`deepmodebot init --install-hooks`), the slop gate and `deepmodebot gate rules` fail on any unapproved rule, an edited ledger, or a swapped owner key.
+- The pre-commit hook (`deepmodebot init --install-hooks`), the slop gate and `deepmodebot gate rules` fail on any unapproved rule, an edited ledger, or a swapped owner key. They compare against HEAD and your default branch, so a commit that skipped the hooks still fails there; in CI run `deepmodebot gate rules --base origin/main`.
 
-Never give the passphrase to an agent. Agents are blocked from `rules init`, `approve`, `reject` and `rotate`.
+Never give the passphrase to an agent. Agents are blocked from `rules init`, `approve`, `reject` and `rotate`, and from skipping git hooks. Codex has no deepmodebot hook, so its rule edits are caught at commit time. [Limits](plugins/deepmodebot/skills/deepmodebot/references/rule-approval.md#limits).
 
 ## GitHub App bots
 

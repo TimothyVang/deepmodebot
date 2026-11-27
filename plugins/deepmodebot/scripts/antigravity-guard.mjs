@@ -76,7 +76,7 @@ function mayBeRulePath(abs) {
   );
 }
 
-// Whether the repo holding `abs` has an owner rule ledger (used only when Python is missing).
+// Whether the repo holding `abs` has an owner rule ledger in its working tree.
 function ledgerNear(abs) {
   let dir = path.dirname(abs);
   while (true) {
@@ -110,10 +110,13 @@ function pythonGuard(request) {
   return null;
 }
 
+// Python runs only for shell commands in a ledger repo or naming a rule path or owner command, and for writes whose
+// target (or resolved target) looks like a rule path.
 function ruleDenyReason(cwd, paths, command) {
-  const candidates = paths.filter(p => mayBeRulePath(absolute(p, cwd)));
-  const lowered = command.toLowerCase();
-  const shell = command !== "" && Boolean(RULES && RULES.hints.some(h => lowered.includes(h)));
+  const candidates = paths.filter(p => mayBeRulePath(absolute(p, cwd)) || mayBeRulePath(real(absolute(p, cwd))));
+  const lowered = command.toLowerCase().replace(/\\/g, "/");
+  const hinted = Boolean(RULES && RULES.hints.some(h => lowered.includes(h)));
+  const shell = command !== "" && (hinted || ledgerNear(path.join(cwd, "_")));
   if (candidates.length === 0 && !shell) return "";
   const verdict = pythonGuard({ cwd, paths: candidates, command: shell ? command : "" });
   if (verdict !== null) return verdict;

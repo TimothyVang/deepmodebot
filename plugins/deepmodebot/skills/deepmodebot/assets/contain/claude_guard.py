@@ -112,17 +112,38 @@ def rule_hints():
     return named + dirs + [d.split("/")[0] for d in dirs] + ["deepmodebot", "rule_ledger"]
 
 
+def ledger_near(folder):
+    """Whether the repo holding `folder` has an owner rule ledger in its working tree."""
+    cur = os.path.abspath(folder)
+    while True:
+        if os.path.lexists(os.path.join(cur, ".deepmodebot", "rules", "ledger.json")):
+            return True
+        parent = os.path.dirname(cur)
+        if os.path.lexists(os.path.join(cur, ".git")) or parent == cur:
+            return False
+        cur = parent
+
+
 def rule_guard_reason(event, tool_name, tool_input):
-    """Why rule approval denies this tool call, or None (see rules/rule_ledger.py guard)."""
+    """Why rule approval denies this tool call, or None (see rules/rule_ledger.py guard).
+
+    rules/rule_ledger.py loads only for shell commands in a ledger repo, text naming a rule path or an owner command,
+    or a write whose target (or its resolved target) looks like a rule path.
+    """
+    cwd = event.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
     if tool_name == "Bash":
         paths, command = [], str(tool_input.get("command") or "")
+        text = command
     elif tool_name in ("Write", "Edit", "NotebookEdit"):
-        paths, command = [tool_input.get("file_path") or tool_input.get("notebook_path")], ""
+        target = tool_input.get("file_path") or tool_input.get("notebook_path")
+        paths, command = ([target] if isinstance(target, str) and target else []), ""
+        full = [os.path.join(cwd, os.path.expanduser(p)) for p in paths]
+        text = " ".join(full + [os.path.realpath(p) for p in full])
     else:
         return None
-    paths = [p for p in paths if isinstance(p, str) and p]
-    text = " ".join([command, *paths]).lower()
-    if not os.path.isfile(RULE_LEDGER) or not any(h in text for h in rule_hints()):
+    text = text.lower().replace("\\", "/")
+    needed = any(h in text for h in rule_hints()) or (tool_name == "Bash" and ledger_near(cwd))
+    if not os.path.isfile(RULE_LEDGER) or not needed:
         return None
     mod = sys.modules.get("dmb_rule_ledger")
     if mod is None:
@@ -130,7 +151,6 @@ def rule_guard_reason(event, tool_name, tool_input):
         mod = importlib.util.module_from_spec(spec)
         sys.modules[spec.name] = mod
         spec.loader.exec_module(mod)
-    cwd = event.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
     return mod.guard(cwd, paths=paths, command=command)
 
 

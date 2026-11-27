@@ -207,6 +207,18 @@ def _install_pre_commit_hook(root: Path) -> str | None:
     return "installed .git/hooks/pre-commit"
 
 
+def _rule_write(rules_mod, root: Path, approval: bool, name: str, text: str, write) -> str:
+    """Write a rule file, or with owner rule approval on, propose it; returns the action note ("" when written)."""
+    if not approval:
+        write()
+        return ""
+    if not (root / rules_mod.LEDGER_REL).is_file():
+        return (f"skipped {name}: rule approval is on but {rules_mod.LEDGER_REL} is missing; "
+                f"restore it with `git checkout HEAD -- {rules_mod.STORE_REL}`")
+    prop = rules_mod.propose(root, name, text.encode("utf-8"), "refresh the deepmodebot managed rules", by="deepmodebot init")
+    return f"proposed {name} as [{prop['id']}] for the owner (`deepmodebot rules approve {prop['id']}`)"
+
+
 def bootstrap_project(root: Path, *, with_dependabot: bool = False, install_hooks: bool = False) -> dict:
     agents_mod = _load("dmb_agents_md", "agents-md/agents_md.py")
     mem_mod = _load("dmb_project_memory", "memory/project_memory.py")
@@ -218,6 +230,8 @@ def bootstrap_project(root: Path, *, with_dependabot: bool = False, install_hook
     dm_dir.mkdir(parents=True, exist_ok=True)
 
     actions: list[str] = []
+    rules_mod = _load("dmb_rule_ledger", "rules/rule_ledger.py")
+    approval = rules_mod.ledger_enabled(r)
     ci_path = dm_dir / "ci.yml"
     if ci_path.is_symlink():
         raise SystemExit(f"refusing symlinked file: {ci_path}")
@@ -229,8 +243,10 @@ def bootstrap_project(root: Path, *, with_dependabot: bool = False, install_hook
     if pol_path.is_symlink():
         raise SystemExit(f"refusing symlinked file: {pol_path}")
     if not pol_path.is_file():
-        pol_path.write_text(_synthesize_policy_xml(r.name), encoding="utf-8", newline="\n")
-        actions.append("created .deepmodebot/policy.xml")
+        policy = _synthesize_policy_xml(r.name)
+        note = _rule_write(rules_mod, r, approval, ".deepmodebot/policy.xml", policy,
+                           lambda: pol_path.write_text(policy, encoding="utf-8", newline="\n"))
+        actions.append(note or "created .deepmodebot/policy.xml")
 
     dbf = mem_mod.db_path_for(r)
     was_new_db = not dbf.is_file()
@@ -262,17 +278,10 @@ def bootstrap_project(root: Path, *, with_dependabot: bool = False, install_hook
             actions.append(hook_note)
 
     plan = agents_mod.planned(str(r), False)
-    rules_mod = _load("dmb_rule_ledger", "rules/rule_ledger.py")
-    owner_approval = rules_mod.ledger_enabled(r)
     for name, (path, current, wanted) in plan.items():
-        if wanted == current:
-            continue
-        if owner_approval:
-            prop = rules_mod.propose(r, name, wanted.encode("utf-8"), "refresh the deepmodebot managed block", by="deepmodebot init")
-            actions.append(f"proposed {name} as [{prop['id']}] for the owner (`deepmodebot rules approve {prop['id']}`)")
-        else:
-            agents_mod.write(path, wanted)
-            actions.append(f"{'updated' if current else 'created'} {name}")
+        if wanted != current:
+            note = _rule_write(rules_mod, r, approval, name, wanted, lambda p=path, w=wanted: agents_mod.write(p, w))
+            actions.append(note or f"{'updated' if current else 'created'} {name}")
 
     return {"root": str(r), "ok": True, "actions": actions, "db": str(dbf)}
 
