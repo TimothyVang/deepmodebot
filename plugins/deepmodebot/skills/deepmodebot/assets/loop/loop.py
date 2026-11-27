@@ -1858,6 +1858,10 @@ def evaluate_gates(fields, root, protect, limits, slop_baseline=None, check_slop
     has_outer_contract = bool(fields.get("reward_artifacts", "").strip()) or parse_bool(fields, "reward_judge", False, "goal")
     if c_code == 0 and holdout_dir is not None and has_outer_contract:
         r_code, r_out = evaluate_outer_reward_contract(fields, root, slug, holdout_dir, supervisor_seed=supervisor_seed)
+        if expected_protect_guard is not None and protect_digest(root, protect) != expected_protect_guard:
+            return 4, "[protect_guard failed] judge verify_cmd modified protected files\n", "tampered_protected", manifest_summary
+        if expected_config_guard is not None and guardrail_state(root, own) != expected_config_guard:
+            return 4, "[config_guard failed] judge verify_cmd modified or created guardrail configs\n", "tampered_configs", manifest_summary
         if r_code != 0:
             return r_code, (c_out + ("\n" if c_out and not c_out.endswith("\n") else "") + r_out), "reward_guard", manifest_summary
     return c_code, c_out, ("pass" if c_code == 0 else "check"), manifest_summary
@@ -2306,7 +2310,7 @@ def main():
                 print(f"absent, must stay absent: {' '.join(absent)}")
             print(f"{timed_out if code is None else f'check exit {code} ({stage})'}{' (already done)' if code == 0 else ''}\n"
                   f"{output[-4000:].strip()}")
-            return 0
+            return 4 if stage in ("tampered_protected", "tampered_configs") else 0
     finally:
         if opts.action == "check" and holdout_dir:
             shutil.rmtree(holdout_dir, ignore_errors=True)

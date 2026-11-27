@@ -1266,15 +1266,6 @@ fn discover_scratch_scripts_and_symlinks(root: &Path) -> (Vec<String>, Vec<Rewar
             };
             let name = entry.file_name().to_string_lossy().to_string();
             let low = name.to_ascii_lowercase();
-            if (is_top && skip_top.contains(&name.as_str()))
-                || low.starts_with("check-")
-                || low.starts_with("npm-test-")
-                || low.starts_with("init-cli-test-")
-                || low.starts_with("panel-")
-                || low.starts_with("autoroute-test-")
-            {
-                continue;
-            }
             let rel_s = p
                 .strip_prefix(root)
                 .map(|r| r.to_string_lossy().replace('\\', "/"))
@@ -1290,19 +1281,35 @@ fn discover_scratch_scripts_and_symlinks(root: &Path) -> (Vec<String>, Vec<Rewar
                 });
                 continue;
             }
+            if (is_top && skip_top.contains(&name.as_str()))
+                || low.starts_with("check-")
+                || low.starts_with("npm-test-")
+                || low.starts_with("init-cli-test-")
+                || low.starts_with("panel-")
+                || low.starts_with("autoroute-test-")
+            {
+                continue;
+            }
             if meta.is_dir() {
                 stack.push((p, false));
-            } else if meta.is_file() && meta.len() > 0 && meta.len() <= 16 * 1024 * 1024 {
+            } else if meta.is_file() && meta.len() > 0 {
                 let ext = p
                     .extension()
                     .and_then(|e| e.to_str())
                     .map(|s| s.to_ascii_lowercase())
                     .unwrap_or_default();
                 if matches!(ext.as_str(), "py" | "sh" | "js" | "mjs" | "cjs" | "ts") {
-                    found.push(rel_s);
-                    if found.len() >= 200 {
-                        found.sort();
-                        return (found, sym_findings);
+                    if meta.len() > 16 * 1024 * 1024 {
+                        sym_findings.push(RewardFinding {
+                            severity: "P0",
+                            rule: "reward-hack-oversized-scratch-script",
+                            file: rel_s,
+                            line: 1,
+                            message: "Scratch script exceeds 16 MiB (padding bypass blocked).".to_string(),
+                            fix: "Remove oversized padded script from `.scratch/`.",
+                        });
+                    } else if found.len() < 500 {
+                        found.push(rel_s);
                     }
                 }
             }

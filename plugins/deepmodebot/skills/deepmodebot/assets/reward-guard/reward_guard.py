@@ -402,10 +402,6 @@ def _discover_scratch_scripts_and_symlinks(root: Path) -> tuple[list[str], list[
         kept_dirs: list[str] = []
         for d in sorted(dirnames):
             dp = Path(cur_dir) / d
-            if rel_dir == Path(".") and d in SCRATCH_INTERNAL_DIRS:
-                continue
-            if d.startswith(("check-", "npm-test-", "init-cli-test-", "panel-", "autoroute-test-")):
-                continue
             if dp.is_symlink():
                 sym_findings.append({
                     "severity": "P0",
@@ -415,6 +411,10 @@ def _discover_scratch_scripts_and_symlinks(root: Path) -> tuple[list[str], list[
                     "message": "Symlinked directory inside `.scratch/` can hide external reward-hacking scripts.",
                     "fix": "Remove the symlink from `.scratch/`.",
                 })
+                continue
+            if rel_dir == Path(".") and d in SCRATCH_INTERNAL_DIRS:
+                continue
+            if d.startswith(("check-", "npm-test-", "init-cli-test-", "panel-", "autoroute-test-")):
                 continue
             kept_dirs.append(d)
         dirnames[:] = kept_dirs
@@ -435,12 +435,19 @@ def _discover_scratch_scripts_and_symlinks(root: Path) -> tuple[list[str], list[
                 continue
             try:
                 sz = p.stat().st_size
-                if 0 < sz <= MAX_SCRATCH_SCRIPT_BYTES:
+                if sz > MAX_SCRATCH_SCRIPT_BYTES:
+                    sym_findings.append({
+                        "severity": "P0",
+                        "rule": "reward-hack-oversized-scratch-script",
+                        "file": rel_p,
+                        "line": 1,
+                        "message": f"Scratch script exceeds {MAX_SCRATCH_SCRIPT_BYTES} bytes ({sz} bytes; padding bypass blocked).",
+                        "fix": "Remove oversized padded script from `.scratch/`.",
+                    })
+                elif sz > 0 and len(found) < 500:
                     found.append(rel_p)
             except OSError:
                 continue
-            if len(found) >= 200:
-                return found, sym_findings
     return found, sym_findings
 
 
@@ -1709,7 +1716,10 @@ def _hash_state_or_repo_file(root: Path, sdir: Path, stored_path: str) -> tuple[
 
 def _collect_repo_code_diff_and_digest(root: Path) -> tuple[str, str]:
     has_head = _git(root, "rev-parse", "--verify", "HEAD").returncode == 0
-    diff_txt = _git(root, "diff", "HEAD").stdout if has_head else _git(root, "diff").stdout
+    if has_head:
+        diff_txt = _git(root, "diff", "HEAD").stdout
+    else:
+        diff_txt = (_git(root, "diff", "--cached").stdout + "\n" + _git(root, "diff").stdout).strip()
     untracked = _git(root, "ls-files", "--others", "--exclude-standard").stdout.splitlines()
     h = hashlib.sha256()
     if has_head:
@@ -1722,12 +1732,18 @@ def _collect_repo_code_diff_and_digest(root: Path) -> tuple[str, str]:
         if norm.startswith((".scratch/", ".worktrees/")):
             continue
         fp = root / norm
-        if fp.is_file() and not fp.is_symlink() and fp.stat().st_size <= 262_144:
-            raw_b = fp.read_bytes()
+        if fp.is_file() and not fp.is_symlink():
+            fh_sha = hashlib.sha256()
+            head_b = b""
+            with fp.open("rb") as fh:
+                for chunk in iter(lambda: fh.read(65536), b""):
+                    if not head_b:
+                        head_b = chunk[:4096]
+                    fh_sha.update(chunk)
             h.update(f"\0file:{norm}\0".encode("utf-8"))
-            h.update(hashlib.sha256(raw_b).digest())
-            if b"\x00" not in raw_b[:4096]:
-                extra_chunks.append(f"--- /dev/null\n+++ b/{norm}\n" + raw_b.decode("utf-8", errors="replace")[:4000])
+            h.update(fh_sha.digest())
+            if b"\x00" not in head_b:
+                extra_chunks.append(f"--- /dev/null\n+++ b/{norm}\n" + head_b.decode("utf-8", errors="replace")[:4000])
     combined = diff_txt
     if extra_chunks:
         combined = (combined + "\n" + "\n".join(extra_chunks)).strip()

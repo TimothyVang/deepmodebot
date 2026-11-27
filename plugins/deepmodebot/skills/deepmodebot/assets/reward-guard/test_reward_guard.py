@@ -400,6 +400,14 @@ class RewardGuardTests(unittest.TestCase):
         self.assertEqual(stale["verdict"], "REWARD_GUARD_BLOCKED")
         self.assertIn("independent-judge-approved", stale["failed_gates"])
 
+        # 4. Adding a >262 KB untracked Python file invalidates the signed code-diff verdict too!
+        (self.repo / "app.py").write_text("def step():\n    return 42\n", encoding="utf-8")
+        self.assertEqual(rg.evaluate_verdict(self.repo, slug="api-bugfix", state_dir=holdout)["verdict"], "REWARD_GUARD_PASSED")
+        (self.repo / "large_untracked.py").write_text("x = 1\n" * 60000, encoding="utf-8")
+        large_stale = rg.evaluate_verdict(self.repo, slug="api-bugfix", state_dir=holdout)
+        self.assertEqual(large_stale["verdict"], "REWARD_GUARD_BLOCKED")
+        self.assertIn("independent-judge-approved", large_stale["failed_gates"])
+
 
 if __name__ == "__main__":
     unittest.main()
