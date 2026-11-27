@@ -975,6 +975,33 @@ fn check_cross_lang_parity(root: &Path, out: &mut Vec<GapFinding>) {
             }
         }
     }
+
+    let reward_py = root.join("plugins/deepmodebot/skills/deepmodebot/assets/reward-guard/reward_guard.py");
+    let reward_rs = root.join("native/dmb-gate/src/reward.rs");
+    if let (Ok(py_txt), Ok(rs_txt)) = (fs::read_to_string(&reward_py), fs::read_to_string(&reward_rs)) {
+        for rule in [
+            "reward-hack-threshold-zero",
+            "reward-hack-assertion-weakened",
+            "reward-hack-test-skip",
+            "reward-hack-primitive-standin",
+            "reward-hack-hardcoded-pass",
+            "reward-hack-contract-tampered",
+        ] {
+            if py_txt.contains(rule) && !rs_txt.contains(rule) {
+                out.push(GapFinding {
+                    severity: "P1",
+                    rule: "cross-lang-gate-drift",
+                    file: "native/dmb-gate/src/reward.rs".to_string(),
+                    line: 1,
+                    message: format!(
+                        "Reward-guard rule `{}` exists in reward_guard.py but is missing in native/dmb-gate/src/reward.rs.",
+                        rule
+                    ),
+                    fix: "Keep reward_guard.py and native/dmb-gate/src/reward.rs rule sets identical.".to_string(),
+                });
+            }
+        }
+    }
 }
 
 pub fn scan_repo_gaps(root: &Path) -> (usize, Vec<GapFinding>) {

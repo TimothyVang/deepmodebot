@@ -101,6 +101,39 @@ class RehearsalGateTests(unittest.TestCase):
                 critic_verdict="approve", open_p0_p1=0,
             )
 
+    def test_enforces_locked_references_and_provenance_receipt_against_reward_hacking(self):
+        ref = self.root / "concept.png"
+        ref.write_bytes(b"\x89PNG\r\n\x1a\nghibli-airship-concept")
+        rg.init_workflow(
+            self.root, slug="airship", app_name="Zephyr", target_kind="demo",
+            intent="Turntable of sculpted Ghibli skyship.", beats=["turntable", "propeller-spin"],
+            references=["concept.png"], required_producer="dgx-spark",
+        )
+        rg.approve_workflow(self.root, slug="airship", note="Approved 2-beat turntable.")
+        v1 = rg.record_rehearsal_run(
+            self.root, slug="airship", video_rel=".scratch/evidence/flow-v1.mp4",
+            duration_sec=6.0, beats_covered=["turntable", "propeller-spin"],
+            auto_gate_ok=True, watched_full_video=True,
+            video_notes="Watched full turntable clip; boxes used instead of sculpted hull.",
+            critic_verdict="approve", open_p0_p1=0,
+            provenance_receipt="local:primitive-script",
+            compared_references=[],
+        )
+        self.assertEqual(v1["verdict"], "REHEARSAL_BLOCKED")
+        self.assertIn("reference-comparison-verified", v1["failed_gates"])
+        self.assertIn("provenance-verified", v1["failed_gates"])
+
+        v2 = rg.record_rehearsal_run(
+            self.root, slug="airship", video_rel=".scratch/evidence/flow-v1.mp4",
+            duration_sec=6.0, beats_covered=["turntable", "propeller-spin"],
+            auto_gate_ok=True, watched_full_video=True,
+            video_notes="Watched full 360 turntable; sculpted balloon and brass gondola match concept.",
+            critic_verdict="approve", open_p0_p1=0,
+            provenance_receipt="dgx-spark:prompt-77419",
+            compared_references=["concept.png"],
+        )
+        self.assertEqual(v2["verdict"], "REHEARSAL_PASSED", v2)
+
 
 if __name__ == "__main__":
     unittest.main()

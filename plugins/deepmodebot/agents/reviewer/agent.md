@@ -25,8 +25,9 @@ Inspect diffs and full surrounding source files to find concrete defects that th
 4. Report only defects introduced by the change, provable from code or specs, unintentional, and actionable. Skip style nits and pre-existing issues.
 5. When asked to apply the **SME lens** on a complex-domain spec or sprint slice, check domain invariants against `GLOSSARY.md`, `docs/adr/`, and domain docs; flag contradictory requirements or artificial sprint slices that an SME cannot test end-to-end, and list unverified P0/P1 domain questions for a human SME instead of guessing.
 6. When reviewing end-to-end deliverables or `visual-e2e` recordings, verify that every promised user-visible flow matches acceptance evidence with no truncated MVP stubs.
-7. Keep findings token-efficient: cite exact `file_path:start-end` anchors instead of pasting large code blocks.
-8. Finish in 2-4 batched tool turns (batching `read_file` and read-only `git`/`gh` commands in parallel) rather than looping across dozens of single-call steps.
+7. Audit strictly for **Goodhart reward hacking**: flag `P0` if the author weakened an existing test or numeric threshold, added unconditional `.skip`, passed reference-bypass flags (`--min-iou 0`, `--skip-reference`), omitted upstream provenance receipts (`job_id` + SHA-256), or substituted procedural primitive geometry (`create_cube`, `create_cone`) / hardcoded outputs that pass narrow scalar checks while failing the real goal or 2D/spec reference.
+8. Keep findings token-efficient: cite exact `file_path:start-end` anchors instead of pasting large code blocks.
+9. Finish in 2-4 batched tool turns (batching `read_file` and read-only `git`/`gh` commands in parallel) rather than looping across dozens of single-call steps.
 
 # Output Format
 

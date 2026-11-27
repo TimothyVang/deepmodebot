@@ -35,6 +35,7 @@ Core discipline: one change, one measurement, keep or revert. Never stack untest
 ## Gates
 - No reproducing case → fix the repro, don't hillclimb.
 - Harness frozen after vetting: no edits mid-run.
+- Anti-reward-hacking (Goodhart / CoastRunners gate, `references/principles/no-reward-hacking.md`): lock gate scripts, reference hashes, and positive similarity floors via `assets/reward-guard/reward_guard.py lock-contract` before iterating; immediately revert any metric gain achieved by relaxing thresholds (`--min-iou 0`), skipping reference checks, or substituting procedural primitives for real outputs.
 - Held-out rubric check: when using an agent-authored evaluation rubric or scorer, validate it against held-out cases before hillclimbing so the loop cannot overfit ("benchmax") to one tuning example (`https://www.youtube.com/watch?v=6TjFjHPjVH0`, 16:36).
 - Print-mode `/autoresearch` caveat: observed on `omp 18.22.2`, invoking `/autoresearch` in `-p` print mode creates a branch and exits 0 before running a turn; for headless or scripted experiment loops, drive this Hillclimb playbook directly instead of assuming `/autoresearch` executes in print mode.
 - Every iteration ends in a check before the next begins (`references/principles/sequence-verifiable-units.md`).

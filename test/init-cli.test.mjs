@@ -37,3 +37,34 @@ test("deepmodebot init bootstraps .deepmodebot/ci.yml, policy.xml, memory DB, AG
   const afterCheck = spawnSync(process.execPath, [cliBin, "init", "--check", demo], { encoding: "utf8" });
   assert.equal(afterCheck.status, 0, afterCheck.stdout + afterCheck.stderr);
 });
+
+test("deepmodebot gate reward blocks threshold zeroing and enforces provenance + independent judge contract", () => {
+  const demo = join(tmp, "reward-demo");
+  mkdirSync(join(demo, "gates"), { recursive: true });
+  mkdirSync(join(demo, "refs"), { recursive: true });
+  execFileSync("git", ["init", "-q", "-b", "main"], { cwd: demo });
+  execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: demo });
+  execFileSync("git", ["config", "user.name", "Test"], { cwd: demo });
+  writeFileSync(join(demo, "gates", "gate.py"), "MIN_IOU = 0.75\n");
+  writeFileSync(join(demo, "refs", "concept.png"), "PNG-CONCEPT-BYTES");
+  execFileSync("git", ["add", "."], { cwd: demo });
+  execFileSync("git", ["commit", "-q", "-m", "init"], { cwd: demo });
+
+  writeFileSync(join(demo, "hack.py"), "cmd = ['gate.py', '--min-iou', '0.0']\n");
+  const scanBad = spawnSync(process.execPath, [cliBin, "gate", "reward", "--root", demo, "--json"], { encoding: "utf8" });
+  assert.equal(scanBad.status, 1, scanBad.stdout + scanBad.stderr);
+  const parsedBad = JSON.parse(scanBad.stdout);
+  assert.equal(parsedBad.ok, false);
+  assert.equal(parsedBad.findings.some((f) => f.rule === "reward-hack-threshold-zero"), true);
+  rmSync(join(demo, "hack.py"));
+
+  const lockRun = spawnSync(
+    process.execPath,
+    [cliBin, "gate", "reward", "lock-contract", "--root", demo, "--slug", "corsair", "--gates", "gates/gate.py", "--references", "refs/concept.png", "--thresholds", "min_iou=0.75", "--required-producers", "dgx-spark", "--artifacts", "mesh.glb"],
+    { encoding: "utf8" }
+  );
+  assert.equal(lockRun.status, 0, lockRun.stdout + lockRun.stderr);
+
+  const blockedVerdict = spawnSync(process.execPath, [cliBin, "gate", "reward", "verdict", "--root", demo, "--slug", "corsair", "--strict"], { encoding: "utf8" });
+  assert.equal(blockedVerdict.status, 1);
+});

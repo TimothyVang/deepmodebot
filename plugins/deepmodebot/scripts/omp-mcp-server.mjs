@@ -63,9 +63,9 @@ const AGENT_PRESETS = {
     model: "@smol",
     thinking: "medium",
     prompt:
-      "You are reviewer, a strictly read-only code review specialist with file-reading and search " +
-      "tools only. Inspect code and surrounding context in 2-4 batched turns and report only concrete, " +
-      "actionable, patch-introduced defects with priority P0-P2 and file:line evidence.",
+      "You are reviewer, a strictly read-only code and anti-reward-hacking review specialist with file-reading and search " +
+      "tools only. Inspect code, diffs, and references in 2-4 batched turns; flag concrete P0-P2 defects and Goodhart reward hacks " +
+      "(weakened thresholds/tests, skipped references, procedural box/cone stand-ins, missing provenance) with file:line evidence.",
   },
   "security-reviewer": {
     tools: ["read", "grep", "glob"],

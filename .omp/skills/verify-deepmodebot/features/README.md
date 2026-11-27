@@ -61,6 +61,11 @@ For changes to `plugins/deepmodebot/skills/deepmodebot/assets/loop/loop.py`, `in
 Verify `manifest` slice progression (`1/N` to `N/N`), `fast_check`, `forbid_slop` (suppressions, swallowed exceptions, and `TODO`/`NotImplementedError` stubs), `protect_configs`, and the acceptance `check` against actual candidate edits, keeping `trail.tsv` and per-iteration prompt and check logs under `.scratch/`.
 Synthetic fake-harness unit tests in `test_loop.py` prove deterministic runner state machines, not live model compliance.
 
+## Anti-reward-hacking gate (`reward_guard.py` and `dmb-gate reward`)
+
+For changes to `plugins/deepmodebot/skills/deepmodebot/assets/reward-guard/reward_guard.py`, `native/dmb-gate/src/reward.rs`, or `no-reward-hacking.md`, run `python -B -m unittest discover -s plugins/deepmodebot/skills/deepmodebot/assets/reward-guard -p "test_*.py"` and `cargo test --manifest-path native/dmb-gate/Cargo.toml`.
+Exercise a disposable git repo under `.scratch/evidence/<slug>/` where a planted shortcut (`--min-iou 0.0`, `primitive_cube_add`, `@pytest.mark.skip`, and a lowered `MIN_IOU` bound) fails both `reward_guard.py scan` and `dmb-gate reward`, and verify `lock-contract` → `record-provenance` → `record-judge` → `verdict --strict` rejects tampered gates, unapproved primitive producers, skipped reference inputs, and self-judged verdicts before passing on verified receipts.
+
 ## Completed-job cleanup
 
 Exercise the bot's cleanup CLI with isolated `HOME`/`USERPROFILE` and local bare Git remotes, never the production cache. Preview must not delete; explicit apply must dispose eligible completed work and newly owned clones while preserving unfinished jobs, dirty/untracked files, unpushed commits, locked or foreign worktrees and changed clone metadata. Inspect real filesystem and Git state, not just exit codes. Cleanup failures must not turn completed jobs into retried jobs.

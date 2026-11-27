@@ -10,6 +10,7 @@ A local S fix lands on no branch, so it needs no panel (`references/playbooks/op
    Cross-family low-tier 3-seat lineup when multi-vendor routing is available: `claude-haiku-5-5-high` (or `claude-sonnet-5-5-medium`), `gpt-6-luna`, and `gemini-4-flash` (or three distinct angles — behavior, edge cases, security/data — on `Model: "flash"` / `@smol` inside single-vendor harnesses; escalate to `claude-fable-5-2-high` / `claude-opus-5-5-high-fast` / `gemini-4-neon-xhigh` only on explicit user request). Each brief says:
    - Be skeptical: the work is not done until you prove it is. Don't trust the author's evidence; reproduce it in `2–4` batched tool turns.
    - At `<SHA>`, run the repo's checks, prove each acceptance criterion on the real surface (the repo's `verify-<app>` skill first), and make one serious attempt to break it (the riskiest path in the diff, bad input, an edge case).
+   - Audit for Goodhart reward hacking (`references/principles/no-reward-hacking.md`): reject any vote or diff that weakened a test/threshold (`--min-iou 0`, `.skip`), skipped a reference comparison, lacked an upstream provenance receipt (`job_id` + SHA-256) on generated assets, or substituted primitive boxes/cones/mocks for the real user goal.
    - Never push, edit the branch, or comment on the PR.
    - Reply with `VERDICT: DONE` or `VERDICT: NOT DONE`, then each criterion with the command or artifact that shows it, then every failure with a command that reproduces it.
 
