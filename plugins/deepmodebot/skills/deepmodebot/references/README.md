@@ -22,6 +22,8 @@ For vague intent, quantitative milestones and independent two-of-three goal revi
 
 **Credentials and agent authentication** (sharing secrets and `.env` safely, password managers, logins and MFA for agents, credential brokers, protecting MCP servers and agent APIs, OAuth delegation, CI OIDC, secret scanning, leak response) → `skill://secrets-and-auth`. It holds the free-first picks, the rules, and the cited research, checked 2026-11-11.
 
+**Rule approval** (which agent rule files and memory conventions the owner has approved, proposing a rule change, owner-only `deepmodebot rules` commands, the ledger and its gate) → `references/rule-approval.md`.
+
 **Architecture: monorepos, ontology, databases, backend infrastructure** (repo layout and workspace tooling, domain vocabulary and typed models, knowledge graphs and semantic layers, choosing, organizing, or migrating a database, multi-tenancy, queues and durable workflows, API style, reliability, observability, deployment, IaC) → `skill://software-architecture`, then only the file it routes to. Cited and dated 2026-11-11; it builds on `skill://domain-rules/references/backend-system-design.md` and the model-the-domain principle rather than repeating them.
 
 **Agent-assisted language rewrites** (assessing a Rust migration, choosing incremental replacement versus an all-at-once port, or preserving behavior during a rewrite) → `references/rust-migration-case-studies.md`. Cited accounts from the GitHub Copilot runtime and Bun; reported outcomes are separate from transferable guidance.

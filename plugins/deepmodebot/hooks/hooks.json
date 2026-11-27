@@ -1,5 +1,5 @@
 {
-  "description": "Claude Code containment guard: once a /deepmodebot: command runs in a session, Write, Edit and NotebookEdit outside the project root are denied for the rest of that session, resumes included (shell commands, natural-language triggers, and Codex apply_patch are not intercepted by this hook). Without Python 3.8+ on PATH the guard fails closed and denies those writes in active sessions.",
+  "description": "Claude Code containment guard: once a /deepmodebot: command runs in a session, Write, Edit and NotebookEdit outside the project root are denied for the rest of that session, resumes included (shell commands, natural-language triggers, and Codex apply_patch are not intercepted by this hook). Without Python 3.8+ on PATH the guard fails closed and denies those writes in active sessions. Rule approval runs in every session: in a repo with an owner rule ledger (.deepmodebot/rules/ledger.json), Write, Edit, NotebookEdit and Bash changes to agent rule files are denied, and owner-only `deepmodebot rules` commands are denied everywhere.",
   "hooks": {
     "UserPromptSubmit": [
       {

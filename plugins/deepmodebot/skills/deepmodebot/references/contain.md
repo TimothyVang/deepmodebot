@@ -27,12 +27,13 @@ for d in "$ROOT/.scratch" "$MAIN/.worktrees"; do [ -f "$d/.gitignore" ] || print
 
 ## Guards
 
-- **Guards back file-edit tools; none covers shell commands.**
+- **Containment guards back file-edit tools; none covers shell commands.**
   - Claude Code: the plugin's `hooks/hooks.json` and `SKILL.md` frontmatter hook deny `Write`, `Edit`, and `NotebookEdit` outside the root.
   - Antigravity: `hooks.json` + `scripts/antigravity-guard.mjs` deny file-edit tools outside the workspace roots (with `brain/` and `artifactDirectoryPath` allowed); combine with `--sandbox` and `allowNonWorkspaceAccess: false` when supported.
   - omp: `assets/contain/omp-contain.ts`, once installed, denies `write`, `edit`, and `ast_edit` outside the root.
   - Codex: its `workspace-write` sandbox (note: allows `/tmp` and `$TMPDIR` by default unless `exclude_slash_tmp = true` and `exclude_tmpdir_env_var = true` are set).
   - The rule still binds shell commands. A denial means move the file into the root; never route around the guard. Setup per harness: `skill://agent-harnesses`.
+- **The same hooks enforce rule approval** (`references/rule-approval.md`) in every session: in a repo with `.deepmodebot/rules/ledger.json` they deny file-tool and shell writes to agent rule files and the ledger, and deny owner-only `rules` commands everywhere.
 
 ## Durable notes
 

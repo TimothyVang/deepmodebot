@@ -71,6 +71,7 @@ Facts for an agent deciding whether to suggest deepmodebot to its user. The same
 | Harness references | Cited, dated guides (checked 2026-11-13) for using omp, Claude Code, Codex, and Google Antigravity, the MCP, ACP, A2A, and WebMCP protocols, and portable AI-native conventions (`AGENTS.md`, Agent Skills, plugin marketplaces). A cross-harness map translates every omp tool and path deepmodebot names across harnesses. In `plugins/deepmodebot/skills/agent-harnesses/`. |
 | Agent SDK workspace | [Install and use Antigravity, Claude Agent, Codex, and omp SDKs](plugins/deepmodebot/skills/agent-harnesses/references/sdks.md), with pinned optional dependencies and no-model smoke commands. CLI subscription logins and SDK authentication are separate contracts. |
 | Contained work | The agent works only inside the project's repo. Scratch and temp files go in `.scratch/`, worktrees in `.worktrees/` (both git-ignored), never system temp or folders outside the repo. With no repo it creates a named one first. Guards enforce this in Claude Code, omp, and Antigravity; Codex's sandbox does it natively. Windows process cleanup uses the loaded interpreter as owner without launcher breakaway; process ownership is not credential isolation. |
+| Approved rules | You see and sign off every rule AI agents load: `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/`, skills, agent settings, and memory conventions. `deepmodebot rules init` signs today's rules with a passphrase only you know. From then on agents can only propose rule changes; hooks in Claude Code, omp and Antigravity block direct rule edits, the commit gate blocks unapproved or forged rules, and `deepmodebot rules review` / `approve` / `reject` / `log` track every decision. [How it works](plugins/deepmodebot/skills/deepmodebot/references/rule-approval.md). |
 | Credentials and auth | Cited, free-first guidance (checked 2026-11-11) for sharing API keys and `.env` safely, passwords and usernames, logins and MFA for agents, credential brokers, protecting MCP servers and agent APIs, CI OIDC, secret scanning, and leak response. In `plugins/deepmodebot/skills/secrets-and-auth/`. |
 | Architecture | Cited, decision-ready guidance (checked 2026-11-11) for organizing monorepos, naming the domain (glossary, typed models, LinkML, RDF and SHACL, graph databases, Palantir-style ontology for agent actions), choosing and migrating databases with agents working safely against them, and backend infrastructure and system design (reliability, queues and durable workflows, APIs, OpenTelemetry, deployment, IaC). Each file ends with the default stack for a solo dev or small team. In `plugins/deepmodebot/skills/software-architecture/`. |
 | Self-authoring | deepmodebot writes and revises bounded loop prompts from observed failures. `assets/loop/loop.py` pairs inner-loop hardening (`audit`, `manifest`, `fast_check`, `forbid_slop`, `protect_configs`) with sprint-scoped Full-Scope Completion (`status`, `--sprint`, `"inventory"`, `"sme_gate"`), cheap-first escalation, quota/429 fallback (`fallback_harness_args`), cadence/SME checkpoints (`checkpoint_every` or `sme_gate`, exit 6; active-sprint pass with deferred slices exits 0 with `scope_complete: false`), and `latest-summary.json`. `loop.py run` uses omp, Claude Code, or Codex. |
@@ -252,7 +253,7 @@ cp plugins/deepmodebot/skills/deepmodebot/assets/contain/omp-contain-link.ts ~/.
 
 With a manual install, copy `omp-contain.ts` itself to the same folder instead.
 
-For one run only, pass `--hook <path to omp-contain.ts>` instead. To let the agent write to a folder outside the project you named, list it in the project's `.deepmodebot.json` as `{"extraWriteRoots": ["~/some/folder"]}`. The guards don't parse shell commands, so the skill's rule still binds `bash`.
+For one run only, pass `--hook <path to omp-contain.ts>` instead. To let the agent write to a folder outside the project you named, list it in the project's `.deepmodebot.json` as `{"extraWriteRoots": ["~/some/folder"]}`. The containment guards don't parse shell commands, so the skill's rule still binds `bash`. The same hook also enforces [rule approval](#approve-the-rules-agents-write), which does check shell writes to rule files.
 
 ## Use it
 
@@ -274,6 +275,24 @@ The examples use the bare `/deep`. With a plugin install, type `/deepmodebot:dee
 - It decides reversible details without asking. Ordinary local S/M edits stay uncommitted for review; publication-in-scope work handles commits, pushes, PRs, board cards, and merges after a panel pass. It asks once at the end only for hard stops (deploys, deletions, shared-history rewrites, outside messages, money, secrets), and lists every decision it made so you can reverse any.
 - It reuses the repo's verification tools or runs the real user path directly. A reusable `verify-<app>` skill is useful for repeated work, not a prerequisite for every local change.
 - Direct commands in omp and Claude Code: `/deepmodebot:tournament`, `/deepmodebot:review-pr`, `/deepmodebot:land-pr`, `/deepmodebot:pr-thread`, `/deepmodebot:contribute`, `/deepmodebot:project-brief`. In Antigravity drop the prefix (`/tournament`, `/review-pr`, etc.). Codex loads skills only (`$deepmodebot:deepmodebot`, `$deepmodebot:contribute`, `$deepmodebot:project-brief`); route PR/tournament tasks via `$deepmodebot:deepmodebot`.
+
+### Approve the rules agents write
+
+Agents add rules to `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/`, skills and project memory as they work. Turn on owner approval once per repo, from your own terminal:
+
+```bash
+deepmodebot rules init       # lists today's rules, approves them as the baseline, sets your passphrase
+git add .deepmodebot/rules && git commit -m "rules: owner approval on"
+```
+
+After that:
+
+- Agents cannot edit rule files. The hooks block the write and tell the agent to run `rule_ledger.py propose`, which parks the change for you. New memory conventions stay hidden from the agent until approved.
+- `deepmodebot rules status` lists every rule and what waits. `deepmodebot rules review` shows each pending change with an id and diff. `deepmodebot rules log` shows every past decision.
+- `deepmodebot rules approve <id>` or `reject <id>` (or `--all`) asks for your passphrase. Reject puts the approved text back. Commit `.deepmodebot/rules/` afterwards.
+- The pre-commit hook (`deepmodebot init --install-hooks`), the slop gate and `deepmodebot gate rules` fail on any unapproved rule, an edited ledger, or a swapped owner key. They compare against HEAD and your default branch, so a commit that skipped the hooks still fails there; in CI run `deepmodebot gate rules --base origin/main`.
+
+Never give the passphrase to an agent. Agents are blocked from `rules init`, `approve`, `reject` and `rotate`, and from skipping git hooks. Codex has no deepmodebot hook, so its rule edits are caught at commit time. [Limits](plugins/deepmodebot/skills/deepmodebot/references/rule-approval.md#limits).
 
 ## GitHub App bots
 
