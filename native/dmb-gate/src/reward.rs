@@ -1894,8 +1894,8 @@ pub fn scan_file_reward_hacks_full(
                 rule: "reward-hack-primitive-standin",
                 file: rel.to_string(),
                 line: *ln,
-                message: "Local procedural primitive geometry (`cube`/`cone`/`sphere`/`cylinder`) added in production/pipeline code.".to_string(),
-                fix: "Produce the asset via the real upstream generator/solver with a provenance receipt, or pass `--allow-primitives` for genuine CAD/procedural geometry.",
+                message: "Local procedural primitive geometry (`cube`/`cone`/`sphere`/`cylinder`) added in production/pipeline or scratch code.".to_string(),
+                fix: "Produce the asset via the real upstream generator/solver with a signed provenance receipt, or pass `--allow-primitives` for genuine CAD/procedural geometry.",
             });
         }
         if has_hardcoded_pass(line) {

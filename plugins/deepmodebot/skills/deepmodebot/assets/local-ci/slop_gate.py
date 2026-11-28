@@ -114,10 +114,17 @@ def _load_mod(name: str, path: Path):
 
 
 def _git(root: Path, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(
+    p = subprocess.run(
         ["git", "-C", str(root), *args],
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
-        timeout=30, creationflags=NO_WINDOW,
+        capture_output=True,
+        timeout=30,
+        creationflags=NO_WINDOW,
+    )
+    return subprocess.CompletedProcess(
+        p.args,
+        p.returncode,
+        p.stdout.decode("utf-8", errors="replace"),
+        p.stderr.decode("utf-8", errors="replace"),
     )
 
 
@@ -167,10 +174,10 @@ def _added_lines_for_file(root: Path, rel: str, staged: bool) -> dict[int, str]:
         return {}
     has_head = _git(root, "rev-parse", "--verify", "HEAD").returncode == 0
     if not has_head and not staged:
-        return {i: l for i, l in enumerate(_split_lf_lines(full.read_text(encoding="utf-8", errors="replace")), 1)}
+        return {i: l for i, l in enumerate(_split_lf_lines(full.read_bytes().decode("utf-8", errors="replace")), 1)}
     tracked = _git(root, "ls-files", "--error-unmatch", "--", rel).returncode == 0
     if not tracked and not staged:
-        return {i: l for i, l in enumerate(_split_lf_lines(full.read_text(encoding="utf-8", errors="replace")), 1)}
+        return {i: l for i, l in enumerate(_split_lf_lines(full.read_bytes().decode("utf-8", errors="replace")), 1)}
     cmd = ["diff", "--cached", "-U0", "--", rel] if staged else ["diff", "HEAD", "-U0", "--", rel]
     diff = _git(root, *cmd)
     if diff.returncode != 0:
@@ -195,7 +202,7 @@ def _read_text_safe(root: Path, rel: str, max_bytes: int = 1_048_576) -> str | N
         return None
     if p.stat().st_size > max_bytes:
         return None
-    return p.read_text(encoding="utf-8", errors="replace")
+    return p.read_bytes().decode("utf-8", errors="replace")
 
 
 def _max_ast_nesting(node: ast.AST, depth: int = 0) -> int:

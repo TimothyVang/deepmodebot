@@ -460,14 +460,17 @@ def _validate_image_file(root: Path, rel_raw: str) -> tuple[str, str, bytes, str
 
 
 def _git(root: Path, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(
+    p = subprocess.run(
         ["git", "-c", "core.quotePath=false", "-C", str(root), *args],
         capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
         timeout=30,
         creationflags=NO_WINDOW,
+    )
+    return subprocess.CompletedProcess(
+        p.args,
+        p.returncode,
+        p.stdout.decode("utf-8", errors="replace"),
+        p.stderr.decode("utf-8", errors="replace"),
     )
 
 
@@ -638,7 +641,7 @@ def _batch_diffs_for_files(
     tracked_list: list[str] = []
     for rel in valid:
         if (not has_head or rel in untracked or rel.startswith(".scratch/")) and not staged:
-            lines = _split_lf_lines((root / rel).read_text(encoding="utf-8", errors="replace"))
+            lines = _split_lf_lines((root / rel).read_bytes().decode("utf-8", errors="replace"))
             added = {i: ln for i, ln in enumerate(lines, 1)}
             out[rel] = (added, [([], list(added.items()))])
         else:
@@ -1287,7 +1290,7 @@ def scan_reward_hacking(
         added, hunks = batched.get(rel, ({}, []))
         full_txt = ""
         if (safe_root / rel).is_file() and not (safe_root / rel).is_symlink():
-            full_txt = (safe_root / rel).read_text(encoding="utf-8", errors="replace")
+            full_txt = (safe_root / rel).read_bytes().decode("utf-8", errors="replace")
             if not added and explicit_files:
                 added = {i: ln for i, ln in enumerate(_split_lf_lines(full_txt), 1)}
         if added or hunks:
@@ -1993,12 +1996,15 @@ def _render_3d_artifact_owned(mesh_file: Path, run_dir: Path) -> list[tuple[str,
 
 
 def _safe_xml_root(raw_xml: bytes) -> ET.Element:
-    low_head = raw_xml[:4096].lower()
-    if b"<!entity" in low_head or b"<!doctype" in low_head:
+    low_all = raw_xml.lower()
+    if b"<!entity" in low_all:
+        raise ValueError("refusing XML artifact containing <!ENTITY> declarations")
+    if b"<!doctype" in low_all:
         raw_xml = re.sub(rb"<!DOCTYPE[^>]*>", b"", raw_xml, flags=re.I | re.S)
-        if b"<!entity" in raw_xml.lower():
-            raise ValueError("refusing XML artifact containing <!ENTITY> declarations")
-    return ET.fromstring(raw_xml)
+    try:
+        return ET.fromstring(raw_xml)
+    except ET.ParseError as exc:
+        raise ValueError(f"malformed XML artifact: {exc}") from exc
 
 
 def _inspect_audio_artifact(art_file: Path) -> dict:
