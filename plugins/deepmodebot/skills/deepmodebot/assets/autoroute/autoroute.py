@@ -564,9 +564,10 @@ def verify_decision(
     if not isinstance(deliverables, list) or not deliverables:
         violations.append("deliverables must be a non-empty list covering full request scope")
 
-    decoded_intent = str(decision.get("decoded_intent", "")).strip()
+    raw_intent = decision.get("decoded_intent")
+    decoded_intent = raw_intent.strip() if isinstance(raw_intent, str) else ""
     if not decoded_intent:
-        violations.append("decoded_intent cannot be empty")
+        violations.append("decoded_intent must be a nonblank string")
 
     sensitive_prompt = bool(SENSITIVE_RE.search(prompt)) if prompt else False
     sensitive_diff = bool(repo_facts.get("diff_sensitive_paths"))

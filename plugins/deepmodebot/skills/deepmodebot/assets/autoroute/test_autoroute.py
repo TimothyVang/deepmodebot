@@ -140,6 +140,18 @@ class AutoRouteLoopTests(unittest.TestCase):
         self.assertEqual(res["status"], "APPROVED")
         self.assertEqual(res["locked_plan"]["route_file"], "references/playbooks/runtime-forensics.md")
 
+        for invalid in (None, False, [], "   "):
+            with self.subTest(decoded_intent=invalid):
+                result = autoroute.verify_decision(
+                    {**revised, "decoded_intent": invalid},
+                    prompt="my worker has a memory leak and idle cpu hits 100%",
+                    root=self.repo,
+                    critic_round=2,
+                )
+                self.assertEqual(result["status"], "REJECTED")
+                self.assertIsNone(result["locked_plan"])
+                self.assertIn("decoded_intent must be a nonblank string", result["violations"])
+
     def test_verify_auto_attaches_missing_reference_skills_and_blocks_lazy_tournament(self):
         lazy = {
             "decoded_intent": "Fix React sidebar animation in src/sidebar.tsx",

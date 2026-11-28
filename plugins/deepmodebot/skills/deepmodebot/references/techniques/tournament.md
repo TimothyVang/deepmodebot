@@ -35,19 +35,21 @@
    Done when `sf-1` and `sf-2` are judged and `final` is ready.
 
 5. **Run the championship final (`final`).** Compare the surviving candidates on the locked user outcome and the best evidence attainable in this run. Show dissent. If the locked tie rule yields no winner, stop and report the tie as two candidates; do not enter a fabricated verdict.
-   - An independent judge verifies the decisive receipt and records the winner with `tournament.py judge`, setting `champion` and preserving the runner-up.
-   Done when `tournament.py status --dir <dir> --json` names `champion` and `runner_up`, or the rubric's unresolved tie is recorded separately with both finalists and the ballots.
+   - An independent judge verifies the decisive receipt and records the winner with `tournament.py judge`. Preserve the runner-up when one exists. If the field forfeits down to one, report an unopposed advancement, not a comparative win.
+   Done when `tournament.py status --dir <dir> --json` names the champion, or the unresolved tie is recorded separately with both finalists and the ballots.
 
-6. **Present the outcome and full portfolio.** Run `tournament.py render --dir <dir>` to write `<dir>/proposal.md`. If no candidate won, write the proposal from the unresolved bracket and label the unresolved match. Present:
+6. **Present the outcome and full portfolio.** Run `tournament.py render --dir <dir>` to write `<dir>/proposal.md`. If no candidate won, write the proposal from the unresolved bracket and label the unresolved match.
+   The CLI renders bracket metadata; it does not validate artifact hashes. Recompute the candidate hash before handoff and compare it with the ballot receipt. Label missing or mismatched versions unjudged; replay them before treating them as winners.
+   Add this evidence to the saved proposal before handing it off:
    - **Champion thesis:** system shape, grafted insights, submitted receipts distinguished from judge-verified receipts, primary risk, and first tracer-bullet slice.
-   - **Runner-Up counter-thesis:** the strongest surviving alternative and when to prefer it.
+   - **Runner-Up counter-thesis, if any:** the strongest surviving alternative and when to prefer it.
    - **Full Ranked High-Leverage Portfolio (`1..N` across all pitched lenses):** every surviving and eliminated contender's distinct proposal, gap kind, receipts, and grafted insights.
    - **Bracket ledger:** match winners, verified receipts, and grafts.
    - **Evaluation scope:** locked rubric and exact judged candidate versions, evidence tier, and any unjudged revisions or grafts. Report a measured outcome only when the run measured that outcome.
    Preserve the original delivery intent. For discovery-only requests (including `/tournament` without a build request), ask whether the user wants **Champion**, **Runner-Up**, a **multi-item bundle from the Full Ranked Portfolio**, or a constraint adjustment before modifying production files.
-   For an original build request with a winner, continue with the Champion unless the user asked to choose first. If there is no winner, present the unresolved decision. The handoff grants no permission to publish, deploy, spend money, or cross another hard stop.
+   For an original build request with a judged winner, continue with that version unless the user asked to choose first. For an unresolved tie, present the decision. The handoff grants no permission to publish, deploy, spend money, or cross another hard stop.
    Hand the chosen thesis to Spec (`references/playbooks/spec.md`) or Feature (`references/playbooks/feature.md`), then implement and prove the requested build.
-   Done when `proposal.md` exists, names the judged winner and runner-up or the unresolved match and candidates, and presents the full portfolio and next decision.
+   Done when `proposal.md` names the judged winner, unopposed advancer, or unresolved match and presents the full portfolio and next decision.
 
 **Output:** `<root>/.scratch/tournaments/<slug>/proposal.md`, the locked `rubric.json`, and ballot receipts tied to the exact candidate versions.
 
