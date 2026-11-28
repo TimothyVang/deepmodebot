@@ -1700,38 +1700,26 @@ pub fn scan_file_reward_hacks_full(
             && (test_file
                 || e2e_file
                 || rs_cfg_test_line.map(|cfg_ln| *ln >= cfg_ln).unwrap_or(false));
-        if ![
-            "re.compile(",
-            "Regex::new",
-            "IAC_SEC_SUPPRESS_RE",
-            "PROOF_TLA_CFG_COMMENT_RE",
-            "\"rule\":",
-            "rule: \"",
-        ]
-        .iter()
-        .any(|m| raw_line.contains(m))
-        {
-            if ext == "cfg" && has_tla_cfg_commented_invariant(raw_line) {
-                out.push(RewardFinding {
-                    severity: "P0",
-                    rule: "reward-hack-proof-escape",
-                    file: rel.to_string(),
-                    line: *ln,
-                    message: "TLA+ `.cfg` comments out `INVARIANT`/`PROPERTY` so model checking passes vacuously.".to_string(),
-                    fix: "Keep every TLA+ invariant and temporal property active and fix the specification.",
-                });
-            }
-            let cmt_slice = extract_unquoted_comment(&ext, raw_line);
-            if !in_test_ctx && has_iac_sec_suppression(cmt_slice) {
-                out.push(RewardFinding {
-                    severity: "P1",
-                    rule: "reward-hack-scanner-suppressed",
-                    file: rel.to_string(),
-                    line: *ln,
-                    message: "Inline security/IaC scanner suppression (`tfsec`/`checkov`/`trivy`/`nosemgrep`) silences a policy check.".to_string(),
-                    fix: "Remediate the underlying security or IaC misconfiguration instead of suppressing the scanner.",
-                });
-            }
+        if ext == "cfg" && has_tla_cfg_commented_invariant(raw_line) {
+            out.push(RewardFinding {
+                severity: "P0",
+                rule: "reward-hack-proof-escape",
+                file: rel.to_string(),
+                line: *ln,
+                message: "TLA+ `.cfg` comments out `INVARIANT`/`PROPERTY` so model checking passes vacuously.".to_string(),
+                fix: "Keep every TLA+ invariant and temporal property active and fix the specification.",
+            });
+        }
+        let cmt_slice = extract_unquoted_comment(&ext, raw_line);
+        if !in_test_ctx && has_iac_sec_suppression(cmt_slice) {
+            out.push(RewardFinding {
+                severity: "P1",
+                rule: "reward-hack-scanner-suppressed",
+                file: rel.to_string(),
+                line: *ln,
+                message: "Inline security/IaC scanner suppression (`tfsec`/`checkov`/`trivy`/`nosemgrep`) silences a policy check.".to_string(),
+                fix: "Remediate the underlying security or IaC misconfiguration instead of suppressing the scanner.",
+            });
         }
         if is_scanner_or_comment(&ext, raw_line) {
             continue;

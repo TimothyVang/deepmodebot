@@ -573,6 +573,15 @@ def _changed_files(
     return sorted(set(clean))
 
 
+def _split_lf_lines(text: str) -> list[str]:
+    if not text:
+        return []
+    parts = text.split("\n")
+    if parts and parts[-1] == "":
+        parts.pop()
+    return [p[:-1] if p.endswith("\r") else p for p in parts]
+
+
 def _parse_unified_diff(
     patch_text: str,
     out: dict[str, tuple[dict[int, str], list[tuple[list[str], list[tuple[int, str]]]]]],
@@ -581,7 +590,7 @@ def _parse_unified_diff(
     cur_ln = 0
     cur_rem: list[str] = []
     cur_add: list[tuple[int, str]] = []
-    for raw in patch_text.splitlines():
+    for raw in _split_lf_lines(patch_text):
         if raw.startswith("diff --git "):
             if cur_file and (cur_rem or cur_add):
                 out.setdefault(cur_file, ({}, []))[1].append((cur_rem, cur_add))
@@ -629,7 +638,7 @@ def _batch_diffs_for_files(
     tracked_list: list[str] = []
     for rel in valid:
         if (not has_head or rel in untracked or rel.startswith(".scratch/")) and not staged:
-            lines = (root / rel).read_text(encoding="utf-8", errors="replace").splitlines()
+            lines = _split_lf_lines((root / rel).read_text(encoding="utf-8", errors="replace"))
             added = {i: ln for i, ln in enumerate(lines, 1)}
             out[rel] = (added, [([], list(added.items()))])
         else:
@@ -710,7 +719,7 @@ def _scrub_proof_text_lines(ext: str, text: str) -> dict[int, str]:
     semi_line = ext == ".smt2"
     depth = 0
     result: dict[int, str] = {}
-    for ln_no, raw in enumerate(text.splitlines(), 1):
+    for ln_no, raw in enumerate(_split_lf_lines(text), 1):
         buf: list[str] = []
         i = 0
         n = len(raw)
@@ -791,7 +800,7 @@ def _has_json_key_false(line: str, keys_low: frozenset[str]) -> bool:
 def _find_mypy_section_lines(full_text: str) -> set[int]:
     out: set[int] = set()
     in_mypy = False
-    for idx, raw in enumerate(full_text.splitlines(), 1):
+    for idx, raw in enumerate(_split_lf_lines(full_text), 1):
         t = raw.strip()
         if t.startswith("[") and t.endswith("]"):
             sec = t[1:-1].strip().lower()
@@ -810,7 +819,7 @@ def _is_comment_or_scanner_line(ext: str, line: str) -> bool:
         return True
     return False
 def _find_rs_cfg_test_mod_line(full_text: str) -> int | None:
-    lines = full_text.splitlines()
+    lines = _split_lf_lines(full_text)
     n = len(lines)
     for i, raw in enumerate(lines):
         if raw.strip().startswith("#[cfg(test)]"):
@@ -994,26 +1003,25 @@ def scan_added_lines_for_reward_hacks(
     findings: list[dict] = []
     for ln, raw_line in sorted(added_lines.items()):
         in_test_ctx = (not is_scratch) and (is_test or is_e2e_test or (rs_cfg_test_line is not None and ln >= rs_cfg_test_line))
-        if not SCANNER_META_RE.search(raw_line):
-            if ext == ".cfg" and PROOF_TLA_CFG_COMMENT_RE.search(raw_line):
-                findings.append({
-                    "severity": "P0",
-                    "rule": "reward-hack-proof-escape",
-                    "file": rel,
-                    "line": ln,
-                    "message": "TLA+ `.cfg` comments out `INVARIANT`/`PROPERTY` so model checking passes vacuously.",
-                    "fix": "Keep every TLA+ invariant and temporal property active and fix the specification.",
-                })
-            cmt_slice = _extract_unquoted_comment(ext, raw_line)
-            if not in_test_ctx and cmt_slice and IAC_SEC_SUPPRESS_RE.search(cmt_slice):
-                findings.append({
-                    "severity": "P1",
-                    "rule": "reward-hack-scanner-suppressed",
-                    "file": rel,
-                    "line": ln,
-                    "message": "Inline security/IaC scanner suppression (`tfsec`/`checkov`/`trivy`/`nosemgrep`) silences a policy check.",
-                    "fix": "Remediate the underlying security or IaC misconfiguration instead of suppressing the scanner.",
-                })
+        if ext == ".cfg" and PROOF_TLA_CFG_COMMENT_RE.search(raw_line):
+            findings.append({
+                "severity": "P0",
+                "rule": "reward-hack-proof-escape",
+                "file": rel,
+                "line": ln,
+                "message": "TLA+ `.cfg` comments out `INVARIANT`/`PROPERTY` so model checking passes vacuously.",
+                "fix": "Keep every TLA+ invariant and temporal property active and fix the specification.",
+            })
+        cmt_slice = _extract_unquoted_comment(ext, raw_line)
+        if not in_test_ctx and cmt_slice and IAC_SEC_SUPPRESS_RE.search(cmt_slice):
+            findings.append({
+                "severity": "P1",
+                "rule": "reward-hack-scanner-suppressed",
+                "file": rel,
+                "line": ln,
+                "message": "Inline security/IaC scanner suppression (`tfsec`/`checkov`/`trivy`/`nosemgrep`) silences a policy check.",
+                "fix": "Remediate the underlying security or IaC misconfiguration instead of suppressing the scanner.",
+            })
         if _is_comment_or_scanner_line(ext, raw_line):
             continue
         line = _strip_trailing_comment(ext, raw_line)
@@ -1281,7 +1289,7 @@ def scan_reward_hacking(
         if (safe_root / rel).is_file() and not (safe_root / rel).is_symlink():
             full_txt = (safe_root / rel).read_text(encoding="utf-8", errors="replace")
             if not added and explicit_files:
-                added = {i: ln for i, ln in enumerate(full_txt.splitlines(), 1)}
+                added = {i: ln for i, ln in enumerate(_split_lf_lines(full_txt), 1)}
         if added or hunks:
             findings.extend(
                 scan_added_lines_for_reward_hacks(rel, added, hunks, allow_primitives=allow_primitives, full_text=full_txt)
