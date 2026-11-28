@@ -14,11 +14,11 @@ Regex cannot understand human phrasing, tone, frustration, skepticism, or compou
    ```
    *(Headless / CLI callers without an active chat LLM can run `autoroute.py route --root "<project-root>" --stdin --harness auto --json` to invoke the user's logged-in subscription LLM `agy`/`claude`/`codex` directly through Stages 1–3, stripping API keys and never spending `omp` tokens.)*
    `menu` discovers every playbook, technique, plugin sibling skill, and project-local skill from disk, collects live repo facts plus `pre_flight_clarification` (`prompt_tools.py clarify`), and emits `llm_router_prompt` with **no regex mode guess**.
-   If `pre_flight_clarification.needs_clarification` is `true` (and repo/docs cannot settle it), ask `1-3` `(Recommended)`-first choices once upfront via `ask_question` / `AskUserQuestion` / `ask` / `request_user_input` (pick `(Recommended)` in `-p` mode), then run 100% autonomously.
-   Done when the live catalog, repo facts, and upfront intent check are settled.
+   Use the main skill's Route Step 0 to resolve intent. Treat `pre_flight_clarification` as advisory: inspect available facts before asking and never treat a headless default as authorization.
+   Done when the actor, outcome, success evidence, and requested delivery boundary are clear enough to route.
 
 2. **Stage 2: Ask the LLM to decide semantically.** Using the full menu and repo facts (inline structured reasoning, or a fast read-only `scout` subagent on large/ambiguous asks), output a single JSON route decision:
-   - `decoded_intent` and numbered `deliverables` (full scope; never drop compound clauses)
+   - `decoded_intent`: restate the user's objective, observable success, and delivery boundary before choosing a mode. `deliverables`: enumerate every requested output or action without turning a proxy into a goal.
    - `primary_mode` and exact `route_file` from the live menu
    - `secondary_techniques` (e.g., `self-grill`, `no-comments`, `security-audit`, `why`, `how`, `formal-verification`) and `reference_skills` (`skill://frontend-ui`, `skill://secrets-and-auth`, `skill://software-architecture`, `skill://cloud-devsecops`, `skill://agent-harnesses`, `skill://domain-rules`, `skill://deep-stack`)
   - `size` (`S`/`M`/`L`/`none`), `self_grill` (`none`/`plan`/`checks`/`both`), `hardcore_mode` (default `true`; `false` only on explicit minimal/prototype opt-out), `hardcore_ceiling` (1-sentence first-principles engineering target), `confidence` (`0.0`–`1.0`), `runner_up`, `why_not_runner_up`, `needs_prompt_upgrade`, and `hard_stops`.
@@ -36,7 +36,7 @@ Regex cannot understand human phrasing, tone, frustration, skepticism, or compou
    - **Anti-blunder & Hardcore anti-sandbagging guards:** blocks lazy `tournament` dumping on concrete anchors without justification, flags shallow `feature`/`bug-fix` collapse when specialized playbooks fit (`perf-issue`, `runtime-forensics`, `trace-forensics`, `hillclimb`, `visual-parity`, `reference-rebuild`, `formal-verification`, `gen-ui`, `video-forensics`, `suggest`, `prompt-upgrade`, `no-comments`), and blocks disabling `hardcore_mode` or under-sizing multi-part/systems work to `S`.
   - **Required companions:** flags missing `reference_skills` or `self-grill`/`no-comments` on M/L code work (plus `architect` on multi-part hardcore L builds).
    - **Bounded critic pass (`--critic-round 2`):** if `status` is `CRITIC_REQUIRED` (confidence `< 0.80` or specialized-signal mismatch) or `REJECTED`, run one fresh adversarial critic pass using `critic_prompt`, revise the JSON with `"critic_reviewed": true`, and re-verify with `--critic-round 2` until `APPROVED` (exit 0). Round-1 `critic_reviewed: true` without `--critic-round 2` is rejected.
-   Done when `verify --strict` returns `APPROVED` (exit 0) and you open `route_file` plus listed `reference_skills`.
+   Done when `verify --strict` returns `APPROVED` (exit 0), the `locked_plan` carries the intent into execution, and you open `route_file` plus listed `reference_skills`.
 
 ## Mid-flight re-route (Stage 4)
 

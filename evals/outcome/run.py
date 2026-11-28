@@ -20,6 +20,7 @@ import argparse
 import difflib
 import io
 import json
+import ntpath
 import os
 import random
 import re
@@ -299,6 +300,13 @@ HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1")
 SELECTOR = re.compile(r"(?<=[^:/\\])(?::(?:raw|conflicts|img|-?\d[\d,+\-]*))+$|\?.*$")
 
 
+def resolve_audit_path(token, cwd, folder):
+    paths = ntpath if ntpath.splitdrive(os.fspath(folder))[0] else os.path
+    drive = re.match(r"^/([A-Za-z])(?:/|$)(.*)$", token) if paths is ntpath else None
+    native = f"{drive.group(1)}:/{drive.group(2)}" if drive else token
+    return paths.normpath(paths.join(cwd, native))
+
+
 def escapes(token, cwd, folder, path_field=False):
     """True when token, read as a path from cwd, lands outside folder. `..` segments that climb out count."""
     token = token.strip().strip("'\"`").lstrip("!")
@@ -310,15 +318,14 @@ def escapes(token, cwd, folder, path_field=False):
         return False
     if not path_field and not re.match(r"^[A-Za-z]:[\\/]|^/", token) and ".." not in re.split(r"[\\/]", token):
         # A plain relative word only leaves the folder when an earlier `cd` already did; count path-shaped ones.
-        return bool(re.search(r"[\\/]", token)) and not is_inside(Path(cwd), folder)
-    drive = re.match(r"^/([A-Za-z])(?:/|$)(.*)$", token)
-    native = f"{drive.group(1)}:/{drive.group(2)}" if drive else token
-    return not is_inside(Path(os.path.normpath(os.path.join(cwd, native))), folder)
+        return bool(re.search(r"[\\/]", token)) and not is_inside(cwd, folder)
+    return not is_inside(resolve_audit_path(token, cwd, folder), folder)
 
 
 def is_inside(path, folder):
-    path, root = os.path.normcase(os.path.normpath(path)), os.path.normcase(os.path.normpath(folder))
-    return path == root or path.startswith(root.rstrip(os.sep) + os.sep)
+    paths = ntpath if ntpath.splitdrive(os.fspath(folder))[0] else os.path
+    path, root = paths.normcase(paths.normpath(path)), paths.normcase(paths.normpath(folder))
+    return path == root or path.startswith(root.rstrip(paths.sep) + paths.sep)
 
 
 def split_words(text):
@@ -380,7 +387,7 @@ def outside_paths(calls, folder):
         args = call["args"] if isinstance(call["args"], dict) else {}
         cwd = folder
         if isinstance(args.get("cwd"), str):
-            cwd = Path(os.path.normpath(os.path.join(folder, args["cwd"])))
+            cwd = resolve_audit_path(args["cwd"], folder, folder)
         found = []
         for field in PATH_FIELDS:
             values = args.get(field)
@@ -409,9 +416,7 @@ def outside_paths(calls, folder):
                     target = words[i + 1][0].strip("'\"")
                     if escapes(target, here, folder):
                         found.append(target)
-                    drive = re.match(r"^/([A-Za-z])(?:/|$)(.*)$", target)
-                    target = f"{drive.group(1)}:/{drive.group(2)}" if drive else target
-                    here = Path(os.path.normpath(os.path.join(here, os.path.expanduser(target))))
+                    here = resolve_audit_path(os.path.expanduser(target), here, folder)
                     i += 1
                 i += 1
         hits += [f"{call.get('helper', 'main')} {call['name']}: {path}" for path in dict.fromkeys(found)]
