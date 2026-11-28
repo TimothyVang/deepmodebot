@@ -94,6 +94,7 @@ function findSubFloorMinFlag(line: string): string | undefined {
 	let m: RegExpExecArray | null;
 	while ((m = MIN_FLAG_RE.exec(line)) !== null) {
 		const tok = (m[3] || m[2] || "").toLowerCase().replace(/_/g, "-");
+		if (tok === "p" || tok === "k" || tok === "port" || tok === "ports") continue;
 		let floor: number | undefined = !tok ? 0.5 : Object.hasOwn(METRIC_FLOORS, tok) ? METRIC_FLOORS[tok] : undefined;
 		if (floor === undefined) {
 			for (const [k, v] of Object.entries(METRIC_FLOORS)) {
@@ -130,7 +131,7 @@ export default function gitGuard(pi: {
 		const branchCache = new Map<string, string | undefined>();
 		for (const rawLine of lines) {
 			const line = rawLine.replace(/(-m|--message)(=| +)("[^"]*"|'[^']*')/g, '$1 ""');
-			if (/^ *(grep|rg) +[^;&|`$]*$/.test(line)) continue;
+			if (/^ *(grep|rg|echo|printf) +[^;&|<>()`$]*$/.test(line)) continue;
 			const minHit = findSubFloorMinFlag(line);
 			if (minHit) {
 				return {
@@ -142,7 +143,7 @@ export default function gitGuard(pi: {
 		for (const rule of rules) {
 			for (const rawLine of lines) {
 				const line = rawLine.replace(/(-m|--message)(=| +)("[^"]*"|'[^']*')/g, '$1 ""');
-				if (/^ *(grep|rg) +[^;&|`$]*$/.test(line)) continue;
+				if (/^ *(grep|rg|echo|printf) +[^;&|<>()`$]*$/.test(line)) continue;
 				const hit = rule.command.exec(line);
 				if (!hit) continue;
 				if (rule.branch) {
@@ -156,7 +157,7 @@ export default function gitGuard(pi: {
 					}
 					if (!branch || !rule.branch.test(branch)) continue;
 				}
-				const isRewardHack = /^ *(--(gate-)?min-|--skip-|--bypass-gate|--require-spark-receipt|--gate-mode|sqlite3|rm|del|unlink|reward_guard\.py)/.test(hit[0]) || /--no-verify| -n( |$)/.test(hit[0]);
+				const isRewardHack = !/^ *git +(reset|clean|checkout|restore|stash|worktree|branch|filter|update-ref|reflog|gc|push)\b/.test(hit[0]) && (/--|jest|vitest|playwright|insta|SNAPSHOT|go +test|reward-guard|contract-lock|judge_verdicts|record-judge| -n( |$)/.test(hit[0]));
 				return {
 					block: true,
 					reason: isRewardHack

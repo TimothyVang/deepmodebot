@@ -44,9 +44,10 @@ MIN_FLAG_VAL_RE = re.compile(
 )
 RULE_LEDGER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "rules", "rule_ledger.py")
 REWARD_HACK_CMD_RE = re.compile(
-    r"(?:^|[\s;&|(])--(?:skip-reference|skip-fidelity|skip-gates?|skip-verify|skip-validation|bypass-gate|pass-if-no-tests|passWithNoTests|no-cov)(?=$|[\s;&|)])"
-    r"|(?:^|[\s;&|(])(?:--require-spark-receipt(?:\s+|=)['\"]?false|--gate-mode(?:\s+|=)['\"]?off|--measured-gates(?:\s+|=)['\"]?off|--check-360(?:\s+|=)['\"]?(?:false|0))['\"]?(?=$|[\s;&|)])"
-    r"|\bgit\b[^\n;&|]*\bcommit\b[^\n;&|]*\s(?:-n|--no-verify)(?=$|[\s;&|)])"
+    r"(?:^|[\s;&|(])['\"]?--(?:skip-reference|skip-fidelity|skip-gates?|skip-verify|skip-validation|bypass-gate|pass-if-no-tests|passWithNoTests|no-cov|(?:update-snapshots|snapshot-update|overwrite-snapshots|updateSnapshot)(?:=[^\s;&|)'\"]+)?)['\"]?(?=$|[\s;&|)])"
+    r"|(?:^|[\s;&|(])['\"]?(?:--require-spark-receipt(?:\s+|=)['\"]?false|--gate-mode(?:\s+|=)['\"]?off|--measured-gates(?:\s+|=)['\"]?off|--check-360(?:\s+|=)['\"]?(?:false|0))['\"]?(?=$|[\s;&|)])"
+    r"|(?:^|[\s;&|(])(?:(?:jest|vitest|playwright\s+test)\b[^\n;&|]*\s['\"]?(?:-u|--update)['\"]?|cargo\b[^\n;&|]*\sinsta\s+accept|(?:UPDATE_SNAPSHOTS|SNAPSHOT_UPDATE|INSTA_UPDATE)=['\"]?(?:1|true|always|all)['\"]?|go\s+test\b[^\n;&|]*\s-run(?:=|\s+)['\"]?\^\$['\"]?)(?=$|[\s;&|)])"
+    r"|\bgit\b[^\n;&|]*\bcommit\b[^\n;&|]*\s['\"]?(?:-n|--no-verify)['\"]?(?=$|[\s;&|)])"
     r"|\b(?:reward-guard\.db|contract-lock\.json|judge_verdicts)\b"
     r"|\breward_guard\.py\b[^\n;&|]*\brecord-judge\b",
     re.I,
@@ -57,17 +58,18 @@ def _min_flag_floor(tok):
     norm = (tok or "").lower().replace("_", "-")
     if not norm:
         return 0.50
+    if norm in ("p", "k", "port", "ports"):
+        return None
     if norm in METRIC_FLOORS:
         return METRIC_FLOORS[norm]
     matches = [v for k, v in METRIC_FLOORS.items() if k.startswith(norm)]
     return max(matches) if matches else None
 
-
 def check_bash_reward_hack(cmd_text):
     cleaned = re.sub(r"(-m|--message)(=|\s+)(\"[^\"]*\"|'[^']*')", r'\1 ""', str(cmd_text or ""))
     for raw_ln in cleaned.replace("\\\r\n", " ").replace("\\\n", " ").splitlines():
         ln = raw_ln.strip()
-        if not ln or re.match(r"^(?:grep|rg)\s+[^;&|`$]*$", ln):
+        if not ln or re.match(r"^(?:grep|rg|echo|printf)\s+[^;&|<>()`$]*$", ln):
             continue
         for fm in MIN_FLAG_VAL_RE.finditer(ln):
             floor = _min_flag_floor(fm.group(3) or fm.group(2))

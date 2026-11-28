@@ -194,6 +194,20 @@ class SelfGrillTests(unittest.TestCase):
         self.assertIn("no-reward-hacking", qmap)
         self.assertEqual(qmap["no-reward-hacking"]["severity"], "critical")
 
+
+    def test_detects_non_3d_all_domain_reward_hacks(self):
+        (self.repo / "package.json").write_text('{\n  "scripts": {\n    "test": "echo ok"\n  }\n}\n', encoding="utf-8")
+        (self.repo / "src" / "client.py").write_text(
+            "import requests\ndef get_data(u):\n    return requests.get(u, verify=False)\n",
+            encoding="utf-8",
+        )
+        code, raw = self.run_cli("check-diff", "--root", str(self.repo), "--json")
+        self.assertEqual(code, 0)
+        report = json.loads(raw)
+        self.assertGreaterEqual(report["reward_hack_count"], 2)
+        qmap = {q["id"]: q for q in report["questions"]}
+        self.assertIn("no-reward-hacking", qmap)
+        self.assertEqual(qmap["no-reward-hacking"]["trigger"], "reward-hacks")
     def test_shootout_regressions_init_shortcuts_sensitive_paths_inline_comments_and_bundle(self):
         self.assertIsNotNone(self_grill.SENSITIVE_PATH_RE.search("src/user_auth.py"))
         self.assertIsNotNone(self_grill.SENSITIVE_PATH_RE.search("config/prod.env"))

@@ -510,6 +510,11 @@ class AntigravityGuardTests(unittest.TestCase):
             "pytest --cov-fail-under 20",
             "python spark3d.py generate --measured-gates off",
             'python -c "import sqlite3; sqlite3.connect(\'.scratch/reward-guard/x/reward-guard.db\')"',
+            "playwright test --update-snapshots",
+            "jest -u",
+            "cargo insta accept",
+            "go test ./... -run=^$",
+            'npx jest "--updateSnapshot"',
         ):
             denied, _ = self.run_hook(
                 self.pre_tool_payload("run_command", bad, arg_key="CommandLine"),
