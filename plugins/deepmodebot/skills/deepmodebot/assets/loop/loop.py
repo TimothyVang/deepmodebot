@@ -241,8 +241,6 @@ def parse(goal_path):
     has_r_art = bool(fields.get("reward_artifacts", "").strip())
     has_r_ref = bool(fields.get("reward_references", "").strip())
     has_r_prod = bool(fields.get("reward_producers", "").strip())
-    if has_r_art and not (has_r_ref or has_r_prod):
-        raise SystemExit(f"{goal_path}: reward_artifacts requires reward_references and/or reward_producers")
     if (has_r_ref or has_r_prod) and not has_r_art:
         raise SystemExit(f"{goal_path}: reward_references and reward_producers require reward_artifacts")
     return fields, hashlib.sha256(match.group(1).encode()).hexdigest(), text[match.end():]

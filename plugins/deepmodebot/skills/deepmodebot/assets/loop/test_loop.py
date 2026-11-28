@@ -1451,14 +1451,21 @@ class ScanTextSlopCase(unittest.TestCase):
                 if old_tmp is not None:
                     os.environ["TEMP"] = old_tmp
 
-            # 2. Incomplete reward_artifacts without references/producers is rejected at parse time.
+            # 2. Orphan reward_references without reward_artifacts is rejected at parse time, while reference-free reward_artifacts parses cleanly.
             bad_goal = root / "goals" / "incomplete.md"
             bad_goal.write_text(
-                f'---\ngoal: bad\ncheck: "{sys.executable}" check.py\nprotect: check.py\nreward_artifacts: out/model.glb\nmax_iterations: 1\nmax_cost_usd: 1\n---\nPlan.\n',
+                f'---\ngoal: bad\ncheck: "{sys.executable}" check.py\nprotect: check.py\nreward_references: refs/art.png\nmax_iterations: 1\nmax_cost_usd: 1\n---\nPlan.\n',
                 encoding="utf-8",
             )
             bad_proc = subprocess.run([sys.executable, "-B", str(LOOP), "check", "goals/incomplete.md"], cwd=str(root), capture_output=True, text=True)
             self.assertNotEqual(bad_proc.returncode, 0)
+            ref_free_goal = root / "goals" / "ref-free.md"
+            ref_free_goal.write_text(
+                f'---\ngoal: build budget workbook\ncheck: "{sys.executable}" check.py\nprotect: check.py\nreward_artifacts: out/budget.xlsx\nmax_iterations: 1\nmax_cost_usd: 1\n---\nPlan.\n',
+                encoding="utf-8",
+            )
+            rf_proc = subprocess.run([sys.executable, "-B", str(LOOP), "check", "goals/ref-free.md"], cwd=str(root), capture_output=True, text=True)
+            self.assertEqual(rf_proc.returncode, 0, rf_proc.stdout + rf_proc.stderr)
 
             # 3. Clean scan + green check + unverified artifact reaches evaluate_outer_reward_contract and fails provenance!
             goal = root / "goals" / "ship.md"

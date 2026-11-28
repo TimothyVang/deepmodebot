@@ -473,13 +473,25 @@ class RewardGuardTests(unittest.TestCase):
             zf.writestr(
                 "xl/worksheets/sheet1.xml",
                 '<worksheet><sheetData>'
-                '<row r="1"><c r="A1"><v>100</v></c><c r="A2"><v>250</v></c><c r="A3"><f>SUM(A1:A2)</f><v>350</v></c></row>'
+                '<row r="1"><c r="A1"><v>100</v></c><c r="A2"><v>250</v></c><c r="A3"><f>SUM(A1:A2)</f><v>350</v></c>'
+                '<c r="B1" t="inlineStr"><is><t>Region</t></is></c></row>'
                 '</sheetData></worksheet>',
             )
         xlsx_info = rg._inspect_office_or_pdf_artifact(xlsx_p)
         self.assertEqual(xlsx_info["formula_cell_count"], 1)
-        self.assertEqual(xlsx_info["value_cell_count"], 3)
+        self.assertEqual(xlsx_info["value_cell_count"], 4)
         self.assertEqual(xlsx_info["formula_error_count"], 0)
+        self.assertIn("B1:Region", xlsx_info["sample_values"])
+
+        hash_db = out_dir / "sample #1.sqlite"
+        with contextlib.closing(sqlite3.connect(hash_db)) as hc:
+            hc.execute("CREATE TABLE sqliteX (id INTEGER PRIMARY KEY, label TEXT)")
+            hc.execute("INSERT INTO sqliteX VALUES (1, 'a'), (2, 'b')")
+            hc.commit()
+        db_info = rg._inspect_svg_or_data_artifact(hash_db)
+        self.assertEqual(db_info["table_count"], 1)
+        self.assertEqual(db_info["table_rows"], {"sqliteX": 2})
+        self.assertFalse((out_dir / "sample").exists())
 
         svg_p = out_dir / "diagram.svg"
         svg_p.write_text('<svg xmlns="http://www.w3.org/2000/svg"><rect width="50" height="50"/><circle r="10"/></svg>', encoding="utf-8")

@@ -72,7 +72,7 @@ const SKIP_FLAGS: &[&str] = &[
     "--no-cov",
 ];
 
-const PRIMITIVE_CALLS: &[&str] = &[
+const PRIMITIVE_TOKENS: &[&str] = &[
     "bpy.ops.mesh.primitive_cube_add",
     "bpy.ops.mesh.primitive_cone_add",
     "bpy.ops.mesh.primitive_cylinder_add",
@@ -82,31 +82,37 @@ const PRIMITIVE_CALLS: &[&str] = &[
     "bpy.ops.mesh.primitive_monkey_add",
     "bpy.ops.mesh.primitive_plane_add",
     "bpy.ops.mesh.primitive_grid_add",
-    "trimesh.creation.box(",
-    "trimesh.creation.cone(",
-    "trimesh.creation.cylinder(",
-    "trimesh.creation.icosphere(",
-    "trimesh.creation.uv_sphere(",
-    "trimesh.creation.capsule(",
-    "trimesh.creation.annulus(",
-    "create_cube(",
-    "create_cone(",
-    "create_cylinder(",
-    "create_uv_sphere(",
-    "create_icosphere(",
-    "THREE.BoxGeometry(",
-    "THREE.ConeGeometry(",
-    "THREE.CylinderGeometry(",
-    "THREE.SphereGeometry(",
-    "THREE.IcosahedronGeometry(",
-    "MeshBuilder.CreateBox(",
-    "MeshBuilder.CreateSphere(",
-    "MeshBuilder.CreateCylinder(",
-    "MeshBuilder.CreateCone(",
+];
+
+const PRIMITIVE_PATHS: &[&str] = &[
     "/Engine/BasicShapes/Cube",
     "/Engine/BasicShapes/Cone",
     "/Engine/BasicShapes/Cylinder",
     "/Engine/BasicShapes/Sphere",
+];
+
+const PRIMITIVE_FN_CALLS: &[&str] = &[
+    "trimesh.creation.box",
+    "trimesh.creation.cone",
+    "trimesh.creation.cylinder",
+    "trimesh.creation.icosphere",
+    "trimesh.creation.uv_sphere",
+    "trimesh.creation.capsule",
+    "trimesh.creation.annulus",
+    "create_cube",
+    "create_cone",
+    "create_cylinder",
+    "create_uv_sphere",
+    "create_icosphere",
+    "THREE.BoxGeometry",
+    "THREE.ConeGeometry",
+    "THREE.CylinderGeometry",
+    "THREE.SphereGeometry",
+    "THREE.IcosahedronGeometry",
+    "MeshBuilder.CreateBox",
+    "MeshBuilder.CreateSphere",
+    "MeshBuilder.CreateCylinder",
+    "MeshBuilder.CreateCone",
 ];
 
 fn git(root: &Path, args: &[&str]) -> Option<(bool, String)> {
@@ -631,7 +637,36 @@ pub fn find_rs_cfg_test_line(txt: &str) -> Option<usize> {
 }
 
 pub fn has_primitive_standin(line: &str) -> bool {
-    PRIMITIVE_CALLS.iter().any(|p| line.contains(p))
+    if PRIMITIVE_TOKENS.iter().any(|tok| has_word_token(line, tok)) {
+        return true;
+    }
+    for p in PRIMITIVE_PATHS {
+        let mut from = 0;
+        while let Some(rel) = line[from..].find(p) {
+            let end = from + rel + p.len();
+            from = end;
+            let next_ok = end >= line.len()
+                || (!line.as_bytes()[end].is_ascii_alphanumeric() && line.as_bytes()[end] != b'_');
+            if next_ok {
+                return true;
+            }
+        }
+    }
+    for fn_name in PRIMITIVE_FN_CALLS {
+        let mut from = 0;
+        while let Some(rel) = line[from..].find(fn_name) {
+            let pos = from + rel;
+            let end = pos + fn_name.len();
+            from = end;
+            let prev_ok = pos == 0
+                || (!line.as_bytes()[pos - 1].is_ascii_alphanumeric()
+                    && line.as_bytes()[pos - 1] != b'_');
+            if prev_ok && line[end..].trim_start().starts_with('(') {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 fn has_word_token(haystack: &str, word: &str) -> bool {
@@ -653,25 +688,135 @@ fn has_word_token(haystack: &str, word: &str) -> bool {
     false
 }
 
-fn has_proof_escape(ext: &str, line: &str) -> bool {
+fn scrub_proof_inline_comments_and_strings(ext: &str, line: &str) -> String {
+    let bytes = line.as_bytes();
+    let mut out = String::with_capacity(line.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'"' {
+            out.push_str("\"\"");
+            i += 1;
+            while i < bytes.len() {
+                if bytes[i] == b'\\' && i + 1 < bytes.len() {
+                    i += 2;
+                    continue;
+                }
+                if bytes[i] == b'"' {
+                    i += 1;
+                    break;
+                }
+                i += 1;
+            }
+            continue;
+        }
+        if ext == "lean" && line[i..].starts_with("/-") {
+            if let Some(rel_end) = line[i + 2..].find("-/") {
+                out.push(' ');
+                i += 2 + rel_end + 2;
+                continue;
+            }
+            break;
+        }
+        if ext == "v" && line[i..].starts_with("(*") {
+            if let Some(rel_end) = line[i + 2..].find("*)") {
+                out.push(' ');
+                i += 2 + rel_end + 2;
+                continue;
+            }
+            break;
+        }
+        if let Some(ch) = line[i..].chars().next() {
+            out.push(ch);
+            i += ch.len_utf8();
+        } else {
+            break;
+        }
+    }
+    out
+}
+
+fn has_kw_ws_ident(trimmed: &str, kw: &str) -> bool {
+    let Some(after) = trimmed.strip_prefix(kw) else {
+        return false;
+    };
+    if !after.chars().next().is_some_and(char::is_whitespace) {
+        return false;
+    }
+    after
+        .trim_start()
+        .chars()
+        .next()
+        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+}
+
+fn has_admitted_dot(line: &str) -> bool {
+    let mut from = 0;
+    while let Some(rel) = line[from..].find("Admitted") {
+        let pos = from + rel;
+        let end = pos + "Admitted".len();
+        from = end;
+        let prev_ok = pos == 0
+            || (!line.as_bytes()[pos - 1].is_ascii_alphanumeric()
+                && line.as_bytes()[pos - 1] != b'_');
+        let next_ok = end >= line.len()
+            || (!line.as_bytes()[end].is_ascii_alphanumeric() && line.as_bytes()[end] != b'_');
+        if prev_ok && next_ok && line[end..].trim_start().starts_with('.') {
+            return true;
+        }
+    }
+    false
+}
+
+fn has_smt_assert_false(line: &str) -> bool {
+    let low = line.to_ascii_lowercase();
+    let mut from = 0;
+    while let Some(rel) = low[from..].find('(') {
+        let pos = from + rel + 1;
+        from = pos;
+        let after_paren = low[pos..].trim_start();
+        let Some(after_assert) = after_paren.strip_prefix("assert") else {
+            continue;
+        };
+        if !after_assert.chars().next().is_some_and(char::is_whitespace) {
+            continue;
+        }
+        let after_ws = after_assert.trim_start();
+        if let Some(after_false) = after_ws.strip_prefix("false") {
+            if after_false.trim_start().starts_with(')') {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn has_proof_escape(ext: &str, raw_code_line: &str) -> bool {
+    let scrubbed = if matches!(ext, "lean" | "v" | "smt2") {
+        scrub_proof_inline_comments_and_strings(ext, raw_code_line)
+    } else {
+        return false;
+    };
+    let line = scrubbed.as_str();
     let t = line.trim_start();
+    let after_noncomp = t
+        .strip_prefix("noncomputable")
+        .filter(|r| r.chars().next().is_some_and(char::is_whitespace))
+        .map(str::trim_start)
+        .unwrap_or(t);
     match ext {
         "lean" => {
             has_word_token(line, "sorry")
+                || has_word_token(line, "sorryAx")
                 || has_word_token(line, "admit")
                 || has_word_token(line, "native_decide")
-                || t.strip_prefix("axiom ")
-                    .is_some_and(|r| r.trim_start().chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_'))
+                || has_kw_ws_ident(after_noncomp, "axiom")
         }
         "v" => {
-            (has_word_token(line, "Admitted") && line.contains('.'))
-                || t.strip_prefix("Axiom ")
-                    .is_some_and(|r| r.trim_start().chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_'))
+            has_admitted_dot(line)
+                || has_kw_ws_ident(t, "Axiom")
+                || has_kw_ws_ident(t, "Parameter")
         }
-        "smt2" => {
-            let c: String = line.chars().filter(|ch| !ch.is_ascii_whitespace()).collect();
-            c.to_ascii_lowercase().contains("(assertfalse)")
-        }
+        "smt2" => has_smt_assert_false(line),
         _ => false,
     }
 }
@@ -693,20 +838,49 @@ fn has_iac_sec_suppression(raw_line: &str) -> bool {
         return false;
     }
     let low = raw_line.to_ascii_lowercase();
+    let norm_ws: String = low.split_whitespace().collect::<Vec<_>>().join(" ");
     low.contains("tfsec:ignore:")
         || low.contains("checkov:skip=")
         || low.contains("trivy:ignore:")
         || low.contains("terrascan:skip=")
-        || low.contains("kics-scan ignore")
+        || has_word_token(&norm_ws, "kics-scan ignore")
         || has_word_token(&low, "nosemgrep")
 }
 
 fn has_vacuous_query(line: &str) -> bool {
-    let norm: String = line.split_whitespace().collect::<Vec<_>>().join(" ").to_ascii_lowercase();
-    has_word_token(&norm, "where false")
-        || has_word_token(&norm, "limit 0")
-        || norm.contains("where 1=0")
-        || norm.contains("where 1 = 0")
+    let low = line.to_ascii_lowercase();
+    let norm_ws: String = low.split_whitespace().collect::<Vec<_>>().join(" ");
+    if has_word_token(&norm_ws, "where false") || has_word_token(&norm_ws, "limit 0") {
+        return true;
+    }
+    let mut from = 0;
+    while let Some(rel) = low[from..].find("where") {
+        let pos = from + rel;
+        let end = pos + "where".len();
+        from = end;
+        let prev_ok = pos == 0
+            || (!low.as_bytes()[pos - 1].is_ascii_alphanumeric() && low.as_bytes()[pos - 1] != b'_');
+        if !prev_ok || !low[end..].chars().next().is_some_and(char::is_whitespace) {
+            continue;
+        }
+        let after_where = low[end..].trim_start();
+        if let Some(after_one) = after_where.strip_prefix('1') {
+            let after_one_ws = after_one.trim_start();
+            if let Some(after_eq) = after_one_ws.strip_prefix('=') {
+                let after_eq_ws = after_eq.trim_start();
+                if let Some(after_zero) = after_eq_ws.strip_prefix('0') {
+                    if !after_zero
+                        .chars()
+                        .next()
+                        .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_')
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
 }
 
 pub fn has_hardcoded_pass(line: &str) -> bool {
@@ -1444,17 +1618,16 @@ pub fn scan_file_reward_hacks_with_mypy(
             && (test_file
                 || e2e_file
                 || rs_cfg_test_line.map(|cfg_ln| *ln >= cfg_ln).unwrap_or(false));
-        if !in_test_ctx
-            && ![
-                "re.compile(",
-                "Regex::new",
-                "IAC_SEC_SUPPRESS_RE",
-                "PROOF_TLA_CFG_COMMENT_RE",
-                "\"rule\":",
-                "rule: \"",
-            ]
-            .iter()
-            .any(|m| raw_line.contains(m))
+        if ![
+            "re.compile(",
+            "Regex::new",
+            "IAC_SEC_SUPPRESS_RE",
+            "PROOF_TLA_CFG_COMMENT_RE",
+            "\"rule\":",
+            "rule: \"",
+        ]
+        .iter()
+        .any(|m| raw_line.contains(m))
         {
             if ext == "cfg" && has_tla_cfg_commented_invariant(raw_line) {
                 out.push(RewardFinding {
@@ -1466,7 +1639,7 @@ pub fn scan_file_reward_hacks_with_mypy(
                     fix: "Keep every TLA+ invariant and temporal property active and fix the specification.",
                 });
             }
-            if has_iac_sec_suppression(raw_line) {
+            if !in_test_ctx && has_iac_sec_suppression(raw_line) {
                 out.push(RewardFinding {
                     severity: "P1",
                     rule: "reward-hack-scanner-suppressed",

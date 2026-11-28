@@ -886,9 +886,10 @@ def build_questions(
                 "code-without-tests",
             )
         if test_paths:
+            prod_or_proof = [*code_paths, *p_paths]
             comut_note = (
-                f" Co-mutation warning: both production ({', '.join(code_paths[:2])}) and test/eval ({', '.join(test_paths[:2])}) files changed in the same diff—prove assertions were not weakened to match broken output."
-                if code_paths else ""
+                f" Co-mutation warning: both implementation/proof ({', '.join(prod_or_proof[:2])}) and test/eval ({', '.join(test_paths[:2])}) files changed in the same diff—prove assertions were not weakened to match broken output."
+                if prod_or_proof else ""
             )
             add(
                 "no-check-theater",

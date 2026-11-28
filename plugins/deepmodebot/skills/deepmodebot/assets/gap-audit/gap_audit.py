@@ -408,14 +408,8 @@ def _check_cross_lang_gate_parity(root: Path) -> list[dict]:
     reward_py = root / "plugins" / "deepmodebot" / "skills" / "deepmodebot" / "assets" / "reward-guard" / "reward_guard.py"
     reward_rs = root / "native" / "dmb-gate" / "src" / "reward.rs"
     if reward_py.is_file() and reward_rs.is_file():
-        expected_reward_rules = {
-            "reward-hack-threshold-zero",
-            "reward-hack-assertion-weakened",
-            "reward-hack-test-skip",
-            "reward-hack-primitive-standin",
-            "reward-hack-hardcoded-pass",
-            "reward-hack-contract-tampered",
-        }
+        py_txt = reward_py.read_text(encoding="utf-8", errors="replace")
+        expected_reward_rules = set(re.findall(r'"rule":\s*"(reward-hack-[a-z0-9-]+)"', py_txt))
         rs_reward_rules = set(re.findall(r'rule:\s*"([a-z0-9-]+)"', reward_rs.read_text(encoding="utf-8", errors="replace")))
         for missing in sorted(expected_reward_rules - rs_reward_rules):
             findings.append({
