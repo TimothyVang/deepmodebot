@@ -92,7 +92,7 @@ def metric_min_floor(metric_raw: str, *, allow_prefix: bool = False) -> float | 
 SCRATCH_INTERNAL_DIRS = frozenset({
     "reward-guard", "self-grill", "evidence", "goals", "gen-ui", "agents-md-backup", "quota-guard",
 })
-SCRATCH_CODE_EXTS = frozenset({".py", ".sh", ".js", ".mjs", ".cjs", ".ts"})
+SCRATCH_CODE_EXTS = frozenset({".py", ".sh", ".ps1", ".cmd", ".bat", ".js", ".mjs", ".cjs", ".ts"})
 
 TEST_FILE_RE = re.compile(
     r"(?:^|/)(?:tests?/|spec/|__tests__/|evals/)|(?:^|/)(?:test_[^/]+|[^/]+(?:_test|\.test|\.spec))\.[^/]+$",
@@ -141,8 +141,8 @@ SKIP_GATE_FLAG_RE = re.compile(
     re.I,
 )
 SNAPSHOT_OVERWRITE_RE = re.compile(
-    r"(?<![A-Za-z0-9_])--(?:update-snapshots|snapshot-update|overwrite-snapshots)\b"
-    r"|\b(?:jest|vitest|playwright\s+test)\b[^\n;&|]*\s-u(?=$|[\s;&|)])"
+    r"(?<![A-Za-z0-9_])--(?:update-snapshots|snapshot-update|overwrite-snapshots|updateSnapshot)(?:=\S+)?(?=$|[\s;&|)'\"])"
+    r"|\b(?:jest|vitest|playwright\s+test)\b[^\n;&|]*\s(?:-u|--update)(?=$|[\s;&|)])"
     r"|\bcargo\s+(?:[^\n;&|]+\s+)?insta\s+accept\b"
     r"|\b(?:UPDATE_SNAPSHOTS|SNAPSHOT_UPDATE|INSTA_UPDATE)\s*=\s*['\"]?(?:1|true|always|all)\b",
     re.I,
@@ -155,9 +155,10 @@ PROD_TEST_BRANCH_RE = re.compile(
     r"""(?:\b(?:PYTEST_CURRENT_TEST|JEST_WORKER_ID|VITEST_WORKER_ID|UNITTEST_RUNNING|_called_from_test)\b|['"](?:pytest|unittest)['"]\s+in\s+sys\.modules)"""
 )
 CI_CONTINUE_ON_ERROR_RE = re.compile(r"^\s*continue-on-error\s*:\s*true\b", re.I)
-TSCONFIG_WEAKEN_RE = re.compile(
-    r"""^\s*['"](?:strict|noImplicitAny|strictNullChecks|strictFunctionTypes|strictBindCallApply|noImplicitReturns|noEmitOnError|checkJs)['"]\s*:\s*false\b"""
-)
+TSCONFIG_FALSE_KEYS = frozenset({
+    "strict", "noimplicitany", "strictnullchecks", "strictfunctiontypes",
+    "strictbindcallapply", "noimplicitreturns", "noemitonerror", "checkjs",
+})
 PY_TYPECHECK_WEAKEN_RE = re.compile(
     r"""^\s*(?:(?:disallow_untyped_defs|check_untyped_defs)\s*=\s*false|['"]?typeCheckingMode['"]?\s*[:=]\s*['"]off['"])\b""",
     re.I,
@@ -167,7 +168,7 @@ MIGRATION_PATH_RE = re.compile(r"(?:^|/)(?:migrations?|alembic|drizzle|prisma/mi
 RS_CRATE_ALLOW_RE = re.compile(
     r"^\s*#!\s*\[\s*allow\s*\(\s*(?:warnings|unused|dead_code|clippy::all)\s*\)\s*\]"
 )
-BIOME_DISABLE_RE = re.compile(r'^\s*"enabled"\s*:\s*false\b')
+BIOME_FALSE_KEYS = frozenset({"enabled"})
 E2E_FILE_RE = re.compile(r"(?:^|/)(?:e2e|cypress|playwright)/|\.(?:e2e|pw)\.[^/]+$", re.I)
 E2E_API_STUB_RE = re.compile(
     r"""(?:page|context)\.route\s*\(\s*['"`][^'"`]*(?:/api/|/graphql|/trpc)|cy\.intercept\s*\([^)]*(?:/api/|/graphql|/trpc)"""
@@ -623,9 +624,10 @@ def _diff_for_file(root: Path, rel: str, staged: bool, base: str | None = None) 
 
 
 def _strip_trailing_comment(ext: str, line: str) -> str:
-    hash_cmt = ext in (".py", ".sh", ".yml", ".yaml", ".toml")
-    slash_cmt = ext in (".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".rs", ".go")
-    if not hash_cmt and not slash_cmt:
+    hash_cmt = ext in (".py", ".sh", ".ps1", ".yml", ".yaml", ".toml", ".ini", ".cfg")
+    slash_cmt = ext in (".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".rs", ".go", ".json", ".jsonc")
+    sql_cmt = ext == ".sql"
+    if not hash_cmt and not slash_cmt and not sql_cmt:
         return line
     quote: str | None = None
     i = 0
@@ -644,16 +646,68 @@ def _strip_trailing_comment(ext: str, line: str) -> str:
             return line[:i]
         elif slash_cmt and line[i : i + 2] == "//":
             return line[:i]
+        elif sql_cmt and line[i : i + 2] == "--":
+            return line[:i]
         i += 1
     return line
 
 
-def _is_comment_or_scanner_line(ext: str, line: str) -> bool:
-    code = _strip_trailing_comment(ext, line).strip()
-    if not code or ext == ".md" or SCANNER_META_RE.search(code):
-        return True
+def _has_json_key_false(line: str, keys_low: frozenset[str]) -> bool:
+    i = 0
+    n = len(line)
+    while i < n:
+        q = line[i]
+        if q not in ('"', "'"):
+            i += 1
+            continue
+        prev = line[:i].rstrip()
+        is_key_pos = (not prev) or prev.endswith(("{", ","))
+        j = i + 1
+        key_chars: list[str] = []
+        while j < n:
+            if line[j] == "\\" and j + 1 < n:
+                key_chars.append(line[j + 1])
+                j += 2
+                continue
+            if line[j] == q:
+                break
+            key_chars.append(line[j])
+            j += 1
+        if j >= n:
+            break
+        after = line[j + 1 :].lstrip()
+        if is_key_pos and after.startswith(":"):
+            key_low = "".join(key_chars).lower()
+            val = after[1:].lstrip().lower()
+            if key_low in keys_low and val.startswith("false") and (
+                len(val) == 5 or not (val[5].isalnum() or val[5] == "_")
+            ):
+                return True
+        i = j + 1
     return False
 
+
+def _find_mypy_section_lines(full_text: str) -> set[int]:
+    out: set[int] = set()
+    in_mypy = False
+    for idx, raw in enumerate(full_text.splitlines(), 1):
+        t = raw.strip()
+        if t.startswith("[") and t.endswith("]"):
+            sec = t[1:-1].strip().lower()
+            in_mypy = sec == "mypy" or sec.startswith(("mypy-", "mypy.", "tool.mypy"))
+            continue
+        if in_mypy:
+            out.add(idx)
+    return out
+
+
+def _is_comment_or_scanner_line(ext: str, line: str) -> bool:
+    code = _strip_trailing_comment(ext, line).strip()
+    if not code or ext in (".md",) or (ext in (".cmd", ".bat") and code.lower().startswith(("rem ", "::"))):
+        return True
+    if SCANNER_META_RE.search(code):
+        return True
+    return False
 def _find_rs_cfg_test_mod_line(full_text: str) -> int | None:
     lines = full_text.splitlines()
     n = len(lines)
@@ -831,8 +885,9 @@ def scan_added_lines_for_reward_hacks(
         and (not is_test)
         and (not is_e2e_test)
         and (not is_gate)
-        and ext in (".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".rs", ".go")
+        and ext in (".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".rs", ".go", ".sql")
     )
+    mypy_lines = _find_mypy_section_lines(full_text) if (is_py_type_cfg and full_text) else set()
     rs_cfg_test_line = _find_rs_cfg_test_mod_line(full_text) if (ext == ".rs" and full_text and not is_scratch) else None
     findings: list[dict] = []
     for ln, raw_line in sorted(added_lines.items()):
@@ -901,10 +956,10 @@ def scan_added_lines_for_reward_hacks(
             })
         if (
             (is_ci_yaml and CI_CONTINUE_ON_ERROR_RE.search(line))
-            or (is_tsconfig and TSCONFIG_WEAKEN_RE.search(line))
+            or (is_tsconfig and _has_json_key_false(line, TSCONFIG_FALSE_KEYS))
             or (is_py_type_cfg and PY_TYPECHECK_WEAKEN_RE.search(line))
-            or (is_mypy_ini and MYPY_IGNORE_ERRORS_RE.search(line))
-            or (is_biome_cfg and BIOME_DISABLE_RE.search(line))
+            or ((is_mypy_ini or ln in mypy_lines) and MYPY_IGNORE_ERRORS_RE.search(line))
+            or (is_biome_cfg and _has_json_key_false(line, BIOME_FALSE_KEYS))
             or (ext == ".rs" and is_prod_code and RS_CRATE_ALLOW_RE.search(line))
         ):
             findings.append({

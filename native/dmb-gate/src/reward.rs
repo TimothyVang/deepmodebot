@@ -165,9 +165,13 @@ fn is_migration_file(rel: &str) -> bool {
 }
 
 fn strip_trailing_comment<'a>(ext: &str, line: &'a str) -> &'a str {
-    let hash_cmt = matches!(ext, "py" | "sh" | "yml" | "yaml" | "toml");
-    let slash_cmt = matches!(ext, "js" | "mjs" | "cjs" | "ts" | "tsx" | "jsx" | "rs" | "go");
-    if !hash_cmt && !slash_cmt {
+    let hash_cmt = matches!(ext, "py" | "sh" | "ps1" | "yml" | "yaml" | "toml" | "ini" | "cfg");
+    let slash_cmt = matches!(
+        ext,
+        "js" | "mjs" | "cjs" | "ts" | "tsx" | "jsx" | "rs" | "go" | "json" | "jsonc"
+    );
+    let sql_cmt = ext == "sql";
+    if !hash_cmt && !slash_cmt && !sql_cmt {
         return line;
     }
     let bytes = line.as_bytes();
@@ -193,6 +197,8 @@ fn strip_trailing_comment<'a>(ext: &str, line: &'a str) -> &'a str {
             return &line[..i];
         } else if slash_cmt && i + 1 < bytes.len() && b == b'/' && bytes[i + 1] == b'/' {
             return &line[..i];
+        } else if sql_cmt && i + 1 < bytes.len() && b == b'-' && bytes[i + 1] == b'-' {
+            return &line[..i];
         }
         i += 1;
     }
@@ -201,7 +207,11 @@ fn strip_trailing_comment<'a>(ext: &str, line: &'a str) -> &'a str {
 
 fn is_scanner_or_comment(ext: &str, line: &str) -> bool {
     let code = strip_trailing_comment(ext, line).trim();
-    if code.is_empty() || ext == "md" {
+    let code_low = code.to_ascii_lowercase();
+    if code.is_empty()
+        || ext == "md"
+        || (matches!(ext, "cmd" | "bat") && (code_low.starts_with("rem ") || code_low.starts_with("::")))
+    {
         return true;
     }
     for meta in [
@@ -683,11 +693,23 @@ fn is_e2e_file(rel: &str) -> bool {
 
 fn has_snapshot_overwrite(line: &str) -> bool {
     let low = line.to_ascii_lowercase();
-    if ["--update-snapshots", "--snapshot-update", "--overwrite-snapshots"]
-        .iter()
-        .any(|f| low.contains(f))
-    {
-        return true;
+    for flag in [
+        "--update-snapshots",
+        "--snapshot-update",
+        "--overwrite-snapshots",
+        "--updatesnapshot",
+    ] {
+        if let Some(pos) = low.find(flag) {
+            let prev_ok = pos == 0
+                || (!low.as_bytes()[pos - 1].is_ascii_alphanumeric() && low.as_bytes()[pos - 1] != b'_');
+            let after = &low[pos + flag.len()..];
+            let next_ok = after.is_empty()
+                || after.starts_with('=')
+                || after.starts_with(|c: char| c.is_ascii_whitespace() || matches!(c, ';' | '&' | '|' | ')' | '"' | '\''));
+            if prev_ok && next_ok {
+                return true;
+            }
+        }
     }
     if low.contains("cargo ") && low.contains("insta accept") {
         return true;
@@ -713,7 +735,10 @@ fn has_snapshot_overwrite(line: &str) -> bool {
                 continue;
             }
             let seg = low[pos + runner.len()..].split([';', '&', '|']).next().unwrap_or("");
-            if seg.split(|c: char| c.is_ascii_whitespace() || c == ')').any(|tok| tok == "-u") {
+            if seg
+                .split(|c: char| c.is_ascii_whitespace() || c == ')')
+                .any(|tok| tok == "-u" || tok == "--update")
+            {
                 return true;
             }
         }
@@ -748,33 +773,98 @@ fn is_package_noop_script(line: &str) -> bool {
     false
 }
 
-fn has_tsconfig_weaken(trimmed_low: &str) -> bool {
-    let compact: String = trimmed_low.chars().filter(|c| !c.is_ascii_whitespace()).collect();
-    [
-        "\"strict\":false",
-        "'strict':false",
-        "\"noimplicitany\":false",
-        "'noimplicitany':false",
-        "\"strictnullchecks\":false",
-        "'strictnullchecks':false",
-        "\"strictfunctiontypes\":false",
-        "'strictfunctiontypes':false",
-        "\"strictbindcallapply\":false",
-        "'strictbindcallapply':false",
-        "\"noimplicitreturns\":false",
-        "'noimplicitreturns':false",
-        "\"noemitonerror\":false",
-        "'noemitonerror':false",
-        "\"checkjs\":false",
-        "'checkjs':false",
-    ]
-    .iter()
-    .any(|k| compact.starts_with(k))
+fn has_json_key_false(line: &str, keys_low: &[&str]) -> bool {
+    let bytes = line.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        let q = bytes[i];
+        if q != b'"' && q != b'\'' {
+            i += 1;
+            continue;
+        }
+        let prev = line[..i].trim_end();
+        let is_key_pos = prev.is_empty() || prev.ends_with('{') || prev.ends_with(',');
+        let mut j = i + 1;
+        let mut key_buf = String::new();
+        while j < bytes.len() {
+            if bytes[j] == b'\\' && j + 1 < bytes.len() {
+                key_buf.push(bytes[j + 1] as char);
+                j += 2;
+                continue;
+            }
+            if bytes[j] == q {
+                break;
+            }
+            if let Some(ch) = line[j..].chars().next() {
+                key_buf.push(ch);
+                j += ch.len_utf8();
+            } else {
+                break;
+            }
+        }
+        if j >= bytes.len() {
+            break;
+        }
+        let after = line[j + 1..].trim_start();
+        if is_key_pos {
+            if let Some(vpart) = after.strip_prefix(':') {
+                let val = vpart.trim_start().to_ascii_lowercase();
+                let key_low = key_buf.to_ascii_lowercase();
+                if keys_low.contains(&key_low.as_str())
+                    && val.starts_with("false")
+                    && !val[5..]
+                        .chars()
+                        .next()
+                        .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_')
+                {
+                    return true;
+                }
+            }
+        }
+        i = j + 1;
+    }
+    false
 }
 
-fn has_py_typecheck_weaken(trimmed_low: &str, is_mypy_ini: bool) -> bool {
+pub fn find_mypy_section_lines(txt: &str) -> BTreeSet<usize> {
+    let mut out = BTreeSet::new();
+    let mut in_mypy = false;
+    for (idx, raw) in txt.lines().enumerate() {
+        let t = raw.trim();
+        if t.starts_with('[') && t.ends_with(']') {
+            let sec = t[1..t.len() - 1].trim().to_ascii_lowercase();
+            in_mypy = sec == "mypy"
+                || sec.starts_with("mypy-")
+                || sec.starts_with("mypy.")
+                || sec.starts_with("tool.mypy");
+            continue;
+        }
+        if in_mypy {
+            out.insert(idx + 1);
+        }
+    }
+    out
+}
+
+fn has_tsconfig_weaken(line: &str) -> bool {
+    has_json_key_false(
+        line,
+        &[
+            "strict",
+            "noimplicitany",
+            "strictnullchecks",
+            "strictfunctiontypes",
+            "strictbindcallapply",
+            "noimplicitreturns",
+            "noemitonerror",
+            "checkjs",
+        ],
+    )
+}
+
+fn has_py_typecheck_weaken(trimmed_low: &str, in_mypy_ctx: bool) -> bool {
     let compact: String = trimmed_low.chars().filter(|c| !c.is_ascii_whitespace()).collect();
-    (is_mypy_ini && compact.starts_with("ignore_errors=true"))
+    (in_mypy_ctx && compact.starts_with("ignore_errors=true"))
         || compact.starts_with("disallow_untyped_defs=false")
         || compact.starts_with("check_untyped_defs=false")
         || compact.contains("typecheckingmode=\"off\"")
@@ -1185,6 +1275,19 @@ pub fn scan_file_reward_hacks(
     rs_cfg_test_line: Option<usize>,
     out: &mut Vec<RewardFinding>,
 ) {
+    scan_file_reward_hacks_with_mypy(rel, added, hunks, allow_primitives, include_primitives, rs_cfg_test_line, None, out);
+}
+
+pub fn scan_file_reward_hacks_with_mypy(
+    rel: &str,
+    added: &[(usize, String)],
+    hunks: &[(Vec<String>, Vec<(usize, String)>)],
+    allow_primitives: bool,
+    include_primitives: bool,
+    rs_cfg_test_line: Option<usize>,
+    mypy_lines: Option<&BTreeSet<usize>>,
+    out: &mut Vec<RewardFinding>,
+) {
     let norm_rel = rel.replace('\\', "/");
     let ext = Path::new(&norm_rel)
         .extension()
@@ -1241,7 +1344,7 @@ pub fn scan_file_reward_hacks(
         && !gate_file
         && matches!(
             ext.as_str(),
-            "py" | "js" | "mjs" | "cjs" | "ts" | "tsx" | "jsx" | "rs" | "go"
+            "py" | "js" | "mjs" | "cjs" | "ts" | "tsx" | "jsx" | "rs" | "go" | "sql"
         );
     for (ln, raw_line) in added {
         if is_scanner_or_comment(&ext, raw_line) {
@@ -1318,13 +1421,13 @@ pub fn scan_file_reward_hacks(
                 fix: "Wire `package.json` scripts to the real test runner, typechecker, and linter.",
             });
         }
-        let compact_low: String = trimmed_low.chars().filter(|c| !c.is_ascii_whitespace()).collect();
+        let in_mypy_ctx = is_mypy_ini || mypy_lines.is_some_and(|s| s.contains(ln));
         if (is_ci_yaml
             && trimmed_low.starts_with("continue-on-error:")
             && trimmed_low[18..].trim_start().starts_with("true"))
-            || (is_tsconfig && has_tsconfig_weaken(&trimmed_low))
-            || (is_py_type_cfg && has_py_typecheck_weaken(&trimmed_low, is_mypy_ini))
-            || (is_biome_cfg && compact_low.starts_with("\"enabled\":false"))
+            || (is_tsconfig && has_tsconfig_weaken(line))
+            || (is_py_type_cfg && has_py_typecheck_weaken(&trimmed_low, in_mypy_ctx))
+            || (is_biome_cfg && has_json_key_false(line, &["enabled"]))
             || (ext == "rs" && is_prod_code && has_rs_crate_allow(line))
         {
             out.push(RewardFinding {
@@ -1626,7 +1729,7 @@ fn discover_scratch_scripts_and_symlinks(root: &Path) -> (Vec<String>, Vec<Rewar
                     .and_then(|e| e.to_str())
                     .map(|s| s.to_ascii_lowercase())
                     .unwrap_or_default();
-                if matches!(ext.as_str(), "py" | "sh" | "js" | "mjs" | "cjs" | "ts") {
+                if matches!(ext.as_str(), "py" | "sh" | "ps1" | "cmd" | "bat" | "js" | "mjs" | "cjs" | "ts") {
                     if meta.len() > 16 * 1024 * 1024 {
                         sym_findings.push(RewardFinding {
                             severity: "P0",
@@ -1783,6 +1886,7 @@ pub fn run(args: &[String]) -> ExitCode {
         } else {
             None
         };
+        let mypy_set = full_txt.as_deref().map(find_mypy_section_lines);
         if added.is_empty() && !explicit_files.is_empty() {
             if let Some(txt) = &full_txt {
                 added = txt
@@ -1793,7 +1897,16 @@ pub fn run(args: &[String]) -> ExitCode {
             }
         }
         if !added.is_empty() || !hunks.is_empty() {
-            scan_file_reward_hacks(rel, &added, &hunks, allow_primitives, true, rs_cfg_ln, &mut local);
+            scan_file_reward_hacks_with_mypy(
+                rel,
+                &added,
+                &hunks,
+                allow_primitives,
+                true,
+                rs_cfg_ln,
+                mypy_set.as_ref(),
+                &mut local,
+            );
         }
         local
     });
