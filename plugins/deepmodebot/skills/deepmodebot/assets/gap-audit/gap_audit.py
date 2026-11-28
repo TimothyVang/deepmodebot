@@ -410,14 +410,14 @@ def _check_cross_lang_gate_parity(root: Path) -> list[dict]:
     if reward_py.is_file() and reward_rs.is_file():
         py_txt = reward_py.read_text(encoding="utf-8", errors="replace")
         expected_reward_rules = set(re.findall(r'"rule":\s*"(reward-hack-[a-z0-9-]+)"', py_txt))
-        rs_reward_rules = set(re.findall(r'rule:\s*"([a-z0-9-]+)"', reward_rs.read_text(encoding="utf-8", errors="replace")))
-        for missing in sorted(expected_reward_rules - rs_reward_rules):
+        rs_reward_rules = set(re.findall(r'rule:\s*"(reward-hack-[a-z0-9-]+)"', reward_rs.read_text(encoding="utf-8", errors="replace")))
+        for drift in sorted(expected_reward_rules ^ rs_reward_rules):
             findings.append({
                 "severity": "P1",
                 "rule": "cross-lang-gate-drift",
                 "file": "native/dmb-gate/src/reward.rs",
                 "line": 1,
-                "message": f"Reward-guard rule `{missing}` in reward_guard.py is missing from native/dmb-gate/src/reward.rs.",
+                "message": f"Reward-guard rule `{drift}` differs between reward_guard.py and native/dmb-gate/src/reward.rs.",
                 "fix": "Keep reward_guard.py and native/dmb-gate/src/reward.rs rule sets identical.",
             })
 

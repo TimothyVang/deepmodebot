@@ -218,10 +218,12 @@ TEST_SKIP_DECORATOR_RE = re.compile(
 )
 TOP_PYTEST_SKIP_RE = re.compile(r"^ {0,4}(?:pytest|unittest)\.skip\s*\(")
 PRIMITIVE_STANDIN_RE = re.compile(
-    r"(?:\b(?:bpy\.ops\.mesh\.primitive_(?:cube|cone|cylinder|uv_sphere|ico_sphere|torus|monkey|plane|grid)_add"
+    r"(?:\b(?:bpy\.ops\.mesh\.primitive_(?:cube|cone|cylinder|uv_sphere|ico_sphere|torus|monkey|plane|grid)_add\b"
     r"|trimesh\.creation\.(?:box|cone|cylinder|icosphere|uv_sphere|capsule|annulus)\s*\("
     r"|create_(?:cube|cone|cylinder|uv_sphere|icosphere)\s*\("
+    r"|new\s+THREE\.(?:Box|Cone|Cylinder|Sphere|Icosahedron)Geometry\b"
     r"|THREE\.(?:Box|Cone|Cylinder|Sphere|Icosahedron)Geometry\s*\("
+    r"|new\s+MeshBuilder\.Create(?:Box|Sphere|Cylinder|Cone)\b"
     r"|MeshBuilder\.Create(?:Box|Sphere|Cylinder|Cone)\s*\()"
     r"|/Engine/BasicShapes/(?:Cube|Cone|Cylinder|Sphere)\b)"
 )
@@ -230,7 +232,7 @@ PROOF_COQ_RE = re.compile(r"(?:\bAdmitted\s*\.|^\s*(?:Axiom|Parameter)\s+[A-Za-z
 PROOF_TLA_CFG_COMMENT_RE = re.compile(r"^\s*\\\*\s*(?:INVARIANT|INVARIANTS|PROPERTY|PROPERTIES)\b")
 PROOF_SMT_FALSE_RE = re.compile(r"\(\s*assert\s+false\s*\)", re.I)
 IAC_SEC_SUPPRESS_RE = re.compile(
-    r"(?:tfsec:ignore:|checkov:skip=|trivy:ignore:|kics-scan\s+ignore\b|terrascan:skip=|\bnosemgrep\b)",
+    r"\b(?:tfsec:ignore:|checkov:skip=|trivy:ignore:|kics-scan\s+ignore\b|terrascan:skip=|nosemgrep\b)",
     re.I,
 )
 VACUOUS_QUERY_RE = re.compile(r"\b(?:WHERE\s+(?:1\s*=\s*0|FALSE)\b|LIMIT\s+0\b)", re.I)
@@ -679,41 +681,77 @@ def _strip_trailing_comment(ext: str, line: str) -> str:
     return line
 
 
-def _scrub_proof_inline_comments_and_strings(ext: str, line: str) -> str:
-    out: list[str] = []
+def _extract_unquoted_comment(ext: str, line: str) -> str:
+    quote: str | None = None
     i = 0
     n = len(line)
     while i < n:
-        if line[i] == '"':
-            out.append('""')
-            i += 1
-            while i < n:
-                if line[i] == "\\" and i + 1 < n:
+        ch = line[i]
+        if quote is not None:
+            if ch == "\\" and i + 1 < n:
+                i += 2
+                continue
+            if ch == quote:
+                quote = None
+        elif ch in ('"', "'"):
+            quote = ch
+        elif ch == "#" and not line[i:].startswith(("#[", "#![")) and ext not in (".rs", ".go", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".c", ".cpp", ".java"):
+            return line[i:]
+        elif line[i : i + 2] in ("//", "/*"):
+            return line[i:]
+        i += 1
+    return ""
+
+
+def _scrub_proof_text_lines(ext: str, text: str) -> dict[int, str]:
+    open_tok = "/-" if ext == ".lean" else ("(*" if ext == ".v" else "")
+    close_tok = "-/" if ext == ".lean" else ("*)" if ext == ".v" else "")
+    dash_line = ext == ".lean"
+    semi_line = ext == ".smt2"
+    depth = 0
+    result: dict[int, str] = {}
+    for ln_no, raw in enumerate(text.splitlines(), 1):
+        buf: list[str] = []
+        i = 0
+        n = len(raw)
+        while i < n:
+            if depth > 0:
+                if open_tok and raw[i : i + 2] == open_tok:
+                    depth += 1
                     i += 2
                     continue
-                if line[i] == '"':
-                    i += 1
-                    break
+                if close_tok and raw[i : i + 2] == close_tok:
+                    depth -= 1
+                    buf.append(" ")
+                    i += 2
+                    continue
                 i += 1
-            continue
-        if ext == ".lean" and line[i : i + 2] == "/-":
-            end = line.find("-/", i + 2)
-            if end < 0:
+                continue
+            if raw[i] == '"':
+                buf.append('""')
+                i += 1
+                while i < n:
+                    if raw[i] == "\\" and i + 1 < n:
+                        i += 2
+                        continue
+                    if raw[i] == '"':
+                        i += 1
+                        break
+                    i += 1
+                continue
+            if dash_line and raw[i : i + 2] == "--":
                 break
-            out.append(" ")
-            i = end + 2
-            continue
-        if ext == ".v" and line[i : i + 2] == "(*":
-            end = line.find("*)", i + 2)
-            if end < 0:
+            if semi_line and raw[i] == ";":
                 break
-            out.append(" ")
-            i = end + 2
-            continue
-        out.append(line[i])
-        i += 1
-    return "".join(out)
-
+            if open_tok and raw[i : i + 2] == open_tok:
+                depth += 1
+                buf.append(" ")
+                i += 2
+                continue
+            buf.append(raw[i])
+            i += 1
+        result[ln_no] = "".join(buf)
+    return result
 
 def _has_json_key_false(line: str, keys_low: frozenset[str]) -> bool:
     i = 0
@@ -951,6 +989,7 @@ def scan_added_lines_for_reward_hacks(
         and ext in (".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".rs", ".go", ".sql")
     )
     mypy_lines = _find_mypy_section_lines(full_text) if (is_py_type_cfg and full_text) else set()
+    proof_map = _scrub_proof_text_lines(ext, full_text) if (ext in (".lean", ".v", ".smt2") and full_text) else None
     rs_cfg_test_line = _find_rs_cfg_test_mod_line(full_text) if (ext == ".rs" and full_text and not is_scratch) else None
     findings: list[dict] = []
     for ln, raw_line in sorted(added_lines.items()):
@@ -965,7 +1004,8 @@ def scan_added_lines_for_reward_hacks(
                     "message": "TLA+ `.cfg` comments out `INVARIANT`/`PROPERTY` so model checking passes vacuously.",
                     "fix": "Keep every TLA+ invariant and temporal property active and fix the specification.",
                 })
-            if not in_test_ctx and IAC_SEC_SUPPRESS_RE.search(raw_line) and not raw_line.lstrip().startswith(('"', "'")):
+            cmt_slice = _extract_unquoted_comment(ext, raw_line)
+            if not in_test_ctx and cmt_slice and IAC_SEC_SUPPRESS_RE.search(cmt_slice):
                 findings.append({
                     "severity": "P1",
                     "rule": "reward-hack-scanner-suppressed",
@@ -1098,7 +1138,11 @@ def scan_added_lines_for_reward_hacks(
                 "message": "Sub-floor quality/coverage threshold, gate skip flag, or empty `go test -run=^$` filter bypasses real evaluation.",
                 "fix": "Keep evaluation thresholds above their floor and run the real test suite.",
             })
-        proof_line = _scrub_proof_inline_comments_and_strings(ext, line) if ext in (".lean", ".v", ".smt2") else line
+        proof_line = (
+            proof_map.get(ln, "")
+            if proof_map is not None
+            else (_scrub_proof_text_lines(ext, line).get(1, "") if ext in (".lean", ".v", ".smt2") else line)
+        )
         if (
             (ext == ".lean" and PROOF_LEAN_RE.search(proof_line))
             or (ext == ".v" and PROOF_COQ_RE.search(proof_line))
