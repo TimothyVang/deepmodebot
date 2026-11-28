@@ -72,7 +72,7 @@ const SKIP_FLAGS: &[&str] = &[
     "--no-cov",
 ];
 
-const PRIMITIVE_CALLS: &[&str] = &[
+const PRIMITIVE_TOKENS: &[&str] = &[
     "bpy.ops.mesh.primitive_cube_add",
     "bpy.ops.mesh.primitive_cone_add",
     "bpy.ops.mesh.primitive_cylinder_add",
@@ -82,18 +82,37 @@ const PRIMITIVE_CALLS: &[&str] = &[
     "bpy.ops.mesh.primitive_monkey_add",
     "bpy.ops.mesh.primitive_plane_add",
     "bpy.ops.mesh.primitive_grid_add",
-    "trimesh.creation.box(",
-    "trimesh.creation.cone(",
-    "trimesh.creation.cylinder(",
-    "trimesh.creation.icosphere(",
-    "trimesh.creation.uv_sphere(",
-    "trimesh.creation.capsule(",
-    "trimesh.creation.annulus(",
-    "create_cube(",
-    "create_cone(",
-    "create_cylinder(",
-    "create_uv_sphere(",
-    "create_icosphere(",
+];
+
+const PRIMITIVE_PATHS: &[&str] = &[
+    "/Engine/BasicShapes/Cube",
+    "/Engine/BasicShapes/Cone",
+    "/Engine/BasicShapes/Cylinder",
+    "/Engine/BasicShapes/Sphere",
+];
+
+const PRIMITIVE_FN_CALLS: &[&str] = &[
+    "trimesh.creation.box",
+    "trimesh.creation.cone",
+    "trimesh.creation.cylinder",
+    "trimesh.creation.icosphere",
+    "trimesh.creation.uv_sphere",
+    "trimesh.creation.capsule",
+    "trimesh.creation.annulus",
+    "create_cube",
+    "create_cone",
+    "create_cylinder",
+    "create_uv_sphere",
+    "create_icosphere",
+    "THREE.BoxGeometry",
+    "THREE.ConeGeometry",
+    "THREE.CylinderGeometry",
+    "THREE.SphereGeometry",
+    "THREE.IcosahedronGeometry",
+    "MeshBuilder.CreateBox",
+    "MeshBuilder.CreateSphere",
+    "MeshBuilder.CreateCylinder",
+    "MeshBuilder.CreateCone",
 ];
 
 fn git(root: &Path, args: &[&str]) -> Option<(bool, String)> {
@@ -165,13 +184,17 @@ fn is_migration_file(rel: &str) -> bool {
 }
 
 fn strip_trailing_comment<'a>(ext: &str, line: &'a str) -> &'a str {
-    let hash_cmt = matches!(ext, "py" | "sh" | "ps1" | "yml" | "yaml" | "toml" | "ini" | "cfg");
+    let hash_cmt = matches!(
+        ext,
+        "py" | "sh" | "ps1" | "yml" | "yaml" | "toml" | "ini" | "cfg" | "tf"
+    );
     let slash_cmt = matches!(
         ext,
         "js" | "mjs" | "cjs" | "ts" | "tsx" | "jsx" | "rs" | "go" | "json" | "jsonc"
     );
-    let sql_cmt = ext == "sql";
-    if !hash_cmt && !slash_cmt && !sql_cmt {
+    let dash_cmt = matches!(ext, "sql" | "lean");
+    let semi_cmt = ext == "smt2";
+    if !hash_cmt && !slash_cmt && !dash_cmt && !semi_cmt {
         return line;
     }
     let bytes = line.as_bytes();
@@ -197,14 +220,15 @@ fn strip_trailing_comment<'a>(ext: &str, line: &'a str) -> &'a str {
             return &line[..i];
         } else if slash_cmt && i + 1 < bytes.len() && b == b'/' && bytes[i + 1] == b'/' {
             return &line[..i];
-        } else if sql_cmt && i + 1 < bytes.len() && b == b'-' && bytes[i + 1] == b'-' {
+        } else if dash_cmt && i + 1 < bytes.len() && b == b'-' && bytes[i + 1] == b'-' {
+            return &line[..i];
+        } else if semi_cmt && b == b';' {
             return &line[..i];
         }
         i += 1;
     }
     line
 }
-
 fn is_scanner_or_comment(ext: &str, line: &str) -> bool {
     let code = strip_trailing_comment(ext, line).trim();
     let code_low = code.to_ascii_lowercase();
@@ -612,8 +636,327 @@ pub fn find_rs_cfg_test_line(txt: &str) -> Option<usize> {
     None
 }
 
+fn is_ident_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
+
 pub fn has_primitive_standin(line: &str) -> bool {
-    PRIMITIVE_CALLS.iter().any(|p| line.contains(p))
+    if PRIMITIVE_TOKENS.iter().any(|tok| has_word_token(line, tok)) {
+        return true;
+    }
+    for p in PRIMITIVE_PATHS {
+        let mut from = 0;
+        while let Some(rel) = line[from..].find(p) {
+            let end = from + rel + p.len();
+            from = end;
+            let next_ok = !line[end..].chars().next().is_some_and(is_ident_char);
+            if next_ok {
+                return true;
+            }
+        }
+    }
+    for fn_name in PRIMITIVE_FN_CALLS {
+        let mut from = 0;
+        while let Some(rel) = line[from..].find(fn_name) {
+            let pos = from + rel;
+            let end = pos + fn_name.len();
+            from = end;
+            let prev_ok = !line[..pos].chars().next_back().is_some_and(is_ident_char);
+            let next_ok = !line[end..].chars().next().is_some_and(is_ident_char);
+            if !prev_ok {
+                continue;
+            }
+            if line[end..].trim_start().starts_with('(') {
+                return true;
+            }
+            if next_ok && (fn_name.starts_with("THREE.") || fn_name.starts_with("MeshBuilder.")) {
+                let before_trimmed = line[..pos].trim_end();
+                if let Some(before_new) = before_trimmed.strip_suffix("new") {
+                    let new_boundary = !before_new.chars().next_back().is_some_and(is_ident_char);
+                    if new_boundary && pos > before_trimmed.len() {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
+fn has_word_token(haystack: &str, word: &str) -> bool {
+    let mut from = 0;
+    while let Some(rel) = haystack[from..].find(word) {
+        let pos = from + rel;
+        let end = pos + word.len();
+        from = end;
+        let prev_ok = !haystack[..pos].chars().next_back().is_some_and(is_ident_char);
+        let next_ok = !haystack[end..].chars().next().is_some_and(is_ident_char);
+        if prev_ok && next_ok {
+            return true;
+        }
+    }
+    false
+}
+
+fn has_word_prefix(haystack: &str, pref: &str) -> bool {
+    let mut from = 0;
+    while let Some(rel) = haystack[from..].find(pref) {
+        let pos = from + rel;
+        from = pos + pref.len();
+        if !haystack[..pos].chars().next_back().is_some_and(is_ident_char) {
+            return true;
+        }
+    }
+    false
+}
+
+fn extract_unquoted_comment<'a>(ext: &str, line: &'a str) -> &'a str {
+    let allow_hash = !matches!(
+        ext,
+        "rs" | "go" | "js" | "mjs" | "cjs" | "ts" | "tsx" | "jsx" | "c" | "cpp" | "java"
+    );
+    let bytes = line.as_bytes();
+    let mut quote: Option<u8> = None;
+    let mut i = 0;
+    while i < bytes.len() {
+        let b = bytes[i];
+        if let Some(q) = quote {
+            if b == b'\\' && i + 1 < bytes.len() {
+                i += 2;
+                continue;
+            }
+            if b == q {
+                quote = None;
+            }
+        } else if b == b'"' || b == b'\'' {
+            quote = Some(b);
+        } else if allow_hash
+            && b == b'#'
+            && !line[i..].starts_with("#[")
+            && !line[i..].starts_with("#![")
+        {
+            return &line[i..];
+        } else if i + 1 < bytes.len()
+            && b == b'/'
+            && (bytes[i + 1] == b'/' || bytes[i + 1] == b'*')
+        {
+            return &line[i..];
+        }
+        i += 1;
+    }
+    ""
+}
+
+pub fn scrub_proof_text_lines(ext: &str, text: &str) -> BTreeMap<usize, String> {
+    let (open_tok, close_tok) = match ext {
+        "lean" => ("/-", "-/"),
+        "v" => ("(*", "*)"),
+        _ => ("", ""),
+    };
+    let dash_line = ext == "lean";
+    let semi_line = ext == "smt2";
+    let mut depth: usize = 0;
+    let mut out = BTreeMap::new();
+    for (idx, raw) in text.lines().enumerate() {
+        let bytes = raw.as_bytes();
+        let mut buf = String::with_capacity(raw.len());
+        let mut i = 0;
+        while i < bytes.len() {
+            if depth > 0 {
+                if !open_tok.is_empty() && raw[i..].starts_with(open_tok) {
+                    depth += 1;
+                    i += 2;
+                    continue;
+                }
+                if !close_tok.is_empty() && raw[i..].starts_with(close_tok) {
+                    depth -= 1;
+                    buf.push(' ');
+                    i += 2;
+                    continue;
+                }
+                if let Some(ch) = raw[i..].chars().next() {
+                    i += ch.len_utf8();
+                } else {
+                    break;
+                }
+                continue;
+            }
+            if bytes[i] == b'"' {
+                buf.push_str("\"\"");
+                i += 1;
+                while i < bytes.len() {
+                    if bytes[i] == b'\\' && i + 1 < bytes.len() {
+                        i += 2;
+                        continue;
+                    }
+                    if bytes[i] == b'"' {
+                        i += 1;
+                        break;
+                    }
+                    i += 1;
+                }
+                continue;
+            }
+            if dash_line && raw[i..].starts_with("--") {
+                break;
+            }
+            if semi_line && bytes[i] == b';' {
+                break;
+            }
+            if !open_tok.is_empty() && raw[i..].starts_with(open_tok) {
+                depth += 1;
+                buf.push(' ');
+                i += 2;
+                continue;
+            }
+            if let Some(ch) = raw[i..].chars().next() {
+                buf.push(ch);
+                i += ch.len_utf8();
+            } else {
+                break;
+            }
+        }
+        out.insert(idx + 1, buf);
+    }
+    out
+}
+
+fn has_kw_ws_ident(trimmed: &str, kw: &str) -> bool {
+    let Some(after) = trimmed.strip_prefix(kw) else {
+        return false;
+    };
+    if !after.chars().next().is_some_and(char::is_whitespace) {
+        return false;
+    }
+    after
+        .trim_start()
+        .chars()
+        .next()
+        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+}
+
+fn has_admitted_dot(line: &str) -> bool {
+    let mut from = 0;
+    while let Some(rel) = line[from..].find("Admitted") {
+        let pos = from + rel;
+        let end = pos + "Admitted".len();
+        from = end;
+        let prev_ok = !line[..pos].chars().next_back().is_some_and(is_ident_char);
+        let next_ok = !line[end..].chars().next().is_some_and(is_ident_char);
+        if prev_ok && next_ok && line[end..].trim_start().starts_with('.') {
+            return true;
+        }
+    }
+    false
+}
+
+fn has_smt_assert_false(line: &str) -> bool {
+    let low = line.to_ascii_lowercase();
+    let mut from = 0;
+    while let Some(rel) = low[from..].find('(') {
+        let pos = from + rel + 1;
+        from = pos;
+        let after_paren = low[pos..].trim_start();
+        let Some(after_assert) = after_paren.strip_prefix("assert") else {
+            continue;
+        };
+        if !after_assert.chars().next().is_some_and(char::is_whitespace) {
+            continue;
+        }
+        let after_ws = after_assert.trim_start();
+        if let Some(after_false) = after_ws.strip_prefix("false") {
+            if after_false.trim_start().starts_with(')') {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn has_proof_escape_scrubbed(ext: &str, line: &str) -> bool {
+    let t = line.trim_start();
+    let after_noncomp = t
+        .strip_prefix("noncomputable")
+        .filter(|r| r.chars().next().is_some_and(char::is_whitespace))
+        .map(str::trim_start)
+        .unwrap_or(t);
+    match ext {
+        "lean" => {
+            has_word_token(line, "sorry")
+                || has_word_token(line, "sorryAx")
+                || has_word_token(line, "admit")
+                || has_word_token(line, "native_decide")
+                || has_kw_ws_ident(after_noncomp, "axiom")
+        }
+        "v" => {
+            has_admitted_dot(line)
+                || has_kw_ws_ident(t, "Axiom")
+                || has_kw_ws_ident(t, "Parameter")
+        }
+        "smt2" => has_smt_assert_false(line),
+        _ => false,
+    }
+}
+
+fn has_tla_cfg_commented_invariant(raw_line: &str) -> bool {
+    let t = raw_line.trim_start();
+    let Some(rest) = t.strip_prefix("\\*") else {
+        return false;
+    };
+    let u = rest.trim_start();
+    ["INVARIANT", "INVARIANTS", "PROPERTY", "PROPERTIES"]
+        .iter()
+        .any(|kw| u.starts_with(kw) && !u[kw.len()..].chars().next().is_some_and(is_ident_char))
+}
+
+fn has_iac_sec_suppression(cmt_slice: &str) -> bool {
+    if cmt_slice.is_empty() {
+        return false;
+    }
+    let low = cmt_slice.to_ascii_lowercase();
+    let norm_ws: String = low.split_whitespace().collect::<Vec<_>>().join(" ");
+    has_word_prefix(&low, "tfsec:ignore:")
+        || has_word_prefix(&low, "checkov:skip=")
+        || has_word_prefix(&low, "trivy:ignore:")
+        || has_word_prefix(&low, "terrascan:skip=")
+        || has_word_token(&norm_ws, "kics-scan ignore")
+        || has_word_token(&low, "nosemgrep")
+}
+
+fn has_vacuous_query(line: &str) -> bool {
+    let low = line.to_ascii_lowercase();
+    let norm_ws: String = low.split_whitespace().collect::<Vec<_>>().join(" ");
+    if has_word_token(&norm_ws, "where false") || has_word_token(&norm_ws, "limit 0") {
+        return true;
+    }
+    let mut from = 0;
+    while let Some(rel) = low[from..].find("where") {
+        let pos = from + rel;
+        let end = pos + "where".len();
+        from = end;
+        let prev_ok = pos == 0
+            || (!low.as_bytes()[pos - 1].is_ascii_alphanumeric() && low.as_bytes()[pos - 1] != b'_');
+        if !prev_ok || !low[end..].chars().next().is_some_and(char::is_whitespace) {
+            continue;
+        }
+        let after_where = low[end..].trim_start();
+        if let Some(after_one) = after_where.strip_prefix('1') {
+            let after_one_ws = after_one.trim_start();
+            if let Some(after_eq) = after_one_ws.strip_prefix('=') {
+                let after_eq_ws = after_eq.trim_start();
+                if let Some(after_zero) = after_eq_ws.strip_prefix('0') {
+                    if !after_zero
+                        .chars()
+                        .next()
+                        .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_')
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
 }
 
 pub fn has_hardcoded_pass(line: &str) -> bool {
@@ -1275,10 +1618,10 @@ pub fn scan_file_reward_hacks(
     rs_cfg_test_line: Option<usize>,
     out: &mut Vec<RewardFinding>,
 ) {
-    scan_file_reward_hacks_with_mypy(rel, added, hunks, allow_primitives, include_primitives, rs_cfg_test_line, None, out);
+    scan_file_reward_hacks_full(rel, added, hunks, allow_primitives, include_primitives, rs_cfg_test_line, None, None, out);
 }
 
-pub fn scan_file_reward_hacks_with_mypy(
+pub fn scan_file_reward_hacks_full(
     rel: &str,
     added: &[(usize, String)],
     hunks: &[(Vec<String>, Vec<(usize, String)>)],
@@ -1286,6 +1629,7 @@ pub fn scan_file_reward_hacks_with_mypy(
     include_primitives: bool,
     rs_cfg_test_line: Option<usize>,
     mypy_lines: Option<&BTreeSet<usize>>,
+    full_text: Option<&str>,
     out: &mut Vec<RewardFinding>,
 ) {
     let norm_rel = rel.replace('\\', "/");
@@ -1346,15 +1690,41 @@ pub fn scan_file_reward_hacks_with_mypy(
             ext.as_str(),
             "py" | "js" | "mjs" | "cjs" | "ts" | "tsx" | "jsx" | "rs" | "go" | "sql"
         );
+    let proof_map = if matches!(ext.as_str(), "lean" | "v" | "smt2") {
+        full_text.map(|ft| scrub_proof_text_lines(&ext, ft))
+    } else {
+        None
+    };
     for (ln, raw_line) in added {
-        if is_scanner_or_comment(&ext, raw_line) {
-            continue;
-        }
-        let line = strip_trailing_comment(&ext, raw_line);
         let in_test_ctx = !is_scratch
             && (test_file
                 || e2e_file
                 || rs_cfg_test_line.map(|cfg_ln| *ln >= cfg_ln).unwrap_or(false));
+        if ext == "cfg" && has_tla_cfg_commented_invariant(raw_line) {
+            out.push(RewardFinding {
+                severity: "P0",
+                rule: "reward-hack-proof-escape",
+                file: rel.to_string(),
+                line: *ln,
+                message: "TLA+ `.cfg` comments out `INVARIANT`/`PROPERTY` so model checking passes vacuously.".to_string(),
+                fix: "Keep every TLA+ invariant and temporal property active and fix the specification.",
+            });
+        }
+        let cmt_slice = extract_unquoted_comment(&ext, raw_line);
+        if !in_test_ctx && has_iac_sec_suppression(cmt_slice) {
+            out.push(RewardFinding {
+                severity: "P1",
+                rule: "reward-hack-scanner-suppressed",
+                file: rel.to_string(),
+                line: *ln,
+                message: "Inline security/IaC scanner suppression (`tfsec`/`checkov`/`trivy`/`nosemgrep`) silences a policy check.".to_string(),
+                fix: "Remediate the underlying security or IaC misconfiguration instead of suppressing the scanner.",
+            });
+        }
+        if is_scanner_or_comment(&ext, raw_line) {
+            continue;
+        }
+        let line = strip_trailing_comment(&ext, raw_line);
         if in_test_ctx || is_pw_cfg || gate_file {
             if has_inflated_visual_tolerance(line) {
                 out.push(RewardFinding {
@@ -1489,14 +1859,43 @@ pub fn scan_file_reward_hacks_with_mypy(
                 fix: "Keep evaluation thresholds above their floor and run the real test suite.",
             });
         }
+        if matches!(ext.as_str(), "lean" | "v" | "smt2") {
+            let single_map;
+            let scrubbed_ln = if let Some(pm) = &proof_map {
+                pm.get(ln).map(String::as_str).unwrap_or("")
+            } else {
+                single_map = scrub_proof_text_lines(&ext, line);
+                single_map.get(&1).map(String::as_str).unwrap_or("")
+            };
+            if has_proof_escape_scrubbed(&ext, scrubbed_ln) {
+                out.push(RewardFinding {
+                    severity: "P0",
+                    rule: "reward-hack-proof-escape",
+                    file: rel.to_string(),
+                    line: *ln,
+                    message: "Formal proof trust escape (`sorry`/`admit`/`Admitted.`/custom `axiom`/`native_decide`/`(assert false)`) bypasses verification.".to_string(),
+                    fix: "Construct a complete kernel-checked proof without axioms, sorry, or contradictory premises.",
+                });
+            }
+        }
+        if (gate_file || (ext == "sql" && !is_migration)) && has_vacuous_query(line) {
+            out.push(RewardFinding {
+                severity: "P0",
+                rule: "reward-hack-vacuous-query",
+                file: rel.to_string(),
+                line: *ln,
+                message: "Vacuous query predicate (`WHERE 1=0` / `WHERE FALSE` / `LIMIT 0`) forces 0 error rows in validation.".to_string(),
+                fix: "Query the real dataset without vacuous filters and fix invalid records.",
+            });
+        }
         if include_primitives && !allow_primitives && has_primitive_standin(line) {
             out.push(RewardFinding {
                 severity: "P1",
                 rule: "reward-hack-primitive-standin",
                 file: rel.to_string(),
                 line: *ln,
-                message: "Local procedural primitive geometry (`cube`/`cone`/`sphere`/`cylinder`) added in production/pipeline code.".to_string(),
-                fix: "Produce the asset via the real upstream generator/solver with a provenance receipt, or pass `--allow-primitives` for genuine CAD/procedural geometry.",
+                message: "Local procedural primitive geometry (`cube`/`cone`/`sphere`/`cylinder`) added in production/pipeline or scratch code.".to_string(),
+                fix: "Produce the asset via the real upstream generator/solver with a signed provenance receipt, or pass `--allow-primitives` for genuine CAD/procedural geometry.",
             });
         }
         if has_hardcoded_pass(line) {
@@ -1897,7 +2296,7 @@ pub fn run(args: &[String]) -> ExitCode {
             }
         }
         if !added.is_empty() || !hunks.is_empty() {
-            scan_file_reward_hacks_with_mypy(
+            scan_file_reward_hacks_full(
                 rel,
                 &added,
                 &hunks,
@@ -1905,6 +2304,7 @@ pub fn run(args: &[String]) -> ExitCode {
                 true,
                 rs_cfg_ln,
                 mypy_set.as_ref(),
+                full_txt.as_deref(),
                 &mut local,
             );
         }

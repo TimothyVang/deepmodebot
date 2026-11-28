@@ -444,5 +444,110 @@ class RewardGuardTests(unittest.TestCase):
         pkg_hits = [f for f in res["findings"] if f["file"] == "package.json"]
         self.assertEqual(len(pkg_hits), 1)
 
+    def test_universal_artifact_judge_inspects_xlsx_wav_svg_sqlite_and_proof_iac_rules_without_refs_or_dgx(self):
+        import shutil as _sh
+        import struct as _st
+        import wave as _wv
+        import zipfile as _zf
+
+        # 1. Static parity on Formal Proofs (.lean/.cfg/.smt2), IaC suppressions (.tf), vacuous SQL, and Three.js/Unreal primitives.
+        (self.repo / "Theorem.lean").write_text("theorem t1 : 1 + 1 = 2 := by\n  sorry\n", encoding="utf-8")
+        (self.repo / "Spec.cfg").write_text("\\* INVARIANT TypeOK\n", encoding="utf-8")
+        (self.repo / "main.tf").write_text("# checkov:skip=CKV_AWS_20\nresource \"aws_s3_bucket\" \"b\" {}\n", encoding="utf-8")
+        (self.repo / "validators").mkdir()
+        (self.repo / "validators" / "dq.sql").write_text("SELECT id FROM broken_rows WHERE 1=0;\n", encoding="utf-8")
+        (self.repo / "scene.ts").write_text("const mesh = new THREE.BoxGeometry(1, 1, 1);\n", encoding="utf-8")
+        sres = rg.scan_reward_hacking(self.repo)
+        srules = {f["rule"] for f in sres["findings"]}
+        for r in ("reward-hack-proof-escape", "reward-hack-scanner-suppressed", "reward-hack-vacuous-query", "reward-hack-primitive-standin"):
+            self.assertIn(r, srules, sres["findings"])
+        for clean_f in ("Theorem.lean", "Spec.cfg", "main.tf", "scene.ts"):
+            (self.repo / clean_f).unlink()
+        _sh.rmtree(self.repo / "validators")
+
+        # 2. Multi-domain owned artifact telemetry: .xlsx formulas, .svg primitive-only detection, .sqlite rows/FKs, and silent .wav rejection!
+        out_dir = self.repo / "artifacts"
+        out_dir.mkdir()
+        xlsx_p = out_dir / "budget.xlsx"
+        with _zf.ZipFile(xlsx_p, "w") as zf:
+            zf.writestr(
+                "xl/worksheets/sheet1.xml",
+                '<worksheet><sheetData>'
+                '<row r="1"><c r="A1"><v>100</v></c><c r="A2"><v>250</v></c><c r="A3"><f>SUM(A1:A2)</f><v>350</v></c>'
+                '<c r="B1" t="inlineStr"><is><t>Region</t></is></c></row>'
+                '</sheetData></worksheet>',
+            )
+        xlsx_info = rg._inspect_office_or_pdf_artifact(xlsx_p)
+        self.assertEqual(xlsx_info["formula_cell_count"], 1)
+        self.assertEqual(xlsx_info["value_cell_count"], 4)
+        self.assertEqual(xlsx_info["formula_error_count"], 0)
+        self.assertIn("B1:Region", xlsx_info["sample_values"])
+
+        hash_db = out_dir / "sample #1.sqlite"
+        with contextlib.closing(sqlite3.connect(hash_db)) as hc:
+            hc.execute("CREATE TABLE sqliteX (id INTEGER PRIMARY KEY, label TEXT)")
+            hc.execute("INSERT INTO sqliteX VALUES (1, 'a'), (2, 'b')")
+            hc.commit()
+        db_info = rg._inspect_svg_or_data_artifact(hash_db)
+        self.assertEqual(db_info["table_count"], 1)
+        self.assertEqual(db_info["table_rows"], {"sqliteX": 2})
+        self.assertFalse((out_dir / "sample").exists())
+
+        svg_p = out_dir / "diagram.svg"
+        svg_p.write_text('<svg xmlns="http://www.w3.org/2000/svg"><rect width="50" height="50"/><circle r="10"/></svg>', encoding="utf-8")
+        svg_info = rg._inspect_svg_or_data_artifact(svg_p)
+        self.assertTrue(svg_info["primitive_box_circle_only"])
+
+        silent_wav = out_dir / "silent.wav"
+        with _wv.open(str(silent_wav), "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(16000)
+            wf.writeframes(b"\x00\x00" * 8000)
+
+        real_wav = out_dir / "speech.wav"
+        with _wv.open(str(real_wav), "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(16000)
+            pcm = [_st.pack("<h", int(12000 * ((i % 97) / 97.0 - 0.5) * (0.3 + 0.7 * ((i // 1600) % 2)))) for i in range(8000)]
+            wf.writeframes(b"".join(pcm))
+
+        # 3. Reference-free run-judge on .xlsx and .wav (zero reference images, zero dgx-spark!):
+        seed = hashlib.sha256(b"artifact-supervisor-seed").digest()
+        pub = rg.ed25519_pubkey(seed)
+        holdout = Path(self.tmp.name) / "artifact-holdout"
+        rg.lock_contract(
+            self.repo,
+            slug="multi-domain",
+            goal="Produce an Excel budget with live SUM formulas and non-silent spoken audio",
+            trusted_pubkeys=[f"loop-supervisor={pub}"],
+            artifacts=["artifacts/budget.xlsx", "artifacts/speech.wav"],
+            state_dir=holdout,
+        )
+        # Silent WAV is deterministically rejected BEFORE even calling the LLM!
+        with self.assertRaises(ValueError):
+            rg.run_judge(self.repo, slug="multi-domain", artifact_rel="artifacts/silent.wav", state_dir=holdout)
+
+        bin_dir = Path(self.tmp.name) / "art-fake-bin"
+        bin_dir.mkdir()
+        mode_file = Path(self.tmp.name) / "art-judge-mode.txt"
+        _install_fake_omp_bin(bin_dir, mode_file)
+        old_path = os.environ.get("PATH", "")
+        os.environ["PATH"] = str(bin_dir) + os.pathsep + old_path
+        try:
+            mode_file.write_text("approve", encoding="utf-8")
+            rg.run_judge(
+                self.repo, slug="multi-domain", artifact_rel="artifacts/budget.xlsx",
+                state_dir=holdout, signing_seed_hex=seed.hex(), signer_name="loop-supervisor",
+            )
+            final_v = rg.run_judge(
+                self.repo, slug="multi-domain", artifact_rel="artifacts/speech.wav",
+                state_dir=holdout, signing_seed_hex=seed.hex(), signer_name="loop-supervisor",
+            )
+            self.assertEqual(final_v["verdict"], "REWARD_GUARD_PASSED", final_v)
+        finally:
+            os.environ["PATH"] = old_path
+
 if __name__ == "__main__":
     unittest.main()

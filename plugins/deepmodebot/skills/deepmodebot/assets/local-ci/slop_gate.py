@@ -114,10 +114,17 @@ def _load_mod(name: str, path: Path):
 
 
 def _git(root: Path, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(
+    p = subprocess.run(
         ["git", "-C", str(root), *args],
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
-        timeout=30, creationflags=NO_WINDOW,
+        capture_output=True,
+        timeout=30,
+        creationflags=NO_WINDOW,
+    )
+    return subprocess.CompletedProcess(
+        p.args,
+        p.returncode,
+        p.stdout.decode("utf-8", errors="replace"),
+        p.stderr.decode("utf-8", errors="replace"),
     )
 
 
@@ -152,23 +159,32 @@ def _changed_files(root: Path, staged: bool, explicit_files: list[str] | None) -
     return sorted(found)
 
 
+def _split_lf_lines(text: str) -> list[str]:
+    if not text:
+        return []
+    parts = text.split("\n")
+    if parts and parts[-1] == "":
+        parts.pop()
+    return [p[:-1] if p.endswith("\r") else p for p in parts]
+
+
 def _added_lines_for_file(root: Path, rel: str, staged: bool) -> dict[int, str]:
     full = root / rel
     if not full.is_file() or full.is_symlink():
         return {}
     has_head = _git(root, "rev-parse", "--verify", "HEAD").returncode == 0
     if not has_head and not staged:
-        return {i: l for i, l in enumerate(full.read_text(encoding="utf-8", errors="replace").splitlines(), 1)}
+        return {i: l for i, l in enumerate(_split_lf_lines(full.read_bytes().decode("utf-8", errors="replace")), 1)}
     tracked = _git(root, "ls-files", "--error-unmatch", "--", rel).returncode == 0
     if not tracked and not staged:
-        return {i: l for i, l in enumerate(full.read_text(encoding="utf-8", errors="replace").splitlines(), 1)}
+        return {i: l for i, l in enumerate(_split_lf_lines(full.read_bytes().decode("utf-8", errors="replace")), 1)}
     cmd = ["diff", "--cached", "-U0", "--", rel] if staged else ["diff", "HEAD", "-U0", "--", rel]
     diff = _git(root, *cmd)
     if diff.returncode != 0:
         return {}
     added: dict[int, str] = {}
     cur_line = 0
-    for raw in diff.stdout.splitlines():
+    for raw in _split_lf_lines(diff.stdout):
         if raw.startswith("@@ "):
             m = re.search(r"\+(\d+)", raw)
             if m:
@@ -178,7 +194,6 @@ def _added_lines_for_file(root: Path, rel: str, staged: bool) -> dict[int, str]:
             cur_line += 1
     return added
 
-
 def _read_text_safe(root: Path, rel: str, max_bytes: int = 1_048_576) -> str | None:
     p = root / rel
     if p.is_symlink() or not p.is_file():
@@ -187,7 +202,7 @@ def _read_text_safe(root: Path, rel: str, max_bytes: int = 1_048_576) -> str | N
         return None
     if p.stat().st_size > max_bytes:
         return None
-    return p.read_text(encoding="utf-8", errors="replace")
+    return p.read_bytes().decode("utf-8", errors="replace")
 
 
 def _max_ast_nesting(node: ast.AST, depth: int = 0) -> int:
@@ -525,8 +540,7 @@ def run_slop_gate(
             continue
         added = _added_lines_for_file(resolved_root, rel, staged=staged)
         if not added and explicit_files:
-            added = {i: l for i, l in enumerate(text.splitlines(), 1)}
-
+            added = {i: l for i, l in enumerate(_split_lf_lines(text), 1)}
         cur_slop = loop_mod.scan_text_slop(rel, text)
         if cur_slop:
             base_findings = []
@@ -588,7 +602,7 @@ def run_slop_gate(
                     continue
                 stxt = _read_text_safe(resolved_root, srel, max_bytes=reward_mod.MAX_SCRATCH_SCRIPT_BYTES)
                 if stxt is not None:
-                    sadded = {i: ln for i, ln in enumerate(stxt.splitlines(), 1)}
+                    sadded = {i: ln for i, ln in enumerate(_split_lf_lines(stxt), 1)}
                     findings.extend(
                         reward_mod.scan_added_lines_for_reward_hacks(srel, sadded, [([], list(sadded.items()))], include_primitives=False, full_text=stxt)
                     )
