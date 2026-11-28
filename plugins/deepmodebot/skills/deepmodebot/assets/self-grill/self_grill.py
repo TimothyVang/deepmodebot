@@ -886,11 +886,15 @@ def build_questions(
                 "code-without-tests",
             )
         if test_paths:
+            comut_note = (
+                f" Co-mutation warning: both production ({', '.join(code_paths[:2])}) and test/eval ({', '.join(test_paths[:2])}) files changed in the same diff—prove assertions were not weakened to match broken output."
+                if code_paths else ""
+            )
             add(
                 "no-check-theater",
                 "critical",
                 "checks",
-                "Would the new or touched tests fail if your production fix were reverted, and do they avoid mocking out the behavior under test?",
+                "Would the new or touched tests fail if your production fix were reverted, and do they avoid mocking out the behavior under test?" + comut_note,
                 "tests-touched",
             )
         if sensitive_paths:

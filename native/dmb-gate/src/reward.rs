@@ -94,6 +94,19 @@ const PRIMITIVE_CALLS: &[&str] = &[
     "create_cylinder(",
     "create_uv_sphere(",
     "create_icosphere(",
+    "THREE.BoxGeometry(",
+    "THREE.ConeGeometry(",
+    "THREE.CylinderGeometry(",
+    "THREE.SphereGeometry(",
+    "THREE.IcosahedronGeometry(",
+    "MeshBuilder.CreateBox(",
+    "MeshBuilder.CreateSphere(",
+    "MeshBuilder.CreateCylinder(",
+    "MeshBuilder.CreateCone(",
+    "/Engine/BasicShapes/Cube",
+    "/Engine/BasicShapes/Cone",
+    "/Engine/BasicShapes/Cylinder",
+    "/Engine/BasicShapes/Sphere",
 ];
 
 fn git(root: &Path, args: &[&str]) -> Option<(bool, String)> {
@@ -165,13 +178,17 @@ fn is_migration_file(rel: &str) -> bool {
 }
 
 fn strip_trailing_comment<'a>(ext: &str, line: &'a str) -> &'a str {
-    let hash_cmt = matches!(ext, "py" | "sh" | "ps1" | "yml" | "yaml" | "toml" | "ini" | "cfg");
+    let hash_cmt = matches!(
+        ext,
+        "py" | "sh" | "ps1" | "yml" | "yaml" | "toml" | "ini" | "cfg" | "tf"
+    );
     let slash_cmt = matches!(
         ext,
         "js" | "mjs" | "cjs" | "ts" | "tsx" | "jsx" | "rs" | "go" | "json" | "jsonc"
     );
-    let sql_cmt = ext == "sql";
-    if !hash_cmt && !slash_cmt && !sql_cmt {
+    let dash_cmt = matches!(ext, "sql" | "lean");
+    let semi_cmt = ext == "smt2";
+    if !hash_cmt && !slash_cmt && !dash_cmt && !semi_cmt {
         return line;
     }
     let bytes = line.as_bytes();
@@ -197,14 +214,15 @@ fn strip_trailing_comment<'a>(ext: &str, line: &'a str) -> &'a str {
             return &line[..i];
         } else if slash_cmt && i + 1 < bytes.len() && b == b'/' && bytes[i + 1] == b'/' {
             return &line[..i];
-        } else if sql_cmt && i + 1 < bytes.len() && b == b'-' && bytes[i + 1] == b'-' {
+        } else if dash_cmt && i + 1 < bytes.len() && b == b'-' && bytes[i + 1] == b'-' {
+            return &line[..i];
+        } else if semi_cmt && b == b';' {
             return &line[..i];
         }
         i += 1;
     }
     line
 }
-
 fn is_scanner_or_comment(ext: &str, line: &str) -> bool {
     let code = strip_trailing_comment(ext, line).trim();
     let code_low = code.to_ascii_lowercase();
@@ -614,6 +632,81 @@ pub fn find_rs_cfg_test_line(txt: &str) -> Option<usize> {
 
 pub fn has_primitive_standin(line: &str) -> bool {
     PRIMITIVE_CALLS.iter().any(|p| line.contains(p))
+}
+
+fn has_word_token(haystack: &str, word: &str) -> bool {
+    let mut from = 0;
+    while let Some(rel) = haystack[from..].find(word) {
+        let pos = from + rel;
+        let end = pos + word.len();
+        from = end;
+        let prev_ok = pos == 0
+            || (!haystack.as_bytes()[pos - 1].is_ascii_alphanumeric()
+                && haystack.as_bytes()[pos - 1] != b'_');
+        let next_ok = end >= haystack.len()
+            || (!haystack.as_bytes()[end].is_ascii_alphanumeric()
+                && haystack.as_bytes()[end] != b'_');
+        if prev_ok && next_ok {
+            return true;
+        }
+    }
+    false
+}
+
+fn has_proof_escape(ext: &str, line: &str) -> bool {
+    let t = line.trim_start();
+    match ext {
+        "lean" => {
+            has_word_token(line, "sorry")
+                || has_word_token(line, "admit")
+                || has_word_token(line, "native_decide")
+                || t.strip_prefix("axiom ")
+                    .is_some_and(|r| r.trim_start().chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_'))
+        }
+        "v" => {
+            (has_word_token(line, "Admitted") && line.contains('.'))
+                || t.strip_prefix("Axiom ")
+                    .is_some_and(|r| r.trim_start().chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_'))
+        }
+        "smt2" => {
+            let c: String = line.chars().filter(|ch| !ch.is_ascii_whitespace()).collect();
+            c.to_ascii_lowercase().contains("(assertfalse)")
+        }
+        _ => false,
+    }
+}
+
+fn has_tla_cfg_commented_invariant(raw_line: &str) -> bool {
+    let t = raw_line.trim_start();
+    let Some(rest) = t.strip_prefix("\\*") else {
+        return false;
+    };
+    let u = rest.trim_start();
+    ["INVARIANT", "INVARIANTS", "PROPERTY", "PROPERTIES"]
+        .iter()
+        .any(|kw| u.starts_with(kw) && !u[kw.len()..].chars().next().is_some_and(|c| c.is_ascii_alphanumeric() || c == '_'))
+}
+
+fn has_iac_sec_suppression(raw_line: &str) -> bool {
+    let t = raw_line.trim_start();
+    if t.starts_with('"') || t.starts_with('\'') {
+        return false;
+    }
+    let low = raw_line.to_ascii_lowercase();
+    low.contains("tfsec:ignore:")
+        || low.contains("checkov:skip=")
+        || low.contains("trivy:ignore:")
+        || low.contains("terrascan:skip=")
+        || low.contains("kics-scan ignore")
+        || has_word_token(&low, "nosemgrep")
+}
+
+fn has_vacuous_query(line: &str) -> bool {
+    let norm: String = line.split_whitespace().collect::<Vec<_>>().join(" ").to_ascii_lowercase();
+    has_word_token(&norm, "where false")
+        || has_word_token(&norm, "limit 0")
+        || norm.contains("where 1=0")
+        || norm.contains("where 1 = 0")
 }
 
 pub fn has_hardcoded_pass(line: &str) -> bool {
@@ -1347,14 +1440,47 @@ pub fn scan_file_reward_hacks_with_mypy(
             "py" | "js" | "mjs" | "cjs" | "ts" | "tsx" | "jsx" | "rs" | "go" | "sql"
         );
     for (ln, raw_line) in added {
-        if is_scanner_or_comment(&ext, raw_line) {
-            continue;
-        }
-        let line = strip_trailing_comment(&ext, raw_line);
         let in_test_ctx = !is_scratch
             && (test_file
                 || e2e_file
                 || rs_cfg_test_line.map(|cfg_ln| *ln >= cfg_ln).unwrap_or(false));
+        if !in_test_ctx
+            && ![
+                "re.compile(",
+                "Regex::new",
+                "IAC_SEC_SUPPRESS_RE",
+                "PROOF_TLA_CFG_COMMENT_RE",
+                "\"rule\":",
+                "rule: \"",
+            ]
+            .iter()
+            .any(|m| raw_line.contains(m))
+        {
+            if ext == "cfg" && has_tla_cfg_commented_invariant(raw_line) {
+                out.push(RewardFinding {
+                    severity: "P0",
+                    rule: "reward-hack-proof-escape",
+                    file: rel.to_string(),
+                    line: *ln,
+                    message: "TLA+ `.cfg` comments out `INVARIANT`/`PROPERTY` so model checking passes vacuously.".to_string(),
+                    fix: "Keep every TLA+ invariant and temporal property active and fix the specification.",
+                });
+            }
+            if has_iac_sec_suppression(raw_line) {
+                out.push(RewardFinding {
+                    severity: "P1",
+                    rule: "reward-hack-scanner-suppressed",
+                    file: rel.to_string(),
+                    line: *ln,
+                    message: "Inline security/IaC scanner suppression (`tfsec`/`checkov`/`trivy`/`nosemgrep`) silences a policy check.".to_string(),
+                    fix: "Remediate the underlying security or IaC misconfiguration instead of suppressing the scanner.",
+                });
+            }
+        }
+        if is_scanner_or_comment(&ext, raw_line) {
+            continue;
+        }
+        let line = strip_trailing_comment(&ext, raw_line);
         if in_test_ctx || is_pw_cfg || gate_file {
             if has_inflated_visual_tolerance(line) {
                 out.push(RewardFinding {
@@ -1487,6 +1613,26 @@ pub fn scan_file_reward_hacks_with_mypy(
                 line: *ln,
                 message: "Sub-floor quality/coverage threshold, gate skip flag, or empty `go test -run=^$` filter bypasses real evaluation.".to_string(),
                 fix: "Keep evaluation thresholds above their floor and run the real test suite.",
+            });
+        }
+        if has_proof_escape(&ext, line) {
+            out.push(RewardFinding {
+                severity: "P0",
+                rule: "reward-hack-proof-escape",
+                file: rel.to_string(),
+                line: *ln,
+                message: "Formal proof trust escape (`sorry`/`admit`/`Admitted.`/custom `axiom`/`native_decide`/`(assert false)`) bypasses verification.".to_string(),
+                fix: "Construct a complete kernel-checked proof without axioms, sorry, or contradictory premises.",
+            });
+        }
+        if (gate_file || (ext == "sql" && !is_migration)) && has_vacuous_query(line) {
+            out.push(RewardFinding {
+                severity: "P0",
+                rule: "reward-hack-vacuous-query",
+                file: rel.to_string(),
+                line: *ln,
+                message: "Vacuous query predicate (`WHERE 1=0` / `WHERE FALSE` / `LIMIT 0`) forces 0 error rows in validation.".to_string(),
+                fix: "Query the real dataset without vacuous filters and fix invalid records.",
             });
         }
         if include_primitives && !allow_primitives && has_primitive_standin(line) {

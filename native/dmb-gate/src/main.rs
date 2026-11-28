@@ -418,6 +418,46 @@ jobs:
             None,
             &mut univ,
         );
+        reward::scan_file_reward_hacks(
+            "proofs/Theorem.lean",
+            &[(4usize, "  sorry".to_string())],
+            &[],
+            false,
+            true,
+            None,
+            &mut univ,
+        );
+        reward::scan_file_reward_hacks(
+            "infra/main.tf",
+            &[(2usize, "  # tfsec:ignore:aws-s3-enable-bucket-encryption".to_string())],
+            &[],
+            false,
+            true,
+            None,
+            &mut univ,
+        );
+        reward::scan_file_reward_hacks(
+            "validators/dq_check.sql",
+            &[(1usize, "SELECT * FROM bad_orders WHERE 1=0;".to_string())],
+            &[],
+            false,
+            true,
+            None,
+            &mut univ,
+        );
+        reward::scan_file_reward_hacks(
+            "src/scene.ts",
+            &[(3usize, "const g = new THREE.BoxGeometry(1, 1, 1);".to_string())],
+            &[],
+            false,
+            true,
+            None,
+            &mut univ,
+        );
+        assert!(univ.iter().any(|f| f.rule == "reward-hack-proof-escape"));
+        assert!(univ.iter().any(|f| f.rule == "reward-hack-scanner-suppressed"));
+        assert!(univ.iter().any(|f| f.rule == "reward-hack-vacuous-query"));
+        assert!(univ.iter().any(|f| f.file == "src/scene.ts" && f.rule == "reward-hack-primitive-standin"));
         assert!(univ.iter().any(|f| f.rule == "reward-hack-prod-test-branch"));
         assert_eq!(univ.iter().filter(|f| f.rule == "reward-hack-ci-or-typecheck-neutered").count(), 3);
         assert_eq!(univ.iter().filter(|f| f.rule == "reward-hack-noop-script").count(), 1);

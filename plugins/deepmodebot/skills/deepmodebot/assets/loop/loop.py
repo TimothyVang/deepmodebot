@@ -1714,8 +1714,8 @@ def evaluate_outer_reward_contract(fields, root, slug, holdout_dir, supervisor_s
     want_code_judge = parse_bool(fields, "reward_judge", False, "goal")
     if not artifacts and not want_code_judge:
         return 0, ""
-    if artifacts and not (refs or producers):
-        return 1, "[reward_guard failed] incomplete reward contract: reward_artifacts requires reward_references and/or reward_producers\n"
+    if artifacts and not (refs or producers or fields.get("goal", "").strip()):
+        return 1, "[reward_guard failed] incomplete reward contract: reward_artifacts requires goal, reward_references, or reward_producers\n"
     rg = _reward_guard_mod()
     root_p = Path(root)
     state_p = Path(holdout_dir)
@@ -1763,16 +1763,15 @@ def evaluate_outer_reward_contract(fields, root, slug, holdout_dir, supervisor_s
                     inputs=refs,
                     state_dir=state_p,
                 )
-            if refs:
-                rg.run_judge(
-                    root_p,
-                    slug=slug_k,
-                    artifact_rel=norm_art,
-                    model=judge_model,
-                    state_dir=state_p,
-                    signing_seed_hex=seed_b.hex(),
-                    signer_name="loop-supervisor",
-                )
+            rg.run_judge(
+                root_p,
+                slug=slug_k,
+                artifact_rel=norm_art,
+                model=judge_model,
+                state_dir=state_p,
+                signing_seed_hex=seed_b.hex(),
+                signer_name="loop-supervisor",
+            )
         verdict = rg.evaluate_verdict(root_p, slug=slug_k, state_dir=state_p)
         md_src = state_p / slug_k / "REWARD_GUARD.md"
         if md_src.is_file():
@@ -1782,8 +1781,6 @@ def evaluate_outer_reward_contract(fields, root, slug, holdout_dir, supervisor_s
         optional_skipped = set()
         if not producers:
             optional_skipped.add("provenance-verified")
-        if artifacts and not refs:
-            optional_skipped.add("independent-judge-approved")
         blocking = [g for g in verdict["failed_gates"] if g not in optional_skipped]
         if blocking or (not optional_skipped and verdict["verdict"] != "REWARD_GUARD_PASSED"):
             md_txt = md_src.read_text(encoding="utf-8") if md_src.is_file() else json.dumps(verdict)
