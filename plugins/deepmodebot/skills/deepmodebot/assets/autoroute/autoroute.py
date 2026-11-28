@@ -361,7 +361,7 @@ def build_menu_packet(prompt: str, root: Path | None = None) -> dict:
     hardcore_system_hit = bool(HARDCORE_SYSTEM_RE.search(cleaned))
 
     schema = {
-        "decoded_intent": "1-sentence semantic restatement of what the user actually wants",
+        "decoded_intent": "The user's objective, observable success evidence, and allowed delivery boundary",
         "deliverables": ["1. concrete deliverable", "2. ..."],
         "primary_mode": "exact mode name from Playbooks, Techniques, or Sibling Skills",
         "route_file": "exact route_file from the catalog",
@@ -386,6 +386,9 @@ def build_menu_packet(prompt: str, root: Path | None = None) -> dict:
         "and choose the best primary_mode, companion techniques, reference_skills, size, and self_grill mode purely from "
         "semantic understanding against the live catalog below (never naive keyword matching).\n"
         "Routing guidance:\n"
+        "- Decide the user's intended outcome before choosing a mode. Preserve the distinction between what "
+        "they want, how they suggested doing it, and what they authorized. A proxy is not the outcome. "
+        "Do not expand the task or infer permission to publish, deploy, send, or spend from an indirect goal.\n"
         "- Hardcore Mode is ON by default: aim straight for the first-principles architectural ceiling and promote any "
         "'(Optional hardcore mode)' tier into a mandatory deliverable unless the user explicitly asked for a minimal fix or throwaway prototype.\n"
         "- Read-only/discovery/audit modes (investigation, runtime-forensics, trace-forensics, pr-review, grill, self-grill, "
@@ -647,7 +650,7 @@ def verify_decision(
         critic_prompt = (
             f"You are the Adversarial Route Critic (round {next_round} of 2). Attack the proposed route decision below. "
             "Check: (1) based on what the user literally typed, does a more specific playbook or technique fit better than primary_mode? "
-            "(2) did deliverables drop any clause from the user prompt? "
+            "(2) did the decoded intent or deliverables drop a user goal, substitute a proxy, or widen authorization? "
             "(3) are size, self_grill, secondary_techniques, and reference_skills accurate and safe? "
             "Output ONLY the corrected full JSON decision with \"critic_reviewed\": true.\n\n"
             f"Original prompt: {prompt}\n"
@@ -697,6 +700,7 @@ def verify_decision(
         "auto_repairs": auto_repairs,
         "critic_prompt": critic_prompt,
         "locked_plan": {
+            "decoded_intent": decoded_intent,
             "primary_mode": primary,
             "route_file": route_file,
             "secondary_techniques": final_sec,

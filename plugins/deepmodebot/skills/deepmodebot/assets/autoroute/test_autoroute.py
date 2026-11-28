@@ -323,6 +323,10 @@ class AutoRouteLoopTests(unittest.TestCase):
         )
         self.assertEqual(res["status"], "APPROVED")
         self.assertEqual(res["rounds_used"], 2)
+        self.assertEqual(
+            res["locked_plan"]["decoded_intent"],
+            "Reverse-engineer reference video shot by shot into VIDEO.md",
+        )
         self.assertEqual(calls, [1, 2])
         self.assertEqual(res["locked_plan"]["primary_mode"], "video-forensics")
         self.assertEqual(res["locked_plan"]["route_file"], "references/techniques/video-forensics.md")
