@@ -131,7 +131,7 @@ export default function gitGuard(pi: {
 		const branchCache = new Map<string, string | undefined>();
 		for (const rawLine of lines) {
 			const line = rawLine.replace(/(-m|--message)(=| +)("[^"]*"|'[^']*')/g, '$1 ""');
-			if (/^ *(grep|rg|echo|printf) +[^;&|>`$]*$/.test(line)) continue;
+			if (/^ *(grep|rg|echo|printf) +[^;&|<>()`$]*$/.test(line)) continue;
 			const minHit = findSubFloorMinFlag(line);
 			if (minHit) {
 				return {
@@ -143,7 +143,7 @@ export default function gitGuard(pi: {
 		for (const rule of rules) {
 			for (const rawLine of lines) {
 				const line = rawLine.replace(/(-m|--message)(=| +)("[^"]*"|'[^']*')/g, '$1 ""');
-				if (/^ *(grep|rg|echo|printf) +[^;&|>`$]*$/.test(line)) continue;
+				if (/^ *(grep|rg|echo|printf) +[^;&|<>()`$]*$/.test(line)) continue;
 				const hit = rule.command.exec(line);
 				if (!hit) continue;
 				if (rule.branch) {

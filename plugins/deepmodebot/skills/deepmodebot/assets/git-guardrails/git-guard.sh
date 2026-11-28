@@ -111,7 +111,7 @@ block() {
   exit 2
 }
 
-scrubbed_text="$(printf '%s\n' "$command_text" | sed -E 's/(-m|--message)(=| +)("[^"]*"|'\''[^'\'']*'\'')/\1 ""/g' | grep -vE '^ *(grep|rg|echo|printf) +[^;&|>`$]*$' || true)"
+scrubbed_text="$(printf '%s\n' "$command_text" | sed -E 's/(-m|--message)(=| +)("[^"]*"|'\''[^'\'']*'\'')/\1 ""/g' | grep -vE '^ *(grep|rg|echo|printf) +[^;&|<>()`$]*$' || true)"
 clean_patterns="$(tr -d '\r' < "$patterns")"
 active="$(printf '%s\n' "$clean_patterns" | grep -vE '^[[:space:]]*(#|@|$)' || true)"
 if [[ -n "$active" && -n "$scrubbed_text" ]]; then

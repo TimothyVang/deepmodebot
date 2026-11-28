@@ -146,7 +146,7 @@ class SlopGateTests(unittest.TestCase):
         _git(self.repo, "commit", "-q", "-m", "ignore scratch")
         sc = self.repo / ".scratch"
         sc.mkdir(exist_ok=True)
-        (sc / "refresh.ps1").write_text("npx playwright test --update-snapshots=all\n", encoding="utf-8")
+        (sc / "refresh.ps1").write_text(("# pad\n" * 180_000) + "npx playwright test --update-snapshots=all\n", encoding="utf-8")
         res = sg.run_slop_gate(self.repo, run_linters=False)
         self.assertFalse(res["ok"], res)
         self.assertIn("reward-hack-snapshot-overwrite", {f["rule"] for f in res["findings"]})

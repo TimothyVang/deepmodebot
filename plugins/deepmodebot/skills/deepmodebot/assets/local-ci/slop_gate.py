@@ -179,13 +179,13 @@ def _added_lines_for_file(root: Path, rel: str, staged: bool) -> dict[int, str]:
     return added
 
 
-def _read_text_safe(root: Path, rel: str) -> str | None:
+def _read_text_safe(root: Path, rel: str, max_bytes: int = 1_048_576) -> str | None:
     p = root / rel
     if p.is_symlink() or not p.is_file():
         return None
     if not p.resolve().is_relative_to(root.resolve()):
         return None
-    if p.stat().st_size > 1_048_576:
+    if p.stat().st_size > max_bytes:
         return None
     return p.read_text(encoding="utf-8", errors="replace")
 
@@ -586,7 +586,7 @@ def run_slop_gate(
             for srel in sc_files:
                 if srel in changed_set:
                     continue
-                stxt = _read_text_safe(resolved_root, srel)
+                stxt = _read_text_safe(resolved_root, srel, max_bytes=reward_mod.MAX_SCRATCH_SCRIPT_BYTES)
                 if stxt is not None:
                     sadded = {i: ln for i, ln in enumerate(stxt.splitlines(), 1)}
                     findings.extend(

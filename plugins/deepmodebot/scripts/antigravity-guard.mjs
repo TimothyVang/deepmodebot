@@ -165,7 +165,7 @@ function findShellRewardHack(rawCmd) {
   const cleaned = String(rawCmd ?? "").replace(/(-m|--message)(=|\s+)("[^"]*"|'[^']*')/g, '$1 ""');
   for (const rawLine of cleaned.replace(/\\\r?\n/g, " ").split(/\r?\n/)) {
     const line = rawLine.trim();
-    if (!line || /^(?:grep|rg|echo|printf)\s+[^;&|>`$]*$/.test(line)) continue;
+    if (!line || /^(?:grep|rg|echo|printf)\s+[^;&|<>()`$]*$/.test(line)) continue;
     MIN_FLAG_VAL_RE.lastIndex = 0;
     let fm;
     while ((fm = MIN_FLAG_VAL_RE.exec(line)) !== null) {

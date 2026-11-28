@@ -69,7 +69,7 @@ def check_bash_reward_hack(cmd_text):
     cleaned = re.sub(r"(-m|--message)(=|\s+)(\"[^\"]*\"|'[^']*')", r'\1 ""', str(cmd_text or ""))
     for raw_ln in cleaned.replace("\\\r\n", " ").replace("\\\n", " ").splitlines():
         ln = raw_ln.strip()
-        if not ln or re.match(r"^(?:grep|rg|echo|printf)\s+[^;&|>`$]*$", ln):
+        if not ln or re.match(r"^(?:grep|rg|echo|printf)\s+[^;&|<>()`$]*$", ln):
             continue
         for fm in MIN_FLAG_VAL_RE.finditer(ln):
             floor = _min_flag_floor(fm.group(3) or fm.group(2))
