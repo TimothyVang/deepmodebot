@@ -676,13 +676,13 @@ class LocalUpdatesTest(unittest.TestCase):
 
         with mock.patch.object(updates.os, "name", "nt"), \
                 mock.patch.object(updates.os.path, "isjunction", return_value=False, create=True), \
-                mock.patch.object(updates.os, "lstat", side_effect=lambda p: cloud_stat if Path(p) == target.parent else normal_stat):
+                mock.patch.object(updates.os, "lstat", side_effect=lambda p: cloud_stat if p == target.parent else normal_stat):
             self.assertFalse(updates.linked(target))
 
         dangling = self.root / "dangling-junction"
         with mock.patch.object(updates.os, "name", "nt"), \
                 mock.patch.object(updates.os.path, "isjunction", return_value=False, create=True), \
-                mock.patch.object(updates.os, "lstat", side_effect=lambda p: junction_stat if Path(p) == dangling else normal_stat):
+                mock.patch.object(updates.os, "lstat", side_effect=lambda p: junction_stat if p == dangling else normal_stat):
             self.assertFalse(dangling.exists())
             self.assertTrue(updates.linked(dangling))
 
