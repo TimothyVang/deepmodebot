@@ -99,15 +99,19 @@ command_text="${command_text//$'\\\n'/ }"      # a backslash-newline continues t
 command_text="${command_text//$'\t'/ }"        # normalize tabs so portable space patterns match
 
 block() {
-  {
-    echo "Blocked by the git guard: \"$1\" can destroy work or rewrite shared history."
-    echo "Use a safe form instead (git stash, a new branch, git push --force-with-lease to your own feature branch, a PR for the default branch),"
-    echo "or ask the user to run it themselves."
-  } >&2
+  if [[ "$1" =~ (--|jest|vitest|playwright|insta|SNAPSHOT|go\ test|reward-guard|contract-lock|judge_verdicts|record-judge) ]] && [[ ! "$1" =~ ^git\ +(reset|clean|checkout|restore|stash|worktree|branch|filter|update-ref|reflog|gc|push) ]]; then
+    echo "Blocked by anti-reward-hacking guard: \"$1\" weakens a verification gate, overwrites golden snapshots, skips checks, or tampers with provenance ledgers." >&2
+  else
+    {
+      echo "Blocked by the git guard: \"$1\" can destroy work or rewrite shared history."
+      echo "Use a safe form instead (git stash, a new branch, git push --force-with-lease to your own feature branch, a PR for the default branch),"
+      echo "or ask the user to run it themselves."
+    } >&2
+  fi
   exit 2
 }
 
-scrubbed_text="$(printf '%s\n' "$command_text" | sed -E 's/(-m|--message)(=| +)("[^"]*"|'\''[^'\'']*'\'')/\1 ""/g' | grep -vE '^ *(grep|rg) +[^;&|`$]*$' || true)"
+scrubbed_text="$(printf '%s\n' "$command_text" | sed -E 's/(-m|--message)(=| +)("[^"]*"|'\''[^'\'']*'\'')/\1 ""/g' | grep -vE '^ *(grep|rg|echo|printf) +[^;&|>`$]*$' || true)"
 clean_patterns="$(tr -d '\r' < "$patterns")"
 active="$(printf '%s\n' "$clean_patterns" | grep -vE '^[[:space:]]*(#|@|$)' || true)"
 if [[ -n "$active" && -n "$scrubbed_text" ]]; then

@@ -514,6 +514,7 @@ class AntigravityGuardTests(unittest.TestCase):
             "jest -u",
             "cargo insta accept",
             "go test ./... -run=^$",
+            'npx jest "--updateSnapshot"',
         ):
             denied, _ = self.run_hook(
                 self.pre_tool_payload("run_command", bad, arg_key="CommandLine"),

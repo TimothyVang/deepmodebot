@@ -94,6 +94,8 @@ BLOCKED = [
     "cargo insta accept",
     "INSTA_UPDATE=always cargo test",
     "go test ./... -run=^$",
+    'npx jest "--updateSnapshot"',
+    'playwright test "--update-snapshots=all"',
 ]
 ALLOWED = [
     "git status",

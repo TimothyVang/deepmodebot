@@ -190,6 +190,8 @@ class ClaudeGuard(GuardCase):
             "vitest run -u",
             "cargo insta accept",
             "go test ./... -run=^$",
+            'npx jest "--updateSnapshot"',
+            'vitest run "--update"',
         ):
             with self.subTest(cmd=bad_cmd):
                 self.assertEqual(self.run_guard("Bash", bad_cmd, key="command"), "deny")
@@ -200,6 +202,7 @@ class ClaudeGuard(GuardCase):
             'rg "--min-iou 0.0" src/',
             "git push -u origin feat",
             "python -u app.py",
+            'echo "Example: jest -u regenerates snapshots"',
         ):
             with self.subTest(cmd=ok_cmd):
                 self.assertEqual(self.run_guard("Bash", ok_cmd, key="command"), "allow")
