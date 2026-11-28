@@ -58,11 +58,12 @@ def _min_flag_floor(tok):
     norm = (tok or "").lower().replace("_", "-")
     if not norm:
         return 0.50
+    if norm in ("p", "k", "port", "ports"):
+        return None
     if norm in METRIC_FLOORS:
         return METRIC_FLOORS[norm]
     matches = [v for k, v in METRIC_FLOORS.items() if k.startswith(norm)]
     return max(matches) if matches else None
-
 
 def check_bash_reward_hack(cmd_text):
     cleaned = re.sub(r"(-m|--message)(=|\s+)(\"[^\"]*\"|'[^']*')", r'\1 ""', str(cmd_text or ""))

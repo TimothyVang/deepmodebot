@@ -68,6 +68,7 @@ const REWARD_HACK_CMD_RE = new RegExp(
 function minFlagFloor(rawTok) {
   const tok = (rawTok ?? "").toLowerCase().replace(/_/g, "-");
   if (!tok) return 0.5;
+  if (tok === "p" || tok === "k" || tok === "port" || tok === "ports") return null;
   if (Object.hasOwn(METRIC_FLOORS, tok)) return METRIC_FLOORS[tok];
   const matches = Object.entries(METRIC_FLOORS)
     .filter(([k]) => k.startsWith(tok))

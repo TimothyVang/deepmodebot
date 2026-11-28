@@ -580,9 +580,12 @@ def run_slop_gate(
     findings.extend(_check_policy_xml(resolved_root, changed))
     if reward_mod is not None:
         if not staged and not explicit_files:
+            changed_set = set(changed)
             sc_files, sym_findings = reward_mod._discover_scratch_scripts_and_symlinks(resolved_root)
             findings.extend(sym_findings)
             for srel in sc_files:
+                if srel in changed_set:
+                    continue
                 stxt = _read_text_safe(resolved_root, srel)
                 if stxt is not None:
                     sadded = {i: ln for i, ln in enumerate(stxt.splitlines(), 1)}

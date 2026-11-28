@@ -94,6 +94,7 @@ function findSubFloorMinFlag(line: string): string | undefined {
 	let m: RegExpExecArray | null;
 	while ((m = MIN_FLAG_RE.exec(line)) !== null) {
 		const tok = (m[3] || m[2] || "").toLowerCase().replace(/_/g, "-");
+		if (tok === "p" || tok === "k" || tok === "port" || tok === "ports") continue;
 		let floor: number | undefined = !tok ? 0.5 : Object.hasOwn(METRIC_FLOORS, tok) ? METRIC_FLOORS[tok] : undefined;
 		if (floor === undefined) {
 			for (const [k, v] of Object.entries(METRIC_FLOORS)) {

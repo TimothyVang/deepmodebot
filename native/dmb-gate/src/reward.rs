@@ -113,7 +113,7 @@ fn git(root: &Path, args: &[&str]) -> Option<(bool, String)> {
 
 fn is_test_file(rel: &str) -> bool {
     let low = rel.to_ascii_lowercase();
-    low.starts_with("tests/")
+    if low.starts_with("tests/")
         || low.starts_with("test/")
         || low.starts_with("spec/")
         || low.starts_with("__tests__/")
@@ -123,37 +123,85 @@ fn is_test_file(rel: &str) -> bool {
         || low.contains("/spec/")
         || low.contains("/__tests__/")
         || low.contains("/evals/")
-        || low.starts_with("test_")
-        || low.contains("/test_")
-        || low.contains("_test.")
-        || low.contains(".test.")
-        || low.contains(".spec.")
+    {
+        return true;
+    }
+    let fname = low.rsplit('/').next().unwrap_or(&low);
+    fname.starts_with("test_")
+        || fname.contains("_test.")
+        || fname.contains(".test.")
+        || fname.contains(".spec.")
 }
 
 fn is_gate_or_eval_file(rel: &str) -> bool {
     let low = rel.to_ascii_lowercase();
-    low.starts_with("gate/")
-        || low.starts_with("gates/")
-        || low.starts_with("eval/")
-        || low.starts_with("evals/")
-        || low.starts_with("bench/")
-        || low.starts_with("benchmarks/")
-        || low.starts_with("validators/")
-        || low.contains("/gate/")
-        || low.contains("/gates/")
-        || low.contains("/eval/")
-        || low.contains("/evals/")
-        || low.contains("/bench/")
-        || low.contains("/benchmarks/")
-        || low.contains("/validators/")
-        || ["gate.", "eval.", "bench.", "validator.", "fidelity.", "metric.", "scorer."]
-            .iter()
-            .any(|s| low.contains(s))
+    if [
+        "gate/", "gates/", "eval/", "evals/", "bench/", "benchmark/", "benchmarks/", "validator/", "validators/",
+    ]
+    .iter()
+    .any(|d| low.starts_with(d) || low.contains(&format!("/{}", d)))
+    {
+        return true;
+    }
+    let fname = low.rsplit('/').next().unwrap_or(&low);
+    let Some((stem, _ext)) = fname.rsplit_once('.') else {
+        return false;
+    };
+    [
+        "gate", "eval", "bench", "validator", "fidelity", "metric", "scorer",
+    ]
+    .iter()
+    .any(|k| stem == *k || stem.ends_with(&format!("_{}", k)) || stem.ends_with(&format!("-{}", k)))
+}
+
+fn is_migration_file(rel: &str) -> bool {
+    let low = rel.to_ascii_lowercase();
+    [
+        "migration/", "migrations/", "alembic/", "drizzle/", "prisma/migrations/",
+    ]
+    .iter()
+    .any(|d| low.starts_with(d) || low.contains(&format!("/{}", d)))
+        || low.contains("migrat")
+}
+
+fn strip_trailing_comment<'a>(ext: &str, line: &'a str) -> &'a str {
+    let hash_cmt = matches!(ext, "py" | "sh" | "yml" | "yaml" | "toml");
+    let slash_cmt = matches!(ext, "js" | "mjs" | "cjs" | "ts" | "tsx" | "jsx" | "rs" | "go");
+    if !hash_cmt && !slash_cmt {
+        return line;
+    }
+    let bytes = line.as_bytes();
+    let mut quote: Option<u8> = None;
+    let mut i = 0;
+    while i < bytes.len() {
+        let b = bytes[i];
+        if let Some(q) = quote {
+            if b == b'\\' && i + 1 < bytes.len() {
+                i += 2;
+                continue;
+            }
+            if b == q {
+                quote = None;
+            }
+        } else if b == b'"' || b == b'\'' {
+            quote = Some(b);
+        } else if hash_cmt
+            && b == b'#'
+            && !line[i..].starts_with("#[")
+            && !line[i..].starts_with("#![")
+        {
+            return &line[..i];
+        } else if slash_cmt && i + 1 < bytes.len() && b == b'/' && bytes[i + 1] == b'/' {
+            return &line[..i];
+        }
+        i += 1;
+    }
+    line
 }
 
 fn is_scanner_or_comment(ext: &str, line: &str) -> bool {
-    let s = line.trim();
-    if s.is_empty() || ext == "md" {
+    let code = strip_trailing_comment(ext, line).trim();
+    if code.is_empty() || ext == "md" {
         return true;
     }
     for meta in [
@@ -173,7 +221,8 @@ fn is_scanner_or_comment(ext: &str, line: &str) -> bool {
         "PACKAGE_NOOP_SCRIPT_RE",
         "E2E_API_STUB_RE",
         "ML_EVAL_LEAKAGE_RE",
-        "PROD_INTEGRITY_BYPASS_RE",
+        "PROD_TLS_BYPASS_RE",
+        "PROD_FK_BYPASS_RE",
         "\"rule\":",
         "rule: \"",
         "Zeroed quality threshold",
@@ -181,20 +230,9 @@ fn is_scanner_or_comment(ext: &str, line: &str) -> bool {
         "Goodhart / Anti-Reward-Hacking",
         "`--min-",
     ] {
-        if line.contains(meta) {
+        if code.contains(meta) {
             return true;
         }
-    }
-    if matches!(ext, "py" | "sh" | "yml" | "yaml" | "toml")
-        && s.starts_with('#')
-        && !s.starts_with("#[")
-    {
-        return true;
-    }
-    if matches!(ext, "js" | "mjs" | "cjs" | "ts" | "tsx" | "jsx" | "rs" | "go")
-        && s.starts_with("//")
-    {
-        return true;
     }
     false
 }
@@ -270,6 +308,14 @@ fn parse_leading_f64(raw: &str) -> Option<f64> {
 
 fn prefix_metric_floor(tok: &str) -> Option<f64> {
     let norm = tok.replace('-', "_");
+    if matches!(
+        norm.as_str(),
+        "p" | "k" | "port" | "ports" | "workers" | "threads" | "bytes" | "size" | "len" | "length"
+            | "delay" | "wait" | "sleep" | "timeout" | "retries" | "count" | "items" | "nodes"
+            | "epochs" | "steps" | "batch"
+    ) {
+        return None;
+    }
     if QUAL_LOWER_METRICS.contains(&norm.as_str()) {
         return Some(metric_min_floor(&norm));
     }
@@ -394,12 +440,31 @@ pub fn has_threshold_zero_or_skip(line: &str) -> bool {
         }
     }
     for flag in SKIP_FLAGS {
-        if line.contains(flag) {
-            return true;
+        let fl_low = flag.to_ascii_lowercase();
+        let mut sfrom = 0;
+        while let Some(rel) = low[sfrom..].find(&fl_low) {
+            let pos = sfrom + rel;
+            let end = pos + fl_low.len();
+            sfrom = end;
+            let prev_ok = pos == 0
+                || (!low.as_bytes()[pos - 1].is_ascii_alphanumeric() && low.as_bytes()[pos - 1] != b'_');
+            let next_ok = end >= low.len()
+                || (!low.as_bytes()[end].is_ascii_alphanumeric()
+                    && low.as_bytes()[end] != b'_'
+                    && low.as_bytes()[end] != b'-');
+            if prev_ok && next_ok {
+                return true;
+            }
         }
     }
-    if low.contains("git commit") && (low.contains(" --no-verify") || low.contains(" -n ")) {
-        return true;
+    if let Some(cpos) = low.find("git commit") {
+        let seg = low[cpos + "git commit".len()..].split([';', '&', '|']).next().unwrap_or("");
+        if seg
+            .split_ascii_whitespace()
+            .any(|t| t == "-n" || t == "--no-verify")
+        {
+            return true;
+        }
     }
     if let Some(pos) = low.find("--cov-fail-under") {
         let tail = low[pos + "--cov-fail-under".len()..].trim_start_matches(['"', '\'']);
@@ -486,8 +551,10 @@ pub fn has_test_skip(line: &str) -> bool {
     }
     for pat in ["@pytest.mark.skip", "@unittest.skip"] {
         if let Some(after) = t.strip_prefix(pat) {
-            if !after.starts_with("If") && !after.starts_with("Unless") && !after.starts_with("if")
-            {
+            let boundary_ok = after.is_empty()
+                || after.starts_with('(')
+                || after.starts_with(|c: char| c.is_ascii_whitespace());
+            if boundary_ok {
                 return true;
             }
         }
@@ -540,30 +607,50 @@ pub fn has_primitive_standin(line: &str) -> bool {
 }
 
 pub fn has_hardcoded_pass(line: &str) -> bool {
-    let low = line.to_ascii_lowercase();
-    if !low.contains("return") || !low.contains('{') || (!low.contains("1.0") && !low.contains("100.0")) {
+    let compact: String = line.chars().filter(|c| !c.is_ascii_whitespace()).collect();
+    let low = compact.to_ascii_lowercase();
+    let Some(rpos) = low.find("return{") else {
         return false;
+    };
+    let body = &low[rpos + "return{".len()..];
+    let mut after_pass: Option<&str> = None;
+    for pk in [
+        "\"pass\":", "'pass':", "\"passed\":", "'passed':", "\"ok\":", "'ok':", "\"verdict\":", "'verdict':",
+    ] {
+        if let Some(rest) = body.strip_prefix(pk) {
+            for pv in ["true,", "\"pass\",", "'pass',"] {
+                if let Some(r2) = rest.strip_prefix(pv) {
+                    after_pass = Some(r2);
+                    break;
+                }
+            }
+        }
     }
-    let has_pass_key = [
-        "\"pass\"", "'pass'", "\"passed\"", "'passed'", "\"ok\"", "'ok'", "\"verdict\"", "'verdict'",
-    ]
-    .iter()
-    .any(|k| low.contains(k));
-    let has_metric_key = [
-        "\"iou\"", "'iou'", "\"ssim\"", "'ssim'", "\"psnr\"", "'psnr'", "\"score\"", "'score'",
-        "\"fidelity\"", "'fidelity'", "\"accuracy\"", "'accuracy'", "\"f1\"", "'f1'", "\"auc\"", "'auc'",
-        "\"bleu\"", "'bleu'", "\"rouge\"", "'rouge'", "\"ndcg\"", "'ndcg'", "\"pass_rate\"", "'pass_rate'",
-        "\"win_rate\"", "'win_rate'", "\"coverage\"", "'coverage'", "\"throughput\"", "'throughput'",
-        "\"speedup\"", "'speedup'",
-    ]
-    .iter()
-    .any(|k| low.contains(k));
-    let has_pass_val = low.contains("true") || low.contains("\"pass\"") || low.contains("'pass'");
-    has_pass_key && has_metric_key && has_pass_val
+    let Some(rem) = after_pass else {
+        return false;
+    };
+    for mk in [
+        "\"iou\":", "'iou':", "\"ssim\":", "'ssim':", "\"psnr\":", "'psnr':", "\"score\":", "'score':",
+        "\"fidelity\":", "'fidelity':", "\"accuracy\":", "'accuracy':", "\"f1\":", "'f1':", "\"auc\":", "'auc':",
+        "\"bleu\":", "'bleu':", "\"rouge\":", "'rouge':", "\"ndcg\":", "'ndcg':", "\"pass_rate\":", "'pass_rate':",
+        "\"win_rate\":", "'win_rate':", "\"coverage\":", "'coverage':", "\"throughput\":", "'throughput':",
+        "\"speedup\":", "'speedup':",
+    ] {
+        if let Some(vrest) = rem.strip_prefix(mk) {
+            for num in ["1.0", "100.0"] {
+                if let Some(tail) = vrest.strip_prefix(num) {
+                    if !tail.chars().next().is_some_and(|c| c.is_ascii_alphanumeric() || c == '_') {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
 }
 
 fn has_prod_test_branch(line: &str) -> bool {
-    [
+    if [
         "PYTEST_CURRENT_TEST",
         "JEST_WORKER_ID",
         "VITEST_WORKER_ID",
@@ -572,11 +659,14 @@ fn has_prod_test_branch(line: &str) -> bool {
     ]
     .iter()
     .any(|m| line.contains(m))
-        || (line.contains("sys.modules")
-            && (line.contains("\"pytest\"")
-                || line.contains("'pytest'")
-                || line.contains("\"unittest\"")
-                || line.contains("'unittest'")))
+    {
+        return true;
+    }
+    let norm: String = line.split_whitespace().collect::<Vec<_>>().join(" ");
+    norm.contains("\"pytest\" in sys.modules")
+        || norm.contains("'pytest' in sys.modules")
+        || norm.contains("\"unittest\" in sys.modules")
+        || norm.contains("'unittest' in sys.modules")
 }
 
 fn is_e2e_file(rel: &str) -> bool {
@@ -611,12 +701,20 @@ fn has_snapshot_overwrite(line: &str) -> bool {
         }
     }
     for runner in ["jest ", "vitest ", "playwright test "] {
-        if let Some(pos) = low.find(runner) {
-            let tail = &low[pos + runner.len()..];
-            for tok in tail.split(|c: char| c.is_ascii_whitespace() || matches!(c, ';' | '&' | '|' | ')')) {
-                if tok == "-u" {
-                    return true;
-                }
+        let mut from = 0;
+        while let Some(rel) = low[from..].find(runner) {
+            let pos = from + rel;
+            from = pos + runner.len();
+            let prev_ok = pos == 0
+                || (!low.as_bytes()[pos - 1].is_ascii_alphanumeric()
+                    && low.as_bytes()[pos - 1] != b'_'
+                    && low.as_bytes()[pos - 1] != b'-');
+            if !prev_ok {
+                continue;
+            }
+            let seg = low[pos + runner.len()..].split([';', '&', '|']).next().unwrap_or("");
+            if seg.split(|c: char| c.is_ascii_whitespace() || c == ')').any(|tok| tok == "-u") {
+                return true;
             }
         }
     }
@@ -651,27 +749,36 @@ fn is_package_noop_script(line: &str) -> bool {
 }
 
 fn has_tsconfig_weaken(trimmed_low: &str) -> bool {
+    let compact: String = trimmed_low.chars().filter(|c| !c.is_ascii_whitespace()).collect();
     [
-        "\"strict\"",
-        "\"noimplicitany\"",
-        "\"strictnullchecks\"",
-        "\"strictfunctiontypes\"",
-        "\"strictbindcallapply\"",
-        "\"noimplicitreturns\"",
-        "\"noemitonerror\"",
-        "\"checkjs\"",
+        "\"strict\":false",
+        "'strict':false",
+        "\"noimplicitany\":false",
+        "'noimplicitany':false",
+        "\"strictnullchecks\":false",
+        "'strictnullchecks':false",
+        "\"strictfunctiontypes\":false",
+        "'strictfunctiontypes':false",
+        "\"strictbindcallapply\":false",
+        "'strictbindcallapply':false",
+        "\"noimplicitreturns\":false",
+        "'noimplicitreturns':false",
+        "\"noemitonerror\":false",
+        "'noemitonerror':false",
+        "\"checkjs\":false",
+        "'checkjs':false",
     ]
     .iter()
-    .any(|k| trimmed_low.starts_with(k))
-        && trimmed_low.contains(": false")
+    .any(|k| compact.starts_with(k))
 }
 
-fn has_py_typecheck_weaken(trimmed_low: &str) -> bool {
+fn has_py_typecheck_weaken(trimmed_low: &str, is_mypy_ini: bool) -> bool {
     let compact: String = trimmed_low.chars().filter(|c| !c.is_ascii_whitespace()).collect();
-    compact.starts_with("ignore_errors=true")
+    (is_mypy_ini && compact.starts_with("ignore_errors=true"))
         || compact.starts_with("disallow_untyped_defs=false")
         || compact.starts_with("check_untyped_defs=false")
         || compact.contains("typecheckingmode=\"off\"")
+        || compact.contains("'typecheckingmode':'off'")
         || compact.contains("\"typecheckingmode\":\"off\"")
 }
 
@@ -733,7 +840,7 @@ fn has_ml_eval_leakage(line: &str, is_train_or_scratch: bool) -> bool {
         && (compact.contains("split=\"test\"") || compact.contains("split='test'"))
 }
 
-fn has_prod_integrity_bypass(line: &str) -> bool {
+fn has_prod_integrity_bypass(line: &str, is_migration: bool) -> bool {
     let compact: String = line.chars().filter(|c| !c.is_ascii_whitespace()).collect();
     let low = compact.to_ascii_lowercase();
     if low.contains("node_tls_reject_unauthorized=0")
@@ -741,13 +848,28 @@ fn has_prod_integrity_bypass(line: &str) -> bool {
         || low.contains("node_tls_reject_unauthorized='0'")
         || low.contains("insecureskipverify:true")
         || low.contains("danger_accept_invalid_certs(true)")
-        || low.contains("pragmaforeign_keys=off")
-        || low.contains("pragmaforeign_keys=0")
-        || low.contains("setforeign_key_checks=0")
     {
         return true;
     }
-    (line.contains("requests.") || line.contains("httpx.")) && compact.contains("verify=False")
+    if !is_migration
+        && (low.contains("pragmaforeign_keys=off")
+            || low.contains("pragmaforeign_keys=0")
+            || low.contains("setforeign_key_checks=0"))
+    {
+        return true;
+    }
+    for prefix in ["requests.", "httpx."] {
+        for method in ["get(", "post(", "put(", "delete(", "patch(", "request(", "client(", "asyncclient("] {
+            let call = format!("{}{}", prefix, method);
+            if let Some(pos) = low.find(&call) {
+                let inside = low[pos + call.len()..].split(')').next().unwrap_or("");
+                if inside.contains("verify=false") {
+                    return true;
+                }
+            }
+        }
+    }
+    false
 }
 
 fn has_tautological_assert(line: &str) -> bool {
@@ -756,15 +878,23 @@ fn has_tautological_assert(line: &str) -> bool {
         let rt = r.trim_start();
         rt.is_empty() || rt.starts_with('#') || rt.starts_with(';') || rt.starts_with(',')
     });
-    py_taut
-        || t.contains("self.assertTrue(True)")
-        || t.contains("self.assertEqual(True, True)")
-        || t.contains("self.assertEqual(1, 1)")
-        || t.contains("expect(true).toBe(true)")
-        || t.contains("expect(1).toBe(1)")
-        || t.contains("assert!(true)")
-        || t.contains("assert_eq!(true, true)")
-        || t.contains("assert_eq!(1, 1)")
+    if py_taut {
+        return true;
+    }
+    let c: String = t.chars().filter(|ch| !ch.is_ascii_whitespace()).collect();
+    c.contains("self.assertTrue(True)")
+        || ["True", "False", "0", "1"]
+            .iter()
+            .any(|v| c.contains(&format!("self.assertEqual({},{})", v, v)))
+        || ["true", "false", "0", "1"].iter().any(|v| {
+            ["toBe", "toStrictEqual", "toEqual"]
+                .iter()
+                .any(|m| c.contains(&format!("expect({}).{}({})", v, m, v)))
+        })
+        || c.contains("assert!(true)")
+        || ["true", "false", "0", "1"]
+            .iter()
+            .any(|v| c.contains(&format!("assert_eq!({},{})", v, v)))
 }
 
 fn is_real_assert_line(line: &str) -> bool {
@@ -780,7 +910,7 @@ fn is_real_assert_line(line: &str) -> bool {
         || line.contains("assert!(")
 }
 
-fn match_ident_bound(low: &str, cand: &str, allow_assign: bool) -> Option<f64> {
+fn match_ident_bound(low: &str, cand: &str, upper: bool, allow_assign: bool) -> Option<f64> {
     let mut from = 0;
     while let Some(rel) = low[from..].find(cand) {
         let pos = from + rel;
@@ -796,11 +926,11 @@ fn match_ident_bound(low: &str, cand: &str, allow_assign: bool) -> Option<f64> {
             continue;
         }
         let rest = low[end..].trim_start();
-        let ineq = rest
-            .strip_prefix(">=")
-            .or_else(|| rest.strip_prefix("<="))
-            .or_else(|| rest.strip_prefix('>'))
-            .or_else(|| rest.strip_prefix('<'));
+        let ineq = if upper {
+            rest.strip_prefix("<=").or_else(|| rest.strip_prefix('<'))
+        } else {
+            rest.strip_prefix(">=").or_else(|| rest.strip_prefix('>'))
+        };
         if let Some(vs) = ineq {
             if let Some(val) = parse_leading_f64(vs) {
                 return Some(val);
@@ -819,7 +949,6 @@ fn match_ident_bound(low: &str, cand: &str, allow_assign: bool) -> Option<f64> {
     }
     None
 }
-
 fn extract_metric_bounds(
     lines: &[String],
     upper: bool,
@@ -848,7 +977,7 @@ fn extract_metric_bounds(
                     }
                 }
             }
-            if let Some(val) = match_ident_bound(&low, "tolerance", true) {
+            if let Some(val) = match_ident_bound(&low, "tolerance", true, true) {
                 map.insert("tolerance".to_string(), val);
             }
         }
@@ -885,13 +1014,13 @@ fn extract_metric_bounds(
                 ]
             };
             for qcand in qual_forms {
-                if let Some(val) = match_ident_bound(&low, &qcand, true) {
+                if let Some(val) = match_ident_bound(&low, &qcand, upper, true) {
                     map.insert(qcand, val);
                 }
             }
         }
         for bm in bare_metrics {
-            if let Some(val) = match_ident_bound(&low, bm, is_test_or_gate) {
+            if let Some(val) = match_ident_bound(&low, bm, upper, is_test_or_gate) {
                 map.entry((*bm).to_string()).or_insert(val);
             }
         }
@@ -1098,6 +1227,8 @@ pub fn scan_file_reward_hacks(
         file_name_low.as_str(),
         "pyproject.toml" | "mypy.ini" | ".mypy.ini" | "setup.cfg" | "pyrightconfig.json"
     );
+    let is_mypy_ini = matches!(file_name_low.as_str(), "mypy.ini" | ".mypy.ini");
+    let is_migration = is_migration_file(&norm_rel);
     let is_biome_cfg = matches!(file_name_low.as_str(), "biome.json" | "biome.jsonc");
     let is_pw_cfg = file_name_low.starts_with("playwright.config.");
     let is_train_py = ext == "py"
@@ -1112,10 +1243,11 @@ pub fn scan_file_reward_hacks(
             ext.as_str(),
             "py" | "js" | "mjs" | "cjs" | "ts" | "tsx" | "jsx" | "rs" | "go"
         );
-    for (ln, line) in added {
-        if is_scanner_or_comment(&ext, line) {
+    for (ln, raw_line) in added {
+        if is_scanner_or_comment(&ext, raw_line) {
             continue;
         }
+        let line = strip_trailing_comment(&ext, raw_line);
         let in_test_ctx = !is_scratch
             && (test_file
                 || e2e_file
@@ -1186,12 +1318,13 @@ pub fn scan_file_reward_hacks(
                 fix: "Wire `package.json` scripts to the real test runner, typechecker, and linter.",
             });
         }
+        let compact_low: String = trimmed_low.chars().filter(|c| !c.is_ascii_whitespace()).collect();
         if (is_ci_yaml
             && trimmed_low.starts_with("continue-on-error:")
             && trimmed_low[18..].trim_start().starts_with("true"))
             || (is_tsconfig && has_tsconfig_weaken(&trimmed_low))
-            || (is_py_type_cfg && has_py_typecheck_weaken(&trimmed_low))
-            || (is_biome_cfg && trimmed_low.starts_with("\"enabled\"") && trimmed_low.contains(": false"))
+            || (is_py_type_cfg && has_py_typecheck_weaken(&trimmed_low, is_mypy_ini))
+            || (is_biome_cfg && compact_low.starts_with("\"enabled\":false"))
             || (ext == "rs" && is_prod_code && has_rs_crate_allow(line))
         {
             out.push(RewardFinding {
@@ -1213,7 +1346,7 @@ pub fn scan_file_reward_hacks(
                 fix: "Remove test-environment detection from production code; use dependency injection at external boundaries.",
             });
         }
-        if is_prod_code && has_prod_integrity_bypass(line) {
+        if is_prod_code && has_prod_integrity_bypass(line, is_migration) {
             out.push(RewardFinding {
                 severity: "P0",
                 rule: "reward-hack-integrity-bypass",

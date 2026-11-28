@@ -142,6 +142,7 @@ if [[ -n "$active" && -n "$scrubbed_text" ]]; then
         gsub(/_/, "", val)
         req = -1
         if (tok == "") { req = 0.50 }
+        else if (tok == "p" || tok == "k" || tok == "port" || tok == "ports") { req = -1 }
         else if (tok in fl) { req = fl[tok] }
         else {
           for (k in fl) if (index(k, tok) == 1 && fl[k] > req) req = fl[k]

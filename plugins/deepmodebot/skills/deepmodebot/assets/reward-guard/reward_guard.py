@@ -65,12 +65,20 @@ CODE_DIFF_SENTINEL = "__code_diff__"
 MAX_SCRATCH_SCRIPT_BYTES = 16 * 1024 * 1024
 
 
+NON_QUALITY_MIN_TOKENS = frozenset({
+    "p", "k", "port", "ports", "workers", "threads", "bytes", "size", "len", "length",
+    "delay", "wait", "sleep", "timeout", "retries", "count", "items", "nodes", "epochs", "steps", "batch",
+})
+
+
 def metric_min_floor(metric_raw: str, *, allow_prefix: bool = False) -> float | None:
     m = metric_raw.strip().lower().replace("-", "_")
     for pref in ("gate_min_", "minimum_", "min_"):
         if m.startswith(pref):
             m = m[len(pref):]
             break
+    if m in NON_QUALITY_MIN_TOKENS:
+        return None
     if m in METRIC_FLOORS:
         return METRIC_FLOORS[m]
     if allow_prefix:
@@ -91,7 +99,7 @@ TEST_FILE_RE = re.compile(
     re.I,
 )
 GATE_OR_EVAL_FILE_RE = re.compile(
-    r"(?:^|/)(?:gates?/|evals?/|bench(?:marks?)?/|validators?/)|(?:gate|eval|bench|validator|fidelity|metric|scorer)\.[^/]+$",
+    r"(?:^|/)(?:gates?/|evals?/|bench(?:marks?)?/|validators?/)|(?:^|/|[_-])(?:gate|eval|bench|validator|fidelity|metric|scorer)\.[^/]+$",
     re.I,
 )
 SCANNER_META_RE = re.compile(
@@ -151,9 +159,11 @@ TSCONFIG_WEAKEN_RE = re.compile(
     r"""^\s*['"](?:strict|noImplicitAny|strictNullChecks|strictFunctionTypes|strictBindCallApply|noImplicitReturns|noEmitOnError|checkJs)['"]\s*:\s*false\b"""
 )
 PY_TYPECHECK_WEAKEN_RE = re.compile(
-    r"""^\s*(?:ignore_errors\s*=\s*true|(?:disallow_untyped_defs|check_untyped_defs)\s*=\s*false|['"]?typeCheckingMode['"]?\s*[:=]\s*['"]off['"])\b""",
+    r"""^\s*(?:(?:disallow_untyped_defs|check_untyped_defs)\s*=\s*false|['"]?typeCheckingMode['"]?\s*[:=]\s*['"]off['"])\b""",
     re.I,
 )
+MYPY_IGNORE_ERRORS_RE = re.compile(r"^\s*ignore_errors\s*=\s*true\b", re.I)
+MIGRATION_PATH_RE = re.compile(r"(?:^|/)(?:migrations?|alembic|drizzle|prisma/migrations)/|\bmigrat(?:e|ion)", re.I)
 RS_CRATE_ALLOW_RE = re.compile(
     r"^\s*#!\s*\[\s*allow\s*\(\s*(?:warnings|unused|dead_code|clippy::all)\s*\)\s*\]"
 )
@@ -171,19 +181,21 @@ ML_EVAL_LEAKAGE_RE = re.compile(
     r"|\btrain_dataset\s*=\s*(?:test_dataset|eval_dataset)\b"
 )
 ML_SPLIT_TEST_LOAD_RE = re.compile(r"\bload_dataset\s*\([^)]*\bsplit\s*=\s*['\"]test['\"]")
-PROD_INTEGRITY_BYPASS_RE = re.compile(
+PROD_TLS_BYPASS_RE = re.compile(
     r"\bNODE_TLS_REJECT_UNAUTHORIZED\s*=\s*['\"]?0['\"]?"
     r"|\bInsecureSkipVerify\s*:\s*true\b"
     r"|\bdanger_accept_invalid_certs\s*\(\s*true\s*\)"
-    r"|\b(?:requests|httpx)\.(?:get|post|put|delete|patch|request|Client|AsyncClient)\s*\([^)]*\bverify\s*=\s*False\b"
-    r"|\bPRAGMA\s+foreign_keys\s*=\s*(?:OFF|0)\b"
-    r"|\bSET\s+FOREIGN_KEY_CHECKS\s*=\s*0\b",
+    r"|\b(?:requests|httpx)\.(?:get|post|put|delete|patch|request|Client|AsyncClient)\s*\([^)]*\bverify\s*=\s*False\b",
+    re.I,
+)
+PROD_FK_BYPASS_RE = re.compile(
+    r"\bPRAGMA\s+foreign_keys\s*=\s*(?:OFF|0)\b|\bSET\s+FOREIGN_KEY_CHECKS\s*=\s*0\b",
     re.I,
 )
 TAUTOLOGICAL_ASSERT_RE = re.compile(
     r"^\s*(?:assert\s+True\s*(?:[,;#]|$)|self\.assertTrue\(\s*True\s*\)|self\.assertEqual\(\s*(True|False|0|1)\s*,\s*\1\s*\)"
-    r"|expect\(\s*(true|false|0|1)\s*\)\.to(?:Be|StrictEqual|Equal)\(\s*\1\s*\)"
-    r"|assert!\(\s*true\s*\)|assert_eq!\(\s*(true|false|0|1)\s*,\s*\1\s*\))"
+    r"|expect\(\s*(true|false|0|1)\s*\)\.to(?:Be|StrictEqual|Equal)\(\s*\2\s*\)"
+    r"|assert!\(\s*true\s*\)|assert_eq!\(\s*(true|false|0|1)\s*,\s*\3\s*\))"
 )
 REAL_ASSERT_LINE_RE = re.compile(
     r"^\s*(?![\"'])(?:.*\b(?:assert\s+(?!True\b)|self\.assert\w+\s*\(|expect\s*\(|assert_(?:eq|ne)!\s*\(|assert!\s*\((?!\s*true\s*\))|require\.(?:Equal|NoError|True)\s*\())"
@@ -610,16 +622,37 @@ def _diff_for_file(root: Path, rel: str, staged: bool, base: str | None = None) 
     return _batch_diffs_for_files(root, [rel], staged=staged, base=base).get(rel, ({}, []))
 
 
+def _strip_trailing_comment(ext: str, line: str) -> str:
+    hash_cmt = ext in (".py", ".sh", ".yml", ".yaml", ".toml")
+    slash_cmt = ext in (".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".rs", ".go")
+    if not hash_cmt and not slash_cmt:
+        return line
+    quote: str | None = None
+    i = 0
+    n = len(line)
+    while i < n:
+        ch = line[i]
+        if quote is not None:
+            if ch == "\\" and i + 1 < n:
+                i += 2
+                continue
+            if ch == quote:
+                quote = None
+        elif ch in ('"', "'"):
+            quote = ch
+        elif hash_cmt and ch == "#" and not line[i:].startswith(("#[", "#![")):
+            return line[:i]
+        elif slash_cmt and line[i : i + 2] == "//":
+            return line[:i]
+        i += 1
+    return line
+
+
 def _is_comment_or_scanner_line(ext: str, line: str) -> bool:
-    s = line.strip()
-    if not s or ext == ".md" or SCANNER_META_RE.search(line):
-        return True
-    if ext in (".py", ".sh", ".yml", ".yaml", ".toml") and s.startswith("#") and not s.startswith("#["):
-        return True
-    if ext in (".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".rs", ".go") and s.startswith("//"):
+    code = _strip_trailing_comment(ext, line).strip()
+    if not code or ext == ".md" or SCANNER_META_RE.search(code):
         return True
     return False
-
 
 def _find_rs_cfg_test_mod_line(full_text: str) -> int | None:
     lines = full_text.splitlines()
@@ -788,6 +821,8 @@ def scan_added_lines_for_reward_hacks(
     is_tsconfig = fname_low.startswith("tsconfig") and ext == ".json"
     is_pkg_json = fname_low == "package.json"
     is_py_type_cfg = fname_low in ("pyproject.toml", "mypy.ini", ".mypy.ini", "setup.cfg", "pyrightconfig.json")
+    is_mypy_ini = fname_low in ("mypy.ini", ".mypy.ini")
+    is_migration = bool(MIGRATION_PATH_RE.search(norm_rel))
     is_biome_cfg = fname_low in ("biome.json", "biome.jsonc")
     is_pw_cfg = fname_low.startswith("playwright.config.")
     is_train_py = bool(TRAIN_FILE_RE.search(norm_rel))
@@ -800,9 +835,10 @@ def scan_added_lines_for_reward_hacks(
     )
     rs_cfg_test_line = _find_rs_cfg_test_mod_line(full_text) if (ext == ".rs" and full_text and not is_scratch) else None
     findings: list[dict] = []
-    for ln, line in sorted(added_lines.items()):
-        if _is_comment_or_scanner_line(ext, line):
+    for ln, raw_line in sorted(added_lines.items()):
+        if _is_comment_or_scanner_line(ext, raw_line):
             continue
+        line = _strip_trailing_comment(ext, raw_line)
         in_test_ctx = (not is_scratch) and (is_test or is_e2e_test or (rs_cfg_test_line is not None and ln >= rs_cfg_test_line))
         if in_test_ctx or is_pw_cfg or is_gate:
             m_rat = VISUAL_RATIO_RE.search(line)
@@ -867,6 +903,7 @@ def scan_added_lines_for_reward_hacks(
             (is_ci_yaml and CI_CONTINUE_ON_ERROR_RE.search(line))
             or (is_tsconfig and TSCONFIG_WEAKEN_RE.search(line))
             or (is_py_type_cfg and PY_TYPECHECK_WEAKEN_RE.search(line))
+            or (is_mypy_ini and MYPY_IGNORE_ERRORS_RE.search(line))
             or (is_biome_cfg and BIOME_DISABLE_RE.search(line))
             or (ext == ".rs" and is_prod_code and RS_CRATE_ALLOW_RE.search(line))
         ):
@@ -887,7 +924,7 @@ def scan_added_lines_for_reward_hacks(
                 "message": "Production code branches on test-runner state (`PYTEST_CURRENT_TEST` / `JEST_WORKER_ID` / `sys.modules['pytest']`).",
                 "fix": "Remove test-environment detection from production code; use dependency injection at external boundaries.",
             })
-        if is_prod_code and PROD_INTEGRITY_BYPASS_RE.search(line):
+        if is_prod_code and (PROD_TLS_BYPASS_RE.search(line) or ((not is_migration) and PROD_FK_BYPASS_RE.search(line))):
             findings.append({
                 "severity": "P0",
                 "rule": "reward-hack-integrity-bypass",
